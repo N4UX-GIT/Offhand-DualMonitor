@@ -299,7 +299,11 @@ function Wizard:CreateFrame()
 
     autoBtn:SetScript("OnClick", function()
         if Offhand.Options and Offhand.Options.AutoConfigure then
-            Offhand.Options:AutoConfigure(true, true)
+            local info = Offhand.Options:AutoConfigure(true, true)
+            if info.exactRequired then
+                f:ShowRecovery("span")
+                return
+            end
             f:UpdateState()
             
             autoBtn:SetText(L["WIZARD_RECOMMENDATION_APPLIED"])
@@ -1282,6 +1286,14 @@ function Wizard:CreateFrame()
         keepEllesmereBtn:Hide()
         restartBtn:Hide()
         local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+        local macManual = false
+        if reason == "span" and method ~= "MANUAL" and Offhand.IsMacClient and Offhand:IsMacClient() then
+            local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+            if not (metrics and metrics.companionTopology) then
+                macManual = true
+                method = nil
+            end
+        end
         self.recoveryMethod = method
         self.recoveryAction = method == "COMPANION" and "reload" or "placement"
         local primaryKey = reason == "maximum" and "WIZARD_RECOVERY_OPEN_EDITMODE"
@@ -1299,7 +1311,8 @@ function Wizard:CreateFrame()
             or method == "COMPANION" and (Offhand:GetReloadUIFunction()
                 and "WIZARD_RECOVERY_COMPANION_BODY" or "WIZARD_RECOVERY_COMPANION_MANUAL_BODY")
             or method == "FANCYZONES" and "WIZARD_RECOVERY_FANCYZONES_BODY"
-            or method == "MANUAL" and "WIZARD_RECOVERY_MANUAL_BODY" or "WIZARD_RECOVERY_CHOOSE_BODY"])
+            or method == "MANUAL" and "WIZARD_RECOVERY_MANUAL_BODY"
+            or macManual and "ONBOARD_MAC_CHOOSE_BRIEF" or "WIZARD_RECOVERY_CHOOSE_BODY"])
         validationStatus:SetText("")
         recoveryCard:Show()
         self:LayoutStep()
@@ -1873,7 +1886,7 @@ function Wizard:Open(resumeStep)
         info.recommendedDeckRatio * 100,
         info.recommendedAR or "16:9"))
 
-    if info.topologyStatus == "MISMATCH" then
+    if info.exactRequired or info.topologyStatus == "MISMATCH" then
         f.statusText:SetText("|cffff5555" ..
             Offhand.Options:GetMainhandLayoutFailureText("span") .. "|r")
     elseif info.exactTopology and info.companionVersionStatus == "MISMATCH" then

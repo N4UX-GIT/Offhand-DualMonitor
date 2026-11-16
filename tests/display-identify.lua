@@ -30,6 +30,10 @@ local identify = addon.DisplayIdentify
 local fallback = identify:GetRegions(nil)
 assert(#fallback == 1 and fallback[1].title == "IDENTIFY_WINDOW",
     "unspanned windows must not pretend to identify physical displays")
+addon.IsMacClient = function() return true end
+assert(identify:GetRegions(nil)[1].detail == "IDENTIFY_UNSPANNED_MAC",
+    "unspanned macOS instructions must point to System Settings")
+addon.IsMacClient = nil
 metrics = {isSpanned = true, companionTopology = true,
     physicalWidth = 4000, physicalHeight = 2560,
     gamePixelLeft = 1440, gamePixelBottom = 200, gamePixelWidth = 2560, gamePixelHeight = 1440,

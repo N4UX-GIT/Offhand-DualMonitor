@@ -32,6 +32,8 @@ Offhand.release = (getMetadata and getMetadata(addonName, "X-Offhand-Release"))
 local betaNumber = Offhand.release:match("^beta%.(%d+)$")
 Offhand.releaseDisplay = betaNumber and ("Beta " .. betaNumber) or Offhand.release
 Offhand.fullVersion = Offhand.version .. (Offhand.release ~= "" and ("-" .. Offhand.release) or "")
+Offhand.candidate = getMetadata and (getMetadata(addonName, "X-Offhand-Candidate")
+    or getMetadata(addonName, "X-Offhand-Test-Build"))
 local companionBetaNumber = Offhand.companionRelease:match("^beta%.(%d+)$")
 Offhand.companionReleaseDisplay = companionBetaNumber
     and ("Beta " .. companionBetaNumber) or Offhand.companionRelease
@@ -1051,10 +1053,13 @@ function Offhand:ShowCompanionNotice(kind, metrics)
             or Offhand.companionFullVersion
         dialog.text = string.format(CompanionPopupLocale("POPUP_COMPANION_VERSION_TEXT"), actual, expected)
         Offhand:ShowPopup("OFFHAND_COMPANION_VERSION_WARNING")
-    elseif kind == "TOPOLOGY" then
-        Offhand:ShowPopup("OFFHAND_COMPANION_TOPOLOGY_WARNING")
-    elseif kind == "HANDOFF" then
-        Offhand:ShowPopup("OFFHAND_COMPANION_HANDOFF_NOTICE")
+    elseif kind == "TOPOLOGY" or kind == "HANDOFF" then
+        local key = companionNoticePopups[kind]
+        local mac = Offhand.IsMacClient and Offhand:IsMacClient() and not (metrics and metrics.companionTopology)
+        if mac then
+            StaticPopupDialogs[key].text = Offhand.L["ONBOARD_MAC_CHOOSE_BRIEF"]
+        end
+        Offhand:ShowPopup(key)
     end
 end
 
@@ -1065,6 +1070,9 @@ function Offhand:RefreshCompanionNoticeState(metrics)
     if not Offhand.db or not Offhand.db.enabled or not setupComplete then
         Offhand:HideCompanionNotices()
         return nil
+    end
+    if metrics and metrics.manualCanvasState == "EXACT_REQUIRED" and Offhand.WhatsNew then
+        Offhand.WhatsNew:Interrupt()
     end
     local hud = Offhand.HUD
     if hud and hud.IsForeverLayoutRecoveryHandlingSpan and hud:IsForeverLayoutRecoveryHandlingSpan(metrics) then
@@ -1124,7 +1132,10 @@ function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName, fallbackName,
         local preference = Offhand.ManualCanvas and Offhand.ManualCanvas:GetGeometryPreference()
         if (metrics and metrics.manualCanvasState == "EXACT_REQUIRED")
             or (method == "COMPANION" and preference ~= "MANUAL") then
-            text = text .. "\n\n" .. CompanionPopupLocale("FOREVER_SINGLE_SCREEN_COMPANION_HINT")
+            local mac = Offhand.IsMacClient and Offhand:IsMacClient() and not (metrics and metrics.companionTopology)
+            local hint = mac and Offhand.L["ONBOARD_MAC_CHOOSE_BRIEF"] .. "\n\n|cffffd100/offhand guide|r"
+                or CompanionPopupLocale("FOREVER_SINGLE_SCREEN_COMPANION_HINT")
+            text = text .. "\n\n" .. hint
         end
         definition.text = text
     else
@@ -1340,12 +1351,17 @@ local function EvaluateEntryNotices(attempt)
         or Offhand.db.firstRunComplete
     local onboardingResumeStep = Offhand.GetOnboardingResumeStep
         and Offhand:GetOnboardingResumeStep() or nil
-    -- Keep a saved setup reload handoff in front of the release notice.
-    local resumingSetup = onboardingResumeStep and Offhand.db.automaticSetupSuppressed ~= true
-    if not resumingSetup and Offhand.WhatsNew
+    -- Setup resumes before recovery. Both precede release notes if the
+    -- Companion layout still requires a matching display handoff.
+    local setupAllowed = Offhand.db.automaticSetupSuppressed ~= true
+    local resumingSetup = setupAllowed and onboardingResumeStep
+    local showSetup = setupAllowed and (onboardingResumeStep or not welcomeDismissed or not setupComplete)
+    local handoffPending = viewportMetrics and viewportMetrics.manualCanvasState == "EXACT_REQUIRED"
+        and (showSetup or (Offhand.db.enabled and setupComplete))
+    if not resumingSetup and not handoffPending and Offhand.WhatsNew
         and Offhand.WhatsNew:MaybeShow(viewportMetrics, EvaluateEntryNotices) then return end
-    if Offhand.db.automaticSetupSuppressed ~= true
-        and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
+    if showSetup then
+        if (resumingSetup or handoffPending) and Offhand.WhatsNew then Offhand.WhatsNew:Interrupt() end
         Offhand:HideCompanionNotices()
         Offhand:HideResolvedSpanPrompts(viewportMetrics)
         -- Installation onboarding is deliberately independent from display
@@ -1847,6 +1863,9 @@ SlashCmdList["OFFHAND"] = function(msg)
         Offhand:Print("Versions: WoW=%s | Build=%s | Interface=%s | Client=%s | Offhand=%s.",
             versions.clientVersion, versions.clientBuild, versions.interfaceVersion,
             versions.clientProject, versions.addonVersion)
+        if Offhand.candidate and Offhand.candidate ~= "" then
+            Offhand:Print("Candidate build: %s.", Offhand.candidate)
+        end
         Offhand:Print("Companion: Writer=%s | Paired=%s | Minimum=%s | Protocol=%s | Status=%s.",
             tostring(versions.companionWriter), tostring(versions.companionPaired),
             tostring(versions.companionMinimum), tostring(versions.companionProtocol),
@@ -2274,6 +2293,9 @@ function Offhand:GatherOffScreenUI()
     local m = self.Viewport and self.Viewport:GetMetrics()
     if not m then return 0 end
     local parentScale = UIParent:GetEffectiveScale() or 1
+    local compatibility = self.HUDCompatibility
+    local customChat = compatibility and compatibility.HasCustomChatAddon
+        and compatibility.HasCustomChatAddon()
     local candidates = {}
     for name in pairs(UIPanelWindows or {}) do
         if _G[name] then candidates[_G[name]] = true end
@@ -2300,6 +2322,11 @@ function Offhand:GatherOffScreenUI()
             if not frame:IsShown() or frame:IsProtected() then return false end
             if frame == map and self.CanvasCompatibility and self.CanvasCompatibility.ShouldYieldWorldMap
                 and self.CanvasCompatibility.ShouldYieldWorldMap(frame) then return false end
+            if customChat then
+                local name = frame.GetName and frame:GetName()
+                if frame == _G.GeneralDockManager or frame == _G.GENERAL_CHAT_DOCK
+                    or (name and name:match("^ChatFrame%d+$")) then return false end
+            end
             if frame.IsObjectType and frame:IsObjectType("GameTooltip") then return false end
             local scale = frame:GetEffectiveScale()
             if not scale or scale <= 0 then return false end

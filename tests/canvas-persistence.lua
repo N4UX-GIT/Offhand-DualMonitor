@@ -135,6 +135,7 @@ local function noop() end
 local workspace = {isSpanned=true, gameLeft=1000, gameRight=2000, gameBottom=0, gameTop=900,
     workspaceLeft=0, workspaceRight=1000, workspaceBottom=0, workspaceTop=900}
 local anchorWrites = 0
+local specialFrameRemovals = 0
 local function anchor(frame, objectPoint, relative, relativePoint)
     anchorWrites = anchorWrites + 1
     frame.objectPoint, frame.relative, frame.relativePoint = objectPoint, relative, relativePoint
@@ -151,7 +152,8 @@ end}, {
     IsWorldMapMaximized=no, ShouldYieldFrameToClassicUIForever=no, ShouldYieldWorldMapToMoveAny=no,
     IsForeverEditModeFrame=no, IsUnsafeForPanelMutation=no, IsForeverProfessionsPanel=no,
     IsRetailChatEditModeActive=no, WithWorkspace=function(metrics) return metrics end,
-    UnregisterSpecialFrame=noop, RemodalizePanel=noop,
+    UnregisterSpecialFrame=function() specialFrameRemovals = specialFrameRemovals + 1 end,
+    RemodalizePanel=noop,
 })
 for _, view in ipairs({"SingleView", "CategoryView"}) do
     local name = "Baganator_" .. view .. "BackpackViewFrame1"
@@ -183,5 +185,7 @@ for _, view in ipairs({"SingleView", "CategoryView"}) do
     restore(frame)
     assert(frame.objectPoint == "TOPLEFT" and frame.relativePoint == "BOTTOMLEFT" and anchorWrites == 3,
         view .. " must still replay an intentional Offhand workspace position")
+    assert(specialFrameRemovals == 0,
+        view .. " workspace restoration must preserve Baganator's native Escape registration")
 end
 print("PASS: Baganator native Mainhand anchors, explicit recovery and workspace playback")

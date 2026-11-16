@@ -413,9 +413,24 @@ function Chat:GetPlacementDiagnostics(compact)
         return Atom(Read(frame, "GetName"))
     end
     if InCombatLockdown and InCombatLockdown() then return {"state=combat-deferred"} end
+    local compatibility = Offhand.HUDCompatibility
+    local owner = "Blizzard"
+    if compatibility and compatibility.IsAddonPresent then
+        local ellesmere = compatibility.IsAddonPresent("EllesmereUIChat")
+        local chattynator = compatibility.IsAddonPresent("Chattynator")
+        if ellesmere and chattynator then owner = "EllesmereUIChat,Chattynator"
+        elseif ellesmere then owner = "EllesmereUIChat"
+        elseif chattynator then owner = "Chattynator" end
+    end
     local manager = _G.EditModeManagerFrame
-    local lines = {"EditMode=" .. Atom(Read(manager, "IsShown"))
-        .. " | SnapToElements=" .. Atom(Read(manager, "IsSnapEnabled"))}
+    local dock = _G.GENERAL_CHAT_DOCK or _G.GeneralDockManager
+    local selected
+    if dock and FCFDock_GetSelectedWindow then
+        local ok, frame = pcall(FCFDock_GetSelectedWindow, dock)
+        if ok then selected = frame end
+    end
+    local lines = {"ChatProviders=" .. owner .. " | EditMode=" .. Atom(Read(manager, "IsShown"))
+        .. " | SnapToElements=" .. Atom(Read(manager, "IsSnapEnabled")) .. " | DockSelected=" .. Name(selected)}
     local db = Offhand.db or {}
     local omitted = 0
     for index = 1, 10 do
@@ -446,6 +461,8 @@ function Chat:GetPlacementDiagnostics(compact)
                 local saved = db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "workspace"
                     or db.savedMainPositions and db.savedMainPositions[name] and "mainhand" or "none"
                 lines[#lines + 1] = name .. " shown=" .. Atom(Read(frame, "IsShown"))
+                    .. " | visible=" .. Atom(Read(frame, "IsVisible"))
+                    .. " | effectiveAlpha=" .. Atom(Read(frame, "GetEffectiveAlpha"))
                     .. " | docked=" .. Atom(Field(frame, "isDocked"))
                     .. " | EditMode=" .. Atom(Field(frame, "isInEditMode"))
                     .. " | snapTarget=" .. Name(Field(frame, "snappedToFrame"))

@@ -100,6 +100,7 @@ local function Login()
     Flush()
 end
 
+local normalMetrics = metrics
 local addon = Load()
 local firstRelease = addon.fullVersion
 assert(not frames.OffhandWhatsNewFrame, "login dialog must be created lazily")
@@ -185,4 +186,51 @@ addon:SetOnboardingResumeStep(4)
 Login()
 assert(addon.guideOpened == 1 and not frames.OffhandWhatsNewFrame and OffhandDB.lastSeenRelease == nil,
     "a saved setup handoff should take priority without consuming the release")
+
+local function MissingCompanionMetrics()
+    return { isSpanned = false, topologyStatus = "ABSENT", manualCanvasState = "EXACT_REQUIRED" }
+end
+
+local lastPopup
+StaticPopup_Show = function(key) lastPopup = key end
+cvars = {}
+addon = Load()
+addon:SetEnabled(true)
+addon:MarkSetupComplete()
+addon:SetOnboardingSetupMethod("COMPANION")
+metrics = MissingCompanionMetrics()
+Login()
+assert(lastPopup == "OFFHAND_COMPANION_HANDOFF_NOTICE" and addon.guideOpened == 0
+    and not frames.OffhandWhatsNewFrame and addon.WhatsNew:HasUnseenRelease(),
+    "a finished setup must show Companion recovery before opening or acknowledging release notes")
+
+local savedAccount = OffhandDB
+addon = Load(savedAccount)
+metrics = normalMetrics
+Login()
+dialog = assert(frames.OffhandWhatsNewFrame)
+assert(dialog:IsShown() and OffhandDB.lastSeenRelease == nil, "repair reload should show the unread release")
+metrics = MissingCompanionMetrics()
+addon:RefreshCompanionNoticeState(metrics)
+assert(not dialog:IsShown() and addon.WhatsNew:HasUnseenRelease(),
+    "display recovery must interrupt an open release notice without marking it as seen")
+
+cvars = {}
+addon = Load()
+addon:SetEnabled(true)
+addon:MarkSetupComplete()
+addon:SetOnboardingSetupMethod("COMPANION")
+addon:SetOnboardingResumeStep(4)
+lastPopup = nil
+Login()
+assert(addon.guideOpened == 1 and not lastPopup
+    and not frames.OffhandWhatsNewFrame and addon.WhatsNew:HasUnseenRelease(),
+    "setup restart must take priority over both exact handoff recovery and the unread release")
+
+cvars = {}
+addon = Load()
+addon:SetOnboardingSetupMethod("COMPANION")
+Login()
+assert(addon.guideOpened == 1 and not frames.OffhandWhatsNewFrame
+    and addon.WhatsNew:HasUnseenRelease(), "unfinished Companion setup must wait for placement before release notes")
 print("PASS: release login, acknowledgement, replay, Store handoff and deferrals")

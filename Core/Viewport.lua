@@ -507,15 +507,26 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
         return metrics
     end
 
-    -- A rejected multi-region bridge must never activate a coincidentally
-    -- matching legacy manual canvas. Explicit MANUAL retains its own contract.
-    if geometryPreference ~= "MANUAL" and type(_G.OffhandCompanionTopology)=="table"
-        and (tonumber(_G.OffhandCompanionTopology.schema) or 0)>=2 then
-        return SafeSingleScreenMetrics(sw,sh,pw,ph,preset,topologyStatus,"EXACT_REQUIRED")
+    -- Explicit Companion setup still owns the layout when an addon update
+    -- replaces the generated bridge. A saved manual canvas with the same
+    -- window size can describe a different Mainhand rectangle.
+    local needsExact = geometryPreference == "EXACT" or (geometryPreference == "AUTO"
+        and Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod() == "COMPANION")
+    local raw = _G.OffhandCompanionTopology
+    local rejectedRegions = geometryPreference ~= "MANUAL" and type(raw) == "table"
+        and (tonumber(raw.schema) or 0) >= 2
+    if rejectedRegions or (needsExact and not allowUnconfirmedManual) then
+        -- Preserve the existing mismatch recovery when Restore Window leaves
+        -- a schema 1 bridge loaded for a window that no longer matches it.
+        local state
+        if rejectedRegions or geometryPreference == "EXACT" or topologyStatus ~= "MISMATCH" then
+            state = "EXACT_REQUIRED"
+        end
+        return SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, state)
     end
 
     local manualMatch, acceptedManual
-    if manual and geometryPreference ~= "EXACT" then
+    if manual and not needsExact then
         manualMatch = manual:Match(pw, ph, sw / math.max(sh, 1), db)
         manual.lastMatch = manualMatch
         if manualMatch.state == "MATCH" or manualMatch.state == "CLOSE" then
@@ -523,8 +534,7 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
         end
     end
     if not acceptedManual and not allowUnconfirmedManual then
-        local state = manualMatch and manualMatch.state
-            or (geometryPreference == "EXACT" and "EXACT_REQUIRED" or "UNREMEMBERED")
+        local state = manualMatch and manualMatch.state or "UNREMEMBERED"
         return SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, state)
     end
 

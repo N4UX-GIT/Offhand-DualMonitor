@@ -54,7 +54,12 @@ local function ModeBody(mode, method, expanded)
     local key = mode == "WINDOWED" and "ONBOARD_MODE_READY_BODY"
         or (mode == "UNKNOWN" and "ONBOARD_MODE_UNKNOWN_BODY" or "ONBOARD_MODE_TASK_BODY")
     local text = L[key]
-    if expanded and method then text = text .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_3"] end
+    if expanded and method then
+        local helpKey = method == "MANUAL" and Offhand.IsMacClient and Offhand:IsMacClient()
+            and "ONBOARD_MAC_WINDOWED_HELP"
+            or ("ONBOARD_PATH_" .. method .. "_3")
+        text = text .. "\n\n" .. L[helpKey]
+    end
     return text
 end
 
@@ -603,6 +608,9 @@ function Onboarding:CreateFrame()
         local buttonKey = needsSpan and "ONBOARD_SPAN_ACK"
             or stage == "RELOAD" and "ONBOARD_RELOAD_UI" or "ONBOARD_CONFIRM_PLACEMENT"
         local text = string.format(L[key], "|cffffd100" .. L[buttonKey] .. "|r")
+        if needsSpan and method == "MANUAL" and Offhand.IsMacClient and Offhand:IsMacClient() then
+            text = L["ONBOARD_MAC_DISPLAY_PLACEMENT"] .. "\n\n" .. text
+        end
         if retryPlacement then text = L["ONBOARD_RELOAD_COMPLETE_PLACE"] .. "\n\n" .. text end
         if self.helpExpanded and method then text = text .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_4"] end
         if needsSpan and Offhand.isForever and EllesmereUI
@@ -774,7 +782,10 @@ function Onboarding:CreateFrame()
                 or "ONBOARD_CALIBRATE_TASK_CLASSIC"
         end
         local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
-        if self.page == 2 then bodyKey = "ONBOARD_CHOOSE_BRIEF" end
+        local mac = Offhand.IsMacClient and Offhand:IsMacClient()
+        if self.page == 2 then
+            bodyKey = mac and "ONBOARD_MAC_CHOOSE_BRIEF" or "ONBOARD_CHOOSE_BRIEF"
+        end
         if self.page == 3 then bodyKey = "ONBOARD_MODE_TASK_BODY" end
         if self.page == 4 and method then
             bodyKey = "ONBOARD_PLACE_" .. method
@@ -783,9 +794,6 @@ function Onboarding:CreateFrame()
         local bodyText = L[bodyKey]
         if self.page == 4 and method == "COMPANION" then
             bodyText = bodyText .. "\n\n" .. L["ONBOARD_SPAN_NOT_MAXIMIZE"]
-        end
-        if self.helpExpanded and method and (self.page == 3 or self.page == 4) then
-            bodyText = bodyText .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_" .. self.page]
         end
         self.pageBody:SetText(bodyText)
         SetShown(self.modeIllustration, self.page == 3)
@@ -840,7 +848,12 @@ function Onboarding:CreateFrame()
             SetShown(self.secondaryActionButton, self.helpExpanded == true)
         elseif self.page == 2 then
             self.nextButton:Hide()
-            if self.methodDetails then
+            if mac then
+                self.methodDetails = nil
+                self.actionButton:SetText(L["ONBOARD_USE_MANUAL"])
+                self.actionButton:SetScript("OnClick", function() self:SelectMethod("MANUAL") end)
+                self.actionButton:Show()
+            elseif self.methodDetails then
                 local selected = self.methodDetails
                 self.pageTitle:SetText(L[selected == "FANCYZONES" and "ONBOARD_SOFTWARE_FANCYZONES_TITLE" or "ONBOARD_SOFTWARE_COMPANION_TITLE"])
                 self.pageBody:SetText(L["ONBOARD_SOFTWARE_BRIEF"])
@@ -935,7 +948,12 @@ end
 
 function Onboarding:Open()
     if Offhand.SetAutomaticSetupSuppressed then Offhand:SetAutomaticSetupSuppressed(false) end
-    if Offhand.Wizard and Offhand.Wizard.ResumeAfterReload
+    local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+    local mac = Offhand.IsMacClient and Offhand:IsMacClient()
+    local m = mac and Metrics()
+    local exactPlacement = m and m.companionTopology and (not method or method == "COMPANION")
+    local needsMacMethod = mac and method ~= "MANUAL" and not exactPlacement
+    if not needsMacMethod and Offhand.Wizard and Offhand.Wizard.ResumeAfterReload
         and Offhand.Wizard:ResumeAfterReload() then return end
     if Offhand.Wizard and Offhand.Wizard.CancelEditModeReturn then Offhand.Wizard:CancelEditModeReturn() end
     if Offhand.Wizard then Offhand.Wizard.settingsResumeStep = nil end
@@ -951,12 +969,12 @@ function Onboarding:Open()
     end
     if Offhand.Wizard and Offhand.Wizard.Close then Offhand.Wizard:Close() end
 
-    local m = Metrics()
+    if not mac then m = Metrics() end
     local panelScale = Controls.FitDialog(f, m)
     Controls.RefreshStyles()
-    if Offhand.GetOnboardingSetupMethod and not Offhand:GetOnboardingSetupMethod()
-        and m and m.companionTopology and Offhand.SetOnboardingSetupMethod then
+    if not method and m and m.companionTopology and Offhand.SetOnboardingSetupMethod then
         Offhand:SetOnboardingSetupMethod("COMPANION")
+        method = "COMPANION"
     end
     f:ClearAllPoints()
     if m and m.isSpanned and m.gameWidth and m.gameWidth > 0 then
@@ -971,8 +989,7 @@ function Onboarding:Open()
         and Offhand.IsSetupComplete and not Offhand:IsSetupComplete() then
         resumeStep = 6
     end
-    if resumeStep and resumeStep >= 3 and Offhand.GetOnboardingSetupMethod
-        and not Offhand:GetOnboardingSetupMethod() then
+    if (needsMacMethod and method) or (resumeStep and resumeStep >= 3 and not method) then
         resumeStep = 2
     elseif resumeStep and resumeStep >= 3 and WindowedState() == "OTHER" then
         resumeStep = 3

@@ -530,6 +530,19 @@ function HUD:HookFrames()
             self.foreverGameMenuShowHooked = true
             hooksecurefunc("GameMenuFrame_Show", function() PositionForeverGameMenu() end)
         end
+        if hooksecurefunc and ShowUIPanel and not self.foreverGameMenuPanelHooked then
+            self.foreverGameMenuPanelHooked = true
+            hooksecurefunc("ShowUIPanel", function(frame)
+                if frame ~= _G.GameMenuFrame or not frame or not frame:IsShown()
+                    or not _G.ConsolePort or not C_Timer or not C_Timer.After
+                    or self.foreverGameMenuPlacementPending then return end
+                self.foreverGameMenuPlacementPending = true
+                C_Timer.After(0, function()
+                    self.foreverGameMenuPlacementPending = nil
+                    if frame == _G.GameMenuFrame and frame:IsShown() then PositionForeverGameMenu() end
+                end)
+            end)
+        end
     end
     if not HasBlizzardEditMode() and not HasCustomActionBarAddon() then
         if not self.managerHooked and UIParent_ManageFramePositions then

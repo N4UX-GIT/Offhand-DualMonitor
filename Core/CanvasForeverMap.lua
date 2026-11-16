@@ -26,14 +26,18 @@ local function ReadMapUtilsFade()
         and (db.WORLDMAPFADE == nil or type(db.WORLDMAPFADE) == "boolean") then return db end
 end
 
-local function ReadMapWiseFade(map)
+local function ReadMapWise(map)
     local api = _G.MapWiseAPI
-    local compatibility = Offhand.CanvasCompatibility
-    if type(api) ~= "table" or (api.version ~= "2.3.87" and api.version ~= "2.3.98")
-        or not compatibility.IsAddonLoaded("MapWise") then return end
+    if type(api) ~= "table" or (api.version ~= "2.3.87" and api.version ~= "2.3.98"
+        and api.version ~= "2.3.99") or not Offhand.CanvasCompatibility.IsAddonLoaded("MapWise") then return end
     local db, integration = api.db, api.Integration
-    if type(db) == "table" and db == _G.MapWiseAtlasDB and type(db.fadeMapWhileMoving) == "boolean"
-        and type(integration) == "table" and integration.native == map then return db end
+    if type(db) == "table" and db == _G.MapWiseAtlasDB
+        and type(integration) == "table" and integration.native == map then return db, api.MapWiseUI end
+end
+
+local function ReadMapWiseFade(map)
+    local db = ReadMapWise(map)
+    if db and type(db.fadeMapWhileMoving) == "boolean" then return db end
 end
 
 -- These reviewed implementations read their own fade preference at runtime.
@@ -202,6 +206,101 @@ function Adapter.Install(Canvas, services)
             end
         end
         return inPanelSlot, false
+    end
+
+    local function InstallMapWisePositionGuard(map, state)
+        local db, vendor = ReadMapWise(map)
+        if not db or type(vendor) ~= "table" or type(vendor.ApplyWindowPosition) ~= "function" then return end
+
+        local applyWindowPosition = vendor.ApplyWindowPosition
+        vendor.ApplyWindowPosition = function(self, ...)
+            local profile = Offhand.db
+            if not profile or not profile.enabled or not map:IsShown() or (map.IsMaximized and map:IsMaximized())
+                or NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
+                or FrameState.IsDragging(map) or self.dragging or self.positioning or self.resizeDrag
+                or (map.IsForbidden and map:IsForbidden()) then return applyWindowPosition(self, ...) end
+
+            local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
+            if not metrics or not metrics.isSpanned then return applyWindowPosition(self, ...) end
+
+            local persistence = Offhand.CanvasPersistence
+            local workspace = profile.savedWorkspacePositions and profile.savedWorkspacePositions.WorldMapFrame
+            local mainhand = profile.savedMainPositions and profile.savedMainPositions.WorldMapFrame
+            if type(workspace) == "table" and workspace.autoRoute and not metrics.workspaceRegions then workspace = nil end
+            if type(mainhand) == "table" and mainhand.autoRoute and not metrics.workspaceRegions then mainhand = nil end
+            local onWorkspace = persistence.IsPosition(workspace)
+            local position = onWorkspace and workspace or mainhand
+            local firstLayout = not state.mapWiseOpened
+            state.mapWiseOpened = true
+            if not persistence.IsPosition(position) then
+                local previous = state.mapWisePlacement
+                if firstLayout or not previous or previous.vendorPosition ~= db.compactPosition then
+                    return applyWindowPosition(self, ...)
+                end
+                onWorkspace, position = previous.onWorkspace, previous
+            end
+
+            -- MapWise invokes this method after its compact layout, including
+            -- tabs with identical dimensions. Skip only its passive anchor
+            -- replay. Fit on the independent observer, outside the click or
+            -- native map stack. The vendor's move/resize/reset paths are separate.
+            state.mapWiseLayout = { position = position, onWorkspace = onWorkspace,
+                vendorPosition = db.compactPosition }
+            if self.UpdateWindowResetIcon then self:UpdateWindowResetIcon() end
+        end
+        state.mapWisePositionGuard = vendor
+    end
+
+    local function UpdateMapWiseLayout(map, state, shown, maximized)
+        local vendor = state.mapWisePositionGuard
+        if not vendor then return end
+        local db = ReadMapWise(map)
+        if not db then return end
+
+        if not shown or maximized or NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map)
+            or FrameState.IsDragging(map) or vendor.dragging or vendor.resizeDrag then
+            state.mapWiseLayout, state.mapWisePlacement = nil, nil
+            if not shown then state.mapWiseOpened = nil end
+            return
+        end
+        if InCombatLockdown() then return end
+        local placement = GetPanelPhysicalPlacement(map)
+        local layout = state.mapWiseLayout
+        state.mapWiseLayout = nil
+        if placement and layout and layout.vendorPosition == db.compactPosition then
+            local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
+            if layout.onWorkspace and Offhand.WorkspaceRegions then
+                metrics = Offhand.WorkspaceRegions:ForFrame(metrics, map, layout.position)
+            end
+            if metrics and metrics.isSpanned then
+                Offhand.CanvasMapPresentation.FitWindow(map, metrics, layout.onWorkspace)
+                placement = GetPanelPhysicalPlacement(map)
+                if placement then
+                    local x, y
+                    local persistence = Offhand.CanvasPersistence
+                    if layout.onWorkspace then
+                        x, y = persistence.ResolveWorkspacePosition(
+                            metrics, layout.position, placement.width, placement.height, false)
+                    else
+                        x, y = persistence.ClampWorkspacePoint({
+                            workspaceLeft = metrics.gameLeft, workspaceRight = metrics.gameRight,
+                            workspaceBottom = metrics.gameBottom, workspaceTop = metrics.gameTop,
+                        }, layout.position.x, layout.position.y, placement.width, placement.height)
+                    end
+                    if x and (math.abs(placement.x - x) > 0.01 or math.abs(placement.y - y) > 0.01) then
+                        map:ClearAllPoints()
+                        map:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / placement.factor, y / placement.factor)
+                        placement = GetPanelPhysicalPlacement(map)
+                    end
+                end
+            end
+        end
+        if placement and (placement.onWorkspace or placement.onMainhand) then
+            placement.vendorPosition = db.compactPosition
+            state.mapWisePlacement = placement
+        else
+            state.mapWisePlacement = nil
+        end
     end
 
     -- Forever's map-pin sharing path is protected. A drag handler parented to the
@@ -487,10 +586,14 @@ function Adapter.Install(Canvas, services)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
             local maximized = mapShown and map.IsMaximized and map:IsMaximized()
+            if _G.MapWiseAPI and not state.mapWisePositionGuard then InstallMapWisePositionGuard(map, state) end
+            if not mapShown then state.mapWiseOpened, state.mapWiseLayout, state.mapWisePlacement = nil, nil, nil end
             QueueForeverWorldMapSettlement(map, state, mapShown and true or false)
             elapsedSinceUpdate = elapsedSinceUpdate + (tonumber(elapsed) or 0)
-            if elapsedSinceUpdate < 0.10 then return end
+            if elapsedSinceUpdate < 0.10 and not state.mapWiseLayout then return end
             elapsedSinceUpdate = 0
+
+            UpdateMapWiseLayout(map, state, mapShown, maximized)
 
             if NativeGamepadOwnsMap() then
                 SetPanelDragging(map, false)
@@ -575,6 +678,7 @@ function Adapter.Install(Canvas, services)
                 if NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
                     or (map.IsMaximized and map:IsMaximized())
                     or not Offhand.db or not Offhand.db.enabled then return end
+                state.mapWiseLayout, state.mapWisePlacement = nil, nil
                 local started = pcall(function()
                     map:SetMovable(true)
                     map:SetClampedToScreen(false)

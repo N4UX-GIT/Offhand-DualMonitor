@@ -19,6 +19,12 @@ local function Active()
     return metrics and metrics.isSpanned and metrics or false
 end
 
+local function ExternalTooltipOwner()
+    if _G.TipTac then return "TipTac" end
+    if _G.TinyTooltip then return "TinyTooltip" end
+    if _G.TinyTooltipReforged then return "TinyTooltipReforged" end
+end
+
 local function Positionable(frame)
     if not frame or not frame.GetLeft or not frame.GetRight
         or not frame.GetTop or not frame.GetBottom or not frame.GetEffectiveScale
@@ -201,7 +207,7 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
     end
     if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     local worldOwner = owner and (owner == UIParent or owner == _G.WorldFrame)
-    local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    local external = ExternalTooltipOwner()
     local mainhandOwner = worldOwner or (metrics and (Offhand.isRetail or Offhand.isForever)
         and FrameCenterInside(owner, metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop))
     local workspaceOwner = metrics and FrameCenterInside(owner, metrics.workspaceLeft, metrics.workspaceBottom,
@@ -350,7 +356,7 @@ function PopupBounds:UpdateSettingsTooltipScale(frame,restoreOnly)
     if state and math.abs(scale-state.applied)>0.0001 then
         settingsTooltipScales[frame]=nil;settingsTooltipYielded[frame]=true;return false
     end
-    local external=_G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    local external = ExternalTooltipOwner()
     local metrics=not restoreOnly and not external and Offhand.db and Offhand.db.enabled
         and Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
     if not metrics or not metrics.isSpanned then
@@ -393,6 +399,43 @@ end
 function PopupBounds:GetTooltipPresentationDiagnostics()
     if InCombatLockdown and InCombatLockdown() then return { "deferred:combat" } end
     local reports = {}
+    local metrics = Active()
+    local function FrameName(frame)
+        if not frame then return "none" end
+        if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+        return frame.GetName and frame:GetName() or "unnamed"
+    end
+    local function OwnerPath(frame)
+        local names = {}
+        for _ = 1, 8 do
+            local name = FrameName(frame)
+            names[#names + 1] = name
+            if not frame or name == "forbidden" or frame == UIParent or frame == _G.WorldFrame
+                or not frame.GetParent then break end
+            frame = frame:GetParent()
+            if not frame then break end
+        end
+        return table.concat(names, ">")
+    end
+    local function PlacementDetails(frame)
+        local owner = frame.GetOwner and frame:GetOwner()
+        local anchor = frame.GetAnchorType and frame:GetAnchorType()
+        local point, relative, relativePoint, x, y
+        if frame.GetNumPoints and frame.GetPoint and frame:GetNumPoints() > 0 then
+            point, relative, relativePoint, x, y = frame:GetPoint(1)
+        end
+        local ownerLeft, ownerRight, ownerTop, ownerBottom = FrameBounds(owner)
+        local bounds = ownerLeft and string.format("%.0f/%.0f/%.0f/%.0f",
+            ownerLeft, ownerBottom, ownerRight - ownerLeft, ownerTop - ownerBottom) or "unresolved"
+        local function Offset(value)
+            return PublicNumber(value) and string.format("%.1f", value) or "?"
+        end
+        return string.format("owner=%s;ownerRect=%s;anchor=%s;point=%s/%s/%s/%s/%s;clamped=%s;offhandBounds=%s;external=%s",
+            OwnerPath(owner), bounds, tostring(anchor or "?"), tostring(point or "?"), FrameName(relative),
+            tostring(relativePoint or "?"), Offset(x), Offset(y),
+            frame.IsClampedToScreen and tostring(frame:IsClampedToScreen()) or "?",
+            metrics and "on" or "off", ExternalTooltipOwner() or "none")
+    end
     local function Describe(frame)
         if not frame then return "absent" end
         if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
@@ -441,9 +484,13 @@ function PopupBounds:GetTooltipPresentationDiagnostics()
             if slice and slice.GetCenterColor then _, _, _, centerAlpha = slice:GetCenterColor() end
             local clamp = frame.GetClampRectInsets
                 and string.format("%.1f/%.1f/%.1f/%.1f", frame:GetClampRectInsets()) or "unavailable"
-            return string.format("%s;embedded=%s;backdrop=%s;centerAlpha=%s;clamp=%s;%s",
+            local detail = string.format("%s;embedded=%s;backdrop=%s;centerAlpha=%s;clamp=%s;%s",
                 Describe(frame), frame.IsEmbedded and "yes" or "no", Describe(slice),
-                centerAlpha and string.format("%.2f", centerAlpha) or "unknown", clamp,ScaleDetails(frame))
+                centerAlpha and string.format("%.2f", centerAlpha) or "unknown", clamp, ScaleDetails(frame))
+            if frame.IsShown and frame:IsShown() and frame.GetOwner then
+                return detail .. ";" .. PlacementDetails(frame)
+            end
+            return detail
         end)
         reports[#reports + 1] = name .. "=" .. (ok and detail or "unavailable")
     end
@@ -499,12 +546,14 @@ end
 function PopupBounds:RedirectTooltipOwner(frame, owner, anchor)
     if not Offhand.isRetail and not Offhand.isForever then return false end
     if self.redirectingTooltipOwner or (InCombatLockdown and InCombatLockdown()) then return false end
+    if not Positionable(frame) or frame.IsEmbedded or (frame.IsProtected and frame:IsProtected()) then return false end
     local metrics = Active()
-    if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
-    if not metrics or not Positionable(frame) or not owner or owner == UIParent then
+    if not metrics or ExternalTooltipOwner() or not owner or owner == UIParent or owner == _G.WorldFrame
+        or (owner.IsForbidden and owner:IsForbidden()) then
         self:ClearManagedTooltip(frame)
         return false
     end
+    if Offhand.WorkspaceRegions then metrics = Offhand.WorkspaceRegions:ForFrame(metrics, owner) end
     -- Comparison tooltips are already attached to the primary tooltip. Moving
     -- their owner anchor independently makes Blizzard's comparison layout and
     -- our group bounds correction fight each other.
@@ -656,7 +705,7 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
     if not metrics then return false end
     local root, owner = TooltipRootAndOwner(frame)
     if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
-    local external = _G.TipTac or _G.TinyTooltip or _G.TinyTooltipReforged
+    local external = ExternalTooltipOwner()
     if root and external then
         comparisonClampState[root] = nil
         self:RestoreClassicTooltipClamp(root)
@@ -728,6 +777,7 @@ function PopupBounds:ArrangeTooltipComparisons(frame)
 end
 
 function PopupBounds:ApplyLayout()
+    self:RefreshAddonOptions()
     if not Active() then
         for _, name in ipairs({"GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "ShoppingTooltip3"}) do
             local tooltip = _G[name]
@@ -855,6 +905,300 @@ end
 local function SetWindowPoint(frame, point)
     frame:ClearAllPoints()
     frame:SetPoint(unpack(point, 1, 5))
+end
+
+local addonOptions = setmetatable({}, { __mode = "k" })
+
+local function CanLayoutAddonOptions(frame)
+    return Positionable(frame) and frame.IsProtected and not frame:IsProtected()
+        and not (InCombatLockdown and InCombatLockdown())
+end
+
+local function ReadWindowPoint(frame)
+    if frame:GetNumPoints() ~= 1 then return end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if point and PublicNumber(x) and PublicNumber(y) then
+        return {point, relative, relativePoint, x, y}
+    end
+end
+
+local function OwnsOptionsPoint(frame, state)
+    local current = ReadWindowPoint(frame)
+    local applied = state.applied
+    return current and applied and current[1] == applied[1] and current[2] == applied[2]
+        and current[3] == applied[3] and math.abs(current[4] - applied[4]) < 0.01
+        and math.abs(current[5] - applied[5]) < 0.01
+end
+
+local function FitAddonOptions(frame, state, metrics)
+    if not OwnsOptionsPoint(frame, state) then state.original, state.applied = nil, nil end
+    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
+    if not left then return end
+    local workspace = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ForFrame(metrics, frame) or metrics
+    if Fits(left, right, top, bottom, metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom)
+        or Fits(left, right, top, bottom, workspace.workspaceLeft, workspace.workspaceRight,
+            workspace.workspaceTop, workspace.workspaceBottom) then return end
+    local point = state.original or ReadWindowPoint(frame)
+    if not point then return end
+    local margin = 4
+    local width, height = right - left, top - bottom
+    if point[1] == "CENTER" and (not point[2] or point[2] == UIParent) then
+        left = (metrics.gameLeft + metrics.gameRight - width) / 2
+        top = (metrics.gameBottom + metrics.gameTop + height) / 2
+    end
+    local newLeft = math.max(metrics.gameLeft + margin,
+        math.min(left, metrics.gameRight - margin - width))
+    local newTop = math.min(metrics.gameTop - margin,
+        math.max(top, metrics.gameBottom + margin + height))
+    local fromUI = uiScale / frameScale
+    local applied = {"TOPLEFT", UIParent, "BOTTOMLEFT", newLeft * fromUI, newTop * fromUI}
+    SetWindowPoint(frame, applied)
+    state.original, state.applied = point, ReadWindowPoint(frame)
+end
+
+local function GetOptionsMetrics()
+    local viewport = Offhand.Viewport
+    local metrics = Offhand.db and Offhand.db.enabled and viewport and viewport:GetMetrics()
+    return metrics and metrics.isSpanned and metrics or nil
+end
+
+local function GetOptionsBounds(frame, metrics)
+    if FrameCenterInside(frame, metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop) then
+        return metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom
+    end
+    if Offhand.WorkspaceRegions then metrics = Offhand.WorkspaceRegions:ForFrame(metrics, frame) end
+    if FrameCenterInside(frame, metrics.workspaceLeft, metrics.workspaceBottom,
+        metrics.workspaceRight, metrics.workspaceTop) then
+        return metrics.workspaceLeft, metrics.workspaceRight, metrics.workspaceTop, metrics.workspaceBottom
+    end
+end
+
+local function MirrorDock(point, from, to)
+    local mirrored = point:gsub(from, to)
+    if mirrored ~= point then return mirrored end
+    return (point:gsub(to, from))
+end
+
+local itemRackFlyoutScale
+
+local function RestoreItemRackFlyoutScale(menu)
+    local state = itemRackFlyoutScale
+    if not state or not CanLayoutAddonOptions(menu) then return end
+    itemRackFlyoutScale = nil
+    if state.menu == menu and menu:GetScale() == state.applied then menu:SetScale(state.original) end
+end
+
+local function FitItemRackFlyout(rack)
+    local menu, options = _G.ItemRackMenuFrame, _G.ItemRackOptFrame
+    if not options or not CanLayoutAddonOptions(menu) or not menu:IsVisible() then return end
+    local owner = menu:GetParent()
+    local point = ReadWindowPoint(menu)
+    if not owner or owner:GetParent() ~= options or not point or point[2] ~= owner then return end
+    local name = owner:GetName()
+    if not name or not name:match("^ItemRackOptInv%d+$") then return end
+    local metrics = GetOptionsMetrics()
+    if not metrics then return end
+    local minLeft, maxRight, maxTop, minBottom = GetOptionsBounds(owner, metrics)
+    if not minLeft then return end
+    local menuDock, mainDock = rack.menuDock, rack.mainDock
+    local nativeDock = rack.DockInfo and rack.DockInfo[rack.currentDock]
+    if not nativeDock or not menuDock or not mainDock then return end
+    local originalMenuDock = menuDock
+    RestoreItemRackFlyoutScale(menu)
+    if point[1] ~= menuDock or point[3] ~= mainDock
+        or math.abs(point[4] - nativeDock.xoff) > 0.01 or math.abs(point[5] - nativeDock.yoff) > 0.01 then
+        -- ItemRack can rebuild an open menu without docking it again.
+        SetWindowPoint(menu, {menuDock, owner, mainDock, nativeDock.xoff, nativeDock.yoff})
+    end
+
+    local left, right, top, bottom, uiScale, menuScale = FrameBounds(menu)
+    if not left or Fits(left, right, top, bottom, minLeft, maxRight, maxTop, minBottom) then return end
+    local ownerLeft, ownerRight, ownerTop, ownerBottom = FrameBounds(owner)
+    if not ownerLeft then return end
+    local width, height = right - left, top - bottom
+    if width <= 0 or height <= 0 then return end
+    local fit = math.min((maxRight - minLeft - 8) / width, (maxTop - minBottom - 8) / height)
+    if fit > 0 and fit < 1 then
+        -- ItemRack wraps against the whole canvas. If its wrapped menu is
+        -- still larger than this display, fit the completed menu as a unit.
+        local original = menu:GetScale()
+        menu:SetScale(original * fit)
+        itemRackFlyoutScale = {menu = menu, original = original, applied = menu:GetScale()}
+        SetWindowPoint(menu, {menuDock, owner, mainDock, nativeDock.xoff, nativeDock.yoff})
+        left, right, top, bottom, uiScale, menuScale = FrameBounds(menu)
+        if not left then return end
+        width, height = right - left, top - bottom
+    end
+    -- A whole-window clamp can hide the outward overflow at coordinate zero.
+    -- Favor the side with more room even if both sides need a final offset.
+    local mirrorX = (left < minLeft and maxRight - ownerRight > ownerLeft - minLeft)
+        or (right > maxRight and ownerLeft - minLeft > maxRight - ownerRight)
+    local mirrorY = (bottom < minBottom and maxTop - ownerTop > ownerBottom - minBottom)
+        or (top > maxTop and ownerBottom - minBottom > maxTop - ownerTop)
+    if mirrorX then
+        menuDock = MirrorDock(menuDock, "LEFT", "RIGHT")
+        mainDock = MirrorDock(mainDock, "LEFT", "RIGHT")
+    end
+    if mirrorY then
+        menuDock = MirrorDock(menuDock, "TOP", "BOTTOM")
+        mainDock = MirrorDock(mainDock, "TOP", "BOTTOM")
+    end
+    local dock = rack.DockInfo[mainDock .. menuDock]
+    if not dock then return end
+
+    if dock ~= nativeDock then
+        -- Mirror the completed vendor layout around the slot. Keep its rows,
+        -- item buttons and click handlers, including ItemRack's wrap choice.
+        SetWindowPoint(menu, {menuDock, owner, mainDock, dock.xoff, dock.yoff})
+        for index = 1, #rack.Menu do
+            local button = _G["ItemRackMenu" .. index]
+            if CanLayoutAddonOptions(button) then
+                local anchor = ReadWindowPoint(button)
+                if anchor and anchor[2] == menu and anchor[3] == originalMenuDock then
+                    local x = dock.xstart + (anchor[4] - nativeDock.xstart) * dock.xdir / nativeDock.xdir
+                    local y = dock.ystart + (anchor[5] - nativeDock.ystart) * dock.ydir / nativeDock.ydir
+                    SetWindowPoint(button, {anchor[1], menu, menuDock, x, y})
+                end
+            end
+        end
+    end
+    left, right, top, bottom = FrameBounds(menu)
+    if not left then return end
+    if not Fits(left, right, top, bottom, minLeft, maxRight, maxTop, minBottom) then
+        local inset = 2
+        local targetLeft = math.max(minLeft + inset, math.min(left, maxRight - inset - (right - left)))
+        local targetTop = math.min(maxTop - inset, math.max(top, minBottom + inset + (top - bottom)))
+        local fromUI = uiScale / menuScale
+        local rx = mainDock:find("LEFT", 1, true) and ownerLeft or ownerRight
+        local ry = mainDock:find("TOP", 1, true) and ownerTop or ownerBottom
+        local x = menuDock:find("LEFT", 1, true) and targetLeft or targetLeft + (right - left)
+        local y = menuDock:find("TOP", 1, true) and targetTop or targetTop - (top - bottom)
+        SetWindowPoint(menu, {menuDock, owner, mainDock, (x - rx) * fromUI, (y - ry) * fromUI})
+    end
+end
+
+local function RefreshItemRackOptions(frame, metrics, requestedScale)
+    if not CanLayoutAddonOptions(frame) then return end
+    local state = addonOptions[frame]
+    if not state then
+        if not metrics or not frame:IsShown() or frame:GetParent() then return end
+        state = {}
+        addonOptions[frame] = state
+    end
+
+    local current = frame:GetScale()
+    if PublicNumber(current) and state.scale ~= current then state.nativeScale = current end
+    if PublicNumber(requestedScale) and requestedScale > 0 then state.nativeScale = requestedScale end
+    local native = state.nativeScale
+    if not metrics or frame:GetParent() then
+        if state.scale == current and current ~= native then frame:SetScale(native) end
+        if OwnsOptionsPoint(frame, state) then SetWindowPoint(frame, state.original) end
+        addonOptions[frame] = nil
+        return
+    end
+    if not frame:IsShown() or not PublicNumber(current) or not PublicNumber(native) or native <= 0 then return end
+
+    -- ItemRack's parentless root is rendered relative to the canvas height.
+    -- Preserve the vendor preset while sizing it against the game display.
+    local width, height, rootScale = frame:GetWidth(), frame:GetHeight(), UIParent:GetEffectiveScale()
+    if not PublicNumber(width) or not PublicNumber(height) or not PublicNumber(rootScale)
+        or width <= 0 or height <= 0 or rootScale <= 0 or metrics.physicalHeight <= 0 then return end
+    local scale = native * metrics.gamePixelHeight / metrics.physicalHeight
+    if scale <= 0 then return end
+    local toUI = scale / rootScale
+    scale = scale * math.min(1,
+        (metrics.gameRight - metrics.gameLeft - 8) / (width * toUI),
+        (metrics.gameTop - metrics.gameBottom - 8) / (height * toUI))
+    if scale <= 0 then return end
+    if math.abs(current - scale) > 0.0001 then frame:SetScale(scale) end
+    state.scale = frame:GetScale()
+    FitAddonOptions(frame, state, metrics)
+end
+
+local function RefreshQuestieOptions(frame, metrics)
+    if not CanLayoutAddonOptions(frame) then return end
+    local state = addonOptions[frame]
+    if not state then
+        if not metrics or not frame:IsShown() or frame:GetParent() ~= UIParent then return end
+        state = {}
+        addonOptions[frame] = state
+    end
+    local height = frame:GetHeight()
+    if not metrics or frame:GetParent() ~= UIParent then
+        if height == state.height then
+            local target = math.max(1, math.floor(UIParent:GetHeight() * 0.7))
+            if height ~= target then frame:SetHeight(target) end
+        end
+        if OwnsOptionsPoint(frame, state) then SetWindowPoint(frame, state.original) end
+        addonOptions[frame] = nil
+        return
+    end
+    if not frame:IsShown() or frame.isMoving then return end
+
+    -- Questie keeps its lazily created frame, so resize on layout changes too.
+    local target = math.max(1, math.floor((metrics.gameTop - metrics.gameBottom)
+        * UIParent:GetEffectiveScale() / frame:GetEffectiveScale() * 0.7))
+    if height ~= target then frame:SetHeight(target) end
+    state.height = frame:GetHeight()
+    FitAddonOptions(frame, state, metrics)
+end
+
+function PopupBounds:RefreshAddonOptions()
+    if not Offhand.isForever then return end
+    local itemRack, questie = _G.ItemRackOptFrame, _G.QuestieStandaloneSettings
+    if not itemRack and not questie then return end
+    local metrics = GetOptionsMetrics()
+    RefreshItemRackOptions(itemRack, metrics)
+    RefreshQuestieOptions(questie, metrics)
+    local menu = _G.ItemRackMenuFrame
+    if not metrics or (menu and not menu:IsVisible()) then
+        RestoreItemRackFlyoutScale(menu)
+    end
+end
+
+local function InitializeAddonOptions()
+    if not Offhand.isForever or not hooksecurefunc or not CreateFrame then return end
+    local itemRackHooked, flyoutHooked, questieHooked
+    local function installHooks()
+        local options = _G.ItemRackOpt
+        if not itemRackHooked and options and type(options.ReflectOptScale) == "function" then
+            itemRackHooked = true
+            hooksecurefunc(options, "ReflectOptScale", function(scale)
+                if scale == nil and _G.ItemRackUser then scale = _G.ItemRackUser.OptScale end
+                RefreshItemRackOptions(_G.ItemRackOptFrame, GetOptionsMetrics(), scale)
+            end)
+        end
+        local rack = _G.ItemRack
+        if not flyoutHooked and itemRackHooked and rack and type(rack.BuildMenu) == "function" then
+            flyoutHooked = true
+            hooksecurefunc(rack, "BuildMenu", function() FitItemRackFlyout(rack) end)
+            if type(rack.ReflectMenuScale) == "function" then
+                hooksecurefunc(rack, "ReflectMenuScale", function() itemRackFlyoutScale = nil end)
+            end
+            if type(rack.MenuOnHide) == "function" then
+                hooksecurefunc(rack, "MenuOnHide", function() RestoreItemRackFlyoutScale(_G.ItemRackMenuFrame) end)
+            end
+        end
+        local loader = _G.QuestieLoader
+        local engine = loader and loader._modules and loader._modules.QuestieOptionsEngine
+        if not questieHooked and engine and type(engine.ShowFrame) == "function" then
+            questieHooked = true
+            hooksecurefunc(engine, "ShowFrame", function()
+                RefreshQuestieOptions(_G.QuestieStandaloneSettings, GetOptionsMetrics())
+            end)
+        end
+    end
+    local observer = CreateFrame("Frame")
+    observer:RegisterEvent("ADDON_LOADED")
+    observer:RegisterEvent("PLAYER_REGEN_ENABLED")
+    observer:SetScript("OnEvent", function(_, event, name)
+        if event == "PLAYER_REGEN_ENABLED" then
+            PopupBounds:RefreshAddonOptions()
+        elseif name == "ItemRackOptions" or name == "Questie" then
+            installHooks()
+        end
+    end)
+    installHooks()
 end
 
 local function OwnsEllesmerePlacement(frame, placement)
@@ -1029,6 +1373,7 @@ end
 function PopupBounds:Initialize()
     if self.initialized then return end
     self.initialized = true
+    InitializeAddonOptions()
 
     -- Observe from Offhand's own timer. These windows can raise Forever's
     -- gamepad cursor from their show handlers and may be created lazily.

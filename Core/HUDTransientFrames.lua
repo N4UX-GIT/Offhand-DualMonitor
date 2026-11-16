@@ -530,41 +530,6 @@ function Transient.Install(HUD, services)
         return positioner
     end
 
-    -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
-    -- center can be the upper-left corner of Mainhand in a mixed-height topology.
-    -- Correct it from an external secure post-hook during the same ToggleGameMenu
-    -- call, before the next rendered frame. Do not replace Blizzard's function or
-    -- attach scripts to the menu itself.
-    local function PositionForeverGameMenu()
-        if not UsesForeverEditMode() or InCombatLockdown()
-            or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
-        local frame = _G.GameMenuFrame
-        local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
-            and Offhand.Viewport:GetMetrics() or nil
-        if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
-            or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
-        if frame.IsProtected then
-            local ok, protected = pcall(frame.IsProtected, frame)
-            if not ok or protected then return false end
-        end
-        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-        local cx = (m.gameLeft + m.gameRight) / 2
-        local cy = (m.gameBottom + m.gameTop) / 2
-        local inspected, correct = pcall(function()
-            if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 1 then return false end
-            local point, relative, relativePoint, x, y = frame:GetPoint(1)
-            return point == "CENTER" and relative == UIParent and relativePoint == "BOTTOMLEFT"
-                and type(x) == "number" and type(y) == "number"
-                and math.abs(x-cx*factor) < .01 and math.abs(y-cy*factor) < .01
-        end)
-        if inspected and correct then return true end
-        local ok = pcall(function()
-            frame:ClearAllPoints()
-            frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
-        end)
-        return ok
-    end
-
     local function CaptureSecurePoints(frame)
         local points = {}
         for index = 1, frame:GetNumPoints() do points[index] = { frame:GetPoint(index) } end
@@ -669,6 +634,57 @@ function Transient.Install(HUD, services)
                         self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
                 end
             ]])
+        end)
+        return ok
+    end
+
+    local protectedMenuPoints = setmetatable({}, {__mode = "k"})
+
+    -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
+    -- center can be the upper-left corner of Mainhand in a mixed-height topology.
+    -- ConsolePort can make the stock menu protected through its secure ring.
+    -- Only repair the native center in that case, using the existing secure writer.
+    local function PositionForeverGameMenu()
+        if not UsesForeverEditMode() or InCombatLockdown()
+            or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
+        local frame = _G.GameMenuFrame
+        local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
+            and Offhand.Viewport:GetMetrics() or nil
+        if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
+            or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
+
+        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+        local cx = (m.gameLeft + m.gameRight) / 2
+        local cy = (m.gameBottom + m.gameTop) / 2
+        local inspected, correct = pcall(function()
+            if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 1 then return false end
+            local point, relative, relativePoint, x, y = frame:GetPoint(1)
+            return point == "CENTER" and relative == UIParent and relativePoint == "BOTTOMLEFT"
+                and type(x) == "number" and type(y) == "number"
+                and math.abs(x-cx*factor) < .01 and math.abs(y-cy*factor) < .01
+        end)
+        if inspected and correct then return true end
+        if frame.IsProtected then
+            local ok, protected = pcall(frame.IsProtected, frame)
+            if not ok then return false end
+            if protected then
+                local native, eligible = pcall(function()
+                    if not _G.ConsolePort or frame:GetParent() ~= UIParent
+                        or (frame.IsUserPlaced and frame:IsUserPlaced())
+                        or frame:GetNumPoints() ~= 1 then return false end
+                    local current = { frame:GetPoint(1) }
+                    return SamePopupPoint(current, {"CENTER", UIParent, "CENTER", 0, 0})
+                        or SamePopupPoint(current, protectedMenuPoints[frame])
+                end)
+                if not native or not eligible then return false end
+                if not SecureScreenPoint(frame, "CENTER", cx * factor, cy * factor) then return false end
+                protectedMenuPoints[frame] = {"CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor}
+                return true
+            end
+        end
+        local ok = pcall(function()
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
         end)
         return ok
     end

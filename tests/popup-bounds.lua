@@ -247,6 +247,21 @@ inside.left, inside.right, inside.top, inside.bottom = 1500, 1700, 600, 400
 assert(not addon.PopupBounds:Constrain(inside) and #inside.points == 0,
     "already visible context menu was unnecessarily reanchored")
 
+-- External tooltip addons own the point as well as the clamp, even when
+-- the completed default-anchor helper runs after their SetOwner hook.
+do
+    for _, name in ipairs({"TipTac", "TinyTooltip", "TinyTooltipReforged"}) do
+        _G[name] = {}
+        local before = GameTooltip.setOwnerCalls
+        GameTooltip_SetDefaultAnchor(GameTooltip, itemOwner)
+        local point = GameTooltip.points[1]
+        assert(GameTooltip.setOwnerCalls == before + 1 and point[1] == "BOTTOMRIGHT"
+            and point[2] == UIParent and not GameTooltip._OffhandManagedOwner,
+            name .. " lost its default anchor to Offhand")
+        _G[name] = nil
+    end
+end
+
 -- Model Retail secret numbers through the capability API. Every coordinate
 -- and both scale inputs must be rejected before arithmetic or native writes.
 do

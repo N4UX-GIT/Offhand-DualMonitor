@@ -991,22 +991,38 @@ function Offhand:EnsureCharacterIdentity()
     return stale and true or false
 end
 
+local function HasSavedProfiles(account)
+    local profiles = account.profiles
+    if type(profiles) ~= "table" or not next(profiles) then return false end
+    for name, profile in pairs(profiles) do
+        if type(name) ~= "string" or type(profile) ~= "table" then return false end
+    end
+    return true
+end
+
 function Offhand:InitializeConfig()
-    -- ForeverState.lua is loaded immediately before this module. A new bridge
-    -- version is authoritative once after a cold launch; an already-consumed
-    -- version must yield to the fresher SavedVariables captured by Init.lua.
+    -- ForeverState.lua loads before this module. A fresh bridge can recover
+    -- missing or older SavedVariables, but a strictly newer disk revision
+    -- already contains the state we would otherwise be trying to recover.
     local bridgeVersion = type(_G.OffhandForeverStateBridgeVersion) == "string"
         and _G.OffhandForeverStateBridgeVersion or ""
-    local useForeverBridge = ForeverPersistence:BeginRecoverySnapshot()
+    local freshForeverBridge = ForeverPersistence:BeginRecoverySnapshot()
     local diskState = Offhand.foreverDiskSavedVariables
-    local initialAccount = type(diskState) == "table" and type(diskState.account) == "table"
-        and diskState.account or OffhandDB
+    local hasDiskCapture = Offhand.isForever and type(diskState) == "table"
+    local initialAccount = OffhandDB
+    if hasDiskCapture then initialAccount = diskState.account end
     local diskHadState = type(initialAccount) == "table" and next(initialAccount) ~= nil
     local diskRevision = type(initialAccount) == "table"
         and tonumber(initialAccount.foreverPersistenceRevision) or nil
-    if Offhand.isForever and not useForeverBridge and type(diskState) == "table" then
+    local bridgeRevision = type(OffhandDB) == "table" and tonumber(OffhandDB.foreverPersistenceRevision) or 0
+    local staleForeverBridge = freshForeverBridge and diskRevision and diskRevision > bridgeRevision
+        and HasSavedProfiles(initialAccount)
+    local useForeverBridge = freshForeverBridge and not staleForeverBridge
+    if hasDiskCapture and not useForeverBridge then
         if type(diskState.account) == "table" then OffhandDB = diskState.account end
-        if type(diskState.character) == "table" then OffhandCharDB = diskState.character end
+        if type(diskState.character) == "table" or staleForeverBridge then
+            OffhandCharDB = diskState.character
+        end
     end
 
     if type(OffhandDB) ~= "table" then OffhandDB = {} end
@@ -1066,7 +1082,7 @@ function Offhand:InitializeConfig()
         end
         Offhand.foreverPersistenceDiagnostics = {
             source = source,
-            bridge = useForeverBridge and "used"
+            bridge = staleForeverBridge and "present-stale" or useForeverBridge and "used"
                 or (bridgeVersion ~= "" and "present-consumed" or "absent"),
             sessionFallback = profileSnapshotState,
             diskRevision = diskRevision,
@@ -1120,7 +1136,9 @@ function Offhand:InitializeConfig()
     end
 
     CopyDefaults(defaultSettings, Offhand.db)
-    if useForeverBridge then
+    if freshForeverBridge then
+        -- Refresh the session fields from the selected state, including when
+        -- a newer disk revision won, so stale fields cannot win on reload.
         ForeverPersistence:SeedSessionFallback()
     else
         -- The older field-specific CVars remain an upgrade path only. A complete

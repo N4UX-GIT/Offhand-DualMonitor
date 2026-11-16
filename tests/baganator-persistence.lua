@@ -117,7 +117,9 @@ hooksecurefunc=function(target, methodOrCallback, maybeCallback)
 end
 assert(loadfile("Core/BagPersistence.lua"))("Offhand",addon)
 local tracker=addon.BagPersistence
+addon.isForever = true
 onEvent(nil,"PLAYER_LOGIN"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
+addon.isForever = false
 assert(tracker.frames[name] == bag and tracker.frames[childName] == nil,
     "Baganator child regions must not be mistaken for backpack roots")
 assert(tracker.IsBaganatorBackpackRoot(bag, name)
@@ -226,6 +228,32 @@ ToggleGameMenu(); flush()
 ToggleAllBags(); flush()
 assert(not bag.shown and not next(addon.db.baganatorWorkspacePanels),
     "the explicit bag toggle must still close the bag and clear its open snapshot")
+
+-- Baganator retains its native registration when Offhand replays its anchor.
+-- Native title drags must retire Offhand's intent before the next Escape,
+-- even when it arrives before our regular capture tick.
+addon.isForever = true
+bag.x=100; bag:Show(); flush()
+assert(addon.db.baganatorWorkspacePanels[name], "expected a visible Offhand bag")
+bag.x=1800
+assert(bag.scripts.OnDragStop, "Baganator drag completion must reconcile Escape ownership")
+bag.scripts.OnDragStop()
+assert(not addon.db.baganatorWorkspacePanels[name] and not addon.db.savedWorkspacePositions[name],
+    "native drag to Mainhand must retire Offhand's Escape state in the same turn")
+nativeEscape=function() bag:Hide(); return true end
+ToggleGameMenu(); flush()
+assert(not bag.shown, "Escape immediately after a native Mainhand drag must close the bag")
+ToggleAllBags(); flush(); ToggleGameMenu(); flush()
+assert(not bag.shown, "opening Baganator with B on Mainhand must not restore old Offhand Escape state")
+ToggleAllBags(); flush()
+bag.x=100; bag.scripts.OnDragStop()
+ToggleGameMenu(); flush()
+assert(bag.shown and addon.db.baganatorWorkspacePanels[name],
+    "dragging back to Offhand must restore workspace Escape protection")
+nativeEscape=nil
+bag:Hide(); flush()
+GameMenuFrame.shown=false
+addon.isForever = false
 
 -- EllesmereUI's bag replacement is a supported root alongside Baganator.
 local eui={shown=true,x=120,y=320,scripts={}}

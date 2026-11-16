@@ -10,7 +10,9 @@ param(
     [switch]$UseExistingCompanion,
     [string]$ExpectedCompanionSha256,
     [string]$ExpectedCompanionArchiveSha256,
-    [string]$ExistingCompanionArchivePath
+    [string]$ExistingCompanionArchivePath,
+    [ValidatePattern('\A[A-Za-z0-9][A-Za-z0-9._-]{0,47}\z')]
+    [string]$CandidateId
 )
 
 $ErrorActionPreference = "Stop"
@@ -75,6 +77,12 @@ function New-PortableZip {
 
 $rootDir = $PSScriptRoot
 $distDir = Join-Path $rootDir "dist"
+$addonArtifactVersion = $Version
+if ($CandidateId) {
+    if (-not $AddonOnly) { throw '-CandidateId requires -AddonOnly.' }
+    $distDir = Join-Path $distDir $CandidateId
+    $addonArtifactVersion = "$Version-$CandidateId"
+}
 $tempDir = Join-Path ([IO.Path]::GetTempPath()) ("Offhand-package-" + [guid]::NewGuid().ToString())
 $stepTotal = 5
 if ($AddonOnly) { $stepTotal = 3 }
@@ -133,7 +141,7 @@ Write-Host "
 [2/$stepTotal] Initializing output directory: $distDir" -ForegroundColor Yellow
 New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-if (-not $CompanionChanged) {
+if (-not $CompanionChanged -and -not $CandidateId) {
     # Prevent old locally generated Companion artifacts from being mistaken for
     # outputs of an addon-only release.
     $staleCompanionArtifacts = @(
@@ -150,7 +158,7 @@ if (-not $CompanionChanged) {
 
 # 3. Package In-Game Addon for CurseForge / Wago
 Write-Host "
-[3/$stepTotal] Packaging In-Game Addon (Offhand-v$Version.zip)..." -ForegroundColor Yellow
+[3/$stepTotal] Packaging In-Game Addon (Offhand-v$addonArtifactVersion.zip)..." -ForegroundColor Yellow
 $addonStaging = Join-Path $tempDir "Offhand"
 New-Item -ItemType Directory -Path $addonStaging -Force | Out-Null
 
@@ -166,6 +174,24 @@ Copy-Item (Join-Path $rootDir "LICENSE") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "README.md") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "CHANGELOG.md") -Destination $addonStaging
 
+if ($CandidateId) {
+    $titlePattern = [regex]::new('(?m)^(## Title:[^\r\n]*)(\r?\n)')
+    $utf8 = New-Object Text.UTF8Encoding($false)
+    foreach ($manifest in Get-ChildItem -LiteralPath $addonStaging -Filter 'Offhand*.toc' -File) {
+        $content = [IO.File]::ReadAllText($manifest.FullName)
+        if ($content -match '(?m)^## X-Offhand-(Candidate|Test-Build):' -or $titlePattern.Matches($content).Count -ne 1) {
+            throw "Expected one title and no candidate marker in $($manifest.Name)."
+        }
+        $content = $titlePattern.Replace($content, {
+            param($match)
+            $newline = $match.Groups[2].Value
+            return $match.Groups[1].Value + " [QA $CandidateId]" + $newline +
+                "## X-Offhand-Candidate: $CandidateId" + $newline
+        })
+        [IO.File]::WriteAllText($manifest.FullName, $content, $utf8)
+    }
+}
+
 # Copy addon directories
 Copy-Item (Join-Path $rootDir "Core") -Destination $addonStaging -Recurse
 Copy-Item (Join-Path $rootDir "Locales") -Destination $addonStaging -Recurse
@@ -176,18 +202,21 @@ $mediaStaging = Join-Path $addonStaging "Media"
 New-Item -ItemType Directory -Path $mediaStaging -Force | Out-Null
 Copy-Item (Join-Path $rootDir "Media\*.blp") -Destination $mediaStaging -Force
 
-$addonZip = Join-Path $distDir "Offhand-v$Version.zip"
+$addonZip = Join-Path $distDir "Offhand-v$addonArtifactVersion.zip"
 New-PortableZip -SourceDirectory $addonStaging -DestinationPath $addonZip -IncludeRootDirectory
 Write-Host "  -> Created: $addonZip" -ForegroundColor Green
 
 if ($AddonOnly) {
-    $checksumFile = Join-Path $distDir "checksums-addon-v$Version-sha256.txt"
+    $checksumFile = Join-Path $distDir "checksums-addon-v$addonArtifactVersion-sha256.txt"
     $hash = (Get-FileHash -Path $addonZip -Algorithm SHA256).Hash
     $checksumLine = "$hash  $([IO.Path]::GetFileName($addonZip))"
     $checksumLine | Set-Content -Path $checksumFile -Encoding UTF8
 
-    Write-Host "
-CurseForge Beta artifact ready:" -ForegroundColor Cyan
+    if ($CandidateId) {
+        Write-Host "Private QA artifact ready (candidate $CandidateId)." -ForegroundColor Cyan
+    } else {
+        Write-Host "CurseForge Beta artifact ready:" -ForegroundColor Cyan
+    }
     Write-Host "  $checksumLine" -ForegroundColor White
     Write-Host "  $checksumFile" -ForegroundColor White
     Write-Host "

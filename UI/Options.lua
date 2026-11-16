@@ -804,7 +804,8 @@ function Options:CreateFloatingPanel()
         if Offhand.DisplayIdentify then Offhand.DisplayIdentify:Show() end
     end)
     if Offhand.SetTooltip then
-        Offhand:SetTooltip(identifyDisplays, L["IDENTIFY_DISPLAYS"], L["IDENTIFY_TIP"])
+        local tip = Offhand.IsMacClient and Offhand:IsMacClient() and "IDENTIFY_TIP_MAC" or "IDENTIFY_TIP"
+        Offhand:SetTooltip(identifyDisplays, L["IDENTIFY_DISPLAYS"], L[tip])
     end
     configFrame.identifyDisplaysButton = identifyDisplays
 

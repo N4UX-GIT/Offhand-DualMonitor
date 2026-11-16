@@ -266,6 +266,47 @@ function Map.InstallBehavior(Canvas, services)
     end
 end
 
+function Map.FitWindow(map, m, isWorkspaceMap)
+    local preference = Offhand.db[isWorkspaceMap and "workspaceMapScale" or "mainMapScale"]
+    local availableWidth = (isWorkspaceMap and m.workspaceWidth or m.gameWidth) - 24
+    local availableHeight = (isWorkspaceMap and m.workspaceHeight or m.gameHeight) - 24
+    local width, height = map:GetWidth(), map:GetHeight()
+    local currentScale = map:GetScale()
+    local effectiveScale, parentScale = map:GetEffectiveScale(), UIParent:GetEffectiveScale()
+    if issecretvalue and (issecretvalue(width) or issecretvalue(height)
+        or issecretvalue(currentScale) or issecretvalue(effectiveScale) or issecretvalue(parentScale)) then return end
+
+    local nativeWorkspaceScale
+    local desiredScale = tonumber(preference)
+    if not desiredScale or not (desiredScale > 0 and desiredScale < math.huge) then
+        if isWorkspaceMap or preference == "AUTO" then
+            local baseWidth = width and width > 0 and width or 610
+            desiredScale = math.max(.50, math.min(3.00, availableWidth / baseWidth))
+            if isWorkspaceMap and Offhand.WorkspaceScale then
+                nativeWorkspaceScale = desiredScale
+                desiredScale = desiredScale * Offhand.WorkspaceScale:GetMultiplier(m)
+            end
+        else
+            desiredScale = 1
+        end
+    end
+    if width and height and width > 0 and height > 0 and availableWidth > 0 and availableHeight > 0
+        and currentScale > 0 and effectiveScale > 0 and parentScale > 0 then
+        local inherited = effectiveScale / currentScale / parentScale
+        local fit = math.min(availableWidth / width / inherited, availableHeight / height / inherited)
+        if fit > 0 then
+            desiredScale = math.min(desiredScale, fit)
+            if nativeWorkspaceScale then nativeWorkspaceScale = math.min(nativeWorkspaceScale, fit) end
+        end
+    end
+    -- Apply the final scale before the native panel transaction can observe
+    -- the map. A wide, short workspace can need a much smaller height fit.
+    if math.abs(desiredScale - currentScale) > .00001 then map:SetScale(desiredScale) end
+    if Offhand.WorkspaceScale then
+        Offhand.WorkspaceScale:RememberMap(map, nativeWorkspaceScale or desiredScale, desiredScale)
+    end
+end
+
 function Map.InstallConfiguration(Canvas, services)
     local IsWorldMapMaximized = services.IsWorldMapMaximized
     local IsFrameOnWorkspace = services.IsFrameOnWorkspace
@@ -413,44 +454,7 @@ function Map.InstallConfiguration(Canvas, services)
         -- If map is on the workspace, apply preferred or auto-fit scale
         local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
         local isWorkspaceMap = pos or (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map))
-        local preference = Offhand.db[isWorkspaceMap and "workspaceMapScale" or "mainMapScale"]
-        local availableWidth = (isWorkspaceMap and m.workspaceWidth or m.gameWidth) - 24
-        local availableHeight = (isWorkspaceMap and m.workspaceHeight or m.gameHeight) - 24
-        local width, height = map:GetWidth(), map:GetHeight()
-        local currentScale = map:GetScale()
-        local effectiveScale, parentScale = map:GetEffectiveScale(), UIParent:GetEffectiveScale()
-        if issecretvalue and (issecretvalue(width) or issecretvalue(height)
-            or issecretvalue(currentScale) or issecretvalue(effectiveScale) or issecretvalue(parentScale)) then return end
-
-        local nativeWorkspaceScale
-        local desiredScale = tonumber(preference)
-        if not desiredScale or not (desiredScale > 0 and desiredScale < math.huge) then
-            if isWorkspaceMap or preference == "AUTO" then
-                local baseWidth = width and width > 0 and width or 610
-                desiredScale = math.max(.50, math.min(3.00, availableWidth / baseWidth))
-                if isWorkspaceMap and Offhand.WorkspaceScale then
-                    nativeWorkspaceScale = desiredScale
-                    desiredScale = desiredScale * Offhand.WorkspaceScale:GetMultiplier(m)
-                end
-            else
-                desiredScale = 1
-            end
-        end
-        if width and height and width > 0 and height > 0 and availableWidth > 0 and availableHeight > 0
-            and currentScale > 0 and effectiveScale > 0 and parentScale > 0 then
-            local inherited = effectiveScale / currentScale / parentScale
-            local fit = math.min(availableWidth / width / inherited, availableHeight / height / inherited)
-            if fit > 0 then
-                desiredScale = math.min(desiredScale, fit)
-                if nativeWorkspaceScale then nativeWorkspaceScale = math.min(nativeWorkspaceScale, fit) end
-            end
-        end
-        -- Apply the final scale before the native panel transaction can observe
-        -- the map. A wide, short workspace can need a much smaller height fit.
-        if math.abs(desiredScale - currentScale) > .00001 then map:SetScale(desiredScale) end
-        if Offhand.WorkspaceScale then
-            Offhand.WorkspaceScale:RememberMap(map, nativeWorkspaceScale or desiredScale, desiredScale)
-        end
+        Map.FitWindow(map, m, isWorkspaceMap)
 
         if isWorkspaceMap then
             RemoveMovementFade(map)

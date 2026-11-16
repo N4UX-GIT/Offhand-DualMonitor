@@ -30,9 +30,20 @@ SettingsTooltip.GetEffectiveScale=function()return 0.7 end
 SettingsTooltip.IsIgnoringParentScale=function()return false end
 SettingsTooltip.GetRegions=function()return {GetFont=function()return 'font-file',14,'OUTLINE' end,
     GetText=function()error('Tooltip text must not be read')end} end
+local bag = { GetName = function() return "Inventory" end }
+local owner = {
+    GetName = function() return "BagSlot" end,
+    GetParent = function() return bag end,
+}
+GameTooltip.GetOwner = function() return owner end
+GameTooltip.GetAnchorType = function() return "ANCHOR_NONE" end
+GameTooltip.GetNumPoints = function() return 1 end
+GameTooltip.GetPoint = function() return "TOPRIGHT", owner, "TOPLEFT", -4, 0 end
+GameTooltip.IsClampedToScreen = function() return true end
 local report = table.concat(addon.PopupBounds:GetTooltipPresentationDiagnostics(), "\n")
 assert(report:find("GameTooltip=shown,alpha=1.00,strata=TOOLTIP,level=10", 1, true))
 assert(report:find("backdrop=hidden,alpha=0.00,strata=TOOLTIP,level=0,scale=unknown,rect=unresolved;centerAlpha=0.00", 1, true))
+assert(report:find("owner=BagSlot>Inventory;ownerRect=unresolved;anchor=ANCHOR_NONE;point=TOPRIGHT/BagSlot/TOPLEFT/-4.0/0.0;clamped=true;offhandBounds=off;external=none", 1, true))
 assert(report:find("embedded=yes;backdrop=hidden", 1, true), "embedded backgrounds must remain untouched")
 assert(report:find("ShoppingTooltip1=forbidden", 1, true))
 assert(report:find("ShoppingTooltip2=absent", 1, true))

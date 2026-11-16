@@ -8,6 +8,18 @@ local _, Offhand = ...
 local Persistence = {}
 Offhand.CanvasPersistence = Persistence
 
+local function HasNativeBaganatorEscape(frame, name)
+    local bags = Offhand.BagPersistence
+    return Offhand.isForever and bags and bags.IsBaganatorBackpackRoot
+        and bags.IsBaganatorBackpackRoot(frame, name)
+end
+
+local function IsDonGameplayFrame(frame, name)
+    local addonEscape = Offhand.CanvasAddonEscape
+    return addonEscape and addonEscape.IsDonGameplayFrame
+        and addonEscape:IsDonGameplayFrame(frame, name)
+end
+
 -- Observe outside the protected frame tree: native toggles and skinned close
 -- buttons do not all pass through our close-button observer. A deferred check
 -- ignores transient minimize hide/show and preserves world-transition snapshots.
@@ -167,6 +179,7 @@ function Persistence.InstallDrag(Canvas, services)
     OnPanelDragStop = function(frame)
         if not frame then return end
         if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
+        if IsDonGameplayFrame(frame) then return end
         -- End a gesture we started before any policy early return. A native
         -- panel can change protection/ownership during the gesture; skipping
         -- StopMoving in that case leaves it following the cursor indefinitely.
@@ -377,7 +390,9 @@ function Persistence.InstallDrag(Canvas, services)
                 end
             end
 
-            if Offhand.db.persistentWorkspacePanels ~= false then
+            -- Baganator owns its native Escape registration. Its workspace
+            -- visibility is handled by the bag observer after Escape.
+            if Offhand.db.persistentWorkspacePanels ~= false and not HasNativeBaganatorEscape(frame, name) then
                 UnregisterSpecialFrame(name)
             end
             if restrictedProfessionsMovement then
@@ -567,7 +582,7 @@ function Persistence.InstallRestore(Canvas, services)
         if IsWorldMapMaximized(frame) then return end
         if not Offhand.db or not Offhand.db.enabled then return end
         local name = frame:GetName()
-        if not name then return end
+        if not name or IsDonGameplayFrame(frame, name) then return end
         if frame._OffhandDragging then return end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return end
         if ShouldYieldWorldMapToMoveAny(name) then return end
@@ -674,7 +689,7 @@ function Persistence.InstallRestore(Canvas, services)
                     Offhand.HUD:RepairChatButtons(frame)
                 end
             end
-            if Offhand.db.persistentWorkspacePanels ~= false then
+            if Offhand.db.persistentWorkspacePanels ~= false and not HasNativeBaganatorEscape(frame, name) then
                 UnregisterSpecialFrame(name)
             end
             return

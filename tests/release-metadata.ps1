@@ -172,6 +172,47 @@ try {
     }
     if ($beta28Body.Contains([char]0x2014)) { throw 'Beta 28 release notes must not contain em dashes.' }
     Write-Output 'PASS: historical metadata and matching 2.1.3 publication scope'
+
+    $packageRoot = Join-Path $temp 'package'
+    New-Item -ItemType Directory -Path $packageRoot | Out-Null
+    $manifests = @(Get-ChildItem -LiteralPath $root -Filter 'Offhand*.toc' -File)
+    if ($manifests.Count -ne 6) { throw 'Expected six addon TOCs for candidate packaging.' }
+    $inputs = @('package.ps1', 'Bindings.xml', 'LICENSE', 'README.md', 'CHANGELOG.md', 'Core', 'UI', 'Locales', 'Media') + $manifests.Name
+    foreach ($name in $inputs) {
+        Copy-Item -LiteralPath (Join-Path $root $name) -Destination $packageRoot -Recurse
+    }
+
+    $candidateId = 'metadata.test1'
+    & (Join-Path $packageRoot 'package.ps1') -Version '2.1.5-beta.28' -AddonOnly -CandidateId $candidateId 6>$null
+    $candidateDir = Join-Path $packageRoot "dist/$candidateId"
+    $zipName = "Offhand-v2.1.5-beta.28-$candidateId.zip"
+    $zipPath = Join-Path $candidateDir $zipName
+    $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+    $checksumPath = Join-Path $candidateDir "checksums-addon-v2.1.5-beta.28-$candidateId-sha256.txt"
+    if ((Get-Content -LiteralPath $checksumPath).Trim() -ne "$hash  $zipName") {
+        throw 'Test ZIP checksum must identify the exact candidate archive.'
+    }
+
+    $zip = [IO.Compression.ZipFile]::OpenRead($zipPath)
+    try {
+        foreach ($manifest in $manifests) {
+            $source = [IO.File]::ReadAllText($manifest.FullName)
+            $staged = [IO.File]::ReadAllText((Join-Path $packageRoot $manifest.Name))
+            if ($staged -cne $source) { throw 'Candidate packaging modified its source TOC.' }
+            $entry = $zip.GetEntry("Offhand/$($manifest.Name)")
+            if (!$entry) { throw "Candidate ZIP is missing $($manifest.Name)." }
+            $reader = [IO.StreamReader]::new($entry.Open())
+            try { $packaged = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            $marker = [regex]::Escape("## X-Offhand-Candidate: $candidateId")
+            $titleSuffix = [regex]::Escape(" [QA $candidateId]")
+            if ([regex]::Matches($packaged, "(?m)^$marker\r?$").Count -ne 1 -or
+                [regex]::Matches($packaged, "(?m)^## Title:[^\r\n]*$titleSuffix\r?$").Count -ne 1 -or
+                ($packaged -creplace "(?m)^$marker\r?\n", '' -creplace "(?m)$titleSuffix(?=\r?$)", '') -cne $source) {
+                throw "Candidate ZIP must label $($manifest.Name) and preserve all other metadata."
+            }
+        }
+    } finally { $zip.Dispose() }
+    Write-Output 'PASS: addon tester ZIP identity, exact checksum, and staged-only TOC labels'
 } finally {
     if (Test-Path -LiteralPath $temp) {
         Remove-Item -LiteralPath $temp -Recurse -Force

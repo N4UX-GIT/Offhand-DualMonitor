@@ -176,6 +176,92 @@ assert(sameSession.db.openWorkspacePanels.CharacterFrame == true
     "A consumed bridge snapshot must yield to later same-session visibility")
 ClearProfileSnapshotCVars()
 
+-- A cold launch can see a new bridge hash generated before the most recent
+-- settings write. The captured disk revision must win even with empty session
+-- CVars, and the next reload must continue to use those settings.
+local oldBridgeAccount = {
+    foreverPersistenceRevision = 2,
+    onboarding = { setupComplete = false },
+    profiles = { Default = { enabled = false } },
+}
+local currentDisk = {
+    account = {
+        foreverPersistenceRevision = 3,
+        onboarding = { setupComplete = true, welcomeDismissed = true },
+        profiles = {
+            Default = { enabled = false },
+            Raid = {
+                enabled = true, rawMouseInput = false, chatPosition = "DECK",
+                savedMainPositions = { CharacterFrame = { x = 2400, y = 980 } },
+                savedWorkspacePositions = { WorldMapFrame = { x = 12, y = 80, regionId = "workspace-b" } },
+                openWorkspacePanels = { WorldMapFrame = true, ContainerFrameCombinedBags = true },
+                workspaceRegionScales = { version = 1, layouts = { desktop = { a = { size = 0.75, chat = true } } } },
+            },
+        },
+    },
+    character = { activeProfile = "Raid", foreverEditModeLayoutID = 19, hudSetupReminderDeclined = true },
+}
+local function AssertCurrentDiskPreferences(addon)
+    assert(OffhandCharDB.activeProfile == "Raid" and OffhandCharDB.foreverEditModeLayoutID == 19
+            and OffhandCharDB.hudSetupReminderDeclined and OffhandDB.profiles.Default.enabled == false,
+        "Recovery must preserve character HUD decisions and the inactive account profile")
+    local db = addon.db
+    assert(addon:IsSetupComplete() and db.enabled and db.rawMouseInput == false and db.chatPosition == "DECK"
+            and db.savedMainPositions.CharacterFrame.x == 2400
+            and db.savedWorkspacePositions.WorldMapFrame.regionId == "workspace-b"
+            and db.savedWorkspacePositions.WorldMapFrame.x == 12 and db.openWorkspacePanels.WorldMapFrame
+            and db.openWorkspacePanels.ContainerFrameCombinedBags
+            and db.workspaceRegionScales.layouts.desktop.a.size == 0.75,
+        "Recovery must preserve setup, inputs, panel positions, open intent and workspace scale")
+end
+cvars.offhandForeverDisplayFlags = "V2|0|1|1"
+cvars.offhandForeverOnboarding = "V3|0|0|0|0|0"
+cvars.offhandForeverOpenPanels = "V1|"
+local staleBridgeLaunch = NewAddon(true, oldBridgeAccount, { foreverEditModeLayoutID = 6 },
+    "stale-bridge", currentDisk)
+local persistence = staleBridgeLaunch.foreverPersistenceDiagnostics
+AssertCurrentDiskPreferences(staleBridgeLaunch)
+assert(persistence.source == "savedvariables" and persistence.bridge == "present-stale"
+        and persistence.diskRevision == 3 and persistence.activeRevision == 3,
+    "A rejected bridge must report the disk revision that was retained")
+assert(cvars.offhandForeverDisplayFlags == "V2|1|0|0"
+        and cvars.offhandForeverOnboarding == "V3|1|1|0|0|0",
+    "Rejecting the old bridge must reseed the legacy display and setup fallbacks")
+local staleBridgeReload = NewAddon(true, oldBridgeAccount, {}, "stale-bridge", { account = {}, character = {} })
+AssertCurrentDiskPreferences(staleBridgeReload)
+assert(staleBridgeReload.foreverPersistenceDiagnostics.source == "session-fallback",
+    "Reload must recover the new selection even if the client misses the ordinary SavedVariables")
+ClearProfileSnapshotCVars()
+local recoverMissingDisk = NewAddon(true, currentDisk.account, currentDisk.character, "restore-missing-disk", {})
+AssertCurrentDiskPreferences(recoverMissingDisk)
+assert(recoverMissingDisk.foreverPersistenceDiagnostics.bridge == "used"
+        and recoverMissingDisk.foreverPersistenceDiagnostics.diskRevision == nil,
+    "A fresh bridge must still recover missing SavedVariables and keep the disk revision unset")
+ClearProfileSnapshotCVars()
+local malformedDisk = NewAddon(true, currentDisk.account, currentDisk.character, "restore-malformed-disk", {
+    account = { foreverPersistenceRevision = 4, profiles = { Raid = true } },
+    character = { activeProfile = "Raid" },
+})
+AssertCurrentDiskPreferences(malformedDisk)
+assert(malformedDisk.foreverPersistenceDiagnostics.source == "companion-bridge",
+    "A higher revision in malformed SavedVariables must not suppress a usable bridge")
+ClearProfileSnapshotCVars()
+local newerBridgeLaunch = NewAddon(true, currentDisk.account, currentDisk.character, "newer-bridge", {
+    account = oldBridgeAccount, character = { activeProfile = "Default" },
+})
+AssertCurrentDiskPreferences(newerBridgeLaunch)
+assert(newerBridgeLaunch.foreverPersistenceDiagnostics.bridge == "used",
+    "A fresh bridge must still recover an older ordinary load")
+ClearProfileSnapshotCVars()
+local noDiskCharacter = NewAddon(true, oldBridgeAccount, { activeProfile = "Raid", foreverEditModeLayoutID = 6 },
+    "stale-bridge-other-character", { account = currentDisk.account })
+assert(noDiskCharacter:IsSetupComplete() and OffhandDB == currentDisk.account,
+    "Missing character data must not suppress a newer account revision")
+assert(OffhandCharDB.activeProfile == nil and OffhandCharDB.foreverEditModeLayoutID == nil
+        and noDiskCharacter.db == OffhandDB.profiles.Default,
+    "Rejecting a stale bridge must not borrow its character profile or HUD layout")
+ClearProfileSnapshotCVars()
+
 -- A cold launch can retain older field-specific workspace CVars after a panel
 -- was explicitly gathered to Mainhand. Never merge those mutually exclusive
 -- owners or the next UIPanel reflow will move it back to Offhand.

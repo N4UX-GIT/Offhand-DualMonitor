@@ -7,6 +7,7 @@ Offhand.CanvasAddonEscape = Adapter
 local states = setmetatable({}, {__mode="k"})
 local MAX_SPECIAL, MAX_ROOTS = 256, 64
 local openerHooks = setmetatable({}, {__mode="k"})
+local donGameplayAddons = {LeveldonPanel = "Leveldon", DonMapArrow = "DonMap"}
 
 local function Loaded(name)
     local query = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
@@ -29,6 +30,52 @@ local function OrdinaryRoot(frame)
         and frame:GetParent() == UIParent
 end
 
+local function IsDonGameplayRoot(frame, name, addon)
+    if not Loaded(addon) or not OrdinaryRoot(frame) then return false end
+    if name == "LeveldonPanel" then
+        local header = frame._header
+        return frame._isStylePanel == true and type(frame.ApplySettings) == "function"
+            and header and header.GetParent and header:GetParent() == frame
+    end
+    return frame.GetObjectType and frame:GetObjectType() == "Button"
+        and frame.icon and frame.shadow and frame.glow
+end
+
+function Adapter:IsDonGameplayFrame(frame, name)
+    if not Offhand.isForever or (issecretvalue and issecretvalue(name)) then return false end
+    local addon = donGameplayAddons[name]
+    if not addon or not frame or _G[name] ~= frame then return false end
+    local ok, owned = pcall(IsDonGameplayRoot, frame, name, addon)
+    return ok and owned and true or false
+end
+
+local function RetireDonGameplayOwnership(db)
+    local main, workspace, open = db.savedMainPositions, db.savedWorkspacePositions, db.openWorkspacePanels
+    local persistence = Offhand.ForeverPersistence
+    local openChanged = false
+    for name in pairs(donGameplayAddons) do
+        if ((main and main[name]) or (workspace and workspace[name]) or (open and open[name]))
+            and Adapter:IsDonGameplayFrame(_G[name], name) then
+            if main then main[name] = nil end
+            if workspace and workspace[name] then
+                workspace[name] = nil
+                if persistence and persistence.ClearPosition then persistence:ClearPosition(name) end
+            end
+            if open and open[name] then
+                open[name] = nil
+                openChanged = true
+            end
+        end
+    end
+    if openChanged and persistence and persistence.SaveOpenPanels then persistence:SaveOpenPanels(open) end
+end
+
+local function DonOptions()
+    if not Loaded("Leveldon") or type(LibStub) ~= "table" and type(LibStub) ~= "function" then return end
+    local core = LibStub("DonCore-1.0", true)
+    return core and core.Get and core:Get("Options", 1)
+end
+
 local function Identify(frame, name)
     if not OrdinaryRoot(frame) then return nil end
     if name == "OffhandFloatingConfigFrame" then
@@ -37,6 +84,11 @@ local function Identify(frame, name)
     end
     if name == "ForeverDungeonJournalFrame" and Loaded("ForeverDungeonJournal") then
         return "ForeverDungeonJournal"
+    end
+    if name == "DonCoreOptions" then
+        local options = DonOptions()
+        if options and options.Frame and options.Frame() == frame then return "Leveldon" end
+        return nil
     end
     local source = Source(frame)
     if not source then return nil end
@@ -80,6 +132,7 @@ local function InstallOpeners()
         "Platynator", "FOREVERDUNGEONJOURNAL"}) do Observe(SlashCmdList, key) end
     Observe(_G, "Platynator_AddonCompartmentCallback")
     Observe(Offhand.Options, "Open")
+    Observe(DonOptions(), "Open")
     if Loaded("Platynator") and EventRegistry and EventRegistry.RegisterCallback
         and not Adapter.linkObserved then
         EventRegistry:RegisterCallback("SetItemRef", function(_, link)
@@ -99,6 +152,15 @@ local function ObserveRoot(frame, state)
     for _, key in ipairs({"OnShow", "OnHide", "OnDragStop"}) do
         if not state.scripts[key] and frame:HookScript(key, Changed) ~= false then
             state.scripts[key] = true
+        end
+    end
+    if state.owner == "Leveldon" and not state.scripts.headerDrag then
+        local header = frame.header
+        if header and header.GetParent and header:GetParent() == frame and header.HookScript
+            and not (header.IsForbidden and header:IsForbidden())
+            and not (header.IsProtected and header:IsProtected())
+            and header:HookScript("OnDragStop", Changed) ~= false then
+            state.scripts.headerDrag = true
         end
     end
     state.observed = state.scripts.OnShow and state.scripts.OnHide and state.scripts.OnDragStop
@@ -121,6 +183,7 @@ function Adapter:GetCloseButtons(frame)
     if state.owner == "Platynator" then return {frame.CloseButton} end
     if state.owner == "ForeverDungeonJournal" then return {frame.closeButton} end
     if state.owner == "Offhand" then return {frame.workspaceCloseButton} end
+    if state.owner == "Leveldon" then return {frame.close} end
     if state.owner == "Leatrix_Sounds" then return {frame.cb} end
     if frame.c then return {frame.c} end
     -- Maps/Plus main X buttons are anonymous helper-created children. Inspect
@@ -171,7 +234,13 @@ local function Refresh()
     local db = Offhand.db
     local enabled = Offhand.isForever and db and db.enabled
         and not ControllerOwned() and not Offhand._displayGeometryTransitionActive
-    if enabled then InstallOpeners() end
+    if enabled then
+        -- Older Gather passes saved these vendor anchors and also registered
+        -- them for Escape. Installation reloads the Lua-only registry. Retire
+        -- the records that can recreate our old placement after that reload.
+        RetireDonGameplayOwnership(db)
+        InstallOpeners()
+    end
     if enabled then
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         enabled = metrics and metrics.isSpanned

@@ -118,15 +118,18 @@ Display choices are persisted by Windows device identity. If a saved display dis
 
 If a generated Companion topology no longer matches the current window, Offhand
 fails safe to the full current window and preserves the saved workspace layout.
-An absent topology is the normal packaged state for manual spanning, so Offhand
-uses the selected orientation, seam percentage, and aspect-ratio controls. After
-**Span WoW Now**, use `/reload` once if WoW was already open so the Companion's
-exact rectangles become active.
+Manual and FancyZones setups use their confirmed canvas and the selected
+orientation, seam percentage, and aspect ratio.
 
-Addon managers and manual source copies can replace the generated topology file
-with the packaged placeholder. While WoW remains exactly spanned, Companion
-Beta 19 and later automatically repairs that handoff without moving the window
-and records that one `/reload` is required in its activity log.
+An addon update can replace the generated Companion display snapshot. If
+Companion setup is selected, Offhand uses the full window while it waits for
+a matching snapshot and retains your calibration. Open Companion, check the
+selected displays and Mainhand, and click **Span WoW Now**. If WoW was already
+open, type `/reload` once afterward to load the snapshot.
+
+If Companion still recognizes the layout it applied to the running WoW window,
+it can repair the snapshot without moving WoW. When its activity log says it
+repaired the layout, type `/reload` once.
 
 ### Manual Setup (No Companion App)
 Manual spanning is supported on Retail, Classic, and Forever clients:

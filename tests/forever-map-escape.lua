@@ -1138,4 +1138,224 @@ do
     addon.Canvas:ConfigureWorldMap()
     assert(WorldMapFrame:GetScale() == fitted, "Mainhand AUTO failed to settle")
 end
-print("PASS: Forever map persists through reload/Escape without script replacement; AUTO settles and explicit scale is retained")
+do
+    -- MapWise can replay its canvas-relative anchor during any compact layout.
+    -- The workspace is a 1080 x 1920 portrait monitor below Mainhand.
+    metrics.screenWidth, metrics.screenHeight = 2560, 3360
+    metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop = 0, 1920, 2560, 3360
+    metrics.gameWidth, metrics.gameHeight = 2560, 1440
+    metrics.workspaceLeft, metrics.workspaceBottom = 700, 0
+    metrics.workspaceRight, metrics.workspaceTop = 1780, 1920
+    metrics.workspaceWidth, metrics.workspaceHeight = 1080, 1920
+    local oldUIWidth, oldUIHeight = UIParent.GetWidth, UIParent.GetHeight
+    UIParent.GetWidth = function() return metrics.screenWidth end
+    UIParent.GetHeight = function() return metrics.screenHeight end
+
+    local map = WorldMapFrame
+    local observer = createdHandles[1].scripts.OnUpdate
+    local elapsed, pending = 0, {}
+    local oldAfter, oldAddOns = C_Timer.After, C_AddOns
+    C_Timer.After = function(delay, callback)
+        pending[#pending + 1] = { due = elapsed + delay, callback = callback }
+    end
+    local function advanceMap(ticks)
+        for _ = 1, ticks do
+            elapsed = elapsed + .11
+            observer(nil, .11)
+            while true do
+                local nextIndex
+                for index, entry in ipairs(pending) do
+                    if entry.due <= elapsed and (not nextIndex or entry.due < pending[nextIndex].due) then
+                        nextIndex = index
+                    end
+                end
+                if not nextIndex then break end
+                table.remove(pending, nextIndex).callback()
+            end
+        end
+    end
+    local function moveMap(left, top)
+        map.left = left / map.scale
+        map.bottom = top / map.scale - map.height
+    end
+    local function mapBounds()
+        local scale = map:GetEffectiveScale()
+        local left, top = map:GetLeft() * scale, map:GetTop() * scale
+        return left, top, left + map:GetWidth() * scale, top - map:GetHeight() * scale
+    end
+    local function assertMapFits(message)
+        local left, top, right, bottom = mapBounds()
+        assert(map:IsShown() and left >= metrics.workspaceLeft - .001
+            and right <= metrics.workspaceRight + .001 and top <= metrics.workspaceTop + .001
+            and bottom >= metrics.workspaceBottom - .001, message)
+    end
+
+    local compactPosition = { x = .32, y = .18 }
+    local passiveVendorWrites = 0
+    local vendor = { windowOrigin = {} }
+    function vendor:Compact() return not map:IsMaximized() end
+    function vendor:UpdateWindowResetIcon() end
+    function vendor:PlaceWindow(left, fromTop)
+        moveMap(left, UIParent:GetHeight() - fromTop)
+    end
+    function vendor:ApplyWindowPosition()
+        local position = MapWiseAtlasDB.compactPosition
+        if not position then return end
+        passiveVendorWrites = passiveVendorWrites + 1
+        self:PlaceWindow(position.x * UIParent:GetWidth(), position.y * UIParent:GetHeight())
+    end
+    local function assertPassiveReplayBlocked(message)
+        local left, top = mapBounds()
+        local writes = passiveVendorWrites
+        vendor:ApplyWindowPosition()
+        local afterLeft, afterTop = mapBounds()
+        assert(left == afterLeft and top == afterTop and passiveVendorWrites == writes, message)
+    end
+    local function assertVendorReplay(message)
+        local writes = passiveVendorWrites
+        vendor:ApplyWindowPosition()
+        local left, top = mapBounds()
+        assert(passiveVendorWrites == writes + 1
+            and math.abs(left - compactPosition.x * metrics.screenWidth) < .001
+            and math.abs(top - (1 - compactPosition.y) * metrics.screenHeight) < .001, message)
+    end
+    MapWiseAtlasDB = { rightClosed = true, compactPosition = compactPosition }
+    MapWiseAPI = { version = "2.3.98", db = MapWiseAtlasDB, Integration = { native = map }, MapWiseUI = vendor }
+    C_AddOns = { IsAddOnLoaded = function(name) return name == "MapWise" end }
+    local savedPosition = { x = 1080, y = 1200 }
+    addon.db.savedMainPositions.WorldMapFrame = nil
+    addon.db.savedWorkspacePositions.WorldMapFrame = savedPosition
+    addon.db.workspaceMapScale = 1
+    map:Hide()
+    advanceMap(4)
+    map.width, map.height, map.scale = 664, 470, 1
+    moveMap(savedPosition.x, savedPosition.y)
+    map:Show()
+    assertPassiveReplayBlocked("first-open MapWise layout must not replay its anchor over saved Offhand placement")
+    advanceMap(4)
+    assertMapFits("the compact MapWise map must begin on the saved portrait workspace")
+
+    MapWiseAtlasDB.rightClosed = false
+    map.width = 1087
+    assertPassiveReplayBlocked("expanding the sidebar must not synchronously move the map to MapWise's stale anchor")
+    advanceMap(1)
+    assertMapFits("MapWise sidebar expansion must fit even if the saved anchor did not move")
+    assert(map.width == 1087 and map:GetScale() < addon.db.workspaceMapScale,
+        "Offhand must fit the expanded map without changing MapWise's native dimensions")
+    moveMap(savedPosition.x, metrics.workspaceTop + 90)
+    assertPassiveReplayBlocked("a follow-up MapWise layout must defer even after a native anchor write")
+    advanceMap(8)
+    assertMapFits("a deferred native anchor write must not pull the expanded map off the workspace")
+
+    for _, tab in ipairs({"environment", "search", "quests", "route"}) do
+        MapWiseAtlasDB.modernTab = tab
+        assertPassiveReplayBlocked("switching to MapWise tab " .. tab .. " must preserve the saved Offhand position immediately")
+        advanceMap(1)
+    end
+    pressEscapeCloseSpecialFrames()
+    assertPassiveReplayBlocked("a MapWise layout after Escape must not flash at the stale anchor")
+    advanceMap(8)
+    assertMapFits("the persistent map must stay on its saved workspace after Escape")
+
+    MapWiseAtlasDB.rightClosed = true
+    map.width = 664
+    assertPassiveReplayBlocked("closing the sidebar must not move the map through its stale anchor")
+    advanceMap(8)
+    local restoredLeft, restoredTop = mapBounds()
+    assert(math.abs(restoredLeft - savedPosition.x) < .001 and math.abs(restoredTop - savedPosition.y) < .001
+        and map:GetScale() == 1, "closing the sidebar must recover the saved anchor and preferred scale")
+    assert(addon.db.savedWorkspacePositions.WorldMapFrame == savedPosition
+        and savedPosition.x == 1080 and savedPosition.y == 1200 and addon.db.workspaceMapScale == 1,
+        "sidebar fits must not rewrite the saved Offhand position or scale preference")
+
+    map:Hide()
+    advanceMap(4)
+    addon.db.savedWorkspacePositions.WorldMapFrame = nil
+    map.width, map.scale = 664, 1
+    moveMap(1080, 1200)
+    map:Show()
+    MapWiseAtlasDB.compactPosition = nil
+    vendor:ApplyWindowPosition()
+    MapWiseAtlasDB.compactPosition = compactPosition
+    advanceMap(4)
+    assertMapFits("MapWise's own drag can place a compact map on Offhand without an Offhand record")
+    assertPassiveReplayBlocked("same-size tab layout must preserve an already-visible unsaved workspace placement")
+
+    MapWiseAtlasDB.rightClosed = false
+    map.width = 1087
+    assertPassiveReplayBlocked("sidebar expansion must preserve an unsaved workspace placement before the next frame")
+    advanceMap(8)
+    assertMapFits("MapWise sidebar expansion must preserve an unsaved workspace placement")
+    local _, unsavedTop = mapBounds()
+    assert(math.abs(unsavedTop - 1200) < .001,
+        "MapWise's spanned anchor must not replace the previous workspace height")
+    assert(addon.db.savedWorkspacePositions.WorldMapFrame == nil
+        and addon.db.savedMainPositions.WorldMapFrame == nil
+        and addon.db.openWorkspacePanels.WorldMapFrame == nil
+        and MapWiseAtlasDB.compactPosition == compactPosition
+        and compactPosition.x == .32 and compactPosition.y == .18,
+        "sidebar recovery must not invent a saved placement or change MapWise's position")
+
+    local idleAnchorWrites, idleScaleWrites = 0, 0
+    local setPoint, setScale = map.SetPoint, map.SetScale
+    map.SetPoint = function(self, ...)
+        idleAnchorWrites = idleAnchorWrites + 1
+        setPoint(self, ...)
+    end
+    map.SetScale = function(self, ...)
+        idleScaleWrites = idleScaleWrites + 1
+        setScale(self, ...)
+    end
+    advanceMap(12)
+    assert(idleAnchorWrites == 0 and idleScaleWrites == 0 and #pending == 0,
+        "MapWise sidebar recovery must settle without ongoing map writes or timers")
+    assert(map.setScriptWrites == 0 and map.hookScriptWrites == 0,
+        "MapWise sidebar recovery must retain the native map's script boundary")
+    map.SetPoint, map.SetScale = setPoint, setScale
+
+    vendor.dragging = true
+    vendor:PlaceWindow(1300, 400)
+    advanceMap(8)
+    local draggedLeft, draggedTop = mapBounds()
+    assert(math.abs(draggedLeft - 1300) < .001 and math.abs(draggedTop - 2960) < .001,
+        "the adapter must allow an explicit MapWise drag while preserving passive-layout ownership")
+    vendor.dragging = nil
+
+    map:Hide()
+    advanceMap(4)
+    local mainPosition = { x = 1500, y = 3000 }
+    addon.db.savedMainPositions.WorldMapFrame = mainPosition
+    addon.db.mainMapScale = 1
+    map.width, map.scale = 664, 1
+    moveMap(mainPosition.x, mainPosition.y)
+    map:Show()
+    assertPassiveReplayBlocked("reopening the map must not flash at the stale MapWise anchor on Mainhand")
+    advanceMap(4)
+    assertPassiveReplayBlocked("same-size tab layout must preserve an Offhand-saved Mainhand anchor")
+    MapWiseAtlasDB.rightClosed = true
+    assertPassiveReplayBlocked("Mainhand sidebar layout must retain the saved Mainhand anchor")
+    advanceMap(8)
+    local mainLeft, mainTop = mapBounds()
+    assert(mainLeft == mainPosition.x and mainTop == mainPosition.y and map:GetScale() == 1
+        and addon.db.savedMainPositions.WorldMapFrame == mainPosition,
+        "MapWise layout must preserve the Mainhand position and its saved record")
+
+    addon.db.enabled = false
+    assertVendorReplay("disabled Offhand must let MapWise replay its own position")
+    addon.db.enabled = true
+    map:Hide()
+    advanceMap(4)
+    addon.db.savedMainPositions.WorldMapFrame = nil
+    map:Show()
+    assertVendorReplay("a fresh unsaved Mainhand map must retain MapWise's native placement")
+    advanceMap(4)
+    MapWiseAtlasDB.rightClosed = false
+    map.width = 1087
+    assertPassiveReplayBlocked("an already-visible unsaved Mainhand map must retain its current anchor")
+    advanceMap(8)
+
+    C_Timer.After, C_AddOns = oldAfter, oldAddOns
+    UIParent.GetWidth, UIParent.GetHeight = oldUIWidth, oldUIHeight
+    MapWiseAtlasDB, MapWiseAPI = nil, nil
+end
+print("PASS: Forever map persists through reload/Escape, settles scale, and preserves placement across MapWise layouts")

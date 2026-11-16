@@ -290,6 +290,8 @@ local function GetPanelController(frame, suppliedName)
     if name and foreverSocialCommunityControllerNames[name] then
         return "forever-social-community"
     end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return "addon-owned" end
     return "generic"
 end
 
@@ -336,6 +338,8 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return true end
     local hudCompatibility = Offhand.HUDCompatibility
     if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
     if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
@@ -364,6 +368,8 @@ local function IsPersistentPanelLoadCandidate(name)
 end
 
 local function CanAutoOpenSavedPanel(frame, name)
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return false end
     return IsPersistentPanelLoadCandidate(name) and PanelRegistry.CanAutoOpen(frame, name)
 end
 
@@ -444,6 +450,8 @@ end
 local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
     if not CanManagePanelsFromAddon() then return end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(_G[name], name) then return end
     for _, n in ipairs(UISpecialFrames) do
         if n == name then return end
     end
@@ -2044,7 +2052,7 @@ function Canvas:EnableFreeDragging()
                     -- transaction because Settings may have hidden it only
                     -- temporarily.
                     RepairUIPanelTransaction(openedFrame, true)
-                    Canvas:RepairDefaultForeverBooks()
+                    Canvas:RepairDefaultForeverSlots()
                 end
                 -- The post-hook catches the usual synchronous left-slot reflow.
                 -- Two bounded passes cover panels which finish layout from a
@@ -2062,7 +2070,7 @@ function Canvas:EnableFreeDragging()
                 if closedFrame and IsPanelEvicting(closedFrame) then return end
                 local function Repair()
                     RepairUIPanelTransaction(closedFrame, true)
-                    Canvas:RepairDefaultForeverBooks()
+                    Canvas:RepairDefaultForeverSlots()
                 end
                 Repair()
                 if C_Timer and C_Timer.After then
@@ -2081,7 +2089,7 @@ function Canvas:EnableFreeDragging()
                 -- every native anchor, including close routes and paths which
                 -- bypass ShowUIPanel.
                 RepairUIPanelTransaction(nil, true)
-                Canvas:RepairDefaultForeverBooks()
+                Canvas:RepairDefaultForeverSlots()
             end)
         end
     end

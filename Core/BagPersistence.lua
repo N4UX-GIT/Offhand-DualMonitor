@@ -215,6 +215,13 @@ function Bags:RegisterRoot(name, frame)
         C_Timer.After(0, function() Bags:Capture() end)
     end)
     frame:HookScript("OnHide", Changed)
+    if Offhand.isForever and Bags.IsBaganatorBackpackRoot(frame, name) then
+        frame:HookScript("OnDragStop", function()
+            -- Baganator has already saved its new anchor. Reconcile ownership
+            -- before an Escape that arrives ahead of the capture ticker.
+            if not InCombatLockdown() and not InputReserved() then Bags:Capture() end
+        end)
+    end
     return true
 end
 

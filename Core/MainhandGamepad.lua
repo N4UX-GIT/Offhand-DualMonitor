@@ -29,6 +29,7 @@ local GAMEPAD_INACTIVE_PANEL_INTERVAL = 0.20
 -- only that container's root anchor outside combat. Protected roots use a
 -- direct UIParent anchor instead of depending on an addon-owned frame.
 local gamepadMainMenuGlobalNames = {
+    "GamepadRadial",
     "GamepadMainMenuFrame", "GamepadMenuFrame", "GamepadRadialMenuFrame",
     "GamepadMenuRadialFrame", "MainMenuRadialFrame", "GamepadRadialFrame",
 }
@@ -573,7 +574,7 @@ local function SaveDestinationPanelOffset(name, state, x, y)
     OffhandCharDB.foreverGamepadPanelOffsets[name] = { x = x, y = y }
 end
 
-local function CenterDestinationPanel(frame, suppliedName)
+local function CenterDestinationPanel(frame, suppliedName, verticalFraction)
     local usable, reason = IsUsableGamepadDestinationPanel(frame, suppliedName)
     if not usable then return false, reason end
     local state = CaptureDestinationPanelPoints(frame)
@@ -581,8 +582,12 @@ local function CenterDestinationPanel(frame, suppliedName)
     local rect, x, y = DestinationPanelCenter()
     if not rect.isSpanned then return false, "span" end
     local name = suppliedName or (frame.GetName and frame:GetName())
-    local offsetX, offsetY = DestinationPanelOffset(name, state)
-    x, y = x + offsetX, y + offsetY
+    if verticalFraction then
+        y = y + (verticalFraction - 0.5) * rect.height
+    else
+        local offsetX, offsetY = DestinationPanelOffset(name, state)
+        x, y = x + offsetX, y + offsetY
+    end
     local frameScale = frame.GetEffectiveScale and frame:GetEffectiveScale() or 1
     local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
     if not Number(frameScale) or not Number(parentScale)
@@ -1079,10 +1084,20 @@ function Mainhand:CenterForeverGamepadReticle()
         return ReticleResult(RestoreDestinationPanel(frame, gamepadDestinationPanelState[frame], "GamepadReticle"))
     end
     if not frame.IsShown or not frame:IsShown() then return ReticleResult(false, "hidden") end
-    -- The native reticle's Recenter uses UIParent's horizontal center and a
-    -- full-canvas cursor height. Reuse only the root geometry adapter, without
-    -- adding it to movable/persistent destinations or changing targeting APIs.
-    return ReticleResult(CenterDestinationPanel(frame, "GamepadReticle"))
+    -- Translate the native cursor height into the Mainhand rectangle. Using
+    -- the midpoint discards Blizzard's vertical aim offset on a spanned window.
+    local fraction = 0.5
+    if type(GetCursorCenterPosition) == "function" and UIParent and UIParent.GetHeight then
+        local ok, _, cursorY = pcall(GetCursorCenterPosition)
+        local height = Number(UIParent:GetHeight())
+        local scale = UIParent.GetEffectiveScale and Number(UIParent:GetEffectiveScale())
+        cursorY = ok and Number(cursorY)
+        if cursorY and height and scale and height > 0 and scale > 0 then
+            local nativeFraction = cursorY / (height * scale)
+            if nativeFraction >= 0 and nativeFraction <= 1 then fraction = nativeFraction end
+        end
+    end
+    return ReticleResult(CenterDestinationPanel(frame, "GamepadReticle", fraction))
 end
 
 local function LootNumber(frame, method)

@@ -128,12 +128,20 @@ function Compatibility.GetWorldMapFadeAddon()
     if Compatibility.HasLeatrixMaps() then return "Leatrix_Maps" end
 end
 
+-- Window placement and movement fading use the vendor's internal settings.
+local reviewedOpenMapVersions = {
+    ["v0.7.5-beta"] = true,
+    ["v0.8.6"] = true,
+    ["v0.8.7"] = true,
+    ["v0.8.8"] = true,
+    ["v0.8.9"] = true,
+}
+
 function Compatibility.GetOpenMapWorldMapModule()
     local namespace, api = _G.OpenMap, _G.OpenMapAPI
     if type(namespace) ~= "table" or type(namespace.GetModule) ~= "function"
         or type(api) ~= "table" or api.major ~= 1 or api.version ~= 4 then return end
-    local version = namespace.version
-    if version ~= "v0.7.5-beta" and version ~= "v0.8.6" and version ~= "v0.8.7" then return end
+    if not reviewedOpenMapVersions[namespace.version] then return end
     local module = namespace:GetModule("worldmap")
     local db = type(module) == "table" and module.db
     if type(db) ~= "table" or db.enabled == false or type(_G.OpenMapDB) ~= "table"

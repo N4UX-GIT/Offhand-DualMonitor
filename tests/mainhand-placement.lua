@@ -902,8 +902,8 @@ do
     MAUTTAB = nil
 
     MapWiseAtlasDB = {fadeMapWhileMoving = true}
-    MapWiseAPI = {version = "2.3.98", db = MapWiseAtlasDB, Integration = {native = map}}
-    loadedAddons.MapWise = "2.3.98"
+    MapWiseAPI = {version = "2.3.99", db = MapWiseAtlasDB, Integration = {native = map}}
+    loadedAddons.MapWise = "2.3.99"
     Update()
     assert(MapWiseAtlasDB.fadeMapWhileMoving == false and not CanFade())
     MapWiseAPI.Integration.native = nil
@@ -1640,6 +1640,16 @@ GamepadReticle.scale = 0.5
 assert(addon.Mainhand:CenterForeverGamepadReticle())
 assert(GamepadReticle.points[1][4] == 1440 and GamepadReticle.points[1][5] == -1120,
     "reticle placement must convert the root's effective scale")
+GetCursorCenterPosition = function()
+    return 0, UIParent:GetHeight() * UIParent:GetEffectiveScale() * 0.60
+end
+assert(addon.Mainhand:CenterForeverGamepadReticle())
+assert(GamepadReticle.points[1][4] == 1440 and math.abs(GamepadReticle.points[1][5] + 832) < 0.01,
+    "reticle must preserve the native 60% cursor height on the shorter Mainhand")
+GetCursorCenterPosition = function() return 0, math.huge end
+assert(addon.Mainhand:CenterForeverGamepadReticle() and GamepadReticle.points[1][5] == -1120,
+    "unusable cursor geometry must retain the midpoint fallback")
+GetCursorCenterPosition = nil
 unitCombat = true
 GamepadReticle:ClearAllPoints()
 GamepadReticle:SetPoint("CENTER", UIParent, "BOTTOM", 0, 1280)
@@ -3010,6 +3020,21 @@ assert(repaired[3].anchorInfo.relativeTo=="MainActionBar" and repaired[3].anchor
 Near(ForeverActionCenter(repaired, UIParent:GetWidth())+repaired[3].anchorInfo.offsetX,legacyCenter)
 assert(repaired[4].anchorInfo.relativeTo=="UIParent" and repaired[4].anchorInfo.offsetX==2200
  and repaired[5].settings[1].value==73, "refresh must retain custom status and action bar settings")
+local centeredXP = repaired[3].anchorInfo.offsetX
+assert(math.abs(centeredXP) > 1, "the stock HUD extends beyond the Action Bar 1 button group")
+repaired[3].anchorInfo.offsetX = 31
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local custom = layoutData.layouts[existingID-3].systems
+assert(custom[3].anchorInfo.offsetX==31, "refresh must preserve a customized relative XP position")
+
+custom[3].anchorInfo.offsetX = 0
+assert(addon.Mainhand:CreateOrUpdateEditModeLayout())
+local centered = layoutData.layouts[existingID-3].systems
+assert(#layoutData.layouts==1 and layoutData.activeLayout==existingID
+ and centered[3].anchorInfo.offsetY==3 and centered[4].anchorInfo.offsetX==2200
+ and centered[5].settings[1].value==73,
+ "refresh must repair only the old zero-offset generated anchor in the same layout")
+Near(centered[3].anchorInfo.offsetX,centeredXP)
 EditModeManagerFrame = nil
 print("PASS: Forever XP/Rep containers, saved self points, scale, secondary clearance, custom positions and EUI ownership")
 end

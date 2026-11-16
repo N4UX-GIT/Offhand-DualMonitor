@@ -999,24 +999,37 @@ local function RepairGeneratedForeverStatus(layout, source, rect, foreverStatus)
         end
     end
 
-    local candidates, overlap = {}, false
+    local absolute, relative, overlap = {}, {}, false
+    local priorXP = priorStatus[indices.StatusTrackingBar1]
+    local narrowTrack = mainAnchor.relativeTo == "MicroMenuContainer" and priorXP
+        and math.abs((rect.left + rect.right) / 2 - (left + width / 2)) > 0.1
     for index, entry in ipairs(layout.systems or {}) do
         local target = entry.system == systems.StatusTrackingBar and ForeverStatusFrame(entry)
-        local anchor = entry.anchorInfo
+        local anchor, prior = entry.anchorInfo, priorStatus[entry.systemIndex]
         if target and entry.isInDefaultPosition == false and not entry.anchorInfo2 and not ExternallyOwnedSystem(entry)
-            and MatchesSavedAnchor(anchor, priorStatus[entry.systemIndex]) then
-            local w, h = FrameSize(target, 571, 14)
-            local statusScale = ParentScale(target)
-            local halfWidth = w * statusScale / 2
-            candidates[entry.systemIndex] = index
-            overlap = overlap or (anchor.offsetY < bottom + height - 0.01
-                and anchor.offsetY + h * statusScale > bottom + 0.01
-                and anchor.offsetX - halfWidth < left + width - 0.01
-                and anchor.offsetX + halfWidth > left + 0.01)
+            and prior then
+            if MatchesSavedAnchor(anchor, prior) then
+                local w, h = FrameSize(target, 571, 14)
+                local statusScale = ParentScale(target)
+                local halfWidth = w * statusScale / 2
+                absolute[entry.systemIndex] = index
+                overlap = overlap or (anchor.offsetY < bottom + height - 0.01
+                    and anchor.offsetY + h * statusScale > bottom + 0.01
+                    and anchor.offsetX - halfWidth < left + width - 0.01
+                    and anchor.offsetX + halfWidth > left + 0.01)
+            elseif narrowTrack and MatchesSavedAnchor(anchor, {point = "BOTTOM",
+                relativeTo = "MainActionBar", relativePoint = "TOP",
+                offsetX = 0, offsetY = prior.offsetY - priorXP.offsetY + 3}) then
+                -- An earlier generator centered the stock track on only the
+                -- Action Bar 1 buttons. Keep its vertical attachment.
+                relative[entry.systemIndex] = index
+            end
         end
     end
-    local xp = candidates[indices.StatusTrackingBar1]
-    if not overlap or not xp then return 0 end
+    local primary = indices.StatusTrackingBar1
+    local candidates = overlap and absolute[primary] and absolute or relative
+    local xp = candidates[primary]
+    if not xp then return 0 end
     local defaults = {[xp] = true}
     if not PlaceForeverStatus(layout.systems[xp], layout, rect, defaults, mainAnchor, main, true) then return 0 end
     foreverStatus[#foreverStatus + 1] = layout.systems[xp].anchorInfo

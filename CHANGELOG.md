@@ -6,8 +6,26 @@
   /reload. In a matched WoW Forever test, the loading screen began in about
   four seconds with the fix, compared with about seven seconds on Beta 35.
 - Preserve Baganator backpack placement and open state through merchant interactions.
+- Restore Baganator's normal Escape behavior when its backpack is dragged back
+  to Mainhand.
 - Recover an off-screen RestedXP V2 guide to Mainhand while leaving the arrow in place.
-- On Forever, open unplaced Professions and Spellbook on Mainhand and keep both there when used together.
+- On Forever, keep unplaced Professions, Spellbook, Character, and Collections
+  on Mainhand when opening or closing another panel.
+- Keep newer Forever SavedVariables when a Companion recovery snapshot is older.
+  Show missing-span recovery before release notes, and offer manual placement on macOS.
+- Support Offhand placement and movement fade handling for windowed OpenMap
+  v0.8.8 and v0.8.9 on Forever.
+- Keep the windowed MapWise map on the chosen display when opening the map,
+  toggling its sidebar, or switching sidebar tabs on Forever.
+- Keep inventory tooltips on the appropriate display, preserve supported
+  chat addon ownership during Gather, and show chat ownership in diagnostics.
+- Fit Questie Options and ItemRack Universal options and gear flyouts within
+  Mainhand. Respect the workspace Escape setting for Leveldon Options.
+- Let Leveldon's guide and DonMap's arrow keep their own position and Escape
+  behavior during normal panel operations.
+- Center the stock Game Menu with ConsolePort, preserve the native gamepad
+  reticle's vertical position, and repair the old centered XP bar anchor when
+  rebuilding the Forever HUD.
 
 ## [2.1.5-beta.35] - 2026-11-14
 
