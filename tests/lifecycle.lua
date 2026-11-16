@@ -860,6 +860,9 @@ do
     addon.IsSetupComplete = function() return complete end
     addon.db.firstRunComplete = false
     addon.db.enabled = true
+    -- The preceding cases tear down the simulated UI. This block represents
+    -- a fresh session using the same fixture.
+    addon._loggingOut = nil
     addon._displayGeometryTransitionActive = false
     local function Enter(first)
         if first then addon._hasEnteredWorld = nil end

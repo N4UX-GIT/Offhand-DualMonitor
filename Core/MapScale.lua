@@ -30,18 +30,11 @@ local function Inspect()
     if owner then
         state.workspace = Offhand.Canvas.IsFrameOnWorkspace(map)
         if owner ~= "OpenMap" or not Offhand.isForever then return state end
-        local namespace, api = _G.OpenMap, _G.OpenMapAPI
         -- Reviewed internal contract, not a public setter API. No mod:Refresh:
         -- rebuilding MapCanvas data providers is outside this settings action.
-        if type(namespace) ~= "table" or namespace.version ~= "v0.7.5-beta"
-            or type(namespace.GetModule) ~= "function" or type(api) ~= "table"
-            or api.major ~= 1 or api.version ~= 4 or type(api.IsStitched) ~= "function"
-            or not api.IsStitched() then return state end
-        local module = namespace:GetModule("worldmap")
-        local ownerDB = type(module) == "table" and module.db
-        if type(ownerDB) ~= "table" or ownerDB.enabled == false
-            or type(_G.OpenMapDB) ~= "table" or ownerDB ~= _G.OpenMapDB.worldmap
-            or not Number(ownerDB.windowScale) or type(module.WindowOptions) ~= "function" then return state end
+        local module, ownerDB = Offhand.CanvasCompatibility.GetOpenMapWindowModule()
+        if not module or not Number(ownerDB.windowScale)
+            or type(module.WindowOptions) ~= "function" then return state end
         local options = {}
         module:WindowOptions(options, function() return ownerDB.windowScale end,
             function(_, value) ownerDB.windowScale = value end,

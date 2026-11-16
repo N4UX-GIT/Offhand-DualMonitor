@@ -258,7 +258,8 @@ function UI.Build(tabs,card,options)
         local settings=r and type(all)=="table" and all[r.id]
         return type(settings)=="table" and settings[key] or "INHERIT"
     end
-    for index=1,2 do
+    local maxRegions=Offhand.WorkspaceRegions and Offhand.WorkspaceRegions.MAX_WORKSPACES or 2
+    for index=1,maxRegions do
         local i=index;local y=-90-(i-1)*104;local label=Text(themeCard,"",12,y-5,190)
         local button=Choice(themeCard,208,y,438,themeChoices,
             function()

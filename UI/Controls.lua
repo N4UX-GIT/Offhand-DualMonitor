@@ -852,6 +852,7 @@ function Controls.CreateHelpButton(parent, title, ...)
     local button = Controls.CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
     button:SetSize(26, 24)
     button:SetText("?")
+    Controls.SetButtonTextColor(button, .90, .81, .58)
     local paragraphs = {...}
     local popup
     button:SetScript("OnClick", function()

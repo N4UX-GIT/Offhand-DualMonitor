@@ -197,6 +197,9 @@ local function Render(direction)
     if context and context.block == "ELLESMERE_HUD_OVERRIDES" then
         summary = L["ELLESMERE_HUD_OVERRIDES_HELP"]
     end
+    if direction ~= "blizzard" and context and not context.block and selected > 0 then
+        summary = (summary ~= "" and summary .. "\n" or "") .. L["ELLESMERE_HUD_NEW_PROFILE_NAME"]
+    end
     dialog.status:SetText(summary)
 end
 
@@ -212,13 +215,12 @@ function Transfer:PromptImportReload()
         button2 = not manual and L["CHARACTER_SETUP_LATER"] or nil,
         OnAccept = not manual and function()
             if not self:HasPendingReload() then return end
-            if InCombatLockdown and InCombatLockdown() then
-                Offhand:Print(L["ELLESMERE_HUD_RELOAD"])
+            local reload = Offhand:GetReloadUIFunction()
+            if reload and not (InCombatLockdown and InCombatLockdown())
+                and not (mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()) then
+                reload()
             else
-                local reload = Offhand:GetReloadUIFunction()
-                if reload and not (mainhand and mainhand.IsNativeGamepadInterface
-                    and mainhand:IsNativeGamepadInterface()) then reload()
-                else self:PromptImportReload() end
+                self:PromptImportReload()
             end
         end or nil,
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,

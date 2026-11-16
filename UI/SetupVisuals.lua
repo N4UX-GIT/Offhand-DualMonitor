@@ -11,8 +11,8 @@ local function Surface(parent)
     f:EnableMouse(false)
     return f
 end
-local function Text(parent, width)
-    local text = parent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+local function Text(parent, width, font)
+    local text = parent:CreateFontString(nil, "ARTWORK", font or "GameFontHighlightSmall")
     text:SetWidth(width)
     text:SetWordWrap(true)
     text:SetJustifyH("CENTER")
@@ -83,6 +83,65 @@ end
 local function Number(value)
     if type(issecretvalue) == "function" and issecretvalue(value) then return end
     if type(value) == "number" and value == value and math.abs(value) < math.huge then return value end
+end
+
+local readyCue
+
+function Visuals:ShowWorkspaceReady(metrics)
+    if not metrics or not metrics.isSpanned then return end
+    if not readyCue then
+        readyCue = Controls.CreateFrame("Frame", nil, UIParent)
+        readyCue:SetAllPoints(UIParent)
+        readyCue:SetFrameStrata("HIGH")
+        readyCue:EnableMouse(false)
+        readyCue.regions = {}
+        readyCue:SetScript("OnUpdate", function(self, elapsed)
+            self.elapsed = self.elapsed + elapsed
+            if self.elapsed >= 6 or Offhand._displayGeometryTransitionActive or not (Offhand.db and Offhand.db.enabled)
+                or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
+                self:Hide()
+                return
+            end
+            self:SetAlpha(math.min(1, self.elapsed / .25, 6 - self.elapsed))
+        end)
+    end
+    for _, frame in pairs(readyCue.regions) do frame:Hide() end
+    local regions = metrics.workspaceRegions or {{
+        x = metrics.workspaceLeft, y = metrics.workspaceBottom,
+        width = metrics.workspaceWidth, height = metrics.workspaceHeight,
+    }}
+    local text = L.WORKSPACE_READY_TITLE .. "\n" .. L.WORKSPACE_READY_HINT
+    local shown = false
+    for i, region in ipairs(regions) do
+        local x, y, width, height = Number(region.x), Number(region.y), Number(region.width), Number(region.height)
+        if x and y and width and height and width > 0 and height > 0 then
+            local frame = readyCue.regions[i]
+            if not frame then
+                frame = Surface(readyCue)
+                frame:SetBackdropColor(1, .75, .15, .07)
+                frame:SetBackdropBorderColor(1, .79, .30, .75)
+                frame.label = Text(frame, 1, "GameFontHighlightLarge")
+                frame.label:SetPoint("CENTER", frame, "CENTER", 0, 0)
+                frame.label:SetTextColor(1, .92, .68, 1)
+                readyCue.regions[i] = frame
+            end
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+            frame:SetSize(width, height)
+            frame.label:SetText(text)
+            local textHeight = Controls.FitCompactParagraph(frame.label, text, math.max(1, math.min(width - 24, 420)))
+            if textHeight <= height - 12 then frame.label:Show() else frame.label:Hide() end
+            frame:Show()
+            shown = true
+        end
+    end
+    if shown then
+        readyCue.elapsed = 0
+        readyCue:SetAlpha(0)
+        readyCue:Show()
+    else
+        readyCue:Hide()
+    end
 end
 
 -- One coordinate space, including negative origins and the physical void.

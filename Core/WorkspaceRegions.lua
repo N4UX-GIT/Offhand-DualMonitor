@@ -21,8 +21,11 @@ local function ID(id)
         and id:match("^[%w_-]+$") ~= nil
 end
 
--- Keep the one-game/two-workspace prototype bounded. These conservative limits
--- are allocation guardrails, not a promise of a renderer's supported maximum.
+-- Custom plans have one Mainhand and up to three workspace regions.
+local MAX_WORKSPACES = 3
+local MAX_DISPLAYS = MAX_WORKSPACES + 1
+Regions.MAX_WORKSPACES, Regions.MAX_DISPLAYS = MAX_WORKSPACES, MAX_DISPLAYS
+
 local function ValidateRegions(raw, schema)
     if type(raw) ~= "table" or raw.schema ~= schema or raw.mode ~= "CUSTOM_REGIONS" then return nil end
     local width, height = raw.physicalWidth, raw.physicalHeight
@@ -34,10 +37,10 @@ local function ValidateRegions(raw, schema)
         or type(raw.mainhandDevice) ~= "string" or raw.mainhandDevice == "" then return nil end
     local count = 0
     for key in pairs(raw.workspaces) do
-        if not Integer(key) or key < 1 or key > 2 then return nil end
+        if not Integer(key) or key < 1 or key > MAX_WORKSPACES then return nil end
         count = count+1
     end
-    if count < 1 or count > 2 or #raw.workspaces ~= count then return nil end
+    if count < 1 or count > MAX_WORKSPACES or #raw.workspaces ~= count then return nil end
     local ids, devices, primary = {}, {[raw.mainhandDevice:lower()]=true}
     for _, r in ipairs(raw.workspaces) do
         if not Rect(r,width,height) or r.width < 480 or r.height < 600 or not ID(r.id)
@@ -84,7 +87,7 @@ end
 function Regions:ValidateFlexibleTopology(raw)
     local result=ValidateRegions(raw,3)
     if not result or raw.coordinateSpace~="BOTTOM_LEFT_PHYSICAL"
-        or not DenseList(raw.displays,3) or not DenseList(raw.selectedDevices,3)
+        or not DenseList(raw.displays,MAX_DISPLAYS) or not DenseList(raw.selectedDevices,MAX_DISPLAYS)
         or #raw.displays~=#raw.selectedDevices then return nil end
     local devices,selected,used={},{},{}
     for _,display in ipairs(raw.displays) do

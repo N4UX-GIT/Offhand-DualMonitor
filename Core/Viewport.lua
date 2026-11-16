@@ -188,15 +188,15 @@ local function ParseReleaseVersion(value)
     }
 end
 
-local function ReleaseAtLeast(actual, minimum)
-    local left, right = ParseReleaseVersion(actual), ParseReleaseVersion(minimum)
+function Viewport:CompareReleaseVersions(actual, expected)
+    local left, right = ParseReleaseVersion(actual), ParseReleaseVersion(expected)
     if not left or not right then return nil end
     for _, field in ipairs({"major", "minor", "patch"}) do
-        if left[field] ~= right[field] then return left[field] > right[field] end
+        if left[field] ~= right[field] then return left[field] > right[field] and 1 or -1 end
     end
-    if left.stable ~= right.stable then return left.stable end
-    if left.stable then return true end
-    return left.beta >= right.beta
+    if left.stable ~= right.stable then return left.stable and 1 or -1 end
+    if left.stable or left.beta == right.beta then return 0 end
+    return left.beta > right.beta and 1 or -1
 end
 
 local function CompanionVersionStatus(topology)
@@ -208,12 +208,12 @@ local function CompanionVersionStatus(topology)
             and Offhand.companionFullVersion or nil)
     if not actual or actual == "" then return "UNKNOWN", nil, expected end
     if not expected or expected == "" then return "UNKNOWN", actual, nil end
-    local compatible = ReleaseAtLeast(actual, expected)
-    if compatible == nil then
+    local comparison = Viewport:CompareReleaseVersions(actual, expected)
+    if comparison == nil then
         return string.lower(actual) == string.lower(expected) and "MATCH" or "UNKNOWN",
             actual, expected
     end
-    return compatible and "MATCH" or "MISMATCH", actual, expected
+    return comparison >= 0 and "MATCH" or "MISMATCH", actual, expected
 end
 
 -- A stale exact topology is unsafe on every client. An absent topology is
@@ -389,6 +389,7 @@ function Viewport:ApplyNamePlateFrame(namePlate, targetEffectiveScale)
 end
 
 function Viewport:ApplyNamePlateVisualScale(metrics)
+    if Offhand._loggingOut then return end
     if not Offhand.db or not Offhand.db.enabled or not metrics or not metrics.isSpanned then
         self:RestoreNamePlateVisualScale()
         return
@@ -424,10 +425,11 @@ function Viewport:ApplyNamePlateVisualScale(metrics)
 end
 
 function Viewport:ScheduleNamePlateVisualScale()
-    if self.namePlateVisualScheduled then return end
+    if Offhand._loggingOut or self.namePlateVisualScheduled then return end
     self.namePlateVisualScheduled = true
     local function apply()
         Viewport.namePlateVisualScheduled = nil
+        if Offhand._loggingOut then return end
         local metrics = Offhand.db and Offhand.db.enabled and Viewport:GetMetrics() or nil
         Viewport:ApplyNamePlateVisualScale(metrics)
     end
@@ -505,15 +507,26 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
         return metrics
     end
 
-    -- A rejected multi-region bridge must never activate a coincidentally
-    -- matching legacy manual canvas. Explicit MANUAL retains its own contract.
-    if geometryPreference ~= "MANUAL" and type(_G.OffhandCompanionTopology)=="table"
-        and (tonumber(_G.OffhandCompanionTopology.schema) or 0)>=2 then
-        return SafeSingleScreenMetrics(sw,sh,pw,ph,preset,topologyStatus,"EXACT_REQUIRED")
+    -- Explicit Companion setup still owns the layout when an addon update
+    -- replaces the generated bridge. A saved manual canvas with the same
+    -- window size can describe a different Mainhand rectangle.
+    local needsExact = geometryPreference == "EXACT" or (geometryPreference == "AUTO"
+        and Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod() == "COMPANION")
+    local raw = _G.OffhandCompanionTopology
+    local rejectedRegions = geometryPreference ~= "MANUAL" and type(raw) == "table"
+        and (tonumber(raw.schema) or 0) >= 2
+    if rejectedRegions or (needsExact and not allowUnconfirmedManual) then
+        -- Preserve the existing mismatch recovery when Restore Window leaves
+        -- a schema 1 bridge loaded for a window that no longer matches it.
+        local state
+        if rejectedRegions or geometryPreference == "EXACT" or topologyStatus ~= "MISMATCH" then
+            state = "EXACT_REQUIRED"
+        end
+        return SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, state)
     end
 
     local manualMatch, acceptedManual
-    if manual and geometryPreference ~= "EXACT" then
+    if manual and not needsExact then
         manualMatch = manual:Match(pw, ph, sw / math.max(sh, 1), db)
         manual.lastMatch = manualMatch
         if manualMatch.state == "MATCH" or manualMatch.state == "CLOSE" then
@@ -521,8 +534,7 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
         end
     end
     if not acceptedManual and not allowUnconfirmedManual then
-        local state = manualMatch and manualMatch.state
-            or (geometryPreference == "EXACT" and "EXACT_REQUIRED" or "UNREMEMBERED")
+        local state = manualMatch and manualMatch.state or "UNREMEMBERED"
         return SafeSingleScreenMetrics(sw, sh, pw, ph, preset, topologyStatus, state)
     end
 
@@ -602,7 +614,7 @@ end
 
 -- This is the sole scale owner. Never call it from HUD/frame-position hooks.
 function Viewport:ApplyGlobalScale()
-    if InCombatLockdown() or self.scaling or self.loggingOut then return end
+    if Offhand._loggingOut or InCombatLockdown() or self.scaling then return end
     local db=Offhand.db
     if not db then return end
     local metrics = db.enabled and self:GetMetrics() or nil
@@ -734,25 +746,6 @@ function Viewport:ApplyGlobalScale()
     -- reached their new values; normalizing before this point uses stale
     -- enemy/friendly scales on the first application.
     self:ApplyNamePlateVisualScale(m)
-end
-
-function Viewport:PrepareForLogout()
-    -- CVar restoration and native teardown can emit layout notifications.
-    -- Do not let those callbacks reapply the spanned scale during shutdown.
-    self.loggingOut = true
-    if InCombatLockdown() or not self.originalScale or not self.appliedScale then return end
-    -- Restore only the runtime root scale we still own. Modern layout never
-    -- changes uiScale/useUiScale, so restoring those legacy CVars alone cannot
-    -- release this temporary scale. A changed root belongs to another owner.
-    local ok, current = pcall(UIParent.GetScale, UIParent)
-    if not ok or math.abs(current - self.appliedScale) >= 0.00001 then return end
-    self.scaling = true
-    local restored = pcall(UIParent.SetScale, UIParent, self.originalScale)
-    self.scaling = false
-    if restored then
-        self.originalScale = nil
-        self.appliedScale = nil
-    end
 end
 
 function Viewport:IsDualActive()
@@ -950,6 +943,7 @@ function Viewport:CaptureDiagnostics(remember)
 end
 
 function Viewport:Apply()
+    if Offhand._loggingOut then return end
     if InCombatLockdown() then
         Offhand:RunOrQueueCombat(function() Viewport:Apply() end)
         return
@@ -960,6 +954,7 @@ function Viewport:Apply()
     WorldFrame:ClearAllPoints()
     self:SetPoint(WorldFrame, "BOTTOMLEFT", "BOTTOMLEFT", m.gameLeft, m.gameBottom)
     self:SetPoint(WorldFrame, "TOPRIGHT", "BOTTOMLEFT", m.gameRight, m.gameTop)
+    if Offhand.CenterGuide then Offhand.CenterGuide:Refresh(m) end
     if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply(m) end
     if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar(m) end
     if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then
@@ -977,6 +972,7 @@ function Viewport:Reset()
     end
     WorldFrame:ClearAllPoints()
     WorldFrame:SetAllPoints(UIParent)
+    if Offhand.CenterGuide then Offhand.CenterGuide:Refresh() end
     if Offhand.CinematicPresentation then Offhand.CinematicPresentation:Apply() end
     if Offhand.HUD and Offhand.HUD.PositionRetailOverrideBar then Offhand.HUD:PositionRetailOverrideBar() end
     if Offhand.HUD and Offhand.HUD.PositionRetailNotifications then

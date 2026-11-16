@@ -23,9 +23,13 @@ namespace Offhand.Companion
         { string value; return settings.TryGetValue(EnabledKey, out value) && string.Equals(value,"True",StringComparison.OrdinalIgnoreCase); }
         internal static bool IsSetting(string key)
         { return key == EnabledKey || key == DocumentKey || key == FallbackKey; }
+        internal static bool IsWorkspaceRegionSetting(string key)
+        {
+            return Regex.IsMatch(key, @"\AWorkspaceRegion(?:sEnabled|Version|Count|[1-3](?:Id|Identity|MonitorWidth|MonitorHeight|X|Y|Width|Height))\z");
+        }
         internal static bool LegacyKey(string key)
         {
-            return Regex.IsMatch(key,@"\A(?:WorkspaceRegion(?:sEnabled|Version|Count|[12](?:Id|Identity|MonitorWidth|MonitorHeight|X|Y|Width|Height))|WorkspacePrimary|MainhandIdentity|MainhandDevice|DisplayIdentityVersion|MonitorIdentities|MonitorDevices|Monitors|SingleDisplaySplit|SingleGameSide|Partial(?:SpanEnabled|DisplayIdentity|MonitorWidth|MonitorHeight|Edge|GameSide|Width|WorkspaceWidth)|Secondary(?:AreaEnabled|AreaIdentity|AreaX|AreaY|AreaWidth|AreaHeight|MonitorWidth|MonitorHeight)|WorkspaceProfileID|WorkspaceProfileName)\z");
+            return IsWorkspaceRegionSetting(key) || Regex.IsMatch(key,@"\A(?:WorkspacePrimary|MainhandIdentity|MainhandDevice|DisplayIdentityVersion|MonitorIdentities|MonitorDevices|Monitors|SingleDisplaySplit|SingleGameSide|Partial(?:SpanEnabled|DisplayIdentity|MonitorWidth|MonitorHeight|Edge|GameSide|Width|WorkspaceWidth)|Secondary(?:AreaEnabled|AreaIdentity|AreaX|AreaY|AreaWidth|AreaHeight|MonitorWidth|MonitorHeight)|WorkspaceProfileID|WorkspaceProfileName)\z");
         }
         private static Dictionary<string,object> Object(object value, params string[] keys)
         {
@@ -68,8 +72,8 @@ namespace Offhand.Companion
                 var data=Object(Json.DeserializeObject(text),"version","id","name","primaryWorkspaceId","game","workspaces","displays");
                 Require(Integer(data,"version")==WorkspaceLayoutDocument.CurrentVersion,"Unsupported layout document version; the existing value was retained.");
                 var document=new WorkspaceLayoutDocument{Id=Text(data,"id"),Name=Text(data,"name"),PrimaryWorkspaceId=Text(data,"primaryWorkspaceId"),Game=ReadRegion(data["game"])};
-                foreach(var region in Array(data["workspaces"],2))document.Workspaces.Add(ReadRegion(region));
-                foreach(var raw in Array(data["displays"],3)) {
+                foreach(var region in Array(data["workspaces"],WorkspaceLayoutPlanner.MaximumWorkspaces))document.Workspaces.Add(ReadRegion(region));
+                foreach(var raw in Array(data["displays"],WorkspaceLayoutPlanner.MaximumDisplays)) {
                     var display=Object(raw,"role","stableId","width","height");
                     document.Displays.Add(new WorkspaceLayoutBinding{Role=Text(display,"role"),StableId=Text(display,"stableId"),
                         Resolution=new Size(Integer(display,"width"),Integer(display,"height"))});

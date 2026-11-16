@@ -83,6 +83,7 @@ jobs:
         shell: powershell
         run: |
           ./tests/companion-third-monitor.ps1
+          ./tests/companion-four-monitors.ps1
           ./tests/companion-taskbar-presentation.ps1
 
       - name: Test production and experimental Companion recovery policies

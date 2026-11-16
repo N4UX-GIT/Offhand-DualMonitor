@@ -804,7 +804,8 @@ function Options:CreateFloatingPanel()
         if Offhand.DisplayIdentify then Offhand.DisplayIdentify:Show() end
     end)
     if Offhand.SetTooltip then
-        Offhand:SetTooltip(identifyDisplays, L["IDENTIFY_DISPLAYS"], L["IDENTIFY_TIP"])
+        local tip = Offhand.IsMacClient and Offhand:IsMacClient() and "IDENTIFY_TIP_MAC" or "IDENTIFY_TIP"
+        Offhand:SetTooltip(identifyDisplays, L["IDENTIFY_DISPLAYS"], L[tip])
     end
     configFrame.identifyDisplaysButton = identifyDisplays
 
@@ -1207,25 +1208,29 @@ function Options:CreateFloatingPanel()
     card2_1:RegisterEvent("ADDON_LOADED")
     card2_1:SetScript("OnEvent", function() if card2_1:IsShown() then RefreshMapScaleControls() end end)
 
-    local mapMoveCheck = CreateNativeCheckbox(card2_1, L["MAP_KEEP_OPEN"],
-        function() return Offhand.db and Offhand.db.preventMapCloseOnMove end,
-        function(val)
-            Offhand.db.preventMapCloseOnMove = val
-            if Offhand.Canvas and Offhand.Canvas.UpdateMapMovementBehavior then
-                Offhand.Canvas:UpdateMapMovementBehavior()
-            end
-        end,
-        "Persistent Map Movement", "Prevents the World Map from closing automatically when your character moves."
-    )
-    mapMoveCheck:SetPoint("TOPLEFT", 10, -112)
+    local mapMoveCheck
+    if not Offhand.isForever then
+        mapMoveCheck = CreateNativeCheckbox(card2_1, L["MAP_KEEP_OPEN"],
+            function() return Offhand.db and Offhand.db.preventMapCloseOnMove end,
+            function(val)
+                Offhand.db.preventMapCloseOnMove = val
+                if Offhand.Canvas and Offhand.Canvas.UpdateMapMovementBehavior then
+                    Offhand.Canvas:UpdateMapMovementBehavior()
+                end
+            end,
+            "Persistent Map Movement", "Prevents the World Map from closing automatically when your character moves."
+        )
+        mapMoveCheck:SetPoint("TOPLEFT", 10, -112)
+    end
 
-    local mapDesc = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-    mapDesc:SetPoint("TOPLEFT", 32, -134)
-    mapDesc:SetJustifyH("LEFT")
-    mapDesc:SetWidth(530)
-    mapDesc:SetWordWrap(true)
     do
-        local recoverMap
+        local mapDesc = card2_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        local descriptionTop = mapMoveCheck and 134 or 112
+        mapDesc:SetPoint("TOPLEFT", mapMoveCheck and 32 or 12, -descriptionTop)
+        mapDesc:SetJustifyH("LEFT")
+        mapDesc:SetWidth(530)
+        mapDesc:SetWordWrap(true)
+        local recoverMap, placeOpenMap
         if Offhand.isForever and Offhand.OpenMapRecovery then
             recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
             recoverMap:SetHeight(24)
@@ -1233,20 +1238,45 @@ function Options:CreateFloatingPanel()
             recoverMap:SetScript("OnClick", function()
                 if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport() end
             end)
+            placeOpenMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
+            placeOpenMap:SetHeight(24)
+            placeOpenMap:SetText(L["OPENMAP_WORKSPACE_BUTTON"])
+            placeOpenMap:SetScript("OnClick", function()
+                if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport(true) end
+            end)
             if Offhand.SetTooltip then
                 Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
             end
         end
         function card2_1.RefreshIntegration(openMapOwner)
-            local description = L[IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX" or "MAP_KEEP_OPEN_DESC"]
+            local fadeHelp
+            if Offhand.isForever then
+                local fadeAddon = Offhand.CanvasCompatibility.GetWorldMapFadeAddon()
+                local mapAdapter = Offhand.CanvasForeverMap
+                if mapAdapter and mapAdapter.SupportsAddonMovementFade(fadeAddon, WorldMapFrame) then
+                    fadeHelp = "MAP_MOVEMENT_FOREVER"
+                elseif fadeAddon == "OpenMap" then fadeHelp = "MAP_MOVEMENT_OPENMAP"
+                elseif fadeAddon == "MapUtils" then fadeHelp = "MAP_MOVEMENT_MAPUTILS"
+                elseif fadeAddon == "MapWise" then fadeHelp = "MAP_MOVEMENT_MAPWISE"
+                else fadeHelp = "MAP_MOVEMENT_FOREVER" end
+            end
+            local description = L[fadeHelp
+                or (IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX")
+                or "MAP_KEEP_OPEN_DESC"]
+            if openMapOwner then
+                description = L["OPENMAP_WORKSPACE_HELP"] .. " " .. description
+            end
             mapDesc:SetText(description)
-            local top = 146 + Controls.FitCompactParagraph(mapDesc, description, 530)
+            local top = descriptionTop + 12 + Controls.FitCompactParagraph(mapDesc, description, 530)
             if recoverMap then
                 SetShown(recoverMap, openMapOwner)
                 recoverMap:SetPoint("TOPLEFT", 12, -top)
                 recoverMap:SetPoint("TOPRIGHT", -12, -top)
+                SetShown(placeOpenMap, openMapOwner)
+                placeOpenMap:SetPoint("TOPLEFT", 12, -top - 30)
+                placeOpenMap:SetPoint("TOPRIGHT", -12, -top - 30)
             end
-            ResizeMonitorCard(card2_1, top + (recoverMap and openMapOwner and 36 or 0))
+            ResizeMonitorCard(card2_1, top + (recoverMap and openMapOwner and 66 or 0))
         end
         card2_1.RefreshIntegration(IsIntegrationActive("OpenMap") and Offhand.MapScale:GetState().owner == "OpenMap")
     end
@@ -2713,7 +2743,7 @@ function Options:CreateFloatingPanel()
         if gamepadFocusBindingStatus then
             gamepadFocusBindingStatus:SetText(GamepadFocusBindingStatusText())
         end
-        mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false)
+        if mapMoveCheck then mapMoveCheck:SetChecked((Offhand.db and Offhand.db.preventMapCloseOnMove) or false) end
         panelCheck:SetChecked((Offhand.db and Offhand.db.independentWorkspacePanels) or false)
         escapeCheck:SetChecked((Offhand.db and Offhand.db.persistentWorkspacePanels ~= false) or false)
         reloadCheck:SetChecked((Offhand.db and Offhand.db.restoreWorkspaceOnReload ~= false) or false)

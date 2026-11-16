@@ -387,7 +387,10 @@ local nativeUIPanelLayout
 UpdateUIPanelPositions = function(...)
     if nativeUIPanelLayout then return nativeUIPanelLayout(...) end
 end
-ShowUIPanel = function(frame) frame:Show() end
+ShowUIPanel = function(frame)
+    if frame.nativeShow then frame.nativeShow(frame) end
+    frame:Show()
+end
 HideUIPanel = function(frame)
     frame:Hide()
     UpdateUIPanelPositions()
@@ -1049,6 +1052,37 @@ assert(nativeMenuPoint[1] == "CENTER" and nativeMenuPoint[3] == "BOTTOMLEFT"
     and nativeMenuPoint[5] == (metrics.gameBottom+metrics.gameTop)/2,
     "direct native GameMenuFrame_Show must reach physical Mainhand without ToggleGameMenu")
 end
+do
+    ConsolePort = {}
+    ShowUIPanel(GameMenuFrame)
+    GameMenuFrame:ClearAllPoints()
+    GameMenuFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    flushTimers()
+    local point = GameMenuFrame.points[1]
+    assert(point[3] == "BOTTOMLEFT" and point[4] == (metrics.gameLeft+metrics.gameRight)/2,
+        "the standard Game Menu also needs Mainhand placement after a ConsolePort panel open")
+    function GameMenuFrame:GetParent() return UIParent end
+    GameMenuFrame.IsProtected = function() return true end
+    GameMenuFrame:ClearAllPoints()
+    GameMenuFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    addon.HUD:HookFrames()
+    assert(GameMenuFrame.points[1][3] == "BOTTOMLEFT"
+        and GameMenuFrame.points[1][4] == (metrics.gameLeft+metrics.gameRight)/2,
+        "the protected ConsolePort menu must adopt the native center")
+    local originalScale = GameMenuFrame.GetEffectiveScale
+    GameMenuFrame.GetEffectiveScale = function() return 2 end
+    addon.HUD:HookFrames()
+    assert(GameMenuFrame.points[1][4] == (metrics.gameLeft+metrics.gameRight)/4,
+        "a later opening must adjust the previously owned anchor for the menu's scale")
+    GameMenuFrame:ClearAllPoints()
+    GameMenuFrame:SetPoint("CENTER", UIParent, "CENTER", 30, 25)
+    addon.HUD:HookFrames()
+    assert(GameMenuFrame.points[1][3] == "CENTER" and GameMenuFrame.points[1][4] == 30,
+        "the protected menu must retain an external anchor")
+    GameMenuFrame.GetEffectiveScale = originalScale
+    GameMenuFrame.IsProtected = function() return false end
+    ConsolePort = nil
+end
 GameMenuFrame:Hide()
 assert((UIParent.attributeWrites or 0) == panelAttributeWrites,
     "Forever must not write legacy UIParent panel-layout attributes")
@@ -1184,6 +1218,25 @@ assert(partyRecoveryPromptHidden == 1
 -- The same bounded, read-only recovery must cover other persistent protected
 -- Edit Mode systems. PetFrame represents the conditional unit-frame family;
 -- transient popups and nameplates intentionally use separate lifecycles.
+PlayerFrame = makeMockFrame("PlayerFrame", 180, 80)
+PlayerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 1500)
+EditModeManagerFrame:Show()
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(addon.HUD.foreverPartyFrameOutsideDisplays == "PlayerFrame",
+    "record the off-screen PlayerFrame preview before leaving Edit Mode")
+EditModeManagerFrame:Hide()
+EditModeManagerFrame.editModeActive = true
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1 and addon.HUD.foreverPartyFrameOutsideDisplays == "PlayerFrame",
+    "temporarily hiding Edit Mode must not prompt for repair while the native editor is still active")
+EditModeManagerFrame.editModeActive = false
+PlayerFrame:ClearAllPoints()
+PlayerFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 2500, 300)
+addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
+assert(partyRecoveryPromptCount == 1 and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
+    "a reachable live PlayerFrame after Edit Mode must clear the stale preview candidate")
+PlayerFrame = nil
+
 PetFrame = makeMockFrame("PetFrame", 180, 80)
 PetFrame.IsProtected = function() return true end
 PetFrame:ClearAllPoints()
@@ -1213,7 +1266,7 @@ PetFrame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 500, 300)
 EditModeManagerFrame:Show()
 addon.HUD:UpdateForeverPartyFrameRecovery(partyRecoveryMetrics)
 EditModeManagerFrame:Hide()
-assert(partyRecoveryPromptHidden == 2
+assert(partyRecoveryPromptHidden == 3
         and addon.HUD.foreverPartyFrameOutsideDisplays == nil,
     "recovering a non-party protected HUD frame must clear the guidance state")
 
@@ -1534,6 +1587,51 @@ EditModeLayoutDialog:Hide()
 EditModeManagerFrame:Hide()
 addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
 EditModeManagerFrame:Show()
+
+-- Cooldown Manager layout dialogs open independently of Edit Mode.
+do
+    EditModeManagerFrame:Hide()
+    addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+    local promptsBefore = editModePromptCount
+    for _, name in ipairs({ "CooldownViewerImportLayoutDialog", "CooldownViewerLayoutDialog" }) do
+        local dialog = makeMockFrame(name, 520, 360)
+        _G[name] = dialog
+        dialog:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 1268, 1586)
+        combatLocked = true
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        assert(dialog.setPointCalls == 1, name .. " must stay untouched in combat")
+        combatLocked = false
+        dialog.IsProtected = function() return true end
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        assert(dialog.setPointCalls == 1, name .. " must stay untouched when protected")
+        dialog.IsProtected = function() return false end
+        dialog.IsForbidden = function() return true end
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        assert(dialog.setPointCalls == 1, name .. " must stay untouched when forbidden")
+        dialog.IsForbidden = function() return false end
+        addon.HUD:UpdateForeverEditModeControlsRecovery(metrics)
+        local x, y = dialog:GetCenter()
+        assert(dialog.setPointCalls == 2 and editModePromptCount == promptsBefore
+            and math.abs(x - (metrics.gameLeft + metrics.gameRight) / 2) < 1
+            and math.abs(y - (metrics.gameBottom + metrics.gameTop) / 2) < 1,
+            name .. " must recover to Mainhand without Edit Mode or a prompt")
+
+        dialog:ClearAllPoints()
+        dialog:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        local oldChildren, oldSpecial = UIParent.children, UISpecialFrames
+        UIParent.children, UISpecialFrames = { dialog }, { name }
+        dialog.HookScript = function() error(name .. " must not receive generic popup hooks") end
+        local gameTop = metrics.gameTop
+        metrics.gameTop = 1500
+        addon.HUD.popupTicker.callback()
+        metrics.gameTop = gameTop
+        UIParent.children, UISpecialFrames = oldChildren, oldSpecial
+        assert(dialog.setPointCalls == 3 and dialog.points[1][4] == 0 and dialog.points[1][5] == 0,
+            name .. " must keep its reachable stock anchor through the full popup ticker")
+        _G[name] = nil
+    end
+    EditModeManagerFrame:Show()
+end
 
 -- Restoring the window to one monitor is when a stale spanned Edit Mode
 -- control is most likely to be unreachable. Recovery must continue to offer
@@ -2151,11 +2249,13 @@ local rescuedTop = ExampleAddonWindow:GetTop()
 assert(rescuedTop <= metrics.gameTop, string.format("Rescued frame top (%s) must be <= gameTop (%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 print(string.format("PASS: Void Rescue Engine successfully rescued ExampleAddonWindow from void (top=%s <= gameTop=%s)", tostring(rescuedTop), tostring(metrics.gameTop)))
 
--- BetterBags owns its bag/anchor positions through LibWindow. RestedXP owns
--- both its named legacy guide and its anonymous V2 AceGUI root. A new native
--- panel must not make the automatic scanner treat them as fresh popups.
+-- Bag addons own their bag/anchor positions. RestedXP owns both its named
+-- legacy guide and its anonymous V2 AceGUI root. A new native panel must not
+-- make the automatic scanner treat them as fresh popups.
 do
 local originalSpecialFrames,originalV2=UISpecialFrames,RXPV2GuideWindow
+local originalBagPersistence=addon.BagPersistence
+assert(loadfile('Core/BagPersistence.lua'))('Offhand',addon)
 local originalPanels={}
 UISpecialFrames={}
 local owned={}
@@ -2170,6 +2270,17 @@ for _,name in ipairs({'BetterBagsBagBackpack','BetterBagsBagBackpackAnchor',
     originalPanels[name]=UIPanelWindows[name]
     UIPanelWindows[name]={area='center'}
     owned[#owned+1]=f
+end
+-- Baganator intentionally clears IsUserPlaced after dragging, and registers
+-- both backpack views in UISpecialFrames. Exercise each vendor-owned root.
+local baganatorRoots={}
+for _,view in ipairs({'SingleView','CategoryView'}) do
+    local name='Baganator_'..view..'BackpackViewFrameblizzard'
+    local f=CreateFrame('Frame',name,UIParent)
+    f:SetPoint('CENTER',UIParent,'CENTER',0,0)
+    table.insert(UISpecialFrames,name)
+    owned[#owned+1]=f
+    baganatorRoots[#baganatorRoots+1]=f
 end
 -- Reproduce the linked native alert chain above the shorter Mainhand display.
 -- The roots are UIParent children, but their anchors belong to chat layout.
@@ -2200,6 +2311,17 @@ table.insert(UIParent.children,v2);RXPV2GuideWindow={frame=v2};owned[#owned+1]=v
 local placed=makeMockFrame('UserPlacedAddonWidget',300,180)
 placed:SetUserPlaced(true);placed:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
 table.insert(UIParent.children,placed);owned[#owned+1]=placed
+local originalTitanBarData, originalTitanBar = TitanBarData, Titan_Bar__Display_Bar
+local titanBar = makeMockFrame('Titan_Bar__Display_Bar', 4000, 24)
+Titan_Bar__Display_Bar = titanBar
+TitanBarData = { Titan_Bar__Display_Bar = { frame_name = 'Titan_Bar__Display_Bar' } }
+-- The mock resolves its rectangle from the last point. Titan's live frame
+-- derives its width and height from both points.
+titanBar:SetPoint('BOTTOMRIGHT', UIParent, 'TOPRIGHT', 0, -24)
+titanBar:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', 0, 0)
+assert(titanBar:GetTop() > metrics.gameTop + 2, 'Titan bar must cross the Mainhand top edge')
+table.insert(UIParent.children, titanBar)
+owned[#owned+1] = titanBar
 local counts={};for _,f in ipairs(owned) do counts[f]=f.setPointCalls end
 addon.HUD:HookFrames()
 for _,f in ipairs(owned) do ShowUIPanel(f) end
@@ -2215,6 +2337,15 @@ v2:ClearAllPoints();v2:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
 local writes=v2.setPointCalls
 flushTimers()
 assert(v2.setPointCalls==writes,'automatic void rescue must preserve the V2 guide owner too')
+for _,f in ipairs(baganatorRoots) do
+    f:ClearAllPoints()
+    f:SetPoint('TOPLEFT',UIParent,'TOPLEFT',2000,-50)
+    counts[f]=f.setPointCalls
+end
+flushTimers()
+for _,f in ipairs(baganatorRoots) do
+    assert(f.setPointCalls==counts[f],'automatic void rescue moved a Baganator backpack')
+end
 -- A user can move an ordinary center-area panel between immediate placement
 -- and the deferred settle pass. The timer must not erase that newer intent.
 local settling=makeMockFrame('UserPositionDuringPopupSettle',250,200)
@@ -2232,8 +2363,10 @@ for _,f in ipairs(owned) do
     if name then UIPanelWindows[name]=originalPanels[name] end
 end
 UISpecialFrames,RXPV2GuideWindow=originalSpecialFrames,originalV2
+TitanBarData, Titan_Bar__Display_Bar = originalTitanBarData, originalTitanBar
+addon.BagPersistence=originalBagPersistence
 UIPanelWindows.ReportPanelTrigger=nil
-print('PASS: automatic popup rescue preserves BetterBags, RestedXP V1/V2 and user-owned placement')
+print('PASS: automatic popup rescue preserves bag addons, RestedXP V1/V2 and user-owned placement')
 end
 
 -- ForeverXPbar owns its saved position, including centered and void anchors.
@@ -2251,6 +2384,16 @@ do
     writes = bar.setPointCalls
     flushTimers()
     assert(bar.setPointCalls == writes, 'popup recovery overwrote a later vendor position')
+    local previousSave = ForeverXPBarDB
+    ForeverXPBarDB = { point = "CENTER", relPoint = "CENTER", x = 40, y = 50 }
+    function bar:GetRect() return 100, 200, 380, 26 end
+    local placement = table.concat(addon.Canvas:GetPanelPlacementDiagnostics(), "\n")
+    assert(placement:find("ForeverXPBarMainFrame", 1, true)
+        and placement:find("ForeverXPBarSave=CENTER/CENTER/40.0/50.0", 1, true),
+        "panel diagnostics must report the XP bar's live and saved placements")
+    assert(bar.setPointCalls == writes and ForeverXPBarDB.x == 40,
+        "panel diagnostics must be read-only")
+    ForeverXPBarDB = previousSave
     bar:Hide()
 end
 
@@ -2269,6 +2412,17 @@ addon.HUD:HookFrames(); flushTimers()
 addon.Canvas.MakePanelDraggable(map)
 assert(map.setPointCalls == writes and not map.scripts.OnShow and not map.scripts.OnDragStart,
     "popup rescue and Canvas movement must preserve the detached visible minimap")
+local previousQueueButton = QueueStatusButton
+QueueStatusButton = makeMockFrame("QueueStatusButton", 45, 45)
+QueueStatusButton:SetPoint("TOPLEFT", map, "TOPLEFT", metrics.gameRight - 90, 0)
+table.insert(UIParent.children, QueueStatusButton)
+local queueWrites = QueueStatusButton.setPointCalls
+assert(QueueStatusButton:GetTop() > metrics.gameTop + 2, "queue button fixture must trigger the generic void scan")
+flushTimers()
+assert(QueueStatusButton.setPointCalls == queueWrites and select(2, QueueStatusButton:GetPoint()) == map,
+    "generic popup rescue must preserve Blizzard's Queue Status button anchor")
+QueueStatusButton:Hide()
+QueueStatusButton = previousQueueButton
 local crop = makeMockFrame("AnonymousMinimapCropTest", 200, 160)
 _G.AnonymousMinimapCropTest = nil
 crop.name = nil
@@ -2748,6 +2902,97 @@ assert(controllerDiagnostics:find("WorldMapFrame=forever-world-map/settlement#",
         and controllerDiagnostics:find("FriendsFrame=forever-social-community/", 1, true),
     "panel diagnostics must expose the dedicated controller and its last activity")
 addon.db.savedWorkspacePositions.WorldMapFrame = nil
+
+do
+    local oldAdapter, oldAddOns, oldSpecial = addon.CanvasAddonEscape, C_AddOns, UISpecialFrames
+    local oldRecovery = addon.Recovery
+    local oldGuide, oldArrow, oldMerchant = LeveldonPanel, DonMapArrow, MerchantFrame
+    assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", addon)
+    assert(loadfile("Core/Recovery.lua"))("Offhand", addon)
+    C_AddOns = {IsAddOnLoaded = function(name) return name == "Leveldon" or name == "DonMap" end}
+    UISpecialFrames = {}
+    LeveldonPanel = makeMockFrame("LeveldonPanel", 350, 430)
+    LeveldonPanel.GetParent = function() return UIParent end
+    LeveldonPanel._isStylePanel = true
+    LeveldonPanel.ApplySettings = function() end
+    LeveldonPanel._header = {GetParent = function() return LeveldonPanel end}
+    DonMapArrow = makeMockFrame("DonMapArrow", 52, 52)
+    DonMapArrow.GetParent = LeveldonPanel.GetParent
+    DonMapArrow.GetObjectType = function() return "Button" end
+    DonMapArrow.icon, DonMapArrow.shadow, DonMapArrow.glow = {}, {}, {}
+    MerchantFrame = makeMockFrame("MerchantFrame", 600, 700)
+    local function Place(frame, x, y)
+        frame:ClearAllPoints()
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
+    end
+    local function Escape()
+        for _, name in ipairs(UISpecialFrames) do
+            local frame = _G[name]
+            if frame and frame:IsShown() then frame:Hide() end
+        end
+    end
+
+    -- Recreate old Gather ownership before the adapter's refresh. A vendor
+    -- drag has already placed the guide elsewhere using its own saved anchor.
+    addon.db.savedMainPositions.LeveldonPanel = {x = 2000, y = 1000}
+    addon.db.savedWorkspacePositions.DonMapArrow = {x = 150, y = 1800}
+    addon.db.openWorkspacePanels.DonMapArrow = true
+    Place(LeveldonPanel, 250, 1700)
+    Place(DonMapArrow, 1820, 1150)
+    ShowUIPanel(MerchantFrame)
+    assert(LeveldonPanel:GetLeft() == 250 and DonMapArrow:GetLeft() == 1820,
+        "merchant panel repair must yield to both vendor-native anchors before migration")
+    assert(#UISpecialFrames == 0, "peer repair must not register either vendor gameplay frame for Escape")
+
+    addon.CanvasAddonEscape:Refresh()
+    assert(not addon.db.savedMainPositions.LeveldonPanel and not addon.db.savedWorkspacePositions.DonMapArrow
+        and not addon.db.openWorkspacePanels.DonMapArrow, "obsolete Offhand ownership was retained")
+    local oldChildren, oldSeamRedirect = UIParent.children, addon.db.seamRedirect
+    UIParent.children, addon.db.seamRedirect = {LeveldonPanel, DonMapArrow}, true
+    LeveldonPanel:ClearAllPoints()
+    LeveldonPanel:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    Place(DonMapArrow, 1820, 1970)
+    local guideWrites, arrowWrites = LeveldonPanel.setPointCalls, DonMapArrow.setPointCalls
+    addon.HUD.popupTicker.callback()
+    assert(LeveldonPanel.setPointCalls == guideWrites and DonMapArrow.setPointCalls == arrowWrites,
+        "automatic popup rescue must preserve the vendor's centered and void positions")
+    UIParent.children, addon.db.seamRedirect = oldChildren, oldSeamRedirect
+
+    for _, frame in ipairs({LeveldonPanel, DonMapArrow}) do
+        Place(frame, 1820, 1970)
+        local ok, _, moved = addon.Canvas:GatherSafeUIToMainhand(true, frame)
+        assert(ok and moved == 1 and frame:GetTop() <= metrics.gameTop,
+            "explicit missing-only recovery must make an off-screen vendor frame reachable")
+        Place(frame, 250, 1700)
+        ok, _, moved = addon.Canvas:GatherSafeUIToMainhand(false, frame)
+        assert(ok and moved == 1 and frame:GetLeft() >= metrics.gameLeft,
+            "explicit Gather must still make the vendor frame reachable")
+        local name = frame:GetName()
+        assert(not addon.db.savedMainPositions[name] and not addon.db.savedWorkspacePositions[name],
+            "explicit Gather must not acquire persistent placement for a vendor gameplay frame")
+        Escape()
+        assert(frame:IsShown(), "Escape must leave the gathered vendor frame shown on Mainhand")
+        Place(frame, 220, 1700)
+        ShowUIPanel(MerchantFrame)
+        Escape()
+        assert(frame:IsShown() and frame:GetLeft() == 220,
+            "vendor placement on Offhand must survive merchant layout and Escape")
+        frame:Hide()
+        assert(not frame:IsShown(), "explicit vendor close must remain available")
+        ok, _, moved = addon.Canvas:GatherSafeUIToMainhand(true, frame)
+        assert(ok and moved == 0 and not frame:IsShown(), "recovery must preserve an explicitly hidden vendor frame")
+        frame:Show()
+    end
+    table.insert(UISpecialFrames, "LeveldonPanel")
+    addon.db.savedMainPositions.LeveldonPanel = {x = 1800, y = 1000}
+    addon.CanvasAddonEscape:Refresh()
+    assert(UISpecialFrames[1] == "LeveldonPanel",
+        "migration must leave an Escape registration from another source alone")
+    addon.CanvasAddonEscape, C_AddOns, UISpecialFrames = oldAdapter, oldAddOns, oldSpecial
+    addon.Recovery = oldRecovery
+    LeveldonPanel, DonMapArrow, MerchantFrame = oldGuide, oldArrow, oldMerchant
+    print("PASS: native Don gameplay placement and visibility survive merchant, Escape and Gather")
+end
 
 -- Forever currently exposes the visible Friends panel as SocialUIFrame. It is
 -- not one of the earlier guessed FriendsFrame/FriendsListFrame aliases and may
@@ -3348,6 +3593,234 @@ assert(not addon.db.savedWorkspacePositions.ProfessionsFrame
 assert(addon.Canvas.IsForeverProfessionsPanel(professionsFrame),
     "Forever Professions roots must be recognized as Blizzard-owned")
 print("PASS: Forever Professions remains entirely under Blizzard ownership")
+
+;(function()
+    -- On Forever, the panel manager assigns the slot and updates the anchors
+    -- of both roots against the full UIParent before showing the requested
+    -- frame. Model that ordering through the installed Canvas post-hooks.
+    local oldGetSlot, oldProfessions, oldSpells = GetUIPanel, ProfessionsFrame, PlayerSpellsFrame
+    local oldProfessionsRegistration, oldSpellsRegistration = UIPanelWindows.ProfessionsFrame,
+        UIPanelWindows.PlayerSpellsFrame
+    local oldProfessionsMain, oldSpellsMain = addon.db.savedMainPositions.ProfessionsFrame,
+        addon.db.savedMainPositions.PlayerSpellsFrame
+    local oldProfessionsWorkspace, oldSpellsWorkspace = addon.db.savedWorkspacePositions.ProfessionsFrame,
+        addon.db.savedWorkspacePositions.PlayerSpellsFrame
+    local function AssertMainhand(frame, action)
+        assert(frame:IsShown() and frame:GetLeft() >= metrics.gameLeft and frame:GetRight() <= metrics.gameRight
+            and frame:GetBottom() >= metrics.gameBottom and frame:GetTop() <= metrics.gameTop,
+            frame:GetName() .. " must be visible on Mainhand immediately after " .. action)
+    end
+    local function CheckOpeningOrder(firstName, secondName)
+        local slots = {}
+        GetUIPanel = function(slot) return slots[slot] end
+        local function ShowNativeRoot(frame)
+            slots[frame:GetName() == "ProfessionsFrame" and "left" or "center"] = frame
+            UpdateUIPanelPositions(frame)
+        end
+        nativeUIPanelLayout = function()
+            local left = 40
+            for _, slot in ipairs({"left", "center"}) do
+                local frame = slots[slot]
+                if frame then
+                    frame:ClearAllPoints()
+                    if slot == "center" and not slots.left then
+                        -- A minimized centerOrLeft Spellbook uses a negative
+                        -- center offset when it is the only native panel.
+                        frame:SetPoint("TOP", UIParent, "TOP", -405, -120)
+                    else
+                        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, -120)
+                    end
+                    left = left + frame:GetWidth() + 10
+                end
+            end
+        end
+        local function RegisterColdRoot(name, width, height)
+            addon.db.savedMainPositions[name] = nil
+            addon.db.savedWorkspacePositions[name] = nil
+            local frame = makeMockFrame(name, width, height)
+            frame:Hide()
+            frame.nativeShow = ShowNativeRoot
+            if name == "PlayerSpellsFrame" then
+                local originalGetLeft = frame.GetLeft
+                function frame:GetLeft()
+                    local point, relative, relativePoint, x = self:GetPoint()
+                    if point == "TOP" and relative == UIParent and relativePoint == "TOP" then
+                        return UIParent:GetWidth() / 2 + x - self:GetWidth() / 2
+                    end
+                    return originalGetLeft(self)
+                end
+            end
+            UIPanelWindows[name] = {area = name == "ProfessionsFrame" and "left" or "centerOrLeft", pushable = 1}
+            RegisterUIPanel(frame)
+            return frame
+        end
+
+        local first = RegisterColdRoot(firstName, 720, 760)
+        ShowUIPanel(first)
+        AssertMainhand(first, "its first native ShowUIPanel")
+
+        local second = RegisterColdRoot(secondName, 620, 820)
+        ShowUIPanel(second)
+        AssertMainhand(first, "opening " .. secondName)
+        AssertMainhand(second, "its first native ShowUIPanel while its peer is shown")
+        UpdateUIPanelPositions()
+        AssertMainhand(first, "the next native layout pass")
+        AssertMainhand(second, "the next native layout pass")
+        assert(ProfessionsFrame:GetRight() <= PlayerSpellsFrame:GetLeft(),
+            "the two books must fit side by side in native slot order")
+        flushTimers()
+        assert(ProfessionsFrame:GetRight() <= PlayerSpellsFrame:GetLeft(),
+            "deferred title-grip attachment must preserve an already fitting book pair")
+        assert(GetUIPanel("left") == ProfessionsFrame and GetUIPanel("center") == PlayerSpellsFrame,
+            "default placement must keep native slot ownership")
+        assert(not addon.db.savedMainPositions[firstName] and not addon.db.savedMainPositions[secondName]
+            and not addon.db.savedWorkspacePositions[firstName] and not addon.db.savedWorkspacePositions[secondName],
+            "default placement must not create saved ownership")
+
+        slots[secondName == "ProfessionsFrame" and "left" or "center"] = nil
+        second:Hide()
+        UpdateUIPanelPositions()
+        AssertMainhand(first, "closing " .. secondName)
+        first:Hide()
+        nativeUIPanelLayout = nil
+    end
+    experimentalProfessionsMovement = true
+    CheckOpeningOrder("ProfessionsFrame", "PlayerSpellsFrame")
+    CheckOpeningOrder("PlayerSpellsFrame", "ProfessionsFrame")
+    experimentalProfessionsMovement = false
+    GetUIPanel, ProfessionsFrame, PlayerSpellsFrame = oldGetSlot, oldProfessions, oldSpells
+    UIPanelWindows.ProfessionsFrame, UIPanelWindows.PlayerSpellsFrame = oldProfessionsRegistration, oldSpellsRegistration
+    addon.db.savedMainPositions.ProfessionsFrame, addon.db.savedMainPositions.PlayerSpellsFrame =
+        oldProfessionsMain, oldSpellsMain
+    addon.db.savedWorkspacePositions.ProfessionsFrame, addon.db.savedWorkspacePositions.PlayerSpellsFrame =
+        oldProfessionsWorkspace, oldSpellsWorkspace
+    print("PASS: cold Forever Professions and Spellbook first show and peer reflow")
+end)()
+
+;(function()
+    -- Forever 70938 Mainline UIPanelWindows registers these roots in the
+    -- shared panel manager. Exercise a completed native reflow even when a
+    -- character cannot open a particular peer via its normal entry point.
+    local tracked = {"PlayerSpellsFrame", "ProfessionsFrame", "CollectionsJournal", "CharacterFrame", "PVEFrame",
+        "PVPUIFrame", "RaidParentFrame", "EncounterJournal", "GuildControlUI", "ChatConfigFrame"}
+    local prior, db = {}, addon.db
+    for _, name in ipairs(tracked) do
+        prior[name] = {_G[name], UIPanelWindows[name], db.savedMainPositions[name], db.savedWorkspacePositions[name]}
+        db.savedMainPositions[name], db.savedWorkspacePositions[name] = nil, nil
+    end
+    local oldGetSlot, oldExperiment = GetUIPanel, experimentalProfessionsMovement
+    experimentalProfessionsMovement = true
+
+    local function OnMainhand(frame)
+        return frame:GetLeft() >= metrics.gameLeft and frame:GetRight() <= metrics.gameRight
+            and frame:GetBottom() >= metrics.gameBottom and frame:GetTop() <= metrics.gameTop
+    end
+
+    local function VerifyPeerReflow(name, peerName, nativeSlot, expectSideBySide)
+        local frame = makeMockFrame(name, 600, 540)
+        local peer = makeMockFrame(peerName, 540, 500)
+        frame:Hide()
+        peer:Hide()
+        -- Character pushed to center and Collections remaining left were both
+        -- observed live. The other peers model only the shared layout pass.
+        local slots = {[nativeSlot] = frame}
+        local peerSlot = nativeSlot == "left" and "center" or "left"
+        GetUIPanel = function(slot) return slots[slot] end
+        nativeUIPanelLayout = function()
+            local left = 16
+            for _, slot in ipairs({"left", "center"}) do
+                local root = slots[slot]
+                if root then
+                    root:ClearAllPoints()
+                    root:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, -120)
+                    left = left + root:GetWidth() + 12
+                end
+            end
+        end
+        _G[name], _G[peerName] = frame, peer
+        UIPanelWindows[name], UIPanelWindows[peerName] = {area = "left"}, {area = "left"}
+
+        -- Start with a visible root in an already-settled default position.
+        -- No Offhand record may mask the missing default peer coverage.
+        frame:Show()
+        frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", metrics.gameLeft + 140, metrics.gameTop - 40)
+        if name == "CharacterFrame" then
+            -- This flag remains true on the real native root after slot reflow.
+            frame:SetUserPlaced(true)
+        end
+        peer.nativeShow = function()
+            slots[peerSlot] = peer
+            UpdateUIPanelPositions(peer)
+        end
+        ShowUIPanel(peer)
+        assert(frame:IsShown() and peer:IsShown() and slots[peerSlot] == peer,
+            name .. " and " .. peerName .. " must retain the native open transaction")
+        local label = name .. " with " .. peerName
+        assert(OnMainhand(frame), label .. " must stay on Mainhand through peer open")
+        if expectSideBySide then
+            assert(OnMainhand(peer) and slots.left:GetRight() <= slots.center:GetLeft(),
+                label .. " must fit on Mainhand in native slot order")
+        end
+        slots[peerSlot] = nil
+        peer:Hide()
+        UpdateUIPanelPositions()
+        assert(OnMainhand(frame), label .. " must stay on Mainhand through peer close")
+        assert(frame:IsShown() and not peer:IsShown() and slots[nativeSlot] == frame,
+            name .. " must retain its native visibility and slot while its peer closes")
+        assert(not db.savedMainPositions[name] and not db.savedWorkspacePositions[name],
+            name .. " default placement must not create saved ownership")
+        if name == "CharacterFrame" then
+            frame:ClearAllPoints()
+            frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 40, 80)
+            addon.Canvas:RepairDefaultForeverSlots()
+            assert(select(4, frame:GetPoint(1)) == 40,
+                "a user-placed Character anchor outside the native slot must be preserved")
+        end
+        frame:Hide()
+        nativeUIPanelLayout = nil
+    end
+
+    for _, peer in ipairs({"PVEFrame", "PVPUIFrame", "RaidParentFrame", "EncounterJournal", "GuildControlUI", "ChatConfigFrame"}) do
+        VerifyPeerReflow("PlayerSpellsFrame", peer, "center")
+    end
+    VerifyPeerReflow("CollectionsJournal", "ProfessionsFrame", "left", true)
+    VerifyPeerReflow("CharacterFrame", "CollectionsJournal", "center", true)
+
+    GetUIPanel, experimentalProfessionsMovement = oldGetSlot, oldExperiment
+    for _, name in ipairs(tracked) do
+        local state = prior[name]
+        _G[name], UIPanelWindows[name], db.savedMainPositions[name], db.savedWorkspacePositions[name] =
+            state[1], state[2], state[3], state[4]
+    end
+    print("PASS: Collections and Character peer reflow, plus six additional Spellbook peers")
+end)()
+
+do
+    local priorFrame, priorPanel = TradeFrame, UIPanelWindows.TradeFrame
+    local main, workspace = addon.db.savedMainPositions, addon.db.savedWorkspacePositions
+    local priorMain, priorWorkspace = main.TradeFrame, workspace.TradeFrame
+    main.TradeFrame, workspace.TradeFrame = nil, nil
+    TradeFrame = makeMockFrame("TradeFrame", 340, 470)
+    UIPanelWindows.TradeFrame = {area = "left"}
+    TradeFrame:Hide()
+    TradeFrame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -104)
+    addon.Canvas.MakePanelDraggable(TradeFrame)
+    assert(TradeFrame.scripts.OnShow, "the trade drag handler must retain its normal OnShow entry point")
+    TradeFrame:Show()
+    flushTimers()
+    assert(select(3, TradeFrame:GetPoint(1)) == "TOPLEFT",
+        "generic Canvas placement must leave stock TradeFrame positioning to the native transaction observer")
+
+    TradeFrame:Hide()
+    main.TradeFrame = {x = metrics.gameLeft + 30, y = metrics.gameTop - 30}
+    TradeFrame:Show()
+    flushTimers()
+    assert(TradeFrame:GetLeft() == main.TradeFrame.x and TradeFrame:GetTop() == main.TradeFrame.y,
+        "a saved trade position must still use ordinary Canvas restore")
+    TradeFrame:Hide()
+    TradeFrame, UIPanelWindows.TradeFrame = priorFrame, priorPanel
+    main.TradeFrame, workspace.TradeFrame = priorMain, priorWorkspace
+end
 
 -- Professions remains isolated from automatic first-open behavior, while an
 -- explicitly moved Offhand instance gains reload and Escape-slot persistence.

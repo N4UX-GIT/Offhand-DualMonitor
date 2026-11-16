@@ -178,7 +178,7 @@ function Professions.Install(Canvas, services)
                 RestoreSavedPositionAfterShow(frame)
                 frame._OffhandExperimentalProfessionsRestoreAllowed = nil
             else
-                Canvas:PlacePanelOnMainhand(frame, nil, nil, false)
+                Canvas:PlacePanelOnMainhand(frame, nil, nil, true)
             end
             local grip = frame._OffhandExperimentalProfessionsGrip
             if grip and Offhand.PanelMotion and Offhand.PanelMotion.SetTitleGripActive then
@@ -274,10 +274,9 @@ function Professions.Install(Canvas, services)
                 -- UIParent. With a portrait workspace beside a landscape Mainhand,
                 -- that default upper-left anchor can put the title bar in the void
                 -- above Mainhand and make our opt-in drag surface unreachable.
-                -- This runs only after the one-second native-open settlement and
-                -- only under explicit experimental consent; it does not open,
-                -- demodalize, persist or otherwise join the generic panel lifecycle.
-                Canvas:PlacePanelOnMainhand(frame, nil, nil, false)
+                -- Keep the native transaction's Mainhand placement once it is
+                -- reachable. The title grip still waits for native settlement.
+                Canvas:PlacePanelOnMainhand(frame, nil, nil, true)
             end
             RestoreSavedProfessionsPosition()
         end)

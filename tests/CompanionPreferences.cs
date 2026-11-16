@@ -47,11 +47,11 @@ namespace Offhand.Companion {
 
         public static void Main() {
             CheckCompanionInstanceGuard();
-            Check(CompanionForm.FullVersion == "2.1.7");
+            Check(CompanionForm.FullVersion == "2.1.9-beta.1");
             var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            Check(assembly.GetName().Version == new Version(2,1,7,0));
+            Check(assembly.GetName().Version == new Version(2,1,9,0));
             Check(((System.Reflection.AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
-                assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute))).InformationalVersion == "2.1.7");
+                assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute))).InformationalVersion == "2.1.9-beta.1");
             Check(CompanionDistribution.UpdateButtonText(true) == "Store Updates");
             Check(CompanionDistribution.UpdateButtonText(false) == "Check for Updates");
             Check(CompanionDistribution.UpdateMenuText(true).Contains("Microsoft Store"));
@@ -100,6 +100,35 @@ namespace Offhand.Companion {
                 .Contains("same privilege level"));
             Check(WindowInteropDiagnostics.StyleFailure("Could not remove WoW window borders", 87)
                 .Contains("Windows error 87"));
+            var expectedSpan = new Rectangle(-1660, -371, 4220, 2240);
+            var actualSpan = new Rectangle(-1660, -371, 4204, 2240);
+            var spanObservation = new ClassicGraphicsRecovery.Observation {
+                Bounds = actualSpan, Client = actualSpan.Size, Region = new Rectangle(Point.Empty, expectedSpan.Size),
+                Style = 0x140B0000
+            };
+            string readback = WindowInteropDiagnostics.SpanReadback(expectedSpan, actualSpan, 0, spanObservation);
+            Check(readback.Contains("outer=" + actualSpan) && readback.Contains("expected=" + expectedSpan)
+                && readback.Contains("client=" + spanObservation.Client)
+                && readback.Contains("region=" + spanObservation.Region) && readback.Contains("style=140B0000"));
+            string unreadable = WindowInteropDiagnostics.SpanReadback(expectedSpan, null, 1400, null);
+            Check(unreadable.Contains("outer=unavailable (Windows error 1400)")
+                && unreadable.Contains("expected=" + expectedSpan));
+            var failedPlan = new MonitorSelection.Plan {
+                FlexibleLayout = true, Bounds = expectedSpan, MainhandBounds = new Rectangle(0, 0, 2560, 1440),
+                Workspaces = new [] {
+                    new MonitorSelection.WorkspaceRegion { Bounds = new Rectangle(-1660, -371, 1600, 1640) },
+                    new MonitorSelection.WorkspaceRegion { Bounds = new Rectangle(-1660, 1269, 1600, 600) }
+                }
+            };
+            var capturedUtc = new DateTime(2026, 11, 12, 17, 3, 18, DateTimeKind.Utc);
+            string failedSpan = WindowInteropDiagnostics.FailedSpan(capturedUtc, failedPlan, readback, null);
+            Check(failedSpan.Contains(capturedUtc.ToString("u")) && failedSpan.Contains("Attempted layout: custom workspace")
+                && failedSpan.Contains("Requested Mainhand: " + failedPlan.MainhandBounds)
+                && failedSpan.Contains("Requested workspace 1: " + failedPlan.Workspaces[0].Bounds)
+                && failedSpan.Contains("Requested workspace 2: " + failedPlan.Workspaces[1].Bounds)
+                && failedSpan.Contains(readback) && failedSpan.Contains("Span rollback: completed."));
+            Check(WindowInteropDiagnostics.FailedSpan(capturedUtc, failedPlan, unreadable, "Span rollback incomplete: window bounds.")
+                .Contains("Span rollback incomplete: window bounds."));
             var renderTarget = new Rectangle(-440, -1080, 3440, 2520);
             Check(!RenderResizeHandshake.Allowed(false));
             Check(!RenderResizeHandshake.Allowed(true));
@@ -251,7 +280,7 @@ namespace Offhand.Companion {
                     "## Interface: 16000\n## X-Offhand-Release: beta.20\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.2-beta.19\n");
                 Check(AddonInstallation.Inspect(futureWow).Installed);
                 File.WriteAllText(Path.Combine(futureAddon, "Offhand_Forever.toc"),
-                    "## Interface: 16000\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.8-beta.1\n");
+                    "## Interface: 16000\n## X-Offhand-Companion-Protocol: 1\n## X-Offhand-Companion-Min-Version: 2.1.9-beta.2\n");
                 Check(!AddonInstallation.Inspect(futureWow).Installed);
 
                 string legacyWow = Path.Combine(root, "legacy-compatible");
@@ -322,7 +351,7 @@ namespace Offhand.Companion {
                 Check(CompanionTopologyBridge.TryWrite(wow, plan, displays, out topologyMessage, out writtenTopology));
                 Check(SpanRollback.SameBytes(writtenTopology, File.ReadAllBytes(Path.Combine(core, "CompanionTopology.lua"))));
                 string topology = File.ReadAllText(Path.Combine(core, "CompanionTopology.lua"));
-                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.7\"") && topology.Contains("width = 3440") &&
+                Check(topology.Contains("mode = \"DUAL_DISPLAY\"") && topology.Contains("companionVersion = \"2.1.9-beta.1\"") && topology.Contains("width = 3440") &&
                     topology.Contains("height = 1080") && topology.Contains("y = 0"));
                 Check(CompanionTopologyBridge.IsCurrent(wow, plan, displays));
                 var oppositeSplit = MonitorSelection.CreatePlan(@"MONITOR\MAIN\A", null, null,

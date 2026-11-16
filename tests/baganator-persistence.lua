@@ -117,9 +117,14 @@ hooksecurefunc=function(target, methodOrCallback, maybeCallback)
 end
 assert(loadfile("Core/BagPersistence.lua"))("Offhand",addon)
 local tracker=addon.BagPersistence
+addon.isForever = true
 onEvent(nil,"PLAYER_LOGIN"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
+addon.isForever = false
 assert(tracker.frames[name] == bag and tracker.frames[childName] == nil,
     "Baganator child regions must not be mistaken for backpack roots")
+assert(tracker.IsBaganatorBackpackRoot(bag, name)
+    and not tracker.IsBaganatorBackpackRoot(child, childName),
+    "popup ownership must recognize the backpack root without claiming its children")
 assert(globalScans == 1,
     "Baganator discovery must scan globals only once during lifecycle initialization")
 for _ = 1, 15 do tick() end
@@ -153,6 +158,21 @@ assert(addon.db.baganatorWorkspacePanels[name].x==100)
 assert(addon.db.baganatorWorkspacePanels[name].y==300
     and addon.db.baganatorWorkspacePanels[name].coordinateVersion==2,
     "addon bag snapshots must store the top edge used by Canvas restoration")
+
+local positionBeforeRelayout = addon.db.savedWorkspacePositions[name]
+bag.shown=false; bag.x=2000; bag:Show()
+assert(addon.db.savedWorkspacePositions[name] == positionBeforeRelayout,
+    "vendor auto-open must not clear the workspace record before Baganator lays out the bag")
+bag.x=100; flush()
+assert(addon.db.savedWorkspacePositions[name].x == 100,
+    "bag show must capture the settled workspace geometry")
+positionBeforeRelayout=addon.db.savedWorkspacePositions[name]
+local openBeforeRelayout=addon.db.baganatorWorkspacePanels[name]
+bag.x=nil; tick()
+assert(addon.db.savedWorkspacePositions[name] == positionBeforeRelayout
+    and addon.db.baganatorWorkspacePanels[name] == openBeforeRelayout,
+    "temporarily unresolved geometry must preserve Baganator's saved anchor and open intent")
+bag.x=100; tick()
 -- UI teardown hides the bag before leaving; deferred hide must not erase state.
 bag:Hide(); onEvent(nil,"PLAYER_LEAVING_WORLD"); flush(); tick()
 assert(addon.db.baganatorWorkspacePanels[name])
@@ -165,7 +185,8 @@ bag:Hide(); flush(); assert(not next(addon.db.baganatorWorkspacePanels), "manual
 onEvent(nil,"PLAYER_LEAVING_WORLD"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
 assert(not bag.shown and toggles==1)
 bag.x=2000; bag:Show(); tick()
-assert(not next(addon.db.baganatorWorkspacePanels), "game-view bags must not be restored")
+assert(not next(addon.db.baganatorWorkspacePanels) and not addon.db.savedWorkspacePositions[name],
+    "a settled move to Mainhand must clear the old workspace placement and open intent")
 bag.x=100; tick(); bag:Hide(); onEvent(nil,"PLAYER_LEAVING_WORLD"); flush()
 combat=true; onEvent(nil,"PLAYER_ENTERING_WORLD"); flush(); assert(not bag.shown)
 combat=false; onEvent(nil,"PLAYER_REGEN_ENABLED"); flush(); assert(bag.shown)
@@ -207,6 +228,32 @@ ToggleGameMenu(); flush()
 ToggleAllBags(); flush()
 assert(not bag.shown and not next(addon.db.baganatorWorkspacePanels),
     "the explicit bag toggle must still close the bag and clear its open snapshot")
+
+-- Baganator retains its native registration when Offhand replays its anchor.
+-- Native title drags must retire Offhand's intent before the next Escape,
+-- even when it arrives before our regular capture tick.
+addon.isForever = true
+bag.x=100; bag:Show(); flush()
+assert(addon.db.baganatorWorkspacePanels[name], "expected a visible Offhand bag")
+bag.x=1800
+assert(bag.scripts.OnDragStop, "Baganator drag completion must reconcile Escape ownership")
+bag.scripts.OnDragStop()
+assert(not addon.db.baganatorWorkspacePanels[name] and not addon.db.savedWorkspacePositions[name],
+    "native drag to Mainhand must retire Offhand's Escape state in the same turn")
+nativeEscape=function() bag:Hide(); return true end
+ToggleGameMenu(); flush()
+assert(not bag.shown, "Escape immediately after a native Mainhand drag must close the bag")
+ToggleAllBags(); flush(); ToggleGameMenu(); flush()
+assert(not bag.shown, "opening Baganator with B on Mainhand must not restore old Offhand Escape state")
+ToggleAllBags(); flush()
+bag.x=100; bag.scripts.OnDragStop()
+ToggleGameMenu(); flush()
+assert(bag.shown and addon.db.baganatorWorkspacePanels[name],
+    "dragging back to Offhand must restore workspace Escape protection")
+nativeEscape=nil
+bag:Hide(); flush()
+GameMenuFrame.shown=false
+addon.isForever = false
 
 -- EllesmereUI's bag replacement is a supported root alongside Baganator.
 local eui={shown=true,x=120,y=320,scripts={}}
@@ -416,6 +463,58 @@ canManagePanels = false
 ToggleGameMenu(); flush()
 assert(not eui.shown and refreshed == 2,
     "native Gamepad Escape and focus must not be overridden by the replacement-bag path")
+
+local callbacks, registrations = {}, 0
+EventRegistry = { RegisterCallback = function(_, event, callback, owner)
+    registrations = registrations + 1
+    callbacks[event] = function() callback(owner) end
+end }
+canManagePanels = true
+onEvent(nil, "PLAYER_LOGIN")
+onEvent(nil, "PLAYER_LOGIN")
+flush()
+local openTalents = callbacks["PlayerSpellsFrame.OpenFrame"]
+assert(openTalents and registrations == 1, "Forever must observe the native Player Spells opening once")
+PlayerSpellsFrame = { shown = true, talentTabID = 2, tab = 2,
+    IsShown = function(self) return self.shown end,
+    GetTab = function(self) return self.tab end }
+local function openWorkspaceBags()
+    EllesmereUIDB.bagsVisible = true
+    eui:Show()
+    reagent:Show()
+    tick()
+end
+openWorkspaceBags()
+eui:Hide()
+reagent:Hide()
+local beforeTalents = refreshed
+local beforeReagent = reagent.refreshed
+openTalents()
+assert(not eui.shown, "bag restoration must run outside Blizzard's panel-open stack")
+flush()
+assert(eui.shown and refreshed == beforeTalents + 1 and reagent.shown
+    and reagent.refreshed == beforeReagent + 1 and not GameMenuFrame.shown and reloadToggles == 1,
+    "Talents must restore the two previously visible Ellesmere workspace roots without a bag or menu toggle")
+
+for _, exclude in ipairs({"spellbook", "closed-panel", "explicit-close", "combat", "gamepad", "mainhand", "no-open-intent", "loading"}) do
+    openWorkspaceBags()
+    eui:Hide()
+    reagent:Hide()
+    if exclude == "spellbook" then PlayerSpellsFrame.tab = 3 end
+    if exclude == "mainhand" then eui.x = 2000 end
+    if exclude == "no-open-intent" then tick() end
+    openTalents()
+    if exclude == "closed-panel" then PlayerSpellsFrame.shown = false end
+    if exclude == "explicit-close" then EllesmereUIDB.bagsVisible = false end
+    if exclude == "combat" then combat = true end
+    if exclude == "gamepad" then canManagePanels = false end
+    if exclude == "loading" then onEvent(nil, "PLAYER_LEAVING_WORLD") end
+    flush()
+    assert(not eui.shown and not reagent.shown and refreshed == beforeTalents + 1,
+        "Talents must leave bags closed for " .. exclude)
+    PlayerSpellsFrame.tab, PlayerSpellsFrame.shown = 2, true
+    combat, canManagePanels, eui.x = false, true, 720
+end
 
 print("PASS: addon bag reload, Escape, explicit close, Baganator, Bagnon and EllesmereUI roots")
 

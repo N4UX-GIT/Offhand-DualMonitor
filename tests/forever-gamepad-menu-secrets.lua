@@ -52,6 +52,7 @@ local function discover(options)
         EnumerateFrames = nil
     end
 
+    GamepadRadial = options.named and radial or nil
     local checks = {}
     issecretvalue = options.noDetector and nil or function(value)
         if options.detectorError then error("secret inspection unavailable") end
@@ -108,5 +109,10 @@ for _, enumerated in ipairs({ false, true }) do
         globalOption = "Private option", secret = "Private option" })
     assert(reason == "not-found", "secret localized option must not enter the label set")
 end
+
+local reason, checks, status = discover({ named = true, secret = "Game Menu" })
+assert(reason == "inactive" and status == "located:GamepadRadial",
+    "the known Forever radial must be located even before its labels are readable")
+assert(not checks["resource-secret"], "the known radial should bypass unrelated frame traversal")
 
 print("Forever Gamepad menu secret-text tests passed")

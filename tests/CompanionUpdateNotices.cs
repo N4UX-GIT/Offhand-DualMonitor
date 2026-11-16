@@ -97,9 +97,9 @@ namespace Offhand.Companion
                 Check(!CompanionForm.UpdateNoticeNeeded(settings)&&!CompanionForm.RememberCompanionVersion(settings),"Same version must not repeat/write");
                 settings["CompanionLastSeenVersion"]="2.1.6";
                 Check(CompanionForm.UpdateNoticeNeeded(settings),"Older acknowledged version must show changes");
-                settings["CompanionLastSeenVersion"]="2.1.8";
+                settings["CompanionLastSeenVersion"]="2.1.9";
                 Check(!CompanionForm.UpdateNoticeNeeded(settings)&&!CompanionForm.RememberCompanionVersion(settings)
-                    &&settings["CompanionLastSeenVersion"]=="2.1.8","Rollback must preserve newer acknowledgement");
+                    &&settings["CompanionLastSeenVersion"]=="2.1.9","Rollback must preserve newer acknowledgement");
                 settings["CompanionLastSeenVersion"]="bad";
                 Check(CompanionForm.UpdateNoticeNeeded(settings),"Malformed acknowledgement can recover");
                 string upgrade=Path.Combine(root,"upgrade.ini");

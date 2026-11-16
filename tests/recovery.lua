@@ -6,6 +6,7 @@ UIParent = {GetEffectiveScale=function() return .5 end}
 local metrics = {isSpanned=true,gameLeft=1000,gameRight=2000,gameBottom=0,gameTop=800,
     workspaceLeft=0,workspaceRight=1000,workspaceBottom=0,workspaceTop=1200}
 addon.Viewport = {GetMetrics=function() return metrics end}
+assert(loadfile('Core/HUDCompatibility.lua'))('Offhand',addon)
 assert(loadfile('Core/Recovery.lua'))('Offhand',addon)
 assert(loadfile('Core/CanvasPanelRegistry.lua'))('Offhand',addon)
 local function frame(name,x,y,w,h,shown)
@@ -179,6 +180,41 @@ assert(scaleWrites==0,'missing-only map recovery changed scale')
 WorldMapFrame=nil
 UIPanelWindows.WorldMapFrame=nil
 addon.isForever=false
+
+-- Only the active anonymous RestedXP guide is eligible for explicit recovery.
+local guide = frame(nil, 1100, 900)
+local anonymous = frame(nil, 1100, 900)
+anonymous.IsMovable = function() return true end
+local arrow = frame('RXPG_ARROW', 1200, 300)
+RXPG_ARROW = arrow
+RXPV2GuideWindow = {frame=guide}
+UIParent.GetChildren = function() return guide, anonymous, arrow end
+guide.SetClampedToScreen = function() error('recovery changed the guide clamp policy') end
+addon.db.openWorkspacePanels.BookPanel = nil
+local function recoverGuide(expected)
+    local success, _, count = addon.Recovery:Run()
+    assert(success and count == expected, 'unexpected RestedXP V2 recovery count')
+end
+recoverGuide(1)
+assert(guide.x >= metrics.gameLeft and inspect(guide, metrics) == 'visible',
+    'missing RestedXP V2 guide must land on Mainhand')
+assert(arrow.x == 1200 and arrow.y == 300 and anonymous.x == 1100,
+    'guide recovery moved the arrow or another anonymous frame')
+assert(not addon.db.savedMainPositions.RXPV2GuideWindow,
+    'the RestedXP widget key must not be recorded as a global frame name')
+assert(table.concat(canvas.lastGatherReport, ','):find('RXPV2GuideWindow=moved', 1, true),
+    'RestedXP guide recovery must be included in the moved report')
+recoverGuide(0)
+guide.x, guide.y = 995, 100
+recoverGuide(0)
+assert(guide.x == 995, 'a guide intersecting a physical display must stay put')
+guide.x, guide.y, guide.shown = 1100, 900, false
+recoverGuide(0)
+assert(not guide.shown and guide.y == 900, 'a hidden guide must stay hidden')
+guide.shown, guide.protected = true, true
+recoverGuide(0)
+assert(guide.y == 900, 'a protected guide must stay put')
+UIParent.GetChildren, RXPV2GuideWindow, RXPG_ARROW = nil, nil, nil
 
 -- Hidden Extra Abilities is actionable only while the native action exists;
 -- visible or dormant HUD systems never become layout-repair requests.

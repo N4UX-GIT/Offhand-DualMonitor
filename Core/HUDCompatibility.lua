@@ -86,7 +86,8 @@ end
 function Compatibility.IsBlizzardEditModeOwnedFrame(frame, name)
     name = name or (frame and frame.GetName and frame:GetName())
     if frame and frame.isManagedFrame == true then return true end
-    return name and (name:match("^EditMode") ~= nil
+    -- Blizzard's Group Finder Edit Mode system owns the Queue Status anchor.
+    return name and (name == "QueueStatusButton" or name:match("^EditMode") ~= nil
         or name:match("^DamageMeter") ~= nil) or false
 end
 
@@ -179,6 +180,12 @@ local function IsOrdinaryPopupValue(value)
     return ok and secret == false
 end
 
+function Compatibility.GetRestedXPGuideFrame()
+    -- V2 exposes an AceGUI widget whose actual UIParent child is anonymous.
+    local guide = _G.RXPV2GuideWindow
+    if type(guide) == "table" then return rawget(guide, "frame") end
+end
+
 -- Only automatic popup redirection yields here. Explicit workspace movement
 -- and each vendor's own position persistence keep their existing policies.
 function Compatibility.ShouldPreservePopupPosition(frame, name)
@@ -190,15 +197,24 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
         name = value
     end
     if not IsOrdinaryPopupValue(name) then return true end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return true end
     if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
     if type(name) == "string" and linkedChatPopupRoots[name] then return true end
+    -- Titan's full-width bars derive their size from two anchors. Popup
+    -- recovery collapses that rectangle if it replaces them with one point.
+    local titanBars = _G.TitanBarData
+    if type(titanBars) == "table" and type(name) == "string" and _G[name] == frame then
+        local bar = titanBars[name]
+        if type(bar) == "table" and bar.frame_name == name then return true end
+    end
     -- Details owns each numbered meter through its instance/LibWindow store.
     -- Its drag completion clears IsUserPlaced; configuration dialogs are separate.
     if type(name) == "string" and name:match("^DetailsBaseFrame%d+$") then return true end
-    -- RestedXP V2 exposes an AceGUI widget; its actual UIParent child is
-    -- anonymous. Consult the public widget on each pass for load-order changes.
-    local guide = _G.RXPV2GuideWindow
-    if type(guide) == "table" and rawget(guide, "frame") == frame then return true end
+    -- Baganator owns the backpack anchor and also clears IsUserPlaced on drag.
+    local bags = Offhand.BagPersistence
+    if bags and bags.IsBaganatorBackpackRoot and bags.IsBaganatorBackpackRoot(frame, name) then return true end
+    if Compatibility.GetRestedXPGuideFrame() == frame then return true end
     if type(frame.IsUserPlaced) == "function" then
         local ok, placed = pcall(frame.IsUserPlaced, frame)
         if not ok or not IsOrdinaryPopupValue(placed) or placed ~= false then return true end

@@ -98,6 +98,24 @@ namespace Offhand.Companion {
    File.WriteAllText(bridgePath,bridge.Replace("Desk renamed","stale name"));
    Check(!CompanionTopologyBridge.IsCurrent(wow,plan,displays),"Rename did not invalidate stale bridge metadata");
    Application.EnableVisualStyles();
+   using(var dialog=new WorkspaceProfilesDialog(new Dictionary<string,string>{{"PartialSpanEnabled","True"}},Displays)){
+    var layout=dialog.Controls.OfType<TableLayoutPanel>().Single();
+    layout.Controls.OfType<TextBox>().Single().Text="Test";
+    var save=layout.Controls.OfType<FlowLayoutPanel>().Single().Controls.OfType<Button>().Single(button=>button.Text=="Save as new");
+    var feedback=layout.Controls.OfType<Label>().Single(label=>label.AccessibleName=="Profile status");
+    Check(!save.Enabled && feedback.Text.Contains("One monitor") && feedback.Text.Contains("Multiple workspaces")
+     && feedback.Text.Contains("Save plan"),"Unsupported current layout must explain how to enable profile creation");
+   }
+   using(var dialog=new WorkspaceProfilesDialog(original,Displays)){
+    dialog.Show();Application.DoEvents();
+    var layout=dialog.Controls.OfType<TableLayoutPanel>().Single();
+    layout.Controls.OfType<TextBox>().Single().Text="Test";
+    var save=layout.Controls.OfType<FlowLayoutPanel>().Single().Controls.OfType<Button>().Single(button=>button.Text=="Save as new");
+    Check(save.Enabled,"A saved Multiple workspaces layout must allow its first profile");
+    save.PerformClick();
+    Check(WorkspacePlanProfiles.Read(dialog.Settings).Items.Single().Name=="Test","Save as new must stage a named profile without WoW");
+    dialog.Hide();
+   }
    using(var dialog=new WorkspaceProfilesDialog(renamed,Displays)){
     dialog.Show();Application.DoEvents();dialog.PerformLayout();
     Check(dialog.Text=="Workspace profiles","Profile editor missing");

@@ -3,6 +3,12 @@ local _, Offhand = ...
 local Lifecycle = {}
 Offhand.CanvasPanelLifecycle = Lifecycle
 
+function Lifecycle.OccupiesPanelSlot(frame)
+    if not frame or not GetUIPanel then return false end
+    return GetUIPanel("left") == frame or GetUIPanel("center") == frame
+        or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame
+end
+
 function Lifecycle.ObserveTBCPanelHide(Canvas, frame)
     local registry = Offhand.CanvasPanelRegistry
     if not registry.IsTBCPanelRuntime() or not frame or not Offhand.db or not Offhand.db.enabled then return end
@@ -548,9 +554,7 @@ function Lifecycle.InstallModality(Canvas, services)
         -- Blizzard's bag APIs. A HideUIPanel + direct Show cycle can reveal only the
         -- shell and leave UpdateNewItemList with missing item buttons.
         if IsBackpackRoot(name) then return false end
-        local occupiesSlot = GetUIPanel("left") == frame or GetUIPanel("center") == frame
-            or GetUIPanel("right") == frame or GetUIPanel("doublewide") == frame
-        if not occupiesSlot then return false end
+        if not Lifecycle.OccupiesPanelSlot(frame) then return false end
 
         -- Keep Blizzard's scripts installed. Replacing even an unchanged protected
         -- World Map handler taints later quest-pin acquisition on Forever. The

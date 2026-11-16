@@ -117,6 +117,32 @@ local modal=Root('PlatynatorCustomiseDialogImportDialog','Platynator',{},
     'Interface/AddOns/Platynator/CustomiseDialog/ImportDialog.lua:9')
 modal:Show();Escape()
 assert(not modal.shown and platy.shown and next(modal.hooks)==nil,'modals must retain native dismissal')
+local donOptions, donWindow = {}, nil
+function donOptions.Frame() return donWindow end
+function donOptions.Open()
+    if not donWindow then
+        donWindow=Root('DonCoreOptions','Leveldon')
+        donWindow.close=Button(donWindow,donWindow.source)
+        donWindow.header={GetParent=function() return donWindow end, HookScript=function(self,key,fn)
+            self[key]=fn
+        end}
+    end
+    donWindow:Show()
+end
+loaded.Leveldon=true
+LibStub=function(library)
+    if library=='DonCore-1.0' then return {Get=function(_,name) if name=='Options' then return donOptions end end} end
+end
+adapter:Refresh()
+donOptions.Open()
+assert(not Has(donWindow.name) and donWindow.close.alpha==0,
+    'lazy Leveldon Options must acquire workspace Escape policy')
+Escape();assert(donWindow.shown,'workspace Leveldon Options closed on Escape')
+donWindow.workspace=false
+donWindow.header.OnDragStop()
+assert(Has(donWindow.name) and donWindow.close.alpha==.8,
+    'moving the Options title bar to Mainhand must immediately release both policies')
+Escape();assert(not donWindow.shown,'Mainhand Leveldon Options must close via native Escape')
 for i=1,10 do adapter:Refresh() end
 assert(#maps.hooks.OnShow==1 and #maps.hooks.OnHide==1 and #maps.hooks.OnDragStop==1,
     'repeated refreshes must not multiply vendor root observers')
