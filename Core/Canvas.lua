@@ -2044,6 +2044,7 @@ function Canvas:EnableFreeDragging()
                     -- transaction because Settings may have hidden it only
                     -- temporarily.
                     RepairUIPanelTransaction(openedFrame, true)
+                    Canvas:RepairDefaultForeverBooks()
                 end
                 -- The post-hook catches the usual synchronous left-slot reflow.
                 -- Two bounded passes cover panels which finish layout from a
@@ -2061,6 +2062,7 @@ function Canvas:EnableFreeDragging()
                 if closedFrame and IsPanelEvicting(closedFrame) then return end
                 local function Repair()
                     RepairUIPanelTransaction(closedFrame, true)
+                    Canvas:RepairDefaultForeverBooks()
                 end
                 Repair()
                 if C_Timer and C_Timer.After then
@@ -2079,6 +2081,7 @@ function Canvas:EnableFreeDragging()
                 -- every native anchor, including close routes and paths which
                 -- bypass ShowUIPanel.
                 RepairUIPanelTransaction(nil, true)
+                Canvas:RepairDefaultForeverBooks()
             end)
         end
     end

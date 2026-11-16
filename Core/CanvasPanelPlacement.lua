@@ -134,6 +134,8 @@ function Placement.InstallMainhand(Canvas, services)
     local IsBackpackRoot = services.IsBackpackRoot
     local ClearOtherBackpackRootState = services.ClearOtherBackpackRootState
     local IsFrameOnWorkspace = services.IsFrameOnWorkspace
+    local bookSlots = { "left", "center", "right" }
+    local mainhandInset = 12
     local function GetRestedXPGuideFrame()
         local compatibility = Offhand.HUDCompatibility
         if compatibility and compatibility.GetRestedXPGuideFrame then
@@ -168,7 +170,7 @@ function Placement.InstallMainhand(Canvas, services)
     -- Professions or Collections panel can open on the wrong monitor. Mainhand
     -- placements use physical UIParent coordinates and are clamped on every
     -- restore so display changes cannot strand a panel off screen.
-    function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained, recoveryAction)
+    function Canvas:PlacePanelOnMainhand(frame, metrics, position, preserveContained, recoveryAction, anchorOnly)
         local nonMovableSystemPanels = services.GetNonMovablePanels()
         if not frame or (InCombatLockdown and InCombatLockdown()) or not Offhand.db
             or not Offhand.db.enabled then return false end
@@ -202,7 +204,8 @@ function Placement.InstallMainhand(Canvas, services)
         metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
             and WithWorkspace(Offhand.Viewport:GetMetrics()))
         if not metrics or not metrics.isSpanned then return false end
-        if Offhand.WorkspaceScale and not Offhand.WorkspaceScale:Apply(frame,false,metrics) then return false end
+        if not anchorOnly and Offhand.WorkspaceScale
+            and not Offhand.WorkspaceScale:Apply(frame, false, metrics) then return false end
 
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
@@ -213,7 +216,7 @@ function Placement.InstallMainhand(Canvas, services)
         if width <= 0 then width = 192 * scaleFactor end
         if height <= 0 then height = 192 * scaleFactor end
 
-        local inset = 12
+        local inset = mainhandInset
         local minX = metrics.gameLeft + inset
         local maxX = math.max(minX, metrics.gameRight - width - inset)
         local minY = metrics.gameBottom + height + inset
@@ -249,13 +252,71 @@ function Placement.InstallMainhand(Canvas, services)
         local pointFactor = parentScale / frameScale
 
         local ok = pcall(function()
-            if name and frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
+            if not anchorOnly and name and frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
                 clampedX * pointFactor, clampedY * pointFactor)
         end)
-        if ok and name and not IsForeverProfessionsPanel(frame, name) then RegisterSpecialFrame(name) end
+        if ok and not anchorOnly and name and not IsForeverProfessionsPanel(frame, name) then
+            RegisterSpecialFrame(name)
+        end
         return ok
+    end
+
+    -- A native slot update can overwrite both books at once, including a
+    -- lazy-opened root before its drag grip is attached. Repair only the
+    -- geometry of these default placements at the end of the transaction.
+    function Canvas:RepairDefaultForeverBooks()
+        local db, compatibility = Offhand.db, Offhand.CanvasCompatibility
+        if not Offhand.isForever or not db or not db.enabled or not GetUIPanel
+            or not self.CanManagePanelsFromAddon or not self.CanManagePanelsFromAddon()
+            or InCombatLockdown() or compatibility.HasMoveAny()
+            or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
+        local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
+        if not metrics or not metrics.isSpanned then return end
+        local parentScale = UIParent:GetEffectiveScale()
+        if parentScale <= 0 then return end
+
+        local books = {}
+        for _, slot in ipairs(bookSlots) do
+            local frame = GetUIPanel(slot)
+            if frame and (frame == _G.PlayerSpellsFrame or frame == _G.ProfessionsFrame
+                or frame == _G.ProfessionsBookFrame) and not IsUnsafeForPanelMutation(frame)
+                and not Offhand.CanvasFrameState.IsDragging(frame) and frame:IsShown()
+                and not (frame.IsUserPlaced and frame:IsUserPlaced()) then
+                local name = frame:GetName()
+                if (name == "PlayerSpellsFrame" or compatibility.IsPersistentForeverProfessionsPanelName(name))
+                    and not (db.savedMainPositions and db.savedMainPositions[name])
+                    and not (db.savedWorkspacePositions and db.savedWorkspacePositions[name])
+                    and not (Offhand.WorkspaceRouting and Offhand.WorkspaceRouting:HasRule(name, metrics)) then
+                    local factor = frame:GetEffectiveScale() / parentScale
+                    local left, top = frame:GetLeft(), frame:GetTop()
+                    local width, height = frame:GetWidth() * factor, frame:GetHeight() * factor
+                    if left and top and width > 0 and height > 0 then
+                        left, top = left * factor, top * factor
+                        books[#books + 1] = { frame = frame, left = left, width = width,
+                            contained = left >= metrics.gameLeft + mainhandInset
+                                and left + width <= metrics.gameRight - mainhandInset
+                                and top <= metrics.gameTop - mainhandInset
+                                and top - height >= metrics.gameBottom + mainhandInset }
+                    end
+                end
+            end
+        end
+
+        local first, second = books[1], books[2]
+        local gameWidth = metrics.gameRight - metrics.gameLeft
+        if #books == 2 and first.width + second.width + 3 * mainhandInset <= gameWidth then
+            if first.contained and second.contained and first.left + first.width <= second.left then return end
+            local left = metrics.gameLeft + (gameWidth - first.width - second.width - mainhandInset) / 2
+            self:PlacePanelOnMainhand(first.frame, metrics, { x = left }, false, false, true)
+            self:PlacePanelOnMainhand(second.frame, metrics, { x = left + first.width + mainhandInset },
+                false, false, true)
+        else
+            for _, book in ipairs(books) do
+                if not book.contained then self:PlacePanelOnMainhand(book.frame, metrics, nil, true, false, true) end
+            end
+        end
     end
 
     -- Recovery is an explicit out-of-combat hardware action. Unlike a generic

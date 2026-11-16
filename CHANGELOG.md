@@ -7,6 +7,7 @@
   four seconds with the fix, compared with about seven seconds on Beta 35.
 - Preserve Baganator backpack placement and open state through merchant interactions.
 - Recover an off-screen RestedXP V2 guide to Mainhand while leaving the arrow in place.
+- On Forever, open unplaced Professions and Spellbook on Mainhand and keep both there when used together.
 
 ## [2.1.5-beta.35] - 2026-11-14
 

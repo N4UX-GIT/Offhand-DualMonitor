@@ -14,7 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
-L["WHATS_NEW_BETA36"] = "• Fixed an Offhand shutdown issue that could delay the loading screen after /reload."
+L["WHATS_NEW_BETA36"] = "• Fixed an Offhand shutdown issue that could delay the loading screen after /reload.\n• On Forever, Professions and Spellbook open on Mainhand by default and stay there when used together."
 L["WHATS_NEW_BETA35"] = "• The World Map stays visible on Offhand while you move on Forever.\n• Move OpenMap to Offhand."
 L["WHATS_NEW_BETA34"] = "• Use /offhand centerline to check Mainhand alignment.\n• Set up EllesmereUI in a separate profile after exporting a backup.\n• Try Workspace C on a fourth display with the paired portable Companion beta."
 L["WHATS_NEW_BETA33"] = "• Improved action and XP bar placement when rebuilding the Mainhand HUD.\n• Clearer prompts after setup and layout import.\n• Better World Map, bag, and Titan Panel compatibility on Forever."

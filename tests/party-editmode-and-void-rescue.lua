@@ -387,7 +387,10 @@ local nativeUIPanelLayout
 UpdateUIPanelPositions = function(...)
     if nativeUIPanelLayout then return nativeUIPanelLayout(...) end
 end
-ShowUIPanel = function(frame) frame:Show() end
+ShowUIPanel = function(frame)
+    if frame.nativeShow then frame.nativeShow(frame) end
+    frame:Show()
+end
 HideUIPanel = function(frame)
     frame:Hide()
     UpdateUIPanelPositions()
@@ -3435,6 +3438,106 @@ assert(not addon.db.savedWorkspacePositions.ProfessionsFrame
 assert(addon.Canvas.IsForeverProfessionsPanel(professionsFrame),
     "Forever Professions roots must be recognized as Blizzard-owned")
 print("PASS: Forever Professions remains entirely under Blizzard ownership")
+
+;(function()
+    -- On Forever, the panel manager assigns the slot and updates the anchors
+    -- of both roots against the full UIParent before showing the requested
+    -- frame. Model that ordering through the installed Canvas post-hooks.
+    local oldGetSlot, oldProfessions, oldSpells = GetUIPanel, ProfessionsFrame, PlayerSpellsFrame
+    local oldProfessionsRegistration, oldSpellsRegistration = UIPanelWindows.ProfessionsFrame,
+        UIPanelWindows.PlayerSpellsFrame
+    local oldProfessionsMain, oldSpellsMain = addon.db.savedMainPositions.ProfessionsFrame,
+        addon.db.savedMainPositions.PlayerSpellsFrame
+    local oldProfessionsWorkspace, oldSpellsWorkspace = addon.db.savedWorkspacePositions.ProfessionsFrame,
+        addon.db.savedWorkspacePositions.PlayerSpellsFrame
+    local function AssertMainhand(frame, action)
+        assert(frame:IsShown() and frame:GetLeft() >= metrics.gameLeft and frame:GetRight() <= metrics.gameRight
+            and frame:GetBottom() >= metrics.gameBottom and frame:GetTop() <= metrics.gameTop,
+            frame:GetName() .. " must be visible on Mainhand immediately after " .. action)
+    end
+    local function CheckOpeningOrder(firstName, secondName)
+        local slots = {}
+        GetUIPanel = function(slot) return slots[slot] end
+        local function ShowNativeRoot(frame)
+            slots[frame:GetName() == "ProfessionsFrame" and "left" or "center"] = frame
+            UpdateUIPanelPositions(frame)
+        end
+        nativeUIPanelLayout = function()
+            local left = 40
+            for _, slot in ipairs({"left", "center"}) do
+                local frame = slots[slot]
+                if frame then
+                    frame:ClearAllPoints()
+                    if slot == "center" and not slots.left then
+                        -- A minimized centerOrLeft Spellbook uses a negative
+                        -- center offset when it is the only native panel.
+                        frame:SetPoint("TOP", UIParent, "TOP", -405, -120)
+                    else
+                        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", left, -120)
+                    end
+                    left = left + frame:GetWidth() + 10
+                end
+            end
+        end
+        local function RegisterColdRoot(name, width, height)
+            addon.db.savedMainPositions[name] = nil
+            addon.db.savedWorkspacePositions[name] = nil
+            local frame = makeMockFrame(name, width, height)
+            frame:Hide()
+            frame.nativeShow = ShowNativeRoot
+            if name == "PlayerSpellsFrame" then
+                local originalGetLeft = frame.GetLeft
+                function frame:GetLeft()
+                    local point, relative, relativePoint, x = self:GetPoint()
+                    if point == "TOP" and relative == UIParent and relativePoint == "TOP" then
+                        return UIParent:GetWidth() / 2 + x - self:GetWidth() / 2
+                    end
+                    return originalGetLeft(self)
+                end
+            end
+            UIPanelWindows[name] = {area = name == "ProfessionsFrame" and "left" or "centerOrLeft", pushable = 1}
+            RegisterUIPanel(frame)
+            return frame
+        end
+
+        local first = RegisterColdRoot(firstName, 720, 760)
+        ShowUIPanel(first)
+        AssertMainhand(first, "its first native ShowUIPanel")
+
+        local second = RegisterColdRoot(secondName, 620, 820)
+        ShowUIPanel(second)
+        AssertMainhand(first, "opening " .. secondName)
+        AssertMainhand(second, "its first native ShowUIPanel while its peer is shown")
+        UpdateUIPanelPositions()
+        AssertMainhand(first, "the next native layout pass")
+        AssertMainhand(second, "the next native layout pass")
+        assert(ProfessionsFrame:GetRight() <= PlayerSpellsFrame:GetLeft(),
+            "the two books must fit side by side in native slot order")
+        flushTimers()
+        assert(ProfessionsFrame:GetRight() <= PlayerSpellsFrame:GetLeft(),
+            "deferred title-grip attachment must preserve an already fitting book pair")
+        assert(GetUIPanel("left") == ProfessionsFrame and GetUIPanel("center") == PlayerSpellsFrame,
+            "default placement must keep native slot ownership")
+        assert(not addon.db.savedMainPositions[firstName] and not addon.db.savedMainPositions[secondName]
+            and not addon.db.savedWorkspacePositions[firstName] and not addon.db.savedWorkspacePositions[secondName],
+            "default placement must not create saved ownership")
+
+        first:Hide()
+        second:Hide()
+        nativeUIPanelLayout = nil
+    end
+    experimentalProfessionsMovement = true
+    CheckOpeningOrder("ProfessionsFrame", "PlayerSpellsFrame")
+    CheckOpeningOrder("PlayerSpellsFrame", "ProfessionsFrame")
+    experimentalProfessionsMovement = false
+    GetUIPanel, ProfessionsFrame, PlayerSpellsFrame = oldGetSlot, oldProfessions, oldSpells
+    UIPanelWindows.ProfessionsFrame, UIPanelWindows.PlayerSpellsFrame = oldProfessionsRegistration, oldSpellsRegistration
+    addon.db.savedMainPositions.ProfessionsFrame, addon.db.savedMainPositions.PlayerSpellsFrame =
+        oldProfessionsMain, oldSpellsMain
+    addon.db.savedWorkspacePositions.ProfessionsFrame, addon.db.savedWorkspacePositions.PlayerSpellsFrame =
+        oldProfessionsWorkspace, oldSpellsWorkspace
+    print("PASS: cold Forever Professions and Spellbook first show and peer reflow")
+end)()
 
 -- Professions remains isolated from automatic first-open behavior, while an
 -- explicitly moved Offhand instance gains reload and Escape-slot persistence.
