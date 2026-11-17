@@ -1660,8 +1660,16 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand.Canvas:RequestPersistentWorldMapRefocus()
         end
 
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        if not Offhand._loggingOut and Offhand.Canvas and Offhand.Canvas.PrepareCombatPanelClamps then
+            Offhand.Canvas:PrepareCombatPanelClamps()
+        end
+
     elseif event == "PLAYER_REGEN_ENABLED" then
         if Offhand._loggingOut then return end
+        if Offhand.Canvas and Offhand.Canvas.ReleaseCombatPanelClamps then
+            Offhand.Canvas:ReleaseCombatPanelClamps()
+        end
         ProcessCombatQueue()
         if Offhand.Wizard and Offhand.Wizard.ShowPendingWorkspaceReady
             and Offhand.Wizard:ShowPendingWorkspaceReady() then return end

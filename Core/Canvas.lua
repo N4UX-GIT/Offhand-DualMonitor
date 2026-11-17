@@ -134,6 +134,12 @@ function Canvas:UpdateLayout()
 
     local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
 
+    if Offhand.isForever then
+        Offhand.CanvasPanelPlacement.RefreshNativeMainhandOrigin(metrics,
+            Offhand.db.enabled and CanManagePanelsFromAddon() and not Compatibility.HasMoveAny()
+                and not Compatibility.HasClassicUIForever())
+    end
+
     if not metrics.isSpanned or not Offhand.db.enabled then
         Persistence.FitPlayerSpellsToWorkspace(_G.PlayerSpellsFrame, metrics, false)
         rootCanvas:Hide()
@@ -901,6 +907,49 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
     return true
 end
 
+-- Hidden load-on-demand roots need to exist before the combat entry event can
+-- prepare their bounds. Loading the native module leaves the panel closed.
+local protectedCombatPanelAddons = {
+    PlayerSpellsFrame = "Blizzard_PlayerSpells",
+    CollectionsJournal = "Blizzard_Collections",
+}
+local combatPanelLoadRequested = {}
+local function PrepareColdCombatPanels()
+    local db = Offhand.db
+    if not Offhand.isForever or not db.savedWorkspacePositions or not C_Timer or not C_Timer.After
+        or Compatibility.HasMoveAny() or Compatibility.HasClassicUIForever() then return end
+    for name, addonName in pairs(protectedCombatPanelAddons) do
+        local position = db.savedWorkspacePositions[name]
+        local openPanels = db.openWorkspacePanels
+        if type(position) == "table" and not position.autoRoute and not _G[name]
+            and not combatPanelLoadRequested[name]
+            and (not openPanels or not openPanels[name] or db.restoreWorkspaceOnReload == false
+                or db.persistentWorkspacePanels == false) then
+            combatPanelLoadRequested[name] = true
+            C_Timer.After(0, function()
+                local function LoadClosedPanel()
+                    local current = Offhand.db
+                    local saved = current and current.savedWorkspacePositions and current.savedWorkspacePositions[name]
+                    if type(saved) ~= "table" or saved.autoRoute or not current.enabled
+                        or not CanManagePanelsFromAddon() or not IsSpannedLayoutActive()
+                        or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
+                        combatPanelLoadRequested[name] = nil
+                        return
+                    end
+                    if not _G[name] and not PanelRegistry.IsAddonLoaded(addonName) then
+                        PanelRegistry.LoadAddon(addonName)
+                    end
+                end
+                if Offhand.RunOrQueueCombat then
+                    Offhand:RunOrQueueCombat(LoadClosedPanel)
+                elseif not InCombatLockdown() then
+                    LoadClosedPanel()
+                end
+            end)
+        end
+    end
+end
+
 function Canvas:RestorePersistentFrames(mode)
     local activeLockRestore = mode == "lock"
     if not Offhand.db or not Offhand.db.enabled then return end
@@ -908,6 +957,7 @@ function Canvas:RestorePersistentFrames(mode)
     self:RelinquishForeverEditModeFrames()
     self:RelinquishForeverNativeBags()
     if not IsSpannedLayoutActive() then return end
+    PrepareColdCombatPanels()
     if Offhand.db.persistentWorkspacePanels == false then return end
     -- A first-character intro can begin after PLAYER_ENTERING_WORLD while
     -- Blizzard still owns Escape. Opening inherited account-wide panels here
@@ -1377,7 +1427,11 @@ local GetPanelPhysicalPlacement
 local PlacementMatchesPosition
 
 function Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
-    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    if not Offhand.db or not Offhand.db.enabled then return end
+    if InCombatLockdown() then
+        self:RepairCombatWorkspaceSlots()
+        return
+    end
     -- Addon-owned bag roots can be moved by their own Edit Mode without
     -- dispatching Offhand's drag callbacks. Reconcile their physical monitor
     -- before consuming general workspace records so map toggles cannot apply a
@@ -1476,6 +1530,7 @@ Offhand.CanvasPanelPlacement.InstallVoid(Canvas, {
 
 local function RestoreSavedPositionAfterShow(frame)
     if not frame or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+    if frame == _G.SocialUIFrame and Canvas:ShouldDeferCombatSocialAnchor(frame) then return end
     if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     local frameName = frame.GetName and frame:GetName()

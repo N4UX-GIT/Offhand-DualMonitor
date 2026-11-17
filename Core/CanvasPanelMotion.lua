@@ -251,7 +251,8 @@ function Motion.Install(Canvas, services)
         local isProfessions = IsForeverProfessionsPanel(frame, panelName) and IsExperimentalForeverProfessionsMovementEnabled()
         local isInteraction = Offhand.isRetail and Offhand.CanvasPanelRegistry
             and Offhand.CanvasPanelRegistry.RequiresNativePanelRegistration(panelName)
-        if isInteraction then
+        local isForeverSpellbook = Offhand.isForever and panelName == "PlayerSpellsFrame"
+        if isInteraction or isForeverSpellbook then
             if interactionAnchorState[frame] or not hooksecurefunc or not C_Timer or not C_Timer.After then return end
             local state = {}
             interactionAnchorState[frame] = state
@@ -267,7 +268,7 @@ function Motion.Install(Canvas, services)
                 state.repairing = nil
             end
             local function QueueRepair()
-                if state.repairing or state.pending or frame._OffhandDragging
+                if state.repairing or state.pending or frame._OffhandDragging or InCombatLockdown()
                     or not Offhand.db or not Offhand.db.enabled then return end
                 local workspace = Offhand.db.savedWorkspacePositions
                     and Offhand.db.savedWorkspacePositions[panelName]
