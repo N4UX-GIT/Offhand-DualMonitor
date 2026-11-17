@@ -2,6 +2,8 @@ local addon = { db = { enabled=true, savedWorkspacePositions={} }, Canvas={} }
 local queue, tick, onEvent = {}, nil, nil
 local combat = false
 local inputReserved = false
+local targetSelected = false
+UnitExists = function(unit) return unit == "target" and targetSelected end
 local nativePairs, globalScans = pairs, 0
 pairs = function(value)
     if value == _G then globalScans = globalScans + 1 end
@@ -115,8 +117,39 @@ hooksecurefunc=function(target, methodOrCallback, maybeCallback)
         return result
     end
 end
+assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand",addon)
 assert(loadfile("Core/BagPersistence.lua"))("Offhand",addon)
 local tracker=addon.BagPersistence
+
+local function CheckTargetEscape(frame, close)
+    local previousEscape = nativeEscape
+    local previousForever = addon.isForever
+    addon.isForever = true
+    targetSelected = true
+    GameMenuFrame.shown = false
+    frame:Show()
+    flush()
+    tick()
+    local name = frame:GetName()
+    local savedPosition = addon.db.savedWorkspacePositions[name]
+    assert(addon.db.baganatorWorkspacePanels[name],
+        "the test must start with a tracked workspace bag")
+    nativeEscape = function()
+        if frame:IsShown() then close(); return true end
+        if targetSelected then targetSelected = false; return true end
+    end
+    ToggleGameMenu(); flush()
+    assert(not frame:IsShown() and targetSelected and not GameMenuFrame.shown,
+        name .. ": the first Escape must leave the bag closed for native target dismissal")
+    assert(not addon.db.baganatorWorkspacePanels[name]
+            and addon.db.savedWorkspacePositions[name] == savedPosition,
+        name .. ": yielding must clear open intent and keep the saved bag position")
+    ToggleGameMenu(); flush()
+    assert(not frame:IsShown() and not targetSelected and not GameMenuFrame.shown,
+        name .. ": the second Escape must reach native target dismissal")
+    nativeEscape = previousEscape
+    addon.isForever = previousForever
+end
 addon.isForever = true
 onEvent(nil,"PLAYER_LOGIN"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
 addon.isForever = false
@@ -233,6 +266,8 @@ assert(not bag.shown and not next(addon.db.baganatorWorkspacePanels),
 -- Native title drags must retire Offhand's intent before the next Escape,
 -- even when it arrives before our regular capture tick.
 addon.isForever = true
+CheckTargetEscape(bag, CloseAllBags)
+CheckTargetEscape(bag, function() bag:Hide() end)
 bag.x=100; bag:Show(); flush()
 assert(addon.db.baganatorWorkspacePanels[name], "expected a visible Offhand bag")
 bag.x=1800
@@ -324,6 +359,10 @@ Bagnon.Frames:Hide("inventory"); tick(); flush()
 assert(not bagnon.shown and not next(addon.db.baganatorWorkspacePanels),
     "Bagnon's explicit close API must clear the independent open snapshot")
 
+baganatorLoaded = false
+CheckTargetEscape(bagnon, function() Bagnon.Frames:Hide("inventory") end)
+baganatorLoaded = true
+
 -- Forever Gamepad mode owns Bagnon's visibility and Blizzard focus routing.
 -- Keep the saved intent but perform no reopen or root lifecycle participation.
 addon.db.baganatorWorkspacePanels.BagnonFrameinventory={
@@ -369,11 +408,47 @@ assert(bagnon.scripts.OnShow == nil and bagnon.scripts.OnHide == nil,
 -- Hold the saved snapshot until Settings closes, then restore exactly once.
 local settingsShows=bagnonShows
 bagnon:Hide(); ShowUIPanel(settings); flush()
+tick()
 assert(not bagnon.shown and bagnonShows==settingsShows,
     "visible Settings must defer Bagnon restoration without an opening cue")
 HideUIPanel(settings); flush()
 assert(bagnon.shown and bagnonShows==settingsShows+1,
     "closing Settings must restore the previously open Offhand Bagnon root once")
+
+-- Forever's Options button hides the Game Menu and opens Settings. On close,
+-- Settings hides its panel and returns to the Game Menu via ToggleGameMenu.
+addon.isForever = true
+bagnon:Hide(); flush(); tick()
+EUI_MainBagFrame = nil
+bag:Show(); flush(); tick()
+targetSelected = true
+GameMenuFrame:Show()
+HideUIPanel(GameMenuFrame)
+CloseAllBags(); ShowUIPanel(settings); flush(); tick()
+assert(not bag.shown and addon.db.baganatorWorkspacePanels[name],
+    "Options must keep the hidden Baganator backpack's open intent across visibility samples")
+local optionsOpens = toggles
+local optionsPosition = addon.db.baganatorWorkspacePanels[name]
+HideUIPanel(settings); ToggleGameMenu(); flush()
+assert(bag.shown and targetSelected and GameMenuFrame:IsShown() and toggles == optionsOpens + 1,
+    "closing Options must restore Baganator without consuming target or changing the menu")
+assert(bag.x == optionsPosition.x and bag.y == optionsPosition.y,
+    "Options must restore Baganator to the saved workspace position")
+targetSelected = false
+GameMenuFrame:Hide()
+bag:Hide(); flush(); tick()
+ShowUIPanel(settings); flush(); tick()
+HideUIPanel(settings); ToggleGameMenu(); flush()
+assert(not bag.shown, "closing Options must leave an already closed backpack closed")
+GameMenuFrame:Hide()
+bag:Show(); flush(); tick()
+CloseAllBags(); ShowUIPanel(settings); flush()
+bag:Show(); flush(); tick()
+bag:Hide(); flush(); tick()
+HideUIPanel(settings); ToggleGameMenu(); flush()
+assert(not bag.shown, "a manual reopen and close while Options is visible must cancel restoration")
+GameMenuFrame:Hide()
+EUI_MainBagFrame = eui
 
 -- Forever's Escape dispatcher can claim Escape via CloseSpecialWindows
 -- without changing menu visibility. It must restore the exact EUI root.
@@ -407,6 +482,10 @@ assert(eui.shown and refreshed == 1 and toggles == beforeToggles and bag.shown
 ToggleGameMenu(); flush()
 assert(eui.shown and refreshed == 1 and not GameMenuFrame.shown,
     "the next Escape must dismiss the menu and leave the Ellesmere bag open")
+
+bag:Hide(); flush()
+CheckTargetEscape(eui, CloseSpecialWindows)
+eui:Show(); tick()
 
 CloseSpecialWindows(); ShowUIPanel(settings); flush(); tick()
 assert(not eui.shown and refreshed == 1 and not GameMenuFrame.shown,
@@ -515,6 +594,91 @@ for _, exclude in ipairs({"spellbook", "closed-panel", "explicit-close", "combat
     PlayerSpellsFrame.tab, PlayerSpellsFrame.shown = 2, true
     combat, canManagePanels, eui.x = false, true, 720
 end
+
+-- Stock Forever closes registered special frames both before clearing a target
+-- on Escape and when opening a centered Settings panel.
+EUI_MainBagFrame = nil
+bag:Hide(); flush()
+onEvent(nil, "PLAYER_ENTERING_WORLD"); flush()
+assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", addon)
+local other = {shown=false}
+function other:IsShown() return self.shown end
+function other:Hide() self.shown = false end
+_G.TestSpecialWindow = other
+UISpecialFrames = {"TestSpecialWindow", name}
+local function NativeCloseSpecialWindows()
+    local closed = false
+    for _, key in pairs(UISpecialFrames) do
+        local frame = _G[key]
+        if frame:IsShown() then frame:Hide(); closed = true end
+    end
+    return closed
+end
+nativeEscape = function()
+    if NativeCloseSpecialWindows() then return true end
+    if targetSelected then targetSelected = false; return true end
+end
+local hideCalls, hide = 0, bag.Hide
+function bag:Hide() hideCalls = hideCalls + 1; hide(self) end
+GameMenuFrame:Hide()
+bag.x = 100
+bag:Show()
+assert(#UISpecialFrames == 1, "an already positioned bag must stay open even before deferred capture")
+flush(); tick()
+targetSelected = true
+other.shown = true
+ToggleGameMenu(); flush()
+assert(not other.shown and targetSelected and bag.shown and hideCalls == 0,
+    "Escape must dismiss another special window without hiding Baganator")
+ToggleGameMenu(); flush()
+assert(not targetSelected and bag.shown and hideCalls == 0,
+    "native Escape must clear the target without blinking the workspace backpack")
+ToggleGameMenu(); flush()
+assert(GameMenuFrame:IsShown() and bag.shown and hideCalls == 0,
+    "Escape must open the menu without hiding the backpack")
+HideUIPanel(GameMenuFrame)
+NativeCloseSpecialWindows(); ShowUIPanel(settings); flush(); tick()
+assert(settings.shown and bag.shown and hideCalls == 0,
+    "Options must leave the workspace backpack open through native cleanup")
+HideUIPanel(settings); ToggleGameMenu(); flush()
+assert(bag.shown and hideCalls == 0, "returning to the Game Menu must leave the bag visible")
+bag:Hide(); ToggleGameMenu(); flush()
+assert(not bag.shown and hideCalls == 1 and UISpecialFrames[2] == name,
+    "an explicit bag close must restore its registration and survive immediate Escape")
+bag:Show(); flush()
+bag.x = 2000; bag.scripts.OnDragStop()
+assert(UISpecialFrames[2] == name and UISpecialFrames[1] == "TestSpecialWindow",
+    "moving the backpack to Mainhand must restore its own native registration immediately")
+ToggleGameMenu(); flush()
+assert(not bag.shown and hideCalls == 2, "Escape must still close the Mainhand backpack")
+bag.x = 100; bag:Show(); flush()
+addon.db.persistentWorkspacePanels = false; tick()
+assert(UISpecialFrames[2] == name, "disabling workspace persistence must restore native bag dismissal")
+addon.db.persistentWorkspacePanels = true; tick()
+canManagePanels = false; tick()
+assert(UISpecialFrames[2] == name, "handing off to native Gamepad mode must release the bag registration")
+canManagePanels = true; tick()
+local shutdownPosition = addon.db.baganatorWorkspacePanels[name]
+assert(shutdownPosition and #UISpecialFrames == 1)
+bag:Hide(); onEvent(nil, "PLAYER_LEAVING_WORLD"); flush()
+assert(addon.db.baganatorWorkspacePanels[name] == shutdownPosition,
+    "a hide before the shutdown event must keep the workspace backpack's reopen snapshot")
+
+-- Companion can finish the display span after World has already loaded.
+local spanned = false
+addon.Viewport = {GetMetrics = function() return {isSpanned=spanned} end}
+tracker.frames = {[name] = bag}
+addon.db.baganatorWorkspacePanels = {[name] = shutdownPosition}
+local coldOpens = 0
+ToggleAllBags = function() coldOpens = coldOpens + 1; bag:Show() end
+bag.x = 2000
+onEvent(nil, "PLAYER_ENTERING_WORLD"); flush(); tick()
+assert(coldOpens == 0 and not bag.shown and addon.db.baganatorWorkspacePanels[name] == shutdownPosition,
+    "cold login must hold the saved bag while the workspace is unavailable")
+spanned = true
+tracker:ResumeWhenWorkspaceReady(); tracker:ResumeWhenWorkspaceReady(); flush()
+assert(coldOpens == 1 and bag.shown and bag.x == shutdownPosition.x and bag.y == shutdownPosition.y,
+    "a late workspace span must reopen the bag once at its saved position")
 
 print("PASS: addon bag reload, Escape, explicit close, Baganator, Bagnon and EllesmereUI roots")
 

@@ -21,12 +21,12 @@ local function IsPlainValue(value)
     return ok and secret == false
 end
 
-local function CanPreserveBagThroughEscape()
+function Adapter.CanPreserveBagThroughEscape()
     -- Keeping an open bag in Escape's native close stack can prevent the next
     -- hardware Escape from reaching target dismissal. Unknown state yields too.
     if type(UnitExists) ~= "function" then return false end
     local ok, exists = pcall(UnitExists, "target")
-    return ok and IsPlainValue(exists) and not exists
+    return ok and IsPlainValue(exists) and exists == false
 end
 
 local function HasFlag(frame, method, expected)
@@ -810,7 +810,7 @@ function Adapter.Install(Canvas, services)
 
                     if not shown and state.wasShown and gameMenuToggleObserved
                         and not optionsOpeningObserved and not leavingGameMenuForPanel
-                        and not CanPreserveBagThroughEscape() then
+                        and not Adapter.CanPreserveBagThroughEscape() then
                         state.pendingOpenRestore = nil
                         state.pendingOpenAttempts = nil
                         state.pendingGameMenuToggle = nil

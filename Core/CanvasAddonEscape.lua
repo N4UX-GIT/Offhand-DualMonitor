@@ -228,6 +228,26 @@ local function Release(frame, state)
     state.removed, state.index = nil, nil
 end
 
+local function Exclude(state)
+    for index = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[index] == state.name then
+            state.index = index
+            table.remove(UISpecialFrames, index)
+            state.removed = true
+        end
+    end
+end
+
+function Adapter:SetSpecialFrameExcluded(frame, state, excluded)
+    if InCombatLockdown and InCombatLockdown() then return end
+    if type(UISpecialFrames) ~= "table" or #UISpecialFrames > MAX_SPECIAL then return end
+    if excluded and _G[state.name] == frame and OrdinaryRoot(frame) then
+        Exclude(state)
+    else
+        Release(frame, state)
+    end
+end
+
 local function Refresh()
     if InCombatLockdown and InCombatLockdown() then return false end
     if type(UISpecialFrames) ~= "table" or #UISpecialFrames > MAX_SPECIAL then return false end
@@ -280,13 +300,7 @@ local function Refresh()
                 and Offhand.Canvas.IsFrameOnWorkspace(frame)
         end)
         if ok and keep then
-            for index = #UISpecialFrames, 1, -1 do
-                if UISpecialFrames[index] == state.name then
-                    state.index = index
-                    table.remove(UISpecialFrames, index)
-                    state.removed = true
-                end
-            end
+            Exclude(state)
             active = true
         else
             Release(frame, state)

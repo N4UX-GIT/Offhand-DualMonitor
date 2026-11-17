@@ -932,6 +932,10 @@ function Canvas:RestorePersistentFrames(mode)
         end
         return
     end
+
+    if Offhand.BagPersistence and Offhand.BagPersistence.ResumeWhenWorkspaceReady then
+        Offhand.BagPersistence:ResumeWhenWorkspaceReady()
+    end
     
     local hasBag = false
     local openPanels = Offhand.db.openWorkspacePanels or {}

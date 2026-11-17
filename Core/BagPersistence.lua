@@ -4,6 +4,7 @@ local _, Offhand = ...
 local Bags = {
     paused = true,
     frames = {},
+    baganatorEscape = {},
     generation = 0,
     restoring = false,
 }
@@ -161,6 +162,30 @@ function Bags:NormalizePosition(position, frame)
     return normalized
 end
 
+local function UpdateBaganatorEscape(frame, name)
+    local adapter = Offhand.CanvasAddonEscape
+    if not Offhand.isForever or not (adapter and adapter.SetSpecialFrameExcluded) or not IsBaganatorRootName(name)
+        or InCombatLockdown() then return end
+    local state = Bags.baganatorEscape[frame]
+    local canvas = Offhand.Canvas
+    local exclude = false
+    if not Bags.paused and TrackEnabled() and IsSpanned()
+        and CanOpenBagsFromAddon() and not InputReserved()
+        and not (frame.IsForbidden and frame:IsForbidden())
+        and not (frame.IsProtected and frame:IsProtected())
+        and frame:IsVisible() and canvas and canvas.IsFrameOnWorkspace then
+        local ok, workspace = pcall(canvas.IsFrameOnWorkspace, frame)
+        exclude = ok and workspace == true
+    end
+    if not state and not exclude then return end
+    state = state or { name = name }
+    -- Options and Escape both close UISpecialFrames before proceeding. Leave
+    -- the visible Offhand backpack out so Blizzard can reach its target handler
+    -- and the bag addon retains its own explicit close controls.
+    adapter:SetSpecialFrameExcluded(frame, state, exclude)
+    Bags.baganatorEscape[frame] = state.removed and state or nil
+end
+
 function Bags:RegisterRoot(name, frame)
     if not IsSupportedRoot(name, frame) or type(frame) ~= "table"
         or not frame.GetName or self.frames[name] then
@@ -178,40 +203,36 @@ function Bags:RegisterRoot(name, frame)
     if not frame.HookScript then return true end
 
     local function Changed()
-                -- Baganator registers its root in UISpecialFrames, so Forever
-                -- can hide it directly before ToggleGameMenu without calling
-                -- CloseAllBags. Pair that root hide with the same immediate
-                -- Game Menu toggle used by Escape. A bag-key or X close has no
-                -- paired toggle and is allowed to expire normally.
-                if IsDirectEscapeRoot(name, frame) and not Bags.paused
-                    and not Bags.restoring and TrackEnabled() and IsSpanned()
-                    and not InCombatLockdown() then
-                    local savedName, position = Bags:GetSavedPosition()
-                    if position and savedName == name then
-                        local pending = {
-                            menuWasShown = GameMenuFrame and GameMenuFrame.IsShown
-                                and GameMenuFrame:IsShown() or false,
-                            source = IsBagnonInventoryRoot(name, frame)
-                                and "bagnon_root_hide" or "baganator_root_hide",
-                        }
-                        Bags.escapePending = pending
-                        C_Timer.After(0.10, function()
-                            if Bags.escapePending == pending then
-                                Bags.escapePending = nil
-                                Bags:Capture()
-                            end
-                        end)
+        -- A registered backpack can be hidden during the native Escape stack.
+        -- A locally hidden, excluded backpack has no such native close route.
+        -- Mark that close for the current turn and defer any SavedVariables
+        -- change so the logout event can still preserve the last open state.
+        if IsDirectEscapeRoot(name, frame) and not Bags.paused
+            and not Bags.restoring and TrackEnabled() and IsSpanned()
+            and not InCombatLockdown() then
+            local savedName, position = Bags:GetSavedPosition()
+            if position and savedName == name then
+                local explicit = Bags.baganatorEscape[frame] ~= nil and not frame:IsShown()
+                local pending = {
+                    explicit = explicit,
+                    menuWasShown = GameMenuFrame and GameMenuFrame.IsShown
+                        and GameMenuFrame:IsShown() or false,
+                }
+                Bags.escapePending = pending
+                C_Timer.After(explicit and 0 or 0.10, function()
+                    if Bags.escapePending == pending then
+                        Bags.escapePending = nil
+                        Bags:Capture()
                     end
-                end
-                -- Teardown hides windows synchronously; a deferred sample cannot
-                -- erase the last visible state while the UI is being destroyed.
-                C_Timer.After(0, function()
-                    Bags:Capture()
                 end)
+            end
+        end
+        C_Timer.After(0, function() Bags:Capture() end)
     end
     -- Baganator shows its root before laying out its contents. Sample after
     -- that callback returns so the pre-layout size cannot revoke placement.
     frame:HookScript("OnShow", function()
+        UpdateBaganatorEscape(frame, name)
         C_Timer.After(0, function() Bags:Capture() end)
     end)
     frame:HookScript("OnHide", Changed)
@@ -346,30 +367,40 @@ local function PanelDefersBagRestore(frame)
 end
 
 -- Blizzard closes replacement bags while opening or closing certain UIPanels.
--- Preserve a Bagnon inventory that the user deliberately left on Offhand, but
--- do all work after the native panel transaction and through Bagnon's public
--- manager. The native Gamepad interface remains excluded: live testing showed
--- that reopening Bagnon there taints its protected interact-target path.
+-- Preserve tracked replacement bags through Options, and Bagnon through other
+-- supported panels. Native Gamepad mode owns these windows' visibility.
 function Bags:BeginPanelTransition(panel)
-    if not IsPreservingPanel(panel) or not TrackEnabled() or not IsSpanned()
+    if self.paused or not IsPreservingPanel(panel) or not TrackEnabled() or not IsSpanned()
         or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
         or not C_Timer or not C_Timer.After then return false end
     self:Discover(false)
     local savedName, position = self:GetSavedPosition()
     local frame = savedName and self.frames[savedName]
-    if not position or not IsBagnonInventoryRoot(savedName, frame) then return false end
+    local options = PanelDefersBagRestore(panel)
+    if not position or not frame or not (IsBagnonInventoryRoot(savedName, frame)
+        or (options and Bags.IsBaganatorBackpackRoot(frame, savedName))) then return false end
 
-    local token = {}
+    if options and panel:IsShown() then
+        if not frame:IsVisible() then
+            -- The modal can stay open indefinitely. Hold the snapshot until its
+            -- close transaction instead of relying on the short restore timers.
+            self.optionsPanel = panel
+            self.escapePending = nil
+        end
+        return true
+    end
+    if options then
+        if self.optionsPanel ~= panel then return false end
+        self.optionsPanel = nil
+    end
+
+    local token = { returningFromOptions = options }
     self.panelTransition = token
     self.restoring = true
     local function Restore()
-        if Bags.panelTransition ~= token or InputReserved() or InCombatLockdown()
+        if Bags.panelTransition ~= token or Bags.paused or InputReserved() or InCombatLockdown()
             or not CanOpenBagsFromAddon() then return end
-        -- Options deliberately hides replacement bags while it owns the main
-        -- panel slot. Do not fight that transaction or play Bagnon's opening
-        -- cue behind the visible Settings panel. Its HideUIPanel observer will
-        -- start a fresh transition and restore the saved bag afterwards.
-        if PanelDefersBagRestore(panel) and panel.IsShown and panel:IsShown() then return end
+        if options and panel:IsShown() then return end
         Bags:Discover(false)
         local root = Bags.frames[savedName]
         if root and root.IsVisible and not root:IsVisible() then
@@ -382,6 +413,11 @@ function Bags:BeginPanelTransition(panel)
             Offhand.db.savedWorkspacePositions[savedName] = position
             Offhand.db.baganatorWorkspacePanels = { [savedName] = position }
             Offhand.Canvas:RestoreWorkspacePosition(root)
+            if options then
+                Bags.panelTransition = nil
+                Bags.restoring = false
+                Bags:Capture()
+            end
         end
     end
     C_Timer.After(0, Restore)
@@ -391,9 +427,7 @@ function Bags:BeginPanelTransition(panel)
         if Bags.panelTransition ~= token then return end
         Bags.panelTransition = nil
         Bags.restoring = false
-        if not (PanelDefersBagRestore(panel) and panel.IsShown and panel:IsShown()) then
-            Bags:Capture()
-        end
+        Bags:Capture()
     end)
     return true
 end
@@ -420,8 +454,16 @@ function Bags:InstallBaganatorCallbacks()
 end
 
 function Bags:Capture()
+    for name, frame in pairs(self.frames) do
+        UpdateBaganatorEscape(frame, name)
+    end
     if self.paused or self.restoring or self.escapePending or not Offhand.db
         or not CanOpenBagsFromAddon() then return end
+    if self.optionsPanel then
+        if self.optionsPanel:IsShown() and not self:GetVisibleFrame() then return end
+        -- A deliberate reopen gives visibility back to the bag addon.
+        self.optionsPanel = nil
+    end
     local currentMetrics=Offhand.Viewport and Offhand.Viewport:GetMetrics()
     -- Single-screen recovery is a temporary loss of usable workspace geometry.
     -- Visible bags there do not revoke saved workspace ownership or open intent.
@@ -516,6 +558,16 @@ local function RestoreGameMenuAfterEscape(menuWasShown)
     if change then pcall(change, menu) end
 end
 
+local function CanRestoreBagThroughEscape(name)
+    if Offhand.isForever and not Offhand.CanvasForeverBags.CanPreserveBagThroughEscape() then
+        -- Let the native bag close stand so the next Escape reaches the
+        -- target. Keep the bag's position for the next deliberate open.
+        Bags:ForgetOpenSnapshot(name)
+        return false
+    end
+    return true
+end
+
 function Bags:RestoreAfterEscape(pending)
     if self.escapePending ~= pending then return false end
     self.escapePending = nil
@@ -532,6 +584,7 @@ function Bags:RestoreAfterEscape(pending)
         self:ForgetOpenSnapshot(savedName)
         return false
     end
+    if not CanRestoreBagThroughEscape(savedName) then return false end
     self.restoring = true
     self:Discover()
     local exact = HasConflictingEllesmereBagToggle() and savedName or nil
@@ -564,11 +617,12 @@ local function CanRestoreEllesmereWorkspaceBag(frame)
         and not IsPreservingPanelShown()
 end
 
-local function RestoreEllesmereWorkspaceBag(pending)
+local function RestoreEllesmereWorkspaceBag(pending, throughEscape)
     local frame = pending.frame
     if Bags.paused or Bags.restoring or not TrackEnabled() or not IsSpanned()
         or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
         or not CanRestoreEllesmereWorkspaceBag(frame) then return false end
+    if throughEscape and not CanRestoreBagThroughEscape("EUI_MainBagFrame") then return false end
     -- Restore only the initialized root that was open before the panel transition.
     ShowEllesmereBag(frame)
     if not frame:IsVisible() then return false end
@@ -581,7 +635,7 @@ local function RestoreEllesmereWorkspaceBag(pending)
 end
 
 function Bags:RestoreEllesmereAfterEscape(pending)
-    if not RestoreEllesmereWorkspaceBag(pending) then return end
+    if not RestoreEllesmereWorkspaceBag(pending, true) then return end
     -- Forever counts hiding EllesmereUI's Escape proxy as a handled press.
     -- Reopening the bag alone would let that proxy claim every subsequent press.
     RestoreGameMenuAfterEscape(pending.menuWasShown)
@@ -635,6 +689,7 @@ function Bags:InstallEscapeHooks()
         hooksecurefunc("CloseAllBags", function()
             if Bags.restoring or InputReserved() or not TrackEnabled() or not IsSpanned()
                 or InCombatLockdown() or Bags:GetVisibleFrame() then return end
+            if Bags.escapePending and Bags.escapePending.explicit then return end
             local savedName, position = Bags:GetSavedPosition()
             if not position then return end
             if IsForeverEllesmereBag(savedName) then return end
@@ -664,6 +719,12 @@ function Bags:InstallEscapeHooks()
     if ToggleGameMenu and not self.toggleGameMenuHooked then
         self.toggleGameMenuHooked = true
         hooksecurefunc("ToggleGameMenu", function()
+            if Bags.optionsPanel or (Bags.panelTransition and Bags.panelTransition.returningFromOptions) then
+                -- Settings returns to the Game Menu through this same function.
+                -- The Options transition owns the reopen even with a target selected.
+                Bags.escapePending = nil
+                return
+            end
             local ellesmere = Bags.ellesmereEscapePending
             Bags.ellesmereEscapePending = nil
             if ellesmere then
@@ -677,6 +738,7 @@ function Bags:InstallEscapeHooks()
                 return
             end
             local pending = Bags.escapePending
+            if pending and pending.explicit then return end
             if not pending and CanOpenBagsFromAddon() then
                 local savedName, position = Bags:GetSavedPosition()
                 local frame = savedName and Bags.frames[savedName]
@@ -751,6 +813,7 @@ function Bags:Resume()
     self.generation = self.generation + 1
     local generation = self.generation
     self.paused = true
+    self.waitingForWorkspace = nil
     local attempts, toggled = 0, false
     local function Restore()
         if generation ~= Bags.generation then return end
@@ -781,6 +844,12 @@ function Bags:Resume()
                 Bags:ForgetOpenSnapshot(savedName)
                 Bags.paused = false
                 Bags:Capture()
+                return
+            end
+            if Offhand.isForever and not IsSpanned() then
+                -- Companion can span the display after login. Retain the open
+                -- snapshot until the real workspace is ready for restoration.
+                Bags.waitingForWorkspace = true
                 return
             end
             if IsForeverEllesmereBag(savedName) then
@@ -830,6 +899,10 @@ function Bags:Resume()
     C_Timer.After(0.5, Restore)
 end
 
+function Bags:ResumeWhenWorkspaceReady()
+    if self.waitingForWorkspace and IsSpanned() then self:Resume() end
+end
+
 local events = CreateFrame("Frame")
 for _, event in ipairs({"ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "PLAYER_LEAVING_WORLD", "PLAYER_LOGOUT", "PLAYER_REGEN_ENABLED", "PLAYER_CONTROL_LOST", "PLAYER_CONTROL_GAINED", "CINEMATIC_STOP"}) do
     events:RegisterEvent(event)
@@ -840,6 +913,8 @@ events:SetScript("OnEvent", function(_, event, addonName)
         Bags.generation = Bags.generation + 1
         Bags.escapePending = nil
         Bags.ellesmereEscapePending = nil
+        Bags.optionsPanel = nil
+        Bags.waitingForWorkspace = nil
     elseif event == "PLAYER_ENTERING_WORLD"
         or (event == "PLAYER_REGEN_ENABLED" and Bags.waitingForCombat)
         or (event == "PLAYER_CONTROL_GAINED" and Bags.waitingForInput)
