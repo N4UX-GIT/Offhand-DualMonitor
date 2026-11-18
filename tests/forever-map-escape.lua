@@ -1358,4 +1358,114 @@ do
     UIParent.GetWidth, UIParent.GetHeight = oldUIWidth, oldUIHeight
     MapWiseAtlasDB, MapWiseAPI = nil, nil
 end
-print("PASS: Forever map persists through reload/Escape, settles scale, and preserves placement across MapWise layouts")
+do
+    local selected, reserved, combat = true, false, false
+    local panel, binding, owner
+    local baseBinding = "TOGGLEGAMEMENU"
+    RegisterGameMenuEscHandler = function() error("must retain Blizzard's secure Escape handler list") end
+    GetUIPanel = function() return panel end
+    UnitExists = function() return selected end
+    InCombatLockdown = function() return combat end
+    GetBindingAction = function() return binding or baseBinding end
+    SetOverrideBindingClick = function(frame, priority, key, name, button)
+        assert(priority and key == "ESCAPE" and name == frame:GetName() and button == "LeftButton")
+        owner, binding = frame, "CLICK " .. name .. ":" .. button
+    end
+    ClearOverrideBindings = function(frame) assert(frame == owner); binding = nil end
+    RegisterStateDriver = function(frame, state, condition)
+        assert(state == "combat" and condition == "[combat] combat; nocombat")
+        assert(frame.attributes["_onstate-combat"]:find("self:ClearBindings()",1,true))
+    end
+    CreateFrame = function(kind, name, parent, template)
+        assert(kind == "Button" and parent == UIParent
+            and (template == "SecureActionButtonTemplate,SecureHandlerStateTemplate"
+                or template == "SecureHandlerStateTemplate"))
+        return {
+            attributes={}, scripts={},
+            GetName=function() return name end,
+            SetAttribute=function(self,key,value) self.attributes[key]=value end,
+            SetScript=function(self,key,value) self.scripts[key]=value end,
+            RegisterForClicks=function(_,clicks) assert(clicks == "AnyUp") end,
+        }
+    end
+    addon.IsBlizzardInputReserved = function() return reserved end
+    addon.HasCustomBagAddon = function() return false end
+    addon.Mainhand, addon.IsGamepadUIEnabled = nil, nil
+    addon.Viewport.GetMetrics = function() return metrics end
+    addon.db.enabled, addon.db.persistentWorkspacePanels = true, true
+    UISpecialFrames = {}
+    GameMenuFrame.shown = false
+    ContainerFrame1:Hide()
+    ContainerFrameCombinedBags.left, ContainerFrameCombinedBags.bottom = metrics.workspaceLeft + 20, 400
+    function ContainerFrameCombinedBags:IsForbidden() return false end
+    function ContainerFrameCombinedBags:IsVisible() return self.shown end
+    ContainerFrameCombinedBags:Show()
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape() and binding,
+        "an Offhand native bag with a target must offer the secure target-clear action")
+    assert(owner.attributes.type == "target" and owner.attributes.unit == "none"
+        and owner.attributes.useOnKeyDown == false, "Blizzard's secure action must clear the target on key release")
+    selected = false
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
+        "clearing the target must return Escape to its ordinary binding")
+    selected, panel = true, CharacterFrame
+    panel:Show()
+    local closes = 0
+    CloseWindows = function()
+        closes = closes + 1
+        if panel then panel:Hide() end
+        for _, name in pairs(UISpecialFrames) do _G[name]:Hide() end
+    end
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagWindowEscape:LeftButton",
+        "Escape must dismiss a native panel before clearing the target")
+    owner.scripts.OnClick()
+    assert(closes == 1 and not panel:IsShown() and selected and ContainerFrameCombinedBags:IsShown(),
+        "native panel dismissal must keep the bag visible and retain the target")
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagTargetEscape:LeftButton",
+        "the next Escape must reach the secure target action")
+    panel = nil
+    UISpecialFrames = {"CharacterFrame"}
+    CharacterFrame:Show()
+    selected = false
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagWindowEscape:LeftButton",
+        "special windows must close without closing Offhand bags even without a target")
+    local windowOwner = owner
+    windowOwner.scripts.OnClick()
+    assert(closes == 2 and not CharacterFrame:IsShown() and ContainerFrameCombinedBags:IsShown(),
+        "special-window dismissal must not flash the native bag")
+    windowOwner.scripts.OnClick()
+    assert(closes == 2, "a stale window binding must not run another native close transaction")
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
+        "with no window or target, Escape must return to Blizzard")
+    selected = true
+    UISpecialFrames = {}
+    GetCurrentKeyBoardFocus = function() return true end
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "text input must retain Escape priority")
+    GetCurrentKeyBoardFocus = nil
+    CharacterFrame:Show()
+    panel = CharacterFrame
+    StaticPopup1 = makePanel("StaticPopup1", true, 1800, 400, 260, 520)
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "a popup must retain priority over panel dismissal")
+    StaticPopup1 = nil
+    combat = true
+    windowOwner.scripts.OnClick()
+    assert(closes == 2 and panel:IsShown(), "an outstanding window click must yield in combat")
+    combat, panel = false, nil
+    CharacterFrame:Hide()
+    reserved = true
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "reserved input must retain native handling")
+    reserved = false
+    baseBinding = "SCREENSHOT"
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "a custom Escape binding must be respected")
+    baseBinding = "TOGGLEGAMEMENU"
+    ContainerFrame2 = makePanel("ContainerFrame2", true, 1800, 400, 260, 520)
+    function ContainerFrame2:IsForbidden() return false end
+    function ContainerFrame2:IsVisible() return self.shown end
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "a Mainhand bag must retain native dismissal")
+    ContainerFrame2:Hide()
+    ContainerFrameCombinedBags.left = 1800
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "Mainhand must retain native Escape handling")
+end
+print("PASS: Forever map placement, Escape persistence, and native bag secure target binding")

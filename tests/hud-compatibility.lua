@@ -32,6 +32,27 @@ assert(not compatibility.HasCustomActionBarAddon(),
     "stock action bars must remain available")
 assert(not compatibility.HasCustomBagAddon(),
     "stock bags must remain available")
+loaded.BetterBags = true
+assert(compatibility.HasCustomBagAddon(),
+    "BetterBags without an exported global must retain its bag ownership")
+loaded.BetterBags = nil
+addon.isForever, loaded.BagSmith = true, true
+UIParent, ContainerFrameContainer = {}, {}
+local bagParent = ContainerFrameContainer
+ContainerFrame1.GetParent = function() return bagParent end
+assert(not compatibility.HasCustomBagAddon(),
+    "BagSmith must yield native bag handling when the backpack is using its Blizzard parent")
+bagParent = {
+    GetParent = function() return UIParent end,
+    GetName = function() end,
+    IsShown = function() return false end,
+}
+assert(compatibility.HasCustomBagAddon(),
+    "BagSmith's parked native backpack must suppress Offhand native bag handling")
+loaded.BagSmith = nil
+assert(not compatibility.HasCustomBagAddon(),
+    "the BagSmith parking check requires the addon to be active")
+addon.isForever, UIParent, ContainerFrameContainer = false, nil, nil
 ContainerFrame1, ContainerFrameCombinedBags = nil, {}
 assert(not compatibility.HasCustomBagAddon(),
     "a native combined backpack must not be mistaken for a replacement when ContainerFrame1 is absent")

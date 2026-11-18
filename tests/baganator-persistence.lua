@@ -621,6 +621,8 @@ local function NativeBag(id, parent)
         GetParent=function() return parent end,
         IsShown=function(self) return self.shown end,
         GetBagID=function() return id end,
+        GetNumPoints=function(self) return self.points or 1 end,
+        GetScript=function(self, script) return self[script] end,
     }
 end
 ContainerFrameCombinedBags = NativeBag(0, parkingParent)
@@ -717,6 +719,308 @@ spanned = true
 tracker:ResumeWhenWorkspaceReady(); tracker:ResumeWhenWorkspaceReady(); flush()
 assert(coldOpens == 1 and bag.shown and bag.x == shutdownPosition.x and bag.y == shutdownPosition.y,
     "a late workspace span must reopen the bag once at its saved position")
+
+bag:Hide()
+flush()
+ToggleAllBags = function() end
+baganatorLoaded, bagnonLoaded = false, true
+local bagnonName = bagnon:GetName()
+_G[bagnonName] = bagnon
+Bagnon.Overrides, Bagnon.NumBags = {Disabled=parkingParent}, 4
+UISpecialFrames = {"TestSpecialWindow", bagnonName}
+bagnon:Show()
+ContainerFrame3.shown = true
+ContainerFrame6 = NativeBag(7, parkingParent)
+ContainerFrame6.shown = true
+tracker:Discover(false)
+tick()
+assert(#UISpecialFrames == 1 and not ContainerFrame3.shown and ContainerFrame6.shown,
+    "Bagnon protection must remove its inventory entry and close only parked player bags")
+targetSelected = true
+ToggleGameMenu(); flush()
+assert(not targetSelected and bagnon.shown, "first Escape must clear the target with Bagnon open")
+bagnon.x = 2000
+tick()
+assert(UISpecialFrames[2] == bagnonName, "Bagnon must regain Escape registration on Mainhand")
+bagnon:Hide()
+bagnonLoaded = false
+
+local query = C_AddOns.IsAddOnLoaded
+C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "ArkInventory" or query(addonName) end
+ArkInventory = {Const={Location={Bag=1}}}
+ARKINV_Frame1 = setmetatable({shown=true,x=100,scripts={},ARK_Data={loc_id=1}}, {__index=bag})
+function ARKINV_Frame1:GetName() return "ARKINV_Frame1" end
+UISpecialFrames = {"TestSpecialWindow", "ARKINV_Frame1"}
+tick()
+assert(#UISpecialFrames == 1, "ArkInventory's Offhand inventory must leave the Escape list")
+targetSelected = true
+other.shown = true
+ToggleGameMenu(); flush()
+assert(not other.shown and targetSelected and ARKINV_Frame1.shown,
+    "another open window must retain Escape priority")
+ToggleGameMenu(); flush()
+assert(not targetSelected and ARKINV_Frame1.shown, "Escape must clear the target with ArkInventory open")
+ARKINV_Frame1.x = 2000
+tick()
+assert(UISpecialFrames[2] == "ARKINV_Frame1", "ArkInventory must regain Escape registration on Mainhand")
+
+ARKINV_Frame1:Hide()
+local nextName = "BetterBagsNextBackpack"
+local nextBag = setmetatable({shown=true,x=100,scripts={}}, {__index=bag})
+function nextBag:GetName() return nextName end
+_G[nextName], BetterBagsSneakyFrame = nextBag, parkingParent
+local cleanups = 0
+local vendor = {Bags={Backpack={frame=nextBag}}, backpackShouldClose=false}
+function vendor:CloseSpecialWindows(interactingFrame)
+    if interactingFrame then return end
+    self.backpackShouldClose = true
+    cleanups = cleanups + 1
+    C_Timer.After(0, function()
+        if not self.backpackShouldClose then return end
+        self.backpackShouldClose = false
+        self.Bags.Backpack.frame:Hide()
+    end)
+end
+LibStub = function() return {GetAddon=function() return vendor end} end
+C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "BetterBags" or query(addonName) end
+UISpecialFrames = {"TestSpecialWindow", nextName}
+ContainerFrame3.shown = true
+tick()
+assert(#UISpecialFrames == 1 and not ContainerFrame3.shown, "BetterBags owns its parked native backpack")
+nativeEscape = function()
+    local closed = NativeCloseSpecialWindows()
+    vendor:CloseSpecialWindows()
+    if closed then return true end
+    if targetSelected then targetSelected = false; return true end
+end
+targetSelected = true
+other.shown = true
+ToggleGameMenu(); flush()
+assert(not other.shown and targetSelected and nextBag.shown and cleanups == 1,
+    "Escape must dismiss another registered window first and retain BetterBags")
+ToggleGameMenu(); flush()
+assert(not targetSelected and nextBag.shown and cleanups == 2,
+    "Escape must clear the target and retain BetterBags while letting its other cleanup run")
+vendor:CloseSpecialWindows(); flush()
+assert(not nextBag.shown and cleanups == 3,
+    "a close outside the Escape transaction must still close BetterBags")
+nextBag:Show()
+nextBag.x = 2000
+tick()
+assert(UISpecialFrames[2] == nextName, "BetterBags must regain normal Escape handling on Mainhand")
+ToggleGameMenu(); flush()
+assert(not nextBag.shown, "Escape must close BetterBags on Mainhand")
+
+local smith = setmetatable({shown=true,x=100,scripts={}}, {__index=bag})
+function smith:GetName() return "BagSmithFrame" end
+BagSmithFrame = smith
+local smithView = {frame=smith, isMain=true, Hide=function(self) self.frame:Hide() end}
+smith.view = smithView
+addon.HUDCompatibility = {GetBagSmithParkingParent=function() return parkingParent end}
+C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "BagSmith" or query(addonName) end
+local smithEscape
+debugstack = function()
+    local stack = "Interface/AddOns/BagSmith/Core/Hooks.lua:139\nin function '" .. (smithEscape or "CloseAllBags") .. "'"
+    return smithEscape and stack .. "\nBlizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua" or stack
+end
+UISpecialFrames = {"TestSpecialWindow", "BagSmithFrame"}
+ContainerFrame3.shown = true
+tick()
+assert(#UISpecialFrames == 1 and not ContainerFrame3.shown,
+    "only the protected BagSmith backpack and its parked native bag should leave Escape handling")
+nativeEscape = function()
+    local closed = NativeCloseSpecialWindows()
+    smithEscape = "CloseAllBags"
+    smithView:Hide()
+    smithEscape = nil
+    if closed then return true end
+    if targetSelected then targetSelected = false; return true end
+end
+targetSelected = true
+ToggleGameMenu(); flush()
+assert(not targetSelected and smith.shown, "Escape must clear the target and keep BagSmith visible")
+smithEscape = "GameMenuFrame_Show"
+smithView:Hide()
+smithEscape = nil
+assert(smith.shown, "the centering cleanup while Escape opens the Game Menu must leave BagSmith visible")
+smithView:Hide()
+assert(not smith.shown, "BagSmith close paths outside Escape must still run")
+smith:Show()
+smith.x = 2000
+tick()
+assert(UISpecialFrames[2] == "BagSmithFrame", "BagSmith must regain Escape handling on Mainhand")
+ToggleGameMenu(); flush()
+assert(not smith.shown, "Escape must close BagSmith on Mainhand")
+
+local elv = setmetatable({shown=true,x=100,scripts={}}, {__index=bag})
+function elv:GetName() return "ElvUI_ContainerFrame" end
+ElvUIParent, ElvUI_ContainerFrame = {}, elv
+function elv:GetParent() return ElvUIParent end
+local elvBags = {BagFrame=elv}
+function elvBags:CloseAllBags() self.BagFrame:Hide(); ContainerFrame3.shown = false end
+function elvBags:ToggleAllBags()
+    if ContainerFrame3.shown then self.BagFrame:Show() else self:CloseAllBags() end
+end
+ElvUI = {{UIParent=ElvUIParent, GetModule=function() return elvBags end}}
+C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "ElvUI" or query(addonName) end
+UISpecialFrames = {"TestSpecialWindow", "ElvUI_ContainerFrame"}
+ContainerFrame3.shown, ContainerFrame3.points, ContainerFrame4.shown = true, 0, true
+ContainerFrame3.OnShow = function() end
+tick()
+assert(#UISpecialFrames == 1 and not ContainerFrame3.shown and ContainerFrame4.shown,
+    "ElvUI must leave the Escape list and only its unanchored native containers should close")
+nativeEscape = function()
+    local closed = NativeCloseSpecialWindows()
+    smithEscape = "CloseAllBags"
+    elvBags:CloseAllBags()
+    smithEscape = nil
+    if closed then return true end
+    if targetSelected then targetSelected = false; return true end
+end
+targetSelected = true
+ToggleGameMenu(); flush()
+assert(not targetSelected and elv.shown, "Escape must clear the target and retain ElvUI on Offhand")
+local escapeStack = debugstack
+debugstack = function()
+    return "Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua in function 'ShowUIPanel'\n"
+        .. "Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua"
+end
+elvBags:CloseAllBags()
+assert(elv.shown, "opening Blizzard Options must retain the ElvUI backpack on Offhand")
+debugstack = escapeStack
+ContainerFrame3.shown = true
+elvBags:ToggleAllBags()
+assert(not elv.shown and not ContainerFrame3.shown,
+    "the first explicit toggle must still close ElvUI even when Offhand cleared the native open bit")
+ContainerFrame3.shown = true
+elvBags:ToggleAllBags()
+assert(elv.shown, "the next explicit toggle must reopen ElvUI")
+elv.x = 2000
+tick()
+assert(UISpecialFrames[2] == "ElvUI_ContainerFrame", "ElvUI must regain Escape handling on Mainhand")
+ToggleGameMenu(); flush()
+assert(not elv.shown, "Escape must close ElvUI on Mainhand")
+
+local daylight = setmetatable({shown=true,x=100,scripts={}}, {__index=bag})
+local daylightProxy = setmetatable({shown=true,x=2000,scripts={}}, {__index=bag})
+local daylightProxyName = "DaylightUIEscape7"
+function daylightProxy:GetName() return daylightProxyName end
+function daylightProxy:Hide() self.shown = false; daylight:Hide() end
+DaylightUIBag, _G[daylightProxyName] = daylight, daylightProxy
+daylight.__duiEsc = daylightProxy
+local openClose = {
+    hidden=parkingParent,
+    GameWindows=function() return {ContainerFrame3} end,
+    AnyOpen=function() return ContainerFrame3.shown end,
+    CloseGame=function() ContainerFrame3.shown = false end,
+}
+function openClose.Follow()
+    daylight.shown = openClose.held or openClose.AnyOpen()
+    daylightProxy.shown = daylight.shown
+end
+local daylightModule = {enabled=true, ns={window=daylight, OpenClose=openClose}}
+DaylightUI = {GetModule=function() return daylightModule end}
+C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "DaylightUI_Bags" or query(addonName) end
+UISpecialFrames = {"TestSpecialWindow", daylightProxyName}
+ContainerFrame3.shown = true
+tick()
+assert(#UISpecialFrames == 1 and openClose.held and not openClose.AnyOpen(),
+    "DaylightUI must remove just its backpack proxy and hold its open Offhand bag")
+nativeEscape = function()
+    local closed = NativeCloseSpecialWindows()
+    openClose.held = nil
+    smithEscape = "CloseAllBags"
+    openClose.Follow()
+    smithEscape = nil
+    if closed then return true end
+    if targetSelected then targetSelected = false; return true end
+end
+targetSelected = true
+ToggleGameMenu(); flush()
+assert(not targetSelected and daylight.shown, "Escape must clear the target and retain DaylightUI on Offhand")
+openClose.held = nil
+openClose.CloseGame()
+openClose.Follow()
+tick()
+assert(not daylight.shown and UISpecialFrames[2] == daylightProxyName,
+    "DaylightUI's ordinary toggle must close the held bag and restore its proxy")
+ContainerFrame3.shown = true
+openClose.Follow()
+tick()
+assert(daylight.shown and openClose.held, "DaylightUI must reopen on Offhand using its normal toggle")
+daylight.x = 2000
+tick()
+assert(UISpecialFrames[2] == daylightProxyName, "DaylightUI must regain Escape handling on Mainhand")
+ToggleGameMenu(); flush()
+assert(not daylight.shown, "Escape must close DaylightUI on Mainhand")
+
+local ellesmere = setmetatable({shown=true,x=100,scripts={}}, {__index=bag})
+function ellesmere:GetName() return "EUI_MainBagFrame" end
+function ellesmere:RefreshInventory() end
+EUI_MainBagFrame, EUI_Bags = ellesmere, ellesmere
+EllesmereUIDB = {bagsVisible=true}
+local sharedProxy = setmetatable({shown=true,scripts={}}, {__index=bag})
+function sharedProxy:GetName() return "EllesmereUI_EscapeProxy" end
+EllesmereUI_EscapeProxy = sharedProxy
+local bank = setmetatable({shown=false,scripts={}}, {__index=bag})
+local registered = {[ellesmere]=true,[bank]=true}
+local function RefreshEllesmereProxy()
+    sharedProxy.shown = (registered[ellesmere] and ellesmere.shown) or bank.shown
+end
+function sharedProxy:Hide()
+    self.shown = false
+    if bank.shown then bank:Hide()
+    elseif registered[ellesmere] then ellesmere:Hide() end
+    RefreshEllesmereProxy()
+end
+local forgotten, registrations = 0, 0
+EllesmereUI = {
+    _ModuleNS={EllesmereUIBags={BlizzardBagsParked=true}},
+    _ForgetEscapeClose=function(frame)
+        forgotten = forgotten + 1
+        registered[frame] = nil
+        RefreshEllesmereProxy()
+    end,
+    RegisterEscapeClose=function(frame)
+        registrations = registrations + 1
+        registered[frame] = true
+    end,
+}
+C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "EllesmereUIBags" or query(addonName) end
+UISpecialFrames = {"TestSpecialWindow", "EllesmereUI_EscapeProxy"}
+ContainerFrameCombinedBags.shown, ContainerFrame3.shown = true, true
+tick(); tick()
+assert(not registered[ellesmere] and not sharedProxy.shown and forgotten == 1
+    and not ContainerFrameCombinedBags.shown and not ContainerFrame3.shown,
+    "only EllesmereUI's Offhand backpack registration and parked native bags should be excluded")
+nativeEscape = function()
+    if NativeCloseSpecialWindows() then return true end
+    if targetSelected then targetSelected = false; return true end
+end
+targetSelected = true
+ToggleGameMenu(); flush()
+assert(not targetSelected and ellesmere.shown, "Escape must clear the target and retain EllesmereUI on Offhand")
+targetSelected = true
+bank.shown = true
+RefreshEllesmereProxy()
+ToggleGameMenu(); flush()
+assert(not bank.shown and targetSelected and ellesmere.shown,
+    "EllesmereUI's shared proxy must still close its other windows before clearing the target")
+EllesmereUIDB.bagsVisible = false
+ellesmere:Hide()
+tick()
+assert(not registered[ellesmere] and not ellesmere.shown and registrations == 0,
+    "an explicit EllesmereUI bag close must stay closed without repeating the vendor hooks")
+EllesmereUIDB.bagsVisible = true
+ellesmere:Show()
+tick()
+assert(ellesmere.shown and not registered[ellesmere], "the reopened EllesmereUI backpack must regain protection")
+ellesmere.x = 2000
+tick(); tick()
+assert(registered[ellesmere] and sharedProxy.shown and registrations == 1,
+    "moving the EllesmereUI backpack to Mainhand must restore its shared-proxy dismissal once")
+ToggleGameMenu(); flush()
+assert(not ellesmere.shown, "Escape must close EllesmereUI on Mainhand")
 
 print("PASS: addon bag reload, Escape, explicit close, Baganator, Bagnon and EllesmereUI roots")
 

@@ -23,11 +23,11 @@ local function Source(frame)
     return value:gsub("\\", "/"):lower()
 end
 
-local function OrdinaryRoot(frame)
+local function OrdinaryRoot(frame, parent)
     return frame and frame.IsShown and frame.GetParent
         and not (frame.IsForbidden and frame:IsForbidden())
         and not (frame.IsProtected and frame:IsProtected())
-        and frame:GetParent() == UIParent
+        and frame:GetParent() == (parent or UIParent)
 end
 
 local function IsDonGameplayRoot(frame, name, addon)
@@ -238,10 +238,10 @@ local function Exclude(state)
     end
 end
 
-function Adapter:SetSpecialFrameExcluded(frame, state, excluded)
+function Adapter:SetSpecialFrameExcluded(frame, state, excluded, parent)
     if InCombatLockdown and InCombatLockdown() then return end
     if type(UISpecialFrames) ~= "table" or #UISpecialFrames > MAX_SPECIAL then return end
-    if excluded and _G[state.name] == frame and OrdinaryRoot(frame) then
+    if excluded and _G[state.name] == frame and OrdinaryRoot(frame, parent) then
         Exclude(state)
     else
         Release(frame, state)
