@@ -3983,6 +3983,41 @@ namespace Offhand.Companion
         }
     }
 
+    // Auto-span for custom layouts (a custom workspace, secondary area, workspace regions or a flexible layout).
+    // These were manual-only. They may now span automatically, but only once that exact layout has been spanned
+    // by hand on the same monitors: a manual Span WoW Now records the layout's fingerprint, and an automatic span
+    // goes ahead only while the fingerprint still matches. Editing, loading or switching layouts, or a monitor
+    // being moved, changed or disconnected, changes it, so the next launch waits for one manual span again.
+    internal static class CustomAutoSpan
+    {
+        internal const string SettingKey = "CustomAutoSpanKey";
+
+        internal static string Fingerprint(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
+        {
+            if (plan == null || displays == null) return null;
+            string layout = CompanionTopologyBridge.LayoutKey(plan, displays);
+            var sizes = new List<string>();
+            foreach (var display in displays) sizes.Add(display.StableId + "@" + display.Bounds.ToString());
+            sizes.Sort(StringComparer.Ordinal);
+            using (var sha = SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(layout + "\n" + string.Join(";", sizes.ToArray())));
+                return BitConverter.ToString(hash).Replace("-", "");
+            }
+        }
+
+        // null: go ahead. Otherwise the reason the automatic span is skipped.
+        internal static string Refusal(bool custom, bool manual, bool graphicsRecovery, string recorded, string current)
+        {
+            if (!custom || manual) return null;
+            if (graphicsRecovery) return "Custom regions are manual-only for graphics recovery. Click Span WoW Now.";
+            if (string.IsNullOrEmpty(recorded) || !string.Equals(recorded, current, StringComparison.Ordinal))
+                return "Auto-span skipped: this custom layout has not been spanned by hand on the current monitors yet "
+                    + "(or the layout or a monitor changed since). Click Span WoW Now once; later launches will auto-span it.";
+            return null;
+        }
+    }
+
     internal static class ProcessPathResolver
     {
         internal static string Get(Process process)
@@ -5337,7 +5372,7 @@ namespace Offhand.Companion
 #if UI_PREVIEW
             chkAutoSpan.Enabled = false;
 #else
-            chkAutoSpan.Enabled = local && !partial && !GraphicsRecoveryTestBuild;
+            chkAutoSpan.Enabled = local && !GraphicsRecoveryTestBuild;
 #endif
             if (itemAuto != null) itemAuto.Enabled = chkAutoSpan.Enabled;
         }
@@ -6445,7 +6480,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
-                "Automatically span the selected WoW client after the delay. When several clients are open, choose one in the WoW client list.");
+                "Automatically span the selected WoW client after the delay. When several clients are open, choose one in the WoW client list. A custom layout auto-spans after you have spanned it once with Span WoW Now on the same monitors.");
             uiToolTips.SetToolTip(lblDelay,
                 "Wait time before automatically spanning a newly detected WoW window. Use 0 for immediate pre-login spanning.");
             uiToolTips.SetToolTip(numDelaySpan,
@@ -7473,7 +7508,7 @@ namespace Offhand.Companion
 
             AppendHelpSection(guide, sectionFont, "After calibration: check your next launch",
                 "Arrange supported panels in WoW. Exit WoW normally, relaunch it, apply your chosen span and confirm that the game, workspace panels and Mainhand HUD return.",
-                "For standard layouts, you may then enable Auto-span WoW on launch and leave Companion in the tray. Custom layouts use Span WoW Now each time. The title-bar X minimizes to the tray; Exit Companion closes it and leaves the current span in place.",
+                "You may then enable Auto-span WoW on launch and leave Companion in the tray. A custom layout auto-spans after you span it once by hand with Span WoW Now; after changing the layout or a monitor, span it by hand once more. The title-bar X minimizes to the tray; Exit Companion closes it and leaves the current span in place.",
                 "Keep Companion running for automatic spanning, active display-disconnect recovery, the remembered Restore Window bounds or an indicated Forever recovery bridge. Restore Window at the top returns WoW to its pre-span window and suspends auto-span for that session. The tray menu provides Pause/Resume background monitoring; manual Span and Restore remain available.");
 
             AppendHelpSection(guide, sectionFont, "Optional: custom workspaces and saved plans",
@@ -8871,8 +8906,11 @@ namespace Offhand.Companion
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready. Retry after it opens.");
 
                 if (!remote) plan = MonitorSelection.CreatePlan(appSettings, displays);
-                if (plan.IsCustom && !manual)
-                    throw new InvalidOperationException("Custom regions are manual-only in this prototype. Click Span WoW Now.");
+                string recordedCustom;
+                appSettings.TryGetValue(CustomAutoSpan.SettingKey, out recordedCustom);
+                string customRefusal = CustomAutoSpan.Refusal(plan.IsCustom, manual, graphicsRecovery, recordedCustom,
+                    plan.IsCustom && !manual ? CustomAutoSpan.Fingerprint(plan, displays) : null);
+                if (customRefusal != null) throw new InvalidOperationException(customRefusal);
                 if (graphicsRecovery)
                 {
                     ClassicGraphicsRecovery expected;
@@ -9147,6 +9185,17 @@ namespace Offhand.Companion
                 else
                 {
                     rollback.Commit();
+                    if (plan.IsCustom && manual && !remote && !graphicsRecovery)
+                    {
+                        string fingerprint = CustomAutoSpan.Fingerprint(plan, displays);
+                        string recorded;
+                        if (!appSettings.TryGetValue(CustomAutoSpan.SettingKey, out recorded) || recorded != fingerprint)
+                        {
+                            appSettings[CustomAutoSpan.SettingKey] = fingerprint;
+                            SaveConfig();
+                            if (chkAutoSpan.Checked) AddLog("Auto-span will use this custom layout on later WoW launches.");
+                        }
+                    }
                     ReportSpanApplied(proc.Id, bounds, manual, remote, plan.IsCustom);
                 }
                 return true;

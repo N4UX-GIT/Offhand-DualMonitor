@@ -121,6 +121,10 @@ jobs:
         shell: powershell
         run: ./tests/companion-display-preview.ps1
 
+      - name: Test auto-span for custom layouts after a manual span
+        shell: powershell
+        run: ./tests/companion-custom-autospan.ps1
+
       - name: Test Companion display diagnostics and dashboard
         shell: powershell
         run: |
