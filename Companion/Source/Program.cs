@@ -3591,6 +3591,76 @@ namespace Offhand.Companion
         }
     }
 
+    // A Windows PID and HWND may both be recycled. Never rebind a user's choice by title or by process name.
+    internal sealed class WoWClientWindow
+    {
+        internal readonly int Pid;
+        internal readonly long StartedUtcTicks;
+        internal readonly IntPtr Handle;
+        internal readonly string Title, ProcessName;
+
+        internal WoWClientWindow(int pid, long startedUtcTicks, IntPtr handle, string title, string processName)
+        {
+            Pid = pid;
+            StartedUtcTicks = startedUtcTicks;
+            Handle = handle;
+            Title = title ?? "";
+            ProcessName = processName;
+        }
+
+        internal bool SameWindow(WoWClientWindow other)
+        {
+            return other != null && other.Pid == Pid && other.StartedUtcTicks == StartedUtcTicks && other.Handle == Handle;
+        }
+
+        public override string ToString()
+        {
+            return "PID " + Pid + " · " + (Title.Length == 0 ? ProcessName : Title + " · " + ProcessName);
+        }
+    }
+
+    internal sealed class WoWClientSelection
+    {
+        internal WoWClientWindow Current { get; private set; }
+        private bool explicitChoice;
+        private bool waitForChoice;
+        private bool pinned;
+
+        internal void Select(WoWClientWindow choice)
+        {
+            Current = choice;
+            explicitChoice = true;
+            waitForChoice = choice == null;
+            pinned = false;
+        }
+
+        // Continue monitoring an already spanned window if another client is subsequently opened.
+        internal void Pin() { pinned = true; }
+
+        internal WoWClientWindow Resolve(IList<WoWClientWindow> choices, bool anyRecognizedProcess)
+        {
+            if (!anyRecognizedProcess && !explicitChoice)
+            {
+                Current = null;
+                waitForChoice = pinned = false;
+            }
+            if (Current != null)
+            {
+                foreach (var choice in choices)
+                {
+                    if (!Current.SameWindow(choice)) continue;
+                    if (!explicitChoice && !pinned && choices.Count > 1) break;
+                    return Current = choice;
+                }
+                Current = null;
+                waitForChoice = true;
+            }
+            if (choices.Count > 1) waitForChoice = true;
+            if (!waitForChoice && choices.Count == 1) Current = choices[0];
+            return Current;
+        }
+    }
+
     internal static class CompanionTiming
     {
         internal static double AutoSpanDelay(string processName, string wowDir, decimal configuredDelay)
@@ -4324,6 +4394,8 @@ namespace Offhand.Companion
         private readonly Color cLogText = Color.FromArgb(195, 190, 175);        // Parchment log text (#c3beaf)
 
         // UI Controls
+        private ComboBox cmbWowClient;
+        private WoWClientWindow lastShownClient;
         private Label lblWowStatus;
         private Label lblAddonStatus;
         private Label lblDisplayInfo;
@@ -5024,6 +5096,8 @@ namespace Offhand.Companion
         private readonly Dictionary<int, ClassicGraphicsRecovery> classicRecovery = new Dictionary<int, ClassicGraphicsRecovery>();
         private readonly Dictionary<int, DateTime> retryAfter = new Dictionary<int, DateTime>();
         private readonly Dictionary<int, DateTime> launchTimes = new Dictionary<int, DateTime>();
+        private readonly WoWClientSelection clientSelection = new WoWClientSelection();
+        private List<WoWClientWindow> knownClients = new List<WoWClientWindow>();
         private readonly int currentSessionId;
         private RemoteDesktop.State remoteState = RemoteDesktop.Read();
         private readonly RemoteDesktopWatcher remoteWatcher;
@@ -5753,7 +5827,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
-                "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
+                "Automatically span the selected WoW client after the delay. When several clients are open, choose one in the WoW client list.");
             uiToolTips.SetToolTip(lblDelay,
                 "Wait time before automatically spanning a newly detected WoW window. Use 0 for immediate pre-login spanning.");
             uiToolTips.SetToolTip(numDelaySpan,
@@ -5875,7 +5949,7 @@ namespace Offhand.Companion
             btnSpanNow = CreateButton("Span WoW Now", 16, 522, 158, DashboardActionHeight, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
-            uiToolTips.SetToolTip(btnSpanNow, "Move the WoW window to the selected display layout. Then type /reload in WoW to load the layout in Offhand.");
+            uiToolTips.SetToolTip(btnSpanNow, "Move the selected WoW client to this display layout. Then type /reload in that client to load the layout in Offhand.");
 
             Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, DashboardActionHeight, cBtnBg, cText, cBorder);
             btnRestoreNow.FlatAppearance.BorderColor = cBorderDim;
@@ -6007,7 +6081,7 @@ namespace Offhand.Companion
                     : "For two monitors, check both screens under Span displays. Identify Displays briefly shows the screen numbers so you can match them to your desk. This tour does not change the checked screens.", clbMonitors.Parent),
                 new TutorialStep("Choose Mainhand", "Mainhand is the monitor for the 3D game view and combat UI. The other selected monitor becomes the Offhand workspace for maps, bags and supported panels. After changing the layout, use Span WoW Now and reload the WoW UI.", cmbMainhand),
                 new TutorialStep("One ultrawide monitor", "Use Single-display 32:9 split only for an equal game/workspace split on one 32:9 or 32:10 ultrawide. Check only that display and choose Game side. Leave this option off for the usual two-monitor setup. Advanced has custom layouts for other arrangements.", chkSingleSplit.Parent),
-                new TutorialStep("Apply the layout to WoW", "Enable the Offhand addon, log into a character, and use WoW's Windowed mode rather than Windowed (Fullscreen). Span WoW Now places the game window across your selected game and workspace areas. Then type /reload in WoW. This tour will not press Span for you.", btnSpanNow),
+                new TutorialStep("Apply the layout to WoW", "Enable the Offhand addon, log into a character, and use WoW's Windowed mode rather than Windowed (Fullscreen). If several clients are open, choose your game window by title and PID under WoW client. Span WoW Now extends that window across your game and workspace areas. Then type /reload in WoW. This tour will not press Span for you.", btnSpanNow),
                 new TutorialStep("Return to a normal window", "Restore Window stops spanning and returns WoW to a normal, resizable window. It uses the previous size and position when remembered, otherwise a fitted default. Automatic spanning pauses for that WoW session until you use Span WoW Now again.", restore),
                 new TutorialStep("Check System Status", "The compact status reports WoW, addon-file detection and display-layout problems. Show opens the details and next steps. An installed addon file does not confirm that WoW has enabled it. The Companion cannot confirm that you completed the in-game setup.", lblStatusSummary.Parent),
                 new TutorialStep("Advanced is optional", "Setup covers ordinary display selection. Advanced contains custom workspace layouts, saved profiles, automatic spanning and troubleshooting. Switching tabs only changes what you see; it does not change the saved display plan.", advancedTab),
@@ -6192,6 +6266,65 @@ namespace Offhand.Companion
             return row;
         }
 
+        private TableLayoutPanel CreateClientPicker()
+        {
+            var row = new TableLayoutPanel { ColumnCount = 2, RowCount = 1, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var label = new Label { Text = "WoW client", ForeColor = cText, AutoSize = true,
+                Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 10, 0) };
+            cmbWowClient = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill,
+                AccessibleName = "WoW client", Margin = Padding.Empty, MaxDropDownItems = 12 };
+            CompanionUi.StyleCombo(cmbWowClient);
+            cmbWowClient.Items.Add("Looking for WoW windows…");
+            cmbWowClient.SelectedIndex = 0;
+            cmbWowClient.SelectionChangeCommitted += (s, e) =>
+            {
+                var choice = cmbWowClient.SelectedItem as WoWClientWindow;
+                cmbWowClient.DroppedDown = false;
+                if (choice == null) lastShownClient = null;
+                SelectClient(choice);
+            };
+            uiToolTips.SetToolTip(cmbWowClient, "Select the running WoW window for Span and Restore. The PID identifies its process in Task Manager.");
+            row.Controls.Add(label, 0, 0);
+            row.Controls.Add(cmbWowClient, 1, 0);
+            return row;
+        }
+
+        private void RefreshClientPicker(List<WoWClientWindow> choices, WoWClientWindow selected)
+        {
+            // Keep rows stable under the pointer. SelectClient validates the committed window against a new scan.
+            if (cmbWowClient == null || cmbWowClient.DroppedDown) return;
+            if (selected != null) lastShownClient = selected;
+            bool lost = lastShownClient != null && !choices.Exists(window => window.SameWindow(lastShownClient));
+            string prompt = selected != null ? "No client selected"
+                : lost ? "PID " + lastShownClient.Pid + " closed · choose a client"
+                : choices.Count == 0 ? "Waiting for a WoW window…"
+                : "Choose a WoW client (" + choices.Count + " available)";
+            int selectedIndex = selected == null ? 0 : choices.FindIndex(w => w.SameWindow(selected)) + 1;
+            bool changed = cmbWowClient.Items.Count != choices.Count + 1 || !prompt.Equals(cmbWowClient.Items[0]);
+            for (int i = 0; !changed && i < choices.Count; ++i)
+            {
+                var displayed = cmbWowClient.Items[i + 1] as WoWClientWindow;
+                changed = displayed == null || !choices[i].SameWindow(displayed) || choices[i].ToString() != displayed.ToString();
+            }
+            if (changed)
+            {
+                cmbWowClient.BeginUpdate();
+                try
+                {
+                    cmbWowClient.Items.Clear();
+                    cmbWowClient.Items.Add(prompt);
+                    foreach (var choice in choices) cmbWowClient.Items.Add(choice);
+                    cmbWowClient.SelectedIndex = selectedIndex;
+                }
+                finally { cmbWowClient.EndUpdate(); }
+            }
+            else if (cmbWowClient.SelectedIndex != selectedIndex)
+                cmbWowClient.SelectedIndex = selectedIndex;
+        }
+
         private void ArrangeDashboard(Panel header, Panel status, Panel config, Panel advanced, Panel diagnostics, Panel log,
             Control[] actions, Control[] footer)
         {
@@ -6258,7 +6391,7 @@ namespace Offhand.Companion
                 btnSpanNow.Select();
             };
             layoutNotice.Controls.AddRange(new Control[] { lblLayoutNotice, btnDismissLayoutNotice });
-            foreach (Control item in new Control[] { header, dashboardNavigation, actionRow, layoutNotice, status, config, advanced, diagnostics, log })
+            foreach (Control item in new Control[] { header, dashboardNavigation, CreateClientPicker(), actionRow, layoutNotice, status, config, advanced, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
                 item.Margin = new Padding(0, 0, 0, 10);
@@ -6679,7 +6812,7 @@ namespace Offhand.Companion
             AppendHelpSection(guide, sectionFont, "First-time setup",
                 "1. Start WoW with the Offhand addon enabled. In WoW's Graphics options, select Windowed and click Apply. WoW should have a movable title bar.",
                 "2. Enter the game world and type /offhand guide in chat. Choose Use Companion when the guide asks for a setup method. Continue to the window placement step.",
-                "3. In Companion, leave Auto-span WoW on launch off for setup. Choose the layout you want, then click Span WoW Now. See Choose a display layout below for the available options.",
+                "3. In Companion, select the WoW client you want to extend. Use the PID to distinguish windows with the same title. Leave Auto-span WoW on launch off for setup. Choose your layout, then click Span WoW Now. See Choose a display layout below for the available options.",
                 "4. Return to the in-game guide. Click Reload UI, then Confirm placement. Follow the Auto-Setup Wizard to finish calibration.",
                 "5. On Retail and Forever, finish with Create Mainhand HUD Layout. Leave combat, close Edit Mode, and click the button. Reload when prompted. Wait for layout creation to succeed before moving your panels.");
 
@@ -7305,12 +7438,14 @@ namespace Offhand.Companion
             }
             if (status == null)
             {
-                lblWowStatus.Text = anyWoWProcess ? "WoW: Waiting for one game window" : "WoW: Not running";
+                bool chooseClient = anyWoWProcess && cmbWowClient != null && cmbWowClient.Items.Count > 1
+                    && cmbWowClient.SelectedIndex == 0;
+                lblWowStatus.Text = chooseClient ? "WoW: Choose a client" : anyWoWProcess ? "WoW: Waiting for a game window" : "WoW: Not running";
                 lblWowStatus.ForeColor = cMuted;
                 lblAddonStatus.Text = "Offhand addon: Waiting for WoW";
                 lblAddonStatus.ForeColor = cMuted;
-                lblAddonReason.Text = anyWoWProcess
-                    ? "Wait for WoW to open. Keep one WoW window open when using Remote Desktop."
+                lblAddonReason.Text = chooseClient ? "Choose the WoW client above Span WoW Now to check its addon."
+                    : anyWoWProcess ? "Wait for WoW to open. Keep one WoW window open when using Remote Desktop."
                     : "Start WoW to check the addon for that client.";
                 UpdateDashboardStatusSummary();
                 return;
@@ -7422,6 +7557,7 @@ namespace Offhand.Companion
                         if (!spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id))
                         {
                             spannedPids.Add(proc.Id);
+                            clientSelection.Pin();
                             AddLog("Detected an existing WoW span and resumed display-loss protection for this client.");
                         }
                     }
@@ -7485,7 +7621,7 @@ namespace Offhand.Companion
                     if (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id])
                     {
                         if (!launchTimes.ContainsKey(proc.Id)) launchTimes[proc.Id] = DateTime.Now;
-                        double spanDelay = CompanionTiming.AutoSpanDelay(proc.ProcessName, status.WowDir, numDelaySpan.Value);
+                        double spanDelay = CompanionTiming.AutoSpanDelay(clientSelection.Current.ProcessName, status.WowDir, numDelaySpan.Value);
                         if ((DateTime.Now - launchTimes[proc.Id]).TotalSeconds < spanDelay)
                         {
                             retryAfter[proc.Id] = DateTime.Now.AddSeconds(1);
@@ -7494,11 +7630,7 @@ namespace Offhand.Companion
                         }
                         AddLog(string.Format("New WoW launch detected (PID: {0}). Preparing auto-span...", proc.Id));
                         retryAfter[proc.Id] = DateTime.Now.AddSeconds(10);
-                        if (InvokeSpanWindow(false))
-                        {
-                            spannedPids.Add(proc.Id);
-                        }
-                        else
+                        if (!InvokeSpanWindow(false))
                         {
                             failedAutoSpanPids.Add(proc.Id);
                             AddLog("Automatic spanning is paused for this WoW process after a failed window operation. Review the diagnostic above, then use Span WoW Now to retry explicitly.");
@@ -7520,84 +7652,127 @@ namespace Offhand.Companion
 
             if (proc != null) proc.Dispose();
 
-            // Clean dead PIDs
-            var pidsToCheck = new HashSet<int>(spannedPids);
-            pidsToCheck.UnionWith(restoredPids);
-            pidsToCheck.UnionWith(failedAutoSpanPids);
-            pidsToCheck.UnionWith(launchTimes.Keys);
-            foreach (int pid in pidsToCheck)
+        }
+
+        private List<WoWClientWindow> DiscoverClients(out bool anyRecognizedProcess)
+        {
+            anyRecognizedProcess = false;
+            var clients = new List<WoWClientWindow>();
+            foreach (string processName in wowProcessNames)
             {
-                try
+                Process[] candidates;
+                try { candidates = Process.GetProcessesByName(processName); }
+                catch (System.ComponentModel.Win32Exception) { continue; }
+                foreach (Process candidate in candidates)
                 {
-                    Process.GetProcessById(pid);
+                    using (candidate)
+                    {
+                        try
+                        {
+                            if (candidate.SessionId != currentSessionId) continue;
+                            // A process without a window still owns its SavedVariables.
+                            anyRecognizedProcess = true;
+                            IntPtr handle = candidate.MainWindowHandle;
+                            if (handle == IntPtr.Zero) continue;
+                            var client = new WoWClientWindow(candidate.Id, candidate.StartTime.ToUniversalTime().Ticks,
+                                handle, candidate.MainWindowTitle, candidate.ProcessName);
+                            if (IsLiveClient(candidate, client)) clients.Add(client);
+                        }
+                        catch (InvalidOperationException) { } // exited during enumeration
+                        catch (System.ComponentModel.Win32Exception) { } // unavailable to this user
+                    }
                 }
-                catch
-                {
-                    if (remoteSpan != null && remoteSpan.ProcessId == pid) InvalidateRemoteSpan();
-                    spannedPids.Remove(pid);
-                    appliedTopologies.Remove(pid);
-                    restoredPids.Remove(pid);
-                    failedAutoSpanPids.Remove(pid);
-                    originalWindows.Remove(pid);
-                    classicRecovery.Remove(pid);
-                    launchTimes.Remove(pid);
-                    retryAfter.Remove(pid);
-                    AddLog(string.Format("WoW process (PID: {0}) closed.", pid));
-                }
+            }
+            clients.Sort(delegate(WoWClientWindow a, WoWClientWindow b) {
+                int order = a.StartedUtcTicks.CompareTo(b.StartedUtcTicks);
+                return order != 0 ? order : a.Pid.CompareTo(b.Pid);
+            });
+            return clients;
+        }
+
+        private static bool IsLiveClient(Process process, WoWClientWindow client)
+        {
+            if (client == null || process == null || process.Id != client.Pid) return false;
+            try
+            {
+                if (process.HasExited || process.StartTime.ToUniversalTime().Ticks != client.StartedUtcTicks) return false;
+                process.Refresh();
+                uint owner;
+                return process.MainWindowHandle == client.Handle && client.Handle != IntPtr.Zero &&
+                    NativeMethods.GetWindowThreadProcessId(client.Handle, out owner) != 0 && owner == client.Pid;
+            }
+            catch (InvalidOperationException) { return false; }
+            catch (System.ComponentModel.Win32Exception) { return false; }
+        }
+
+        private List<WoWClientWindow> RefreshClientSelection(out bool anyRecognizedProcess)
+        {
+            var clients = DiscoverClients(out anyRecognizedProcess);
+            var selected = clientSelection.Resolve(clients, anyRecognizedProcess);
+            // All of these caches belong to one particular process AND window. A recycled PID
+            // must not inherit a previous client's original bounds or a pending auto-span.
+            foreach (var previous in knownClients)
+            {
+                if (clients.Exists(previous.SameWindow)) continue;
+                int pid = previous.Pid;
+                if (remoteSpan != null && remoteSpan.ProcessId == pid) InvalidateRemoteSpan();
+                spannedPids.Remove(pid);
+                appliedTopologies.Remove(pid);
+                restoredPids.Remove(pid);
+                failedAutoSpanPids.Remove(pid);
+                originalWindows.Remove(pid);
+                classicRecovery.Remove(pid);
+                launchTimes.Remove(pid);
+                retryAfter.Remove(pid);
+                if (layoutNoticeProcessId == pid) SetLayoutNotice(0, "");
+            }
+            knownClients = clients;
+            RefreshClientPicker(clients, selected);
+            return clients;
+        }
+
+        private void SelectClient(WoWClientWindow choice)
+        {
+            bool any;
+            var clients = RefreshClientSelection(out any);
+            var prior = clientSelection.Current;
+            if (prior != null && !prior.SameWindow(choice) && spannedPids.Contains(prior.Pid))
+            {
+                const string message = "Click Restore Window before selecting another WoW client.";
+                SetLayoutNotice(prior.Pid, message);
+                AddLog(message);
+                return;
+            }
+            var live = choice == null ? null : clients.Find(choice.SameWindow);
+            if (choice != null && live == null) AddLog("The chosen WoW window has closed or changed. Select a running client again.");
+            clientSelection.Select(live);
+            RefreshClientPicker(clients, live);
+            if (live != null) AddLog("Selected WoW client: " + live + ".");
+            if (prior != null && !prior.SameWindow(live))
+            {
+                launchTimes.Remove(prior.Pid);
+                SetLayoutNotice(0, "");
             }
         }
 
         private Process GetWoWProcess(out bool anyRecognizedProcess, bool requireSingleWindow = false)
         {
-            anyRecognizedProcess = false;
-            Process selected = null;
-            bool multipleWindows = false;
-            foreach (string processName in wowProcessNames)
-            {
-                Process[] candidates;
-                try
-                {
-                    candidates = Process.GetProcessesByName(processName);
-                }
-                catch
-                {
-                    // Process discovery can race with process startup or shutdown.
-                    continue;
-                }
+            var clients = RefreshClientSelection(out anyRecognizedProcess);
+            if (requireSingleWindow && clients.Count != 1) return null;
+            return OpenLiveClient(clientSelection.Current);
+        }
 
-                foreach (Process candidate in candidates)
-                {
-                    bool keep = false;
-                    try
-                    {
-                        if (candidate.SessionId != currentSessionId) continue;
-                        anyRecognizedProcess = true;
-                        if ((selected == null || requireSingleWindow) && candidate.MainWindowHandle != IntPtr.Zero)
-                        {
-                            if (selected == null)
-                            {
-                                selected = candidate;
-                                keep = true;
-                            }
-                            else multipleWindows = true;
-                        }
-                    }
-                    catch
-                    {
-                        // A process can exit while Windows is returning its window.
-                    }
-                    finally
-                    {
-                        if (!keep) candidate.Dispose();
-                    }
-                }
-            }
-            if (multipleWindows)
-            {
-                selected.Dispose();
-                return null;
-            }
-            return selected;
+        // The caller owns the returned process. A delayed operation may only reopen the window
+        // it originally observed, even if discovery now lists another WoW instance first.
+        internal static Process OpenLiveClient(WoWClientWindow selected)
+        {
+            if (selected == null) return null;
+            Process process;
+            try { process = Process.GetProcessById(selected.Pid); }
+            catch (ArgumentException) { return null; }
+            if (IsLiveClient(process, selected)) return process;
+            process.Dispose();
+            return null;
         }
 
         private Process GetWoWProcess()
@@ -7616,7 +7791,7 @@ namespace Offhand.Companion
 
         private AddonStatus TestOffhandAddonStatus(Process proc)
         {
-            AddonStatus result = new AddonStatus { Installed = false, Reason = "Launch exactly one WoW client.",
+            AddonStatus result = new AddonStatus { Installed = false, Reason = "Select a running WoW client.",
                 SetupHint = "See the Activity Log for the addon check details." };
             if (proc == null) return result;
 
@@ -7657,17 +7832,8 @@ namespace Offhand.Companion
 
         private IntPtr GetWoWWindowHandle(Process proc)
         {
-            if (proc == null) return IntPtr.Zero;
-            proc.Refresh();
-            IntPtr handle = proc.MainWindowHandle;
-            if (handle == IntPtr.Zero)
-            {
-                handle = NativeMethods.FindProcessWindow(proc.Id);
-            }
-            uint ownerPid;
-            NativeMethods.GetWindowThreadProcessId(handle, out ownerPid);
-            if (ownerPid != proc.Id) return IntPtr.Zero;
-            return handle;
+            var target = clientSelection.Current;
+            return IsLiveClient(proc, target) ? target.Handle : IntPtr.Zero;
         }
 
         private static string RecoveryPlanKey(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
@@ -7756,12 +7922,12 @@ namespace Offhand.Companion
             try
             {
                 RemoteSpan activeRemoteSpan = remoteSpan;
-                proc = activeRemoteSpan == null ? GetWoWProcess() : Process.GetProcessById(activeRemoteSpan.ProcessId);
-                if (proc == null) throw new Exception("Launch exactly one WoW client first.");
+                proc = manual ? GetWoWProcess() : OpenLiveClient(clientSelection.Current);
+                if (proc == null) throw new InvalidOperationException("Select a running WoW client in the Companion before restoring its window.");
                 classicRecovery.Remove(proc.Id);
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready.");
-                if (activeRemoteSpan != null && (handle != activeRemoteSpan.Handle || proc.SessionId != currentSessionId))
+                if (activeRemoteSpan != null && (proc.Id != activeRemoteSpan.ProcessId || handle != activeRemoteSpan.Handle || proc.SessionId != currentSessionId))
                 {
                     InvalidateRemoteSpan();
                     throw new InvalidOperationException("The original Remote Desktop WoW window changed. Retry Restore Window for the current window.");
@@ -7793,6 +7959,8 @@ namespace Offhand.Companion
                 }
                 Rectangle target = RestoreGeometry.Fit(desired, workArea);
                 
+                if (GetWoWWindowHandle(proc) != handle)
+                    throw new InvalidOperationException("The selected WoW window changed before it could be restored.");
                 WindowRestore.Apply(handle, target, newStyle);
                 SetTaskbarFullscreen(handle, false);
                 if (remoteSpan != null && remoteSpan.ProcessId == proc.Id) InvalidateRemoteSpan();
@@ -7874,8 +8042,11 @@ namespace Offhand.Companion
                 if (session != RemoteDesktop.State.Local && (!remote || !manual))
                     throw new InvalidOperationException("Remote Desktop spanning requires an active connection and a manual click on Span WoW Now.");
                 bool anyWoWProcess;
-                proc = GetWoWProcess(out anyWoWProcess, remote);
-                if (proc == null) throw new Exception("Launch exactly one WoW client first.");
+                proc = manual ? GetWoWProcess(out anyWoWProcess, remote) : OpenLiveClient(clientSelection.Current);
+                if (proc == null) throw new InvalidOperationException(remote
+                    ? "Keep one WoW window open for Remote Desktop and select it in the Companion."
+                    : "Select a running WoW client in the Companion before spanning its window.");
+                WoWClientWindow confirmedClient = clientSelection.Current;
                 int confirmedGeneration = remoteGeneration;
                 List<MonitorSelection.Display> displays = ReadDisplays();
                 MonitorSelection.Plan plan;
@@ -7924,6 +8095,8 @@ namespace Offhand.Companion
                 else if (RemoteDesktop.Read() != RemoteDesktop.State.Local)
                     throw new InvalidOperationException("The Windows session changed. Review the displays and click Span WoW Now again.");
                 string topologyMessage;
+                if (!confirmedClient.SameWindow(clientSelection.Current) || !IsLiveClient(proc, confirmedClient))
+                    throw new InvalidOperationException("The selected WoW window changed. Select the client again.");
                 rollback = new SpanRollback(Path.Combine(status.WowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua"), handle);
                 byte[] writtenTopology;
                 if (!CompanionTopologyBridge.TryWrite(status.WowDir, plan, displays, out topologyMessage, out writtenTopology))
@@ -7931,6 +8104,8 @@ namespace Offhand.Companion
                 rollback.TopologyWritten(writtenTopology);
                 AddLog(topologyMessage);
 
+                if (!IsLiveClient(proc, confirmedClient))
+                    throw new InvalidOperationException("The selected WoW window closed before the span could be applied.");
                 rollback.WindowChanged = true;
                 if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
                 {
@@ -8081,6 +8256,7 @@ namespace Offhand.Companion
                 restoredPids.Remove(proc.Id);
                 failedAutoSpanPids.Remove(proc.Id);
                 spannedPids.Add(proc.Id);
+                clientSelection.Pin();
 #if GRAININESS_TEST
                 // Bound read-only sampling to one minute and cancel superseded runs.
                 int generation = ++spanTestGeneration;
