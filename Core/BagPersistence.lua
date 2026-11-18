@@ -168,22 +168,48 @@ local function UpdateBaganatorEscape(frame, name)
         or InCombatLockdown() then return end
     local state = Bags.baganatorEscape[frame]
     local canvas = Offhand.Canvas
-    local exclude = false
-    if not Bags.paused and TrackEnabled() and IsSpanned()
+    local canPreserve = not Bags.paused and TrackEnabled() and IsSpanned()
         and CanOpenBagsFromAddon() and not InputReserved()
         and not (frame.IsForbidden and frame:IsForbidden())
         and not (frame.IsProtected and frame:IsProtected())
-        and frame:IsVisible() and canvas and canvas.IsFrameOnWorkspace then
+    local exclude = false
+    if canPreserve and frame:IsVisible() and canvas and canvas.IsFrameOnWorkspace then
         local ok, workspace = pcall(canvas.IsFrameOnWorkspace, frame)
         exclude = ok and workspace == true
     end
     if not state and not exclude then return end
     state = state or { name = name }
+    -- Closing the protected bag with B can also open the parked native bag.
+    local closedWorkspaceBag = canPreserve and state.removed and not frame:IsShown()
     -- Options and Escape both close UISpecialFrames before proceeding. Leave
     -- the visible Offhand backpack out so Blizzard can reach its target handler
     -- and the bag addon retains its own explicit close controls.
     adapter:SetSpecialFrameExcluded(frame, state, exclude)
     Bags.baganatorEscape[frame] = state.removed and state or nil
+    return closedWorkspaceBag or (exclude and state.removed)
+end
+
+local function CloseBaganatorParkedBags()
+    if not IsAddOnLoadedCompat("Baganator") then return end
+    local combined = _G.ContainerFrameCombinedBags
+    if not combined or (combined.IsForbidden and combined:IsForbidden()) then return end
+    local parkingParent = combined:GetParent()
+    if not parkingParent or parkingParent == UIParent or parkingParent == _G.ContainerFrameContainer
+        or (parkingParent.IsForbidden and parkingParent:IsForbidden()) or parkingParent:IsShown() then return end
+
+    -- Baganator parks these native roots under the same hidden frame. The
+    -- bag binding can still open them there, so Blizzard counts them as
+    -- closed windows on Escape. Clear that state outside the input stack.
+    if CloseBackpack and combined:IsShown() then CloseBackpack() end
+    if not CloseBag then return end
+    for index = 1, 6 do
+        local container = _G["ContainerFrame" .. index]
+        if container and not (container.IsForbidden and container:IsForbidden())
+            and container:GetParent() == parkingParent and container:IsShown()
+            and container.GetBagID then
+            CloseBag(container:GetBagID())
+        end
+    end
 end
 
 function Bags:RegisterRoot(name, frame)
@@ -454,9 +480,11 @@ function Bags:InstallBaganatorCallbacks()
 end
 
 function Bags:Capture()
+    local closeParkedBags = false
     for name, frame in pairs(self.frames) do
-        UpdateBaganatorEscape(frame, name)
+        if UpdateBaganatorEscape(frame, name) then closeParkedBags = true end
     end
+    if closeParkedBags then CloseBaganatorParkedBags() end
     if self.paused or self.restoring or self.escapePending or not Offhand.db
         or not CanOpenBagsFromAddon() then return end
     if self.optionsPanel then

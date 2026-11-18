@@ -614,8 +614,28 @@ local function NativeCloseSpecialWindows()
     end
     return closed
 end
+local parkingParent = {IsShown=function() return false end}
+local function NativeBag(id, parent)
+    return {
+        shown=false,
+        GetParent=function() return parent end,
+        IsShown=function(self) return self.shown end,
+        GetBagID=function() return id end,
+    }
+end
+ContainerFrameCombinedBags = NativeBag(0, parkingParent)
+ContainerFrame3 = NativeBag(0, parkingParent)
+ContainerFrame4 = NativeBag(2, parkingParent)
+ContainerFrame5 = NativeBag(3, UIParent)
+local nativeBags = {[0]=ContainerFrame3, [2]=ContainerFrame4, [3]=ContainerFrame5}
+CloseBackpack = function() ContainerFrameCombinedBags.shown = false end
+CloseBag = function(id) nativeBags[id].shown = false end
 nativeEscape = function()
     if NativeCloseSpecialWindows() then return true end
+    if ContainerFrame3.shown or ContainerFrame4.shown or ContainerFrameCombinedBags.shown then
+        CloseBag(0); CloseBag(2); CloseBackpack()
+        return true
+    end
     if targetSelected then targetSelected = false; return true end
 end
 local hideCalls, hide = 0, bag.Hide
@@ -630,9 +650,20 @@ other.shown = true
 ToggleGameMenu(); flush()
 assert(not other.shown and targetSelected and bag.shown and hideCalls == 0,
     "Escape must dismiss another special window without hiding Baganator")
+ContainerFrame3.shown, ContainerFrame4.shown, ContainerFrame5.shown = true, true, true
+tick()
+assert(not ContainerFrame3.shown and not ContainerFrame4.shown and ContainerFrame5.shown,
+    "only the parked native bags should close, using their bag IDs instead of frame indices")
+ContainerFrame5.shown = false
 ToggleGameMenu(); flush()
 assert(not targetSelected and bag.shown and hideCalls == 0,
     "native Escape must clear the target without blinking the workspace backpack")
+ContainerFrameCombinedBags.shown = true
+targetSelected = true
+tick()
+ToggleGameMenu(); flush()
+assert(not targetSelected and bag.shown and hideCalls == 0,
+    "a parked combined bag must also leave the first Escape free to clear the target")
 ToggleGameMenu(); flush()
 assert(GameMenuFrame:IsShown() and bag.shown and hideCalls == 0,
     "Escape must open the menu without hiding the backpack")
@@ -642,13 +673,20 @@ assert(settings.shown and bag.shown and hideCalls == 0,
     "Options must leave the workspace backpack open through native cleanup")
 HideUIPanel(settings); ToggleGameMenu(); flush()
 assert(bag.shown and hideCalls == 0, "returning to the Game Menu must leave the bag visible")
-bag:Hide(); ToggleGameMenu(); flush()
+bag:Hide()
+ContainerFrame3.shown = true
+flush()
+assert(not ContainerFrame3.shown, "closing the workspace backpack must not leave a native bag open")
+ToggleGameMenu(); flush()
 assert(not bag.shown and hideCalls == 1 and UISpecialFrames[2] == name,
-    "an explicit bag close must restore its registration and survive immediate Escape")
+    "an explicit bag close must restore its registration and survive the next Escape")
 bag:Show(); flush()
 bag.x = 2000; bag.scripts.OnDragStop()
 assert(UISpecialFrames[2] == name and UISpecialFrames[1] == "TestSpecialWindow",
     "moving the backpack to Mainhand must restore its own native registration immediately")
+ContainerFrame3.shown = true
+tick()
+assert(ContainerFrame3.shown, "Mainhand Baganator must leave native bag state alone")
 ToggleGameMenu(); flush()
 assert(not bag.shown and hideCalls == 2, "Escape must still close the Mainhand backpack")
 bag.x = 100; bag:Show(); flush()
