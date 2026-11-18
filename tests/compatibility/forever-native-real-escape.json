@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "hash_mode": "utf8-lf",
+  "id": "forever-native-bag-real-escape-20261118",
+  "client": "Forever 1.60.1.70959",
+  "scope": "Native separate backpack on Offhand; real NPC gossip and another player inspected through native unit menu; mixed-height layout",
+  "recorded_at": "2026-11-18",
+  "cases": [
+    "NPC conversation closes on first Escape while bag stays on Offhand; second Escape clears target",
+    "Player inspection closes on first Escape while bag stays on Offhand; second Escape clears target"
+  ],
+  "providers": {
+    "OneForAll": "6.2.11",
+    "Offhand": "2.1.5"
+  },
+  "deferred": [
+    "flight paths",
+    "combat",
+    "equipped bags 1-4"
+  ],
+  "evidence": "docs/FOREVER-BAG-ESCAPE-QA-20261118.md",
+  "source_fingerprints": {
+    "Core/BagPersistence.lua": "f5d20b8774ef925495d90669ede50c3725abe269b24aa6e964d61ab6b52f1642",
+    "Core/CanvasAddonEscape.lua": "58a93c9cce145818a6e894712d7628dc9170d57b1ef9f75756db21b44fbf55e0",
+    "Core/CanvasForeverBags.lua": "7fde771f66b6aab8aef6cfc92f78ee520537ef674be71166af059b1c8f0b165f",
+    "Core/HUDCompatibility.lua": "1d1d7d80341bf1342c334598fe91b4c52840f83e8e0fb55827d6acbbe3df8938",
+    "Core/Canvas.lua": "8aec628c0648a8a2252e448a701d22dbe97766ebd8cc21ddcb30954315dfc423",
+    "Core/CanvasBackpackState.lua": "30321d368b952e31d4c9cca00409a3bc2ca7642ca0c0e6532bcb67586c48520c",
+    "Core/CanvasCompatibility.lua": "ce2799f455bba96f293465691c2767b63c87c2542158b55083ce3e56b18e60a1",
+    "Core/CanvasPanelLifecycle.lua": "6ad6866c877f4cef40a970298a5ee5b8cbbd6219c0f01aa8d0c599555b8fe787",
+    "Core/CanvasPanelPlacement.lua": "7c92ce4a54330f781e19104ae3666dad3ea0b96a50dd7c9d524b8114aa279c46",
+    "Core/CanvasPanelRegistry.lua": "f0ff38788dbe9a7afa0fe56bc857954cb1fe21e9112f66c26547ddccadca7948",
+    "Core/CanvasPersistence.lua": "7e472b9ab01acdcf59533781de798d1757eafff8337e75494846d980c4a1f80c",
+    "Core/WorkspaceBehavior.lua": "2637422ed55cc1214c6ba98c642e98728b393295bd28c3864b9ebb4c7a22be61",
+    "Core/MenuPlacement.lua": "873c2e0b94bf6b6c4384a10839d1670244b3a35008280d960a77c2a647b675a4",
+    "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
+    "Core/Init.lua": "677d148d78bd4df26de1533789ed426a855c374a5ed9532fbb033963e5cc8265"
+  },
+  "integration_note": "Installed source includes fixes from multiple branches. A receipt records the tested install. Differences require integration testing; do not change hashes merely to clear a warning."
+}
