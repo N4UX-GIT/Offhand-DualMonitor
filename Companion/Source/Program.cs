@@ -4747,7 +4747,11 @@ namespace Offhand.Companion
             {
                 string n = (d.Index + 1).ToString();
                 bool covered = false;
-                foreach (var a in areas) if (Rectangle.Intersect(d.Bounds, a).Width > 0) covered = true;
+                foreach (var a in areas)
+                {
+                    Rectangle on = Rectangle.Intersect(d.Bounds, a);
+                    if (on.Width > 0 && on.Height > 0) covered = true;   // touching along an edge isn't on it
+                }
                 // a display with nothing on it: its own name and size; with areas on it: just its number badge
                 shapes.Add(new Shape { Area = Place(d.Bounds, k, origin), Fill = DisplayFill, Badge = covered ? n : null,
                     Titles = covered ? null : new[] { "Display " + n, n }, Detail = covered ? null : Dims(d.Bounds) });
