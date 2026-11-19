@@ -9,6 +9,44 @@ namespace Offhand.Companion
     // Exercise production planning and the exact generated-file contract.
     internal static class PartialTopologyTest
     {
+        private static void VerifyReportedUltrawide(string root)
+        {
+            var display = new MonitorSelection.Display { Index=0, StableId="report-ultra", DeviceName="report-device",
+                Primary=true, Bounds=new Rectangle(0,0,5120,1440) };
+            var displays = new List<MonitorSelection.Display> { display };
+            foreach (bool split in new[] { false, true })
+            foreach (bool exactCenter in new[] { false, true })
+            {
+                int width=exactCenter?3840:3790, workspace=exactCenter?1280:1181;
+                var settings = new Dictionary<string,string> {
+                    {"DisplayIdentityVersion","2"}, {"MonitorIdentities",display.StableId}, {"MainhandIdentity",display.StableId},
+                    {"PartialSpanEnabled","True"}, {"PartialDisplayIdentity",display.StableId},
+                    {"PartialMonitorWidth","5120"}, {"PartialMonitorHeight","1440"},
+                    {"PartialWidth",width.ToString()}, {"PartialWorkspaceWidth",workspace.ToString()},
+                    {"PartialEdge","LEFT"}, {"PartialGameSide","RIGHT"},
+                    // The dashboard's ordinary equal-half setting must not replace an explicit custom plan.
+                    {"SingleDisplaySplit",split.ToString()}, {"SingleGameSide","LEFT"}
+                };
+                var plan=MonitorSelection.CreatePlan(settings,displays);
+                if(!plan.PartialSingle || plan.Bounds!=new Rectangle(0,0,width,1440)
+                    || plan.WorkspaceBounds!=new Rectangle(0,0,workspace,1440)
+                    || plan.MainhandBounds!=new Rectangle(workspace,0,width-workspace,1440))
+                    throw new Exception("Reported ultrawide custom plan differs from the saved editor/overlay geometry.");
+                int centerTwice=2*plan.MainhandBounds.Left+plan.MainhandBounds.Width;
+                if(centerTwice!=(exactCenter?5120:4971))
+                    throw new Exception("Ultrawide game centre was confused with the combined window centre.");
+                if(!split) {
+                    string message; byte[] bytes;
+                    if(!CompanionTopologyBridge.TryWrite(root,plan,displays,out message,out bytes))throw new Exception(message);
+                    File.WriteAllBytes(Path.Combine(root,exactCenter?"report-centered.lua":"report-selected.lua"),bytes);
+                }
+            }
+            var document=WorkspaceLayoutPresets.SingleDisplay(display,"centered",new string('a',32),"Centered ultrawide");
+            var flexible=MonitorSelection.CreatePlan(WorkspaceLayoutSettings.Save(new Dictionary<string,string>(),document,displays),displays);
+            if(flexible.MainhandBounds!=new Rectangle(1280,0,2560,1440) || flexible.Workspaces.Length!=2)
+                throw new Exception("Existing flexible centered-game preset does not preserve a centered 16:9 game on 5120x1440.");
+            Console.WriteLine("PASS: exact 5120x1440 reporter plan, equal-half precedence, centered-game dimensions and existing flexible preset");
+        }
         [DllImport("gdi32.dll")] private static extern bool PtInRegion(IntPtr region, int x, int y);
         private static void RejectSave(string path, IDictionary<string,string> settings, List<MonitorSelection.Display> current)
         {
@@ -65,6 +103,7 @@ namespace Offhand.Companion
             string root = args[0];
             string core = Path.Combine(root, "Interface", "AddOns", "Offhand", "Core");
             Directory.CreateDirectory(core);
+            VerifyReportedUltrawide(root);
             Rectangle[] secondaryMonitors = {
                 new Rectangle(-1440,-1114,1440,2560), new Rectangle(-1440,-1114,1440,2560),
                 new Rectangle(2560,0,1920,1080), new Rectangle(0,-1440,2560,1440)
