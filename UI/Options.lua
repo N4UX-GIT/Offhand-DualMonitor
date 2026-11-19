@@ -1220,6 +1220,7 @@ function Options:CreateFloatingPanel()
     card2_1:RegisterEvent("PLAYER_REGEN_ENABLED")
     card2_1:RegisterEvent("ADDON_LOADED")
     card2_1:SetScript("OnEvent", function() if card2_1:IsShown() then RefreshMapScaleControls() end end)
+    Offhand.MapScale:ObserveMapChanges(card2_1, RefreshMapScaleControls)
 
     function Options:OpenMapSettings()
         if not configFrame:IsShown() then self:Open() end

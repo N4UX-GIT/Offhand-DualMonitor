@@ -93,4 +93,34 @@ local diagnostics = addon.CanvasCompatibility.GetDiagnostics(false)
 assert(diagnostics:find("OpenMap=v0.8.10 | MapFPSCap=24 | maxFPS=24 | OpenMapWindow=saved", 1, true))
 assert(not addon.CanvasCompatibility.GetDiagnostics(true):find("MapFPSCap=", 1, true),
     "map performance settings belong in detailed diagnostics")
-print("PASS: map settings route by active side/owner, fit and enforce version, fullscreen, combat and ownership guards")
+local callbacks, timers, observed = {}, {}, {}
+local card = {visible=false, IsVisible=function(self) return self.visible end}
+EventRegistry = {RegisterCallback=function(_, event, callback, listener)
+    assert(listener == card)
+    callbacks[event] = callback
+end}
+C_Timer = {After=function(delay, callback)
+    assert(delay == 0)
+    table.insert(timers, callback)
+end}
+scale:ObserveMapChanges(card, function() table.insert(observed, scale:GetState().available) end)
+callbacks.WorldMapOnShow()
+assert(#timers == 0)
+card.visible = true
+stitched = false
+callbacks["MapCanvas.MapSet"]()
+callbacks.WorldMapMinimized()
+assert(#timers == 1)
+stitched = true
+table.remove(timers, 1)()
+assert(observed[1] == true)
+callbacks.WorldMapMaximized()
+card.visible = false
+table.remove(timers, 1)()
+assert(#observed == 1)
+card.visible = true
+callbacks.WorldMapOnHide()
+stitched = false
+table.remove(timers, 1)()
+assert(observed[2] == false)
+print("PASS: map settings route by active side/owner, refresh on map transitions and enforce scale guards")

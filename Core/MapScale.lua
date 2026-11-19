@@ -63,6 +63,23 @@ function Scale:GetState()
     return ok and state or {available=false, min=.5, max=2.5, step=.01, value=1}
 end
 
+function Scale:ObserveMapChanges(card, refresh)
+    if not (EventRegistry and EventRegistry.RegisterCallback and C_Timer and C_Timer.After) then return end
+    local pending = false
+    local function QueueRefresh()
+        if pending or not card:IsVisible() then return end
+        pending = true
+        -- Read the final map mode after Blizzard and the map provider have handled the event.
+        C_Timer.After(0, function()
+            pending = false
+            if card:IsVisible() then refresh() end
+        end)
+    end
+    for _, event in ipairs({"WorldMapOnShow", "WorldMapOnHide", "WorldMapMaximized", "WorldMapMinimized", "MapCanvas.MapSet"}) do
+        EventRegistry:RegisterCallback(event, QueueRefresh, card)
+    end
+end
+
 local function Fit(state)
     local map, m = state.map, state.metrics
     if not m then return end
