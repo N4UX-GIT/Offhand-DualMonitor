@@ -1,6 +1,21 @@
 # Offhand QA task list
 
-Updated 19 November 2026 for the Forever integration branch. The shared addon baseline is Beta 36 (`f3dba2e`). The Discord comparison used the matched Test 7 addon and private Companion 2.1.8.8107. The combined development candidate uses Companion 2.1.9 Beta 1 (Windows file version 2.1.9.1). The installed Store build used for two-character QA was package 2.1.801.0.
+Updated 19 November 2026 for the Forever integration branch. The shared addon baseline is Beta 36 (`f3dba2e`). The Discord comparison used the matched Test 7 addon and private Companion 2.1.8.8107. The combined development candidate uses Companion 2.1.9 Beta 1 (Windows file version 2.1.9.1). The earlier Store comparison used package 2.1.801.0. The live results below use the paired development executable.
+
+## Live acceptance with Companion 2.1.9 Beta 1
+
+On Forever 1.60.1.70959 the WoW harness tested the Beta 36 addon ZIP from `dd1725e` with the standalone Companion from the same commit. Use this pair for continued QA until a newer development candidate is built and verified. The addon ZIP SHA-256 is `f96c024783286f6970810924b12c0b26992d11d98d034217ae4ebcedb59ab9b6`. The executable SHA-256 is `08602635f061aa7d278dd8a74d6bc6aebbd0bf304e55d3fe1266d0f60bce4f66`. Both are in `dist/qa-companion-219-dd1725e/`. The executable produced the recovery file after WoW exited. The generated monitor geometry was retained when staging the addon.
+
+| Last character to exit WoW | First character after restart | Offhand profile restored | Selected native Edit Mode layout |
+| --- | --- | --- | --- |
+| Noggaholic Naux | Moonweaver Noggaholic | QA219 Moon | Offhand Main - Moonweaver (5) |
+| Moonweaver Noggaholic | Noggaholic Naux | QA219 Naux | Offhand Main - Noggaholic (6) |
+
+Both cold logins reported `source=companion-bridge` and `bridgeCharacter=used`. Both could see the other shared settings profile. Both native dropdowns displayed the shared `DaylightUI - DPS/Tank` row by name. The generated Main layouts appeared in their corresponding character sections. Naux also had a named Pad layout. The reported numeric picker entries did not reproduce on either character.
+
+On the local 2560 × 1440 Mainhand and 1440 × 2560 portrait Offhand, Standard span changed the original window at (215, 0), size 2130 × 1392, to (-1440, -1114), size 4000 × 2560. The full window persisted through reload. Restore returned the exact original rectangle and Naux retained profile QA219 Naux and layout 6. The centre-line slash action showed the Mainhand guide, and the Display settings button handler hid it. Real M and B keypresses opened OpenMap and Bagnon on the physical Offhand, kept them open on repeat, and reopened them following an explicit close. These checks ran outside combat. The reporter's mixed-refresh hardware remains outstanding.
+
+The installed addon, generated files, Offhand account/character settings, native layout files and portable Companion preferences were restored after the run. Private evidence remains under the ignored `dist/forever-219-live-1795052566718/` directory. The shared knowledge query returned general persistence guidance for this build. The observations above came from the running client.
 
 ## Original session
 
@@ -10,16 +25,16 @@ Updated 19 November 2026 for the Forever integration branch. The shared addon ba
 | Theme labels and Studio opacity | Paired preset swatches and Studio-layer opacity are in the working checkout. Compare the label and rendered colour for each preset and check both opacity endpoints with a custom image and a built-in background. |
 | XP bar under action bars | Beta 36 fits the generated XP and reputation anchors and preserves custom positions. The merged regression checks cover existing layouts and other visible bars. Capture the reported character’s actual XP owner and action bars if overlap persists. |
 | Spoken addon placement | Identify the addon, frame and action that opens it. Capture the position with the native Talking Head and with Spoken enabled before choosing an owner-specific placement fix. |
-| Block map and bag keybinds | Separate opt-in settings keep the keyboard from closing a map or inventory on Offhand. A closed window opens through its existing binding. Forever live input results are below. Repeat on physical Mainhand/Offhand rectangles, check combat transitions, and extend provider coverage. |
-| Shared profile visibility and numeric Edit Mode labels | Retest the picker on both characters. Record the displayed label, actual layout name and scope. Profiles now labels account-wide settings, the character’s selection and its saved HUD by name. Add a reviewed copy/reuse action for compatible HUD layouts. Keep Blizzard layout ownership intact. |
-| Profile selection after switching characters | GUID-matched legacy and all-character recovery is in the branch. Recheck cold launch and switching in both directions on the combined package with distinct shared preferences and character HUD names. See the [two-character test record](FOREVER-PROFILE-LIVE-QA-20261118.md). |
+| Block map and bag keybinds | Separate opt-in settings keep the keyboard from closing a map or inventory on Offhand. A closed window opens through its existing binding. Forever live input results are below. OpenMap and Bagnon passed on the physical Offhand. Repeat the Mainhand close case on the physical display, then check combat transitions and other providers. |
+| Shared profile visibility and numeric Edit Mode labels | Both native pickers showed named account and character layouts on the paired build. Profiles now labels account-wide settings, the character’s selection and its saved HUD by name. Add a reviewed copy/reuse action for compatible HUD layouts. Keep Blizzard layout ownership intact. |
+| Profile selection after switching characters | GUID-matched legacy and all-character recovery is in the branch. Cold-launch recovery passed in both directions with distinct shared settings profiles and character HUD names on the paired build. See the [two-character test record](FOREVER-PROFILE-LIVE-QA-20261118.md). |
 | Expanded/compact map hotkey | Open. Define close/reopen behaviour for both sizes, verify native and OpenMap dispatch, then expose a bindable action. |
 | Professions bag follows Offhand with combined bags on Mainhand | Capture the detached frame and its owner on both displays. Verify native bags, BagSmith and ArkInventory separately, with combined and separate bags. |
 | Shorter Companion tutorial and prominent Windows display settings | Four-step tutorial and Setup display-settings action are present. Check at 100–200% DPI in the intended Companion build with keyboard navigation. |
-| Website Studio entry | Direct Background Studio link is present in the working checkout. Check the deployed destination and the custom-canvas download workflow. |
-| Donation buttons | Companion links to the website support section with the Ko-fi action. Check the packaged link. The project’s addon policy keeps donation requests outside the game. |
+| Website Studio entry | Passed on the deployed website. The homepage link opened Background Studio. Edge exported a four-file media ZIP and the Studio successfully re-imported it. |
+| Donation buttons | Companion links to the website support section with the Ko-fi action. The deployed homepage has the Ko-fi link. Its footer still needs the QA branch’s `id="support"` to make the packaged `/#support` link scroll to it. The project’s addon policy keeps donation requests outside the game. |
 | Clear/reset guidance | Fresh-profile controls and reset copy are present in the working checkout. Verify that creating preferences and rebuilding a character HUD have distinct labels and that a shared reset explains who it affects. |
-| In-game centre line | Display settings and `/offhand centerline` use the same Mainhand guide. Verify mixed heights and scale changes, and hide it from the other entry point. |
+| In-game centre line | Display settings and `/offhand centerline` use the same Mainhand guide. The guide passed the mixed-height show/hide check on Naux. A UI-scale change while the guide is visible remains open. |
 | In-game Windows monitor arrangement | The placement page now explains Identify, dragging numbered displays, matching height and touching edges, and Apply in all eleven locales. Check readability and actual physical placement on the affected desk. |
 
 ## Game Menu chat
@@ -46,7 +61,7 @@ Updated 19 November 2026 for the Forever integration branch. The shared addon ba
 
 The combined branch uses the four-monitor development source published at `eb733b3` and the native DPI clipping and restore fixes from `1be38f8`. The earlier `companion/develop` tip (`f53bab9`) is already in its ancestry. This candidate keeps the Forever character recovery bridge, selected-client window protection, Standard re-span checks, four-step tour, and span-failure guidance from the QA branch.
 
-Use the standalone development executable with the addon ZIP built from the same QA commit for the remaining tests. Four-monitor layouts have generated-bridge coverage for schemas 2 and 3. Physical monitor hotplug, mixed-refresh spanning, and switching characters on the paired build still need live acceptance. The Store package remains the comparison build.
+Use the standalone development executable with the addon ZIP built from the same QA commit for the remaining tests. Four-monitor layouts have generated-bridge coverage for schemas 2 and 3. Physical monitor hotplug and the reporter’s mixed-refresh desk still need live acceptance. The two-character cold-start and local span results are recorded above. The Store package remains the comparison build.
 
 ## Combined candidate
 

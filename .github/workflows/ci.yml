@@ -76,7 +76,6 @@ jobs:
           ./tests/companion-workspace-profiles.ps1
           ./tests/companion-four-monitors.ps1
           ./tests/companion-workspace-ux.ps1
-          ./tests/companion-forever-recovery.ps1
           ./tests/companion-layout-document.ps1
           ./tests/companion-flexible-layouts.ps1
 
@@ -107,6 +106,10 @@ jobs:
       - name: Build Companion release executable
         shell: cmd
         run: Companion\build.bat
+
+      - name: Verify Forever character recovery with the built Companion
+        shell: powershell
+        run: ./tests/companion-forever-recovery.ps1 -CompanionPath ./Companion/Offhand.exe
 
       - name: Validate unsigned Store package structure and executable parity
         shell: powershell

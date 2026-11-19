@@ -6,6 +6,8 @@ namespace Offhand.Companion
 {
     internal static class ForeverRecoveryTest
     {
+        private delegate bool RefreshBridge(string directory, out string message);
+
         private static void Check(bool condition, string message)
         {
             if (!condition) throw new Exception(message);
@@ -24,6 +26,17 @@ namespace Offhand.Companion
 
         public static void Main(string[] args)
         {
+#if PACKAGED_COMPANION
+            var assembly = System.Reflection.Assembly.LoadFrom(args[2]);
+            var bridgeType = assembly.GetType("Offhand.Companion.ForeverStateBridge", true);
+            var method = bridgeType.GetMethod("TryRefresh",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static,
+                null, new[] { typeof(string), typeof(string).MakeByRefType() }, null);
+            var refresh = (RefreshBridge)
+                Delegate.CreateDelegate(typeof(RefreshBridge), method);
+#else
+            RefreshBridge refresh = ForeverStateBridge.TryRefresh;
+#endif
             string root = Path.Combine(Path.GetTempPath(), "Offhand-recovery-" + Guid.NewGuid().ToString("N"));
             try
             {
@@ -48,14 +61,14 @@ namespace Offhand.Companion
                     "OffhandCharDB = { characterGUID = \"Player-Other\", marker = \"OTHER_CHARACTER\" }");
 
                 string message;
-                Check(ForeverStateBridge.TryRefresh(wow, out message), message);
+                Check(refresh(wow, out message), message);
                 string bridgePath = Path.Combine(core, "ForeverState.lua");
                 string bridge = File.ReadAllText(bridgePath);
                 Check(bridge.Contains("schema = 1") && bridge.Contains("local OffhandCharDB"), "Missing scoped payload");
                 Check(bridge.Contains("Player-Moon") && bridge.Contains("Player-Naux"), "Lost a character record");
                 Check(!bridge.Contains("OTHER_CHARACTER") && !bridge.Contains("OTHER_ACCOUNT")
                     && !bridge.Contains("INVALID_DEPTH"), "Recovery crossed the selected account or path boundary");
-                Check(ForeverStateBridge.TryRefresh(wow, out message) && message.Contains("current"), "Unchanged bridge rewritten");
+                Check(refresh(wow, out message) && message.Contains("current"), "Unchanged bridge rewritten");
 
                 foreach (string name in new[] { "Moon", "Naux", "LateIdentity", "Unknown", "NoIdentity", "Consumed", "Retail" })
                 {
@@ -95,12 +108,12 @@ namespace Offhand.Companion
 
                 string previous = bridge;
                 File.AppendAllText(moon, "-- changed character snapshot\n");
-                Check(ForeverStateBridge.TryRefresh(wow, out message), message);
+                Check(refresh(wow, out message), message);
                 Check(File.ReadAllText(bridgePath) != previous && File.ReadAllText(bridgePath + ".bak") == previous,
                     "Changed character state did not update atomically with a backup");
                 File.Delete(moon);
                 File.Delete(naux);
-                Check(ForeverStateBridge.TryRefresh(wow, out message), "Account-only recovery failed");
+                Check(refresh(wow, out message), "Account-only recovery failed");
                 Check(!File.ReadAllText(bridgePath).Contains("Player-Moon"), "Removed character retained in new bridge");
                 Console.WriteLine("PASS: multi-character Companion generation, Lua execution, account boundaries and atomic updates");
             }
