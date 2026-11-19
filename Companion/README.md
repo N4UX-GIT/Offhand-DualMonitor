@@ -112,6 +112,18 @@ snapshot, and the optional Forever recovery bridge.
   * To compile yourself, run `build.bat`. It uses the native Windows C# compiler (`csc.exe`) built into Windows 10 & 11.
   * Official releases include SHA-256 checksums. GitHub Actions builds may also include a build-provenance attestation when the release notes explicitly say so. See the project `SECURITY.md` for verification guidance and the complete behavior disclosure.
   * The GitHub release attachment is the canonical executable. Compiler metadata can give a source-checkout or locally rebuilt `Offhand.exe` a different hash even when its source is identical. Release packaging reuses one build across the standalone download and both Companion-containing archives.
+
+## Choosing a running WoW client
+
+When several WoW clients are open on your desktop, use **WoW client** above **Span WoW Now** to select
+the window you want to extend. The list shows the window title, process name and PID. If the titles match,
+you can find the PID on the **Details** tab in Windows Task Manager. **Span WoW Now**, **Restore Window**
+and automatic spanning use that selection. Restore a spanned window before choosing another one.
+
+With a single running client, the Companion can select it automatically. If a client you explicitly chose
+closes, choose its replacement in the list. The selection applies to the running window. Clients using the
+same WoW installation still share the addon's generated `Core\CompanionTopology.lua` file.
+
 ## Settings and shortcuts
 
 The native companion stores settings in `%LOCALAPPDATA%\Offhand\OffhandConfig.ini`,

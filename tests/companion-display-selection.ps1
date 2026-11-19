@@ -8,7 +8,7 @@ try {
   $framework=if($arch -eq 'x64'){'Framework64'}else{'Framework'}
   $compiler=Join-Path $env:WINDIR ('Microsoft.NET/'+$framework+'/v4.0.30319/csc.exe')
   $exe=Join-Path $fixture ($arch+'.exe')
-  & $compiler /nologo /target:exe "/platform:$arch" /main:Offhand.Companion.DisplaySelectionTest "/out:$exe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $root Companion/Source/Program.cs) (Join-Path $root Companion/Source/LayoutDocument.cs) (Join-Path $root Companion/Source/WorkspaceLayoutService.cs) (Join-Path $root Companion/Source/FlexibleWorkspaceEditor.cs) (Join-Path $PSScriptRoot CompanionDisplaySelection.cs)
+  & $compiler /nologo /target:exe "/platform:$arch" /main:Offhand.Companion.DisplaySelectionTest "/out:$exe" /r:System.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll /r:System.Windows.Forms.dll (Join-Path $root Companion/Source/Program.cs) (Join-Path $root Companion/Source/LayoutDocument.cs) (Join-Path $root Companion/Source/WorkspaceLayoutService.cs) (Join-Path $root Companion/Source/FlexibleWorkspaceEditor.cs) (Join-Path $PSScriptRoot CompanionDisplaySelection.cs) (Join-Path $PSScriptRoot CompanionClientSelection.cs)
   if($LASTEXITCODE -ne 0){throw 'Display identity fixture compilation failed'}
   & $exe
   if($LASTEXITCODE -ne 0){throw ('Display identity fixture failed: '+$arch)}
