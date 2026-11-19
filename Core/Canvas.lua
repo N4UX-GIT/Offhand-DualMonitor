@@ -290,6 +290,8 @@ local function GetPanelController(frame, suppliedName)
     if name and foreverSocialCommunityControllerNames[name] then
         return "forever-social-community"
     end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return "addon-owned" end
     return "generic"
 end
 
@@ -336,6 +338,8 @@ end
 -- here and remain covered by the stricter guard above.
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return true end
     local hudCompatibility = Offhand.HUDCompatibility
     if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
     if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
@@ -361,6 +365,12 @@ local function IsPersistentPanelLoadCandidate(name)
             or IsPersistentForeverProfessionsPanelName(name))
         and not IsForeverEditModeFrame(nil, name)
         and not (nonMovableSystemPanels and nonMovableSystemPanels[name])
+end
+
+local function CanAutoOpenSavedPanel(frame, name)
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return false end
+    return IsPersistentPanelLoadCandidate(name) and PanelRegistry.CanAutoOpen(frame, name)
 end
 
 function Canvas:InitializePanelLoadTracking()
@@ -440,6 +450,8 @@ end
 local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
     if not CanManagePanelsFromAddon() then return end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsDonGameplayFrame(_G[name], name) then return end
     for _, n in ipairs(UISpecialFrames) do
         if n == name then return end
     end
@@ -783,6 +795,7 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
         self:RelinquishForeverEditModeFrames(name)
         return false
     end
+    if not CanAutoOpenSavedPanel(frame, name) then return false end
     if IsForeverProfessionsPanel(frame, name) then
         if ShouldYieldForeverProfessionsPanel(frame, name) then
             self:RelinquishForeverProfessionsPanels(name)
@@ -806,6 +819,11 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
             and db.openWorkspacePanels and db.openWorkspacePanels[name]
             and db.savedWorkspacePositions and db.savedWorkspacePositions[name]
         if not shouldRestore then return end
+        if not CanAutoOpenSavedPanel(frame, name) then return end
+        if Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() then
+            Canvas.persistentRestorePendingForInput = true
+            return
+        end
         if InCombatLockdown() then
             if Offhand.RunOrQueueCombat then
                 Offhand:RunOrQueueCombat(function()
@@ -971,7 +989,7 @@ function Canvas:RestorePersistentFrames(mode)
                 or IsPersistentForeverProfessionsPanelName(name)) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
-            elseif canOpenPanels and openPanels[name] and not IsContextBoundPanel(name) then
+            elseif canOpenPanels and openPanels[name] and CanAutoOpenSavedPanel(frame, name) then
                 if name == "WorldMapFrame" then
                     if ToggleWorldMap then
                         ToggleWorldMap()
@@ -984,7 +1002,7 @@ function Canvas:RestorePersistentFrames(mode)
                     if not nativeBackpackOnMainhand or IsBackpackRoot(name) then
                         hasBag = true
                     end
-                elseif name:match("^ChatFrame") then
+                elseif name:match("^ChatFrame%d+$") then
                     if not self:IsInactiveNativeChatWindow(frame) then frame:Show() end
                     RestoreWorkspacePosition(frame)
                 else
@@ -1197,6 +1215,7 @@ OnPanelDragStop = Persistence.InstallDrag(Canvas, {
 })
 
 Offhand.CanvasPanelPlacement.InstallSingleScreen(Canvas, {
+    IsContextBoundPanel = IsContextBoundPanel,
     IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
     IsForeverEditModeFrame = function(...) return IsForeverEditModeFrame(...) end,
     IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
@@ -1499,6 +1518,8 @@ local function RestoreSavedPositionAfterShow(frame)
     local mainPosition = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
     local routed=Offhand.WorkspaceRouting and Offhand.WorkspaceRouting:HasRule(name,metrics)
     if not workspacePosition and not mainPosition and not routed then
+        -- Forever's trade panel settles through its native transaction observer.
+        if Offhand.isForever and frame == _G.TradeFrame then return end
         local isNativePanel = name and UIPanelWindows and UIPanelWindows[name]
             and not nonMovableSystemPanels[name]
         if isNativePanel then
@@ -1980,9 +2001,9 @@ function Canvas:EnableFreeDragging()
     if Offhand.isForever then
         self:EnableForeverNativeBagProxy()
     end
-    if Offhand.isForever and IsExternallyPositionedWorldMap(_G.WorldMapFrame) then
-        -- The addon-owned handle stays hidden while the external addon owns geometry;
-        -- its read-only observer still preserves Escape and reload open state.
+    if Offhand.isForever and Compatibility.SupportsExternalWorldMapEscapeProtection(_G.WorldMapFrame) then
+        -- Park the handle while the external addon positions the map so its
+        -- observer can still apply workspace Escape protection.
         AttachForeverWorldMapDragHandle(_G.WorldMapFrame)
     end
 
@@ -2033,6 +2054,7 @@ function Canvas:EnableFreeDragging()
                     -- transaction because Settings may have hidden it only
                     -- temporarily.
                     RepairUIPanelTransaction(openedFrame, true)
+                    Canvas:RepairDefaultForeverSlots()
                 end
                 -- The post-hook catches the usual synchronous left-slot reflow.
                 -- Two bounded passes cover panels which finish layout from a
@@ -2050,6 +2072,7 @@ function Canvas:EnableFreeDragging()
                 if closedFrame and IsPanelEvicting(closedFrame) then return end
                 local function Repair()
                     RepairUIPanelTransaction(closedFrame, true)
+                    Canvas:RepairDefaultForeverSlots()
                 end
                 Repair()
                 if C_Timer and C_Timer.After then
@@ -2068,6 +2091,7 @@ function Canvas:EnableFreeDragging()
                 -- every native anchor, including close routes and paths which
                 -- bypass ShowUIPanel.
                 RepairUIPanelTransaction(nil, true)
+                Canvas:RepairDefaultForeverSlots()
             end)
         end
     end

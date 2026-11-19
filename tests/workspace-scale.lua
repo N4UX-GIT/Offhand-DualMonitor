@@ -1,6 +1,6 @@
 -- Lua 5.1: production region resolver, placement transactions and lifecycle.
 local a={db={enabled=true,savedWorkspacePositions={},savedMainPositions={},independentWorkspacePanels=false,
-    persistentWorkspacePanels=false},Canvas={},CanvasPanelRegistry={GetPositionRoot=function(f)return f end}}
+    persistentWorkspacePanels=false},Canvas={}}
 local combat,timers,queue=false,{},{}
 InCombatLockdown=function()return combat end
 C_Timer={After=function(_,f)timers[#timers+1]=f end}
@@ -34,6 +34,7 @@ local function frame(name,width)
 end
 assert(loadfile('Core/WorkspaceRegions.lua'))('Offhand',a)
 assert(loadfile('Core/WorkspaceScale.lua'))('Offhand',a)
+assert(loadfile('Core/CanvasPanelRegistry.lua'))('Offhand',a)
 assert(loadfile('Core/CanvasPersistence.lua'))('Offhand',a)
 assert(loadfile('Core/CanvasPanelPlacement.lua'))('Offhand',a)
 local S,R,P=a.WorkspaceScale,a.WorkspaceRegions,a.CanvasPersistence

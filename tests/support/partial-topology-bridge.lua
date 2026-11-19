@@ -89,3 +89,38 @@ for index=1,4 do
     end
 end
 print("PASS: secondary workspace C# to Lua metrics, offset persistence and stale-canvas rejection at two UI scales")
+
+-- Exact reporter dimensions distinguish the outer native window from its game viewport.
+InCombatLockdown = function() return false end
+addon.Debug = function() end
+for _, case in ipairs({
+    {file="report-selected.lua",width=3790,workspace=1181,game=2609},
+    {file="report-centered.lua",width=3840,workspace=1280,game=2560},
+}) do
+    assert(loadfile(root .. "/" .. case.file))()
+    for _, forever in ipairs({false,true}) do
+        addon.isForever=forever
+    for _, scale in ipairs({1,0.75,0.5}) do
+        UIParent = {GetWidth=function()return case.width*scale end,
+            GetHeight=function()return 1440*scale end, GetEffectiveScale=function()return 1/scale end}
+        GetPhysicalScreenSize=function()return case.width,1440 end
+        local points,full = {},false
+        WorldFrame = {GetEffectiveScale=function()return 1 end,
+            ClearAllPoints=function()points={};full=false end,
+            SetPoint=function(_,point,_,_,x,y)points[point]={x,y}end,
+            SetAllPoints=function()full=true end}
+        local metrics=addon.Viewport:GetMetrics()
+        assert(metrics.companionTopology and metrics.gamePixelLeft==case.workspace
+            and metrics.gamePixelWidth==case.game and metrics.physicalWidth==case.width)
+        addon.db.enabled=false
+        addon.Viewport:Apply()
+        assert(full and not next(points),"Disabled setup must retain the full combined window viewport")
+        addon.db.enabled=true
+        addon.Viewport:Apply()
+        assert(not full and math.abs(points.BOTTOMLEFT[1]-case.workspace)<0.001
+            and math.abs(points.TOPRIGHT[1]-case.width)<0.001,
+            "Enabled add-on must offset the game from the workspace, not center the whole combined window")
+    end
+    end
+end
+print("PASS: exact ultrawide bridge and enabled/disabled viewport at three UI scales, standard/Forever policies (simulated)")

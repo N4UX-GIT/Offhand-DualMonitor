@@ -71,14 +71,17 @@ local function IsDirectEscapeRoot(name, frame)
     return IsBaganatorRootName(name) or IsBagnonInventoryRoot(name, frame)
 end
 
-local function IsSupportedRoot(name, frame)
-    if name == "EUI_MainBagFrame" then return true end
-    if IsBagnonInventoryRoot(name, frame) then return true end
-    if not IsBaganatorRootName(name) then return false end
+function Bags.IsBaganatorBackpackRoot(frame, name)
     -- Baganator derives the names of every child region from the backpack
     -- root. A prefix-only match therefore also catches title text, textures,
     -- and buttons. Its actual backpack roots are direct UIParent children.
-    return frame and frame.GetParent and frame:GetParent() == UIParent
+    return IsBaganatorRootName(name) and frame and frame.GetParent
+        and frame:GetParent() == UIParent
+end
+
+local function IsSupportedRoot(name, frame)
+    return name == "EUI_MainBagFrame" or IsBagnonInventoryRoot(name, frame)
+        or Bags.IsBaganatorBackpackRoot(frame, name)
 end
 
 local function IsSpanned()
@@ -206,8 +209,19 @@ function Bags:RegisterRoot(name, frame)
                     Bags:Capture()
                 end)
     end
-    frame:HookScript("OnShow", function() Bags:Capture() end)
+    -- Baganator shows its root before laying out its contents. Sample after
+    -- that callback returns so the pre-layout size cannot revoke placement.
+    frame:HookScript("OnShow", function()
+        C_Timer.After(0, function() Bags:Capture() end)
+    end)
     frame:HookScript("OnHide", Changed)
+    if Offhand.isForever and Bags.IsBaganatorBackpackRoot(frame, name) then
+        frame:HookScript("OnDragStop", function()
+            -- Baganator has already saved its new anchor. Reconcile ownership
+            -- before an Escape that arrives ahead of the capture ticker.
+            if not InCombatLockdown() and not InputReserved() then Bags:Capture() end
+        end)
+    end
     return true
 end
 
@@ -417,22 +431,30 @@ function Bags:Capture()
     if TrackEnabled() then
         for name, frame in pairs(self.frames) do
             if not (frame.IsForbidden and frame:IsForbidden()) and frame:IsVisible() then
+                local x = frame:GetLeft()
+                local y = frame.GetTop and frame:GetTop()
+                if not y and frame.GetBottom and frame.GetHeight then
+                    local bottom = frame:GetBottom()
+                    if bottom then y = bottom + frame:GetHeight() end
+                end
                 local previous=Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
                 local fitFallback=Offhand.CanvasPersistence and Offhand.CanvasPersistence.PreservedFitFallback
                     and Offhand.CanvasPersistence.PreservedFitFallback(frame,currentMetrics,previous)
                 if fitFallback then
                     snapshot=snapshot or {};snapshot[name]=fitFallback
+                elseif IsBaganatorRootName(name) and (not x or not y) then
+                    -- A visible backpack can still lack an actual rectangle
+                    -- while its vendor-owned anchor is being rebuilt.
+                    local saved = Offhand.db.baganatorWorkspacePanels
+                    if type(saved) == "table" and saved[name] then
+                        snapshot = snapshot or {}
+                        snapshot[name] = saved[name]
+                    end
                 elseif Offhand.Canvas.IsFrameOnWorkspace(frame) then
                     local factor = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
-                    local x = frame:GetLeft()
-                    local y = frame.GetTop and frame:GetTop() or nil
-                    if not y and frame.GetBottom and frame.GetHeight then
-                        y = frame:GetBottom() + frame:GetHeight()
-                    end
                     if x and y then
                         local metrics = currentMetrics
                         if Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,frame) end
-                        local previous=Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
                         local position=Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:PreservedFallbackPosition(frame,metrics,previous)
                         if not position then position = {
                             x = x * factor, y = y * factor,
@@ -534,7 +556,7 @@ function Bags:RestoreAfterEscape(pending)
     return visible ~= nil
 end
 
-local function CanRestoreEllesmereEscape(frame)
+local function CanRestoreEllesmereWorkspaceBag(frame)
     local canvas = Offhand.Canvas
     return frame == _G.EUI_MainBagFrame and CanShowEllesmereBag(frame)
         and type(EllesmereUIDB) == "table" and EllesmereUIDB.bagsVisible == true
@@ -542,24 +564,50 @@ local function CanRestoreEllesmereEscape(frame)
         and not IsPreservingPanelShown()
 end
 
-function Bags:RestoreEllesmereAfterEscape(pending)
+local function RestoreEllesmereWorkspaceBag(pending)
     local frame = pending.frame
-    if self.paused or self.restoring or not TrackEnabled() or not IsSpanned()
+    if Bags.paused or Bags.restoring or not TrackEnabled() or not IsSpanned()
         or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
-        or not CanRestoreEllesmereEscape(frame) then return end
-    -- This root was already initialized and open before native Escape closed
-    -- it. Use the same root's show lifecycle without toggling another provider.
+        or not CanRestoreEllesmereWorkspaceBag(frame) then return false end
+    -- Restore only the initialized root that was open before the panel transition.
     ShowEllesmereBag(frame)
-    if not frame:IsVisible() then return end
+    if not frame:IsVisible() then return false end
     local reagent = _G.EUI_ReagentBagFrame
     if pending.reagentOpen and CanShowEllesmereBag(reagent)
         and Offhand.Canvas.IsFrameOnWorkspace(reagent) then
         ShowEllesmereBag(reagent)
     end
+    return true
+end
+
+function Bags:RestoreEllesmereAfterEscape(pending)
+    if not RestoreEllesmereWorkspaceBag(pending) then return end
     -- Forever counts hiding EllesmereUI's Escape proxy as a handled press.
     -- Reopening the bag alone would let that proxy claim every subsequent press.
     RestoreGameMenuAfterEscape(pending.menuWasShown)
     self:Capture()
+end
+
+local function InstallEllesmereTalentsObserver()
+    if not Offhand.isForever or Bags.ellesmereTalentsObserved or not EventRegistry
+        or not EventRegistry.RegisterCallback or not C_Timer or not C_Timer.After then return end
+    Bags.ellesmereTalentsObserved = true
+    EventRegistry:RegisterCallback("PlayerSpellsFrame.OpenFrame", function()
+        if Bags.paused or Bags.restoring or not TrackEnabled() or not IsSpanned() then return end
+        local name, position = Bags:GetSavedPosition()
+        local frame = name == "EUI_MainBagFrame" and Bags.frames[name]
+        local panel = _G.PlayerSpellsFrame
+        if not position or not frame or not panel or not panel.talentTabID or not panel.GetTab then return end
+        local generation = Bags.generation
+        local pending = {frame = frame, reagentOpen = position.reagentOpen}
+        -- Let the native panel transaction settle before reading the selected
+        -- tab or restoring EllesmereUI's own bag roots.
+        C_Timer.After(0, function()
+            if generation ~= Bags.generation or panel ~= _G.PlayerSpellsFrame
+                or not panel:IsShown() or panel:GetTab() ~= panel.talentTabID then return end
+            if RestoreEllesmereWorkspaceBag(pending) then Bags:Capture() end
+        end)
+    end, Bags)
 end
 
 function Bags:InstallEscapeHooks()
@@ -571,7 +619,7 @@ function Bags:InstallEscapeHooks()
                 or not TrackEnabled() or not IsSpanned() or InputReserved() or InCombatLockdown() then return end
             local name, position = Bags:GetSavedPosition()
             local frame = IsForeverEllesmereBag(name) and Bags.frames[name]
-            if not position or not CanRestoreEllesmereEscape(frame) then return end
+            if not position or not CanRestoreEllesmereWorkspaceBag(frame) then return end
             local pending = {
                 frame = frame, reagentOpen = position.reagentOpen,
                 menuWasShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown(),
@@ -817,6 +865,7 @@ events:SetScript("OnEvent", function(_, event, addonName)
         C_Timer.After(0, function() Bags:Discover(true) end)
         Bags:PruneInvalidBaganatorRecords()
         Bags:InstallEscapeHooks()
+        InstallEllesmereTalentsObserver()
         if not Bags.ticker then
             Bags.ticker = C_Timer.NewTicker(0.2, function()
                 if not Bags.paused then

@@ -15,6 +15,21 @@ function Map.IsNativeGamepadOwned(Canvas)
         and not Canvas.CanManagePanelsFromAddon() or false
 end
 
+-- Forever can switch to native Gamepad UI in the same session. Leave the
+-- shared fader under Blizzard ownership even while keyboard UI is active.
+local function RemoveMovementFade(map)
+    if not Offhand.isForever and PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
+        pcall(PlayerMovementFrameFader.RemoveFrame, map)
+    end
+end
+
+local function RestoreMovementFade(map)
+    if not Offhand.isForever and PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
+        pcall(PlayerMovementFrameFader.AddDeferredFrame, map, .5, 1.0, .5,
+            function() return not map:IsMaximized() end)
+    end
+end
+
 -- TBC's native scroll controller returns physical cursor pixels, then compares
 -- them with canvas-local bounds. Offhand's window scaling requires conversion
 -- at that boundary. Keep this isolated from Retail/Forever and custom handlers.
@@ -138,18 +153,20 @@ function Map.InstallBehavior(Canvas, services)
     local UnregisterSpecialFrame = services.UnregisterSpecialFrame
     local EvictWorkspacePanelSlot = services.EvictWorkspacePanelSlot
     function Canvas:PreserveExternalWorldMapOpenState(map)
-        if not IsExternallyPositionedWorldMap(map) or not map.IsShown or not map:IsShown() then return false end
-        if Offhand.isForever and map.IsMaximized and map:IsMaximized() then return false end
-        if not IsFrameOnWorkspace(map) then
+        if not Compatibility.SupportsExternalWorldMapEscapeProtection(map)
+            or not map.IsShown or not map:IsShown() then return false end
+        if Offhand.isForever and (Map.IsNativeGamepadOwned(self) or InCombatLockdown()
+            or (map.IsMaximized and map:IsMaximized())) then return false end
+        local ok, workspace = pcall(IsFrameOnWorkspace, map)
+        if not ok then return false end
+        if not workspace then
             self:SetWorkspacePanelOpen(map, false)
             RegisterSpecialFrame("WorldMapFrame")
             return false
         end
         self:SetWorkspacePanelOpen(map, true)
         if Offhand.db and Offhand.db.persistentWorkspacePanels ~= false then
-            if PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
-                pcall(function() PlayerMovementFrameFader.RemoveFrame(map) end)
-            end
+            RemoveMovementFade(map)
             -- Keep Offhand's Escape and simultaneous-panel behavior, but let
             -- the external addon's OnShow/layout hooks remain the geometry writer.
             UnregisterSpecialFrame("WorldMapFrame")
@@ -246,6 +263,47 @@ function Map.InstallBehavior(Canvas, services)
                 Apply()
             end
         end)
+    end
+end
+
+function Map.FitWindow(map, m, isWorkspaceMap)
+    local preference = Offhand.db[isWorkspaceMap and "workspaceMapScale" or "mainMapScale"]
+    local availableWidth = (isWorkspaceMap and m.workspaceWidth or m.gameWidth) - 24
+    local availableHeight = (isWorkspaceMap and m.workspaceHeight or m.gameHeight) - 24
+    local width, height = map:GetWidth(), map:GetHeight()
+    local currentScale = map:GetScale()
+    local effectiveScale, parentScale = map:GetEffectiveScale(), UIParent:GetEffectiveScale()
+    if issecretvalue and (issecretvalue(width) or issecretvalue(height)
+        or issecretvalue(currentScale) or issecretvalue(effectiveScale) or issecretvalue(parentScale)) then return end
+
+    local nativeWorkspaceScale
+    local desiredScale = tonumber(preference)
+    if not desiredScale or not (desiredScale > 0 and desiredScale < math.huge) then
+        if isWorkspaceMap or preference == "AUTO" then
+            local baseWidth = width and width > 0 and width or 610
+            desiredScale = math.max(.50, math.min(3.00, availableWidth / baseWidth))
+            if isWorkspaceMap and Offhand.WorkspaceScale then
+                nativeWorkspaceScale = desiredScale
+                desiredScale = desiredScale * Offhand.WorkspaceScale:GetMultiplier(m)
+            end
+        else
+            desiredScale = 1
+        end
+    end
+    if width and height and width > 0 and height > 0 and availableWidth > 0 and availableHeight > 0
+        and currentScale > 0 and effectiveScale > 0 and parentScale > 0 then
+        local inherited = effectiveScale / currentScale / parentScale
+        local fit = math.min(availableWidth / width / inherited, availableHeight / height / inherited)
+        if fit > 0 then
+            desiredScale = math.min(desiredScale, fit)
+            if nativeWorkspaceScale then nativeWorkspaceScale = math.min(nativeWorkspaceScale, fit) end
+        end
+    end
+    -- Apply the final scale before the native panel transaction can observe
+    -- the map. A wide, short workspace can need a much smaller height fit.
+    if math.abs(desiredScale - currentScale) > .00001 then map:SetScale(desiredScale) end
+    if Offhand.WorkspaceScale then
+        Offhand.WorkspaceScale:RememberMap(map, nativeWorkspaceScale or desiredScale, desiredScale)
     end
 end
 
@@ -396,74 +454,17 @@ function Map.InstallConfiguration(Canvas, services)
         -- If map is on the workspace, apply preferred or auto-fit scale
         local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
         local isWorkspaceMap = pos or (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map))
-        local nativeWorkspaceScale
+        Map.FitWindow(map, m, isWorkspaceMap)
+
         if isWorkspaceMap then
-            if PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
-                pcall(function() PlayerMovementFrameFader.RemoveFrame(map) end)
-            end
-            local userScale = Offhand.db.workspaceMapScale
-            local fitScale
-            local unscaledFit
-            if userScale and userScale ~= "AUTO" and tonumber(userScale) and tonumber(userScale) > 0 then
-                fitScale = tonumber(userScale)
-            else
-                local baseWidth = map:GetWidth() or 610
-                if baseWidth <= 0 then baseWidth = 610 end
-                local availableWidth = m.workspaceWidth - 24
-                fitScale = math.max(0.50, math.min(3.00, availableWidth / baseWidth))
-                unscaledFit=fitScale
-                if Offhand.WorkspaceScale then
-                    local multiplier=Offhand.WorkspaceScale:GetMultiplier(m)
-                    if math.abs(multiplier-1)>0.001 then
-                        local height=map:GetHeight() or 0
-                        fitScale=math.min(fitScale*multiplier,availableWidth/baseWidth)
-                        if height>0 then fitScale=math.min(fitScale,(m.workspaceHeight-24)/height) end
-                    end
-                end
-            end
-            map:SetScale(fitScale)
-            nativeWorkspaceScale=unscaledFit
+            RemoveMovementFade(map)
             if Offhand.db.persistentWorkspacePanels ~= false then
                 UnregisterSpecialFrame("WorldMapFrame")
                 EvictWorkspacePanelSlot(map)
             end
         else
-            if PlayerMovementFrameFader and PlayerMovementFrameFader.AddDeferredFrame then
-                pcall(function()
-                    PlayerMovementFrameFader.AddDeferredFrame(
-                        map, .5, 1.0, 0.5,
-                        function() return not map:IsMaximized() end)
-                end)
-            end
-            local userMainScale = Offhand.db.mainMapScale
-            if userMainScale and tonumber(userMainScale) and tonumber(userMainScale) > 0 then
-                map:SetScale(tonumber(userMainScale))
-            elseif userMainScale == "AUTO" then
-                local baseWidth = map:GetWidth() or 610
-                if baseWidth <= 0 then baseWidth = 610 end
-                map:SetScale(math.max(.50, math.min(3.00, (m.gameWidth - 24) / baseWidth)))
-            else
-                map:SetScale(1.0)
-            end
+            RestoreMovementFade(map)
             RegisterSpecialFrame("WorldMapFrame")
-        end
-
-        local availableWidth, availableHeight = m.gameWidth-24, m.gameHeight-24
-        if isWorkspaceMap then
-            availableWidth, availableHeight = m.workspaceWidth-24, m.workspaceHeight-24
-        end
-        local width, height = map:GetWidth(), map:GetHeight()
-        if width and height and width > 0 and height > 0 and availableWidth > 0 and availableHeight > 0 then
-            local inherited = map:GetEffectiveScale() / map:GetScale() / UIParent:GetEffectiveScale()
-            local scale = math.min(map:GetScale(), availableWidth/width/inherited, availableHeight/height/inherited)
-            if scale > 0 and scale < math.huge then map:SetScale(scale) end
-            if nativeWorkspaceScale then
-                nativeWorkspaceScale=math.min(nativeWorkspaceScale,availableWidth/width/inherited,availableHeight/height/inherited)
-            end
-        end
-        if Offhand.WorkspaceScale then
-            local applied=map:GetScale()
-            Offhand.WorkspaceScale:RememberMap(map,nativeWorkspaceScale or applied,applied)
         end
 
         if not Offhand.isForever and not map._OffhandPersistenceHooked and map.HookScript then
@@ -512,9 +513,8 @@ function Map.InstallBootstrap(Canvas, services)
 
         local workspacePosition = Offhand.db.savedWorkspacePositions
             and Offhand.db.savedWorkspacePositions.WorldMapFrame
-        if workspacePosition and Offhand.db.persistentWorkspacePanels ~= false
-            and PlayerMovementFrameFader and PlayerMovementFrameFader.RemoveFrame then
-            pcall(function() PlayerMovementFrameFader.RemoveFrame(frame) end)
+        if workspacePosition and Offhand.db.persistentWorkspacePanels ~= false then
+            RemoveMovementFade(frame)
         end
 
         local inspected, left, top = pcall(function()

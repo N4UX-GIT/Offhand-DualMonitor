@@ -5,6 +5,10 @@
 
 local _, Offhand = ...
 
+function Offhand:IsMacClient()
+    return type(IsMacClient) == "function" and IsMacClient() == true
+end
+
 -- Call only from a live hardware click, before hiding its button/parent. On
 -- Forever 1.60.1.70862 the owned popup's hide-first callback loses reload input
 -- permission; callback-first succeeds in keyboard/mouse UI. Controller UI keeps
@@ -95,7 +99,8 @@ function Offhand:GetOperatingDiagnostics(metrics)
             and "FancyZones" or "Remembered manual"
     elseif metrics.isSpanned then
         topologySource = "Manual"
-    elseif metrics.topologyStatus == "MISMATCH"
+    elseif metrics.manualCanvasState == "EXACT_REQUIRED"
+        or metrics.topologyStatus == "MISMATCH"
         or metrics.topologyStatus == "INVALID"
         or metrics.topologyStatus == "STALE" then
         topologySource = "Recovery"

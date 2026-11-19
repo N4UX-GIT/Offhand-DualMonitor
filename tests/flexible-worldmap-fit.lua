@@ -16,12 +16,14 @@ local function boot(ratio,area,inherited,owner)
  load('Core/WorkspaceRegions.lua');load('Core/CanvasCompatibility.lua');load('Core/CanvasPanelRegistry.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua')
  a.CanvasFrameState={IsEvicting=function()return false end}
  load('Core/CanvasMapPresentation.lua')
- local f={scale=.8,x=200,y=1100,w=1000,h=650,writes=0}
+ local f={scale=.8,x=200,y=1100,w=1000,h=650,writes=0,scaleWrites={}}
  function f:GetName()return 'WorldMapFrame'end
  function f:GetWidth()return self.w end;function f:GetHeight()return self.h end
  function f:GetScale()return self.scale end
  function f:GetEffectiveScale()return self.scale*.8*inherited end
- function f:SetScale(v)self.scale=v;self.writes=self.writes+1 end
+ function f:SetScale(v)
+  self.scale=v;self.writes=self.writes+1;self.scaleWrites[#self.scaleWrites+1]=v
+ end
  function f:SetIgnoreParentScale()end
  function f:GetLeft()return self.x end;function f:GetTop()return self.y end
  function f:ClearAllPoints()self.writes=self.writes+1 end
@@ -65,3 +67,20 @@ for _,ratio in ipairs({.5,1,1.0238095})do
  end
 end
 print('PASS: '..cases..' centered/stacked/corner World Map fits, inherited scaling, legacy preservation and combat/maximized/external-owner guards')
+
+-- An upper workspace can have ample width and little height. No callback
+-- should observe the width-only scale before the map is fitted vertically.
+local addon, map = boot(1, {0, 1440, 2500, 520}, 1.25)
+addon.isForever, addon.isRetail, addon.tocVersion = true, false, 16001
+addon.db.workspaceMapScale = 'AUTO'
+local fitted = (520 - 24) / map:GetHeight() / 1.25
+addon.Canvas:ConfigureWorldMap()
+assert(#map.scaleWrites == 1 and math.abs(map.scaleWrites[1] - fitted) < .00001,
+    'Forever keyboard map applied an oversized intermediate scale')
+addon.Canvas:ConfigureWorldMap()
+assert(#map.scaleWrites == 1 and addon.db.workspaceMapScale == 'AUTO',
+    'reconfiguring a fitted map rewrote its scale or its preference')
+addon.db.workspaceMapScale = .55
+addon.Canvas:ConfigureWorldMap()
+assert(#map.scaleWrites == 2 and map.scale == .55, 'the explicit smaller scale was not preserved')
+print('PASS: Forever stacked keyboard map applies the fitted scale once')

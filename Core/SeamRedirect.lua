@@ -530,6 +530,19 @@ function HUD:HookFrames()
             self.foreverGameMenuShowHooked = true
             hooksecurefunc("GameMenuFrame_Show", function() PositionForeverGameMenu() end)
         end
+        if hooksecurefunc and ShowUIPanel and not self.foreverGameMenuPanelHooked then
+            self.foreverGameMenuPanelHooked = true
+            hooksecurefunc("ShowUIPanel", function(frame)
+                if frame ~= _G.GameMenuFrame or not frame or not frame:IsShown()
+                    or not _G.ConsolePort or not C_Timer or not C_Timer.After
+                    or self.foreverGameMenuPlacementPending then return end
+                self.foreverGameMenuPlacementPending = true
+                C_Timer.After(0, function()
+                    self.foreverGameMenuPlacementPending = nil
+                    if frame == _G.GameMenuFrame and frame:IsShown() then PositionForeverGameMenu() end
+                end)
+            end)
+        end
     end
     if not HasBlizzardEditMode() and not HasCustomActionBarAddon() then
         if not self.managerHooked and UIParent_ManageFramePositions then
@@ -769,6 +782,7 @@ function HUD:HookFrames()
                         if okName then cName = name end
                     end
                     if cName == "OffhandCanvasFrame" or cName == "OffhandSeamGuideLine"
+                        or (Offhand.CenterGuide and child == Offhand.CenterGuide.frame)
                         or (Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:IsCanvas(child)) then return end
                     if Compatibility.IsExternallyOwnedHUDFrame(child, cName) then return end
                     if Compatibility.ShouldPreservePopupPosition(child, cName) then return end

@@ -9,26 +9,17 @@ local function Number(value)
     return value
 end
 
-local function Inspect()
+local function Inspect(workspace)
     local compatibility = Offhand.CanvasCompatibility
-    if not Offhand.isForever or not Offhand.db or not Offhand.db.enabled
-        or not compatibility or compatibility.GetWorldMapExternalOwner() ~= "OpenMap" then return end
-    local namespace, api, map = _G.OpenMap, _G.OpenMapAPI, _G.WorldMapFrame
-    -- This is an internal settings contract, not part of OpenMap's read-only public API.
-    -- Extend the version gate only after inspecting and testing that version's owner.
-    if type(namespace) ~= "table" or namespace.version ~= "v0.7.5-beta"
-        or type(namespace.GetModule) ~= "function" or type(api) ~= "table"
-        or api.major ~= 1 or api.version ~= 4 or type(api.IsStitched) ~= "function"
-        or not api.IsStitched() then return end
+    if not Offhand.db or not Offhand.db.enabled or not compatibility then return end
     if Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled() then return end
     if IsMouseButtonDown and IsMouseButtonDown("LeftButton") then return end
-    local module = namespace:GetModule("worldmap")
-    local db = type(module) == "table" and module.db
-    if type(db) ~= "table" or db.enabled == false or type(_G.OpenMapDB) ~= "table"
-        or db ~= _G.OpenMapDB.worldmap or not Number(db.windowScale) or db.windowScale <= 0
+    local _, db = compatibility.GetOpenMapWindowModule()
+    if not db or not Number(db.windowScale) or db.windowScale <= 0
         or (db.window ~= false and type(db.window) ~= "table") then return end
     if type(db.window) == "table" and (type(db.window[1]) ~= "string" or type(db.window[2]) ~= "string"
         or not Number(db.window[3]) or not Number(db.window[4])) then return end
+    local map = _G.WorldMapFrame
     if not map or (map.IsForbidden and map:IsForbidden()) or not map:IsShown()
         or not map:IsVisible() or map:IsMaximized() then return end
     -- A SetPoint post-hook can also reapply the owner's saved size/scale. Refuse
@@ -47,27 +38,46 @@ local function Inspect()
     if not factor or factor <= 0 then return end
     local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
     if not metrics then return end
-    local left, right = Number(metrics.gameLeft), Number(metrics.gameRight)
-    local bottom, top = Number(metrics.gameBottom), Number(metrics.gameTop)
+    local left, right, bottom, top
+    if workspace then
+        if not metrics.isSpanned then return end
+        local region = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:Get(metrics)
+        if region then
+            left, bottom = Number(region.x), Number(region.y)
+            local regionWidth, regionHeight = Number(region.width), Number(region.height)
+            if not left or not bottom or not regionWidth or not regionHeight then return end
+            right, top = left + regionWidth, bottom + regionHeight
+        else
+            left, right = Number(metrics.workspaceLeft), Number(metrics.workspaceRight)
+            bottom, top = Number(metrics.workspaceBottom), Number(metrics.workspaceTop)
+        end
+    else
+        left, right = Number(metrics.gameLeft), Number(metrics.gameRight)
+        bottom, top = Number(metrics.gameBottom), Number(metrics.gameTop)
+    end
     if not left or not right or not bottom or not top then return end
     -- Metrics are UIParent units. Intersect with the current canvas; never use a
     -- stale saved desktop rectangle or the center of a span's physical void.
     left, right = math.max(0, left), math.min(width, right)
     bottom, top = math.max(0, bottom), math.min(height, top)
     if right - left < 160 or top - bottom < 100 then return end
+    if workspace and (mapWidth * factor > right - left or mapHeight * factor > top - bottom) then
+        return nil, "workspace-fit"
+    end
     local count = Number(map:GetNumPoints())
     if not count or count < 1 or count > 16 or count % 1 ~= 0 then return end
     local points = {}
     for i = 1, count do points[i] = {map:GetPoint(i)} end
+    local inset = workspace and math.min(24, top - bottom - mapHeight * factor) or 24
     return {map=map, db=db, points=points, factor=factor,
         left=left, right=right, bottom=bottom, top=top,
-        anchor={"TOP", "BOTTOMLEFT", (left + right) / 2 / factor, (top - 24) / factor}}
+        anchor={"TOP", "BOTTOMLEFT", (left + right) / 2 / factor, (top - inset) / factor}}
 end
 
-function Recovery:Run()
+function Recovery:Run(workspace)
     if InCombatLockdown and InCombatLockdown() then return false, "combat" end
-    local read, state = pcall(Inspect)
-    if not read or not state then return false, "unavailable" end
+    local read, state, reason = pcall(Inspect, workspace)
+    if not read or not state then return false, read and reason or "unavailable" end
     local map, db, anchor = state.map, state.db, state.anchor
     local previous = db.window
     -- Set the owner's saved anchor BEFORE touching the root. Its existing Hold
@@ -84,7 +94,14 @@ function Recovery:Run()
         local mapLeft, mapWidth = Number(map:GetLeft()), Number(map:GetWidth())
         if not titleTop or not mapLeft or not mapWidth or mapWidth <= 0 then error("bounds unavailable") end
         local titleX, titleY = (mapLeft + mapWidth / 2) * state.factor, titleTop * state.factor
-        if titleX < state.left + 12 or titleX > state.right - 12
+        if workspace then
+            local mapHeight = Number(map:GetHeight())
+            if not mapHeight or mapLeft * state.factor < state.left - .5
+                or (mapLeft + mapWidth) * state.factor > state.right + .5
+                or titleY > state.top + .5 or titleY - mapHeight * state.factor < state.bottom - .5 then
+                error("map outside workspace")
+            end
+        elseif titleX < state.left + 12 or titleX > state.right - 12
             or titleY < state.bottom + 24 or titleY > state.top - 12 then error("title unreachable") end
     end)
     if not moved then
@@ -98,9 +115,10 @@ function Recovery:Run()
     return true
 end
 
-function Recovery:RunAndReport()
-    local ok, reason = self:Run()
-    local key = ok and "OPENMAP_RECOVERY_DONE"
+function Recovery:RunAndReport(workspace)
+    local ok, reason = self:Run(workspace)
+    local key = ok and (workspace and "OPENMAP_WORKSPACE_DONE" or "OPENMAP_RECOVERY_DONE")
+        or (reason == "workspace-fit" and "OPENMAP_WORKSPACE_FIT")
         or (reason == "combat" and "OPENMAP_RECOVERY_COMBAT" or "OPENMAP_RECOVERY_UNAVAILABLE")
     Offhand:Print(Offhand.L[key])
     return ok, reason

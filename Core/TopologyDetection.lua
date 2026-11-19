@@ -82,10 +82,13 @@ function Detection.Detect()
     -- report 3818x2104 while the Companion is spanning it. That single
     -- landscape surface otherwise satisfies the broad mixed-monitor heuristic
     -- below and makes the wizard save a false portrait + landscape layout.
-    if metrics and metrics.topologyStatus == "MISMATCH"
+    if metrics and (metrics.topologyStatus == "MISMATCH" or metrics.manualCanvasState == "EXACT_REQUIRED")
         and not metrics.manualCanvas then
         info.topologyStatus = metrics.topologyStatus
-        info.description = "Companion topology does not match the current WoW window"
+        info.exactRequired = metrics.manualCanvasState == "EXACT_REQUIRED"
+        info.description = metrics.topologyStatus == "MISMATCH"
+            and "Companion topology does not match the current WoW window"
+            or Offhand.L["ONBOARD_STATUS_COMPANION_RELOAD_REQUIRED"]
         return info
     end
 

@@ -39,7 +39,7 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:PositionPremadeGroupDialogs(m, preparing)
-        if not (Offhand.isRetail or Offhand.isForever)
+        if Offhand._loggingOut or not (Offhand.isRetail or Offhand.isForever)
             or (InCombatLockdown and InCombatLockdown()) then return end
         m = m or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
         local active = Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect
@@ -103,20 +103,59 @@ function Transient.Install(HUD, services)
         end
     end
 
+    local foreverDialogPlacementPending, foreverDialogCombatPending
+    local foreverPopupPending, foreverTradePending
+    local function SettleForeverDialogs()
+        if Offhand._loggingOut then return end
+        if InCombatLockdown() then
+            if not foreverDialogCombatPending and Offhand.RunOrQueueCombat then
+                foreverDialogCombatPending = true
+                Offhand:RunOrQueueCombat(function()
+                    foreverDialogCombatPending = false
+                    SettleForeverDialogs()
+                end)
+            end
+            return
+        end
+        local popupPending, tradePending = foreverPopupPending, foreverTradePending
+        foreverPopupPending, foreverTradePending = nil, nil
+        if tradePending and Offhand.MenuPlacement then Offhand.MenuPlacement:RecoverForeverTrade() end
+        if popupPending then HUD:PositionPremadeGroupDialogs() end
+    end
+
     local function HookPremadeGroupPlacement()
         if not (Offhand.isRetail or Offhand.isForever) or not hooksecurefunc then return end
         for _, name in ipairs({ "StaticPopup_SetUpPosition", "StaticPopupSpecial_Show",
-            "StaticPopupSpecial_Hide", "StaticPopup_Hide", "ShowUIPanel", "HideUIPanel" }) do
-            if (Offhand.isForever or (name ~= "ShowUIPanel" and name ~= "HideUIPanel"))
+            "StaticPopupSpecial_Hide", "StaticPopup_Hide", "ShowUIPanel", "HideUIPanel", "UpdateUIPanelPositions" }) do
+            local updatesPanels = name == "UpdateUIPanelPositions"
+            local togglesPanel = name == "ShowUIPanel" or name == "HideUIPanel"
+            if (Offhand.isForever or not (updatesPanels or togglesPanel))
                 and type(_G[name]) == "function" and not specialPopupHooks[name] then
                 specialPopupHooks[name] = true
                 hooksecurefunc(name, function(dialog)
                     if Offhand.isForever then
-                        -- Let native popup focus and panel transactions finish.
-                        -- No script or bookkeeping is attached to their roots.
-                        if C_Timer and C_Timer.After then
-                            C_Timer.After(0, function() HUD:PositionPremadeGroupDialogs() end)
+                        if Offhand._loggingOut or not C_Timer or not C_Timer.After then return end
+                        local trade = _G.TradeFrame
+                        if updatesPanels or togglesPanel then
+                            local ok, shown
+                            if trade and trade.IsShown then ok, shown = pcall(trade.IsShown, trade) end
+                            local tradeVisible = ok and not (issecretvalue and issecretvalue(shown)) and shown == true
+                            if tradeVisible or (togglesPanel and trade and dialog == trade) then
+                                foreverTradePending = true
+                            elseif updatesPanels then
+                                return
+                            end
                         end
+                        if not updatesPanels then foreverPopupPending = true end
+                        if foreverDialogPlacementPending or foreverDialogCombatPending then
+                            return
+                        end
+                        -- Native popup focus and UIPanel writes finish before recovery.
+                        foreverDialogPlacementPending = true
+                        C_Timer.After(0, function()
+                            foreverDialogPlacementPending = false
+                            SettleForeverDialogs()
+                        end)
                         return
                     end
                     -- SetUpPosition runs before Show; include that pending root.
@@ -393,16 +432,46 @@ function Transient.Install(HUD, services)
     local groupLootMoverRequested = false
     local groupLootMoverDragging = false
 
-    -- Keep /offhand diag focused on the current group-loot QA surface without
-    -- reading protected frame geometry in combat. These flags describe only the
-    -- addon-owned secure setup; the tester's screenshot confirms final placement.
-    function HUD:GetGroupLootDiagnostics()
+    local function LootVisibility(frame)
+        local ok, visibility = pcall(function()
+            if frame.IsForbidden and frame:IsForbidden() then return "forbidden" end
+            local shown = frame:IsShown()
+            if (issecretvalue and issecretvalue(shown)) or type(shown) ~= "boolean" then return "unavailable" end
+            if not shown then return "hidden" end
+            if not frame.IsVisible then return "shown" end
+            local visible = frame:IsVisible()
+            if (issecretvalue and issecretvalue(visible)) or type(visible) ~= "boolean" then return "unavailable" end
+            return visible and "visible" or "parent-hidden"
+        end)
+        return ok and visibility or "unavailable"
+    end
+
+    local function LootRowBounds(row, metrics)
+        local ok, rect = pcall(function()
+            local x, y, width, height = row:GetRect()
+            local scale, parentScale = row:GetEffectiveScale(), UIParent:GetEffectiveScale()
+            if not OrdinaryNumber(x) or not OrdinaryNumber(y) or not OrdinaryNumber(width)
+                or not OrdinaryNumber(height) or not OrdinaryNumber(scale) or not OrdinaryNumber(parentScale)
+                or scale <= 0 or parentScale <= 0 or width <= 0 or height <= 0 then return end
+            local factor = scale / parentScale
+            x, y, width, height = x * factor, y * factor, width * factor, height * factor
+            local contained = x >= metrics.gameLeft and y >= metrics.gameBottom
+                and x + width <= metrics.gameRight and y + height <= metrics.gameTop
+            return string.format("%.1f/%.1f/%.1f/%.1f %s", x, y, width, height,
+                contained and "mainhand" or "outside-mainhand")
+        end)
+        return ok and rect or "unavailable"
+    end
+
+    -- Counts and frame geometry help distinguish a pending roll with no native
+    -- row, a hidden row and a row clipped by display geometry. Read no roll IDs.
+    function HUD:GetGroupLootDiagnostics(metrics)
         local container = _G.GroupLootContainer
         local triggerCount = 0
         for index = 1, 4 do
             if _G["GroupLootFrame" .. index] then triggerCount = triggerCount + 1 end
         end
-        return {
+        local report = {
             loaded = container ~= nil,
             preloadAttempted = groupLootPreloadAttempted,
             anchorPrepared = container and secureTransientOwned[container] == true or false,
@@ -421,6 +490,32 @@ function Transient.Install(HUD, services)
             triggerCount = triggerCount,
             inCombat = InCombatLockdown and InCombatLockdown() or false,
         }
+        if metrics then
+            local ok, active = pcall(function()
+                local ids = GetActiveLootRollIDs and GetActiveLootRollIDs()
+                if issecretvalue and issecretvalue(ids) then return end
+                if type(ids) == "table" and OrdinaryNumber(#ids) then return #ids end
+            end)
+            report.activeRolls = ok and active or "unavailable"
+            report.containerVisibility = container and LootVisibility(container) or "absent"
+            report.slots = {}
+            local read, rows = pcall(function()
+                if container and report.containerVisibility ~= "forbidden" then return container.rollFrames end
+            end)
+            if read and not (issecretvalue and issecretvalue(rows)) and type(rows) == "table" then
+                for index = 1, 4 do
+                    local row = rows[index]
+                    if issecretvalue and issecretvalue(row) then
+                        report.slots[#report.slots + 1] = index .. "=unavailable"
+                    elseif row then
+                        local state = LootVisibility(row)
+                        local bounds = (state == "visible" or state == "shown") and LootRowBounds(row, metrics)
+                        report.slots[#report.slots + 1] = index .. "=" .. state .. (bounds and (",rectUI=" .. bounds) or "")
+                    end
+                end
+            end
+        end
+        return report
     end
 
     function HUD:GetPetBattleDiagnostics()
@@ -474,41 +569,6 @@ function Transient.Install(HUD, services)
         return positioner
     end
 
-    -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
-    -- center can be the upper-left corner of Mainhand in a mixed-height topology.
-    -- Correct it from an external secure post-hook during the same ToggleGameMenu
-    -- call, before the next rendered frame. Do not replace Blizzard's function or
-    -- attach scripts to the menu itself.
-    local function PositionForeverGameMenu()
-        if not UsesForeverEditMode() or InCombatLockdown()
-            or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
-        local frame = _G.GameMenuFrame
-        local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
-            and Offhand.Viewport:GetMetrics() or nil
-        if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
-            or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
-        if frame.IsProtected then
-            local ok, protected = pcall(frame.IsProtected, frame)
-            if not ok or protected then return false end
-        end
-        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-        local cx = (m.gameLeft + m.gameRight) / 2
-        local cy = (m.gameBottom + m.gameTop) / 2
-        local inspected, correct = pcall(function()
-            if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 1 then return false end
-            local point, relative, relativePoint, x, y = frame:GetPoint(1)
-            return point == "CENTER" and relative == UIParent and relativePoint == "BOTTOMLEFT"
-                and type(x) == "number" and type(y) == "number"
-                and math.abs(x-cx*factor) < .01 and math.abs(y-cy*factor) < .01
-        end)
-        if inspected and correct then return true end
-        local ok = pcall(function()
-            frame:ClearAllPoints()
-            frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
-        end)
-        return ok
-    end
-
     local function CaptureSecurePoints(frame)
         local points = {}
         for index = 1, frame:GetNumPoints() do points[index] = { frame:GetPoint(index) } end
@@ -535,6 +595,21 @@ function Transient.Install(HUD, services)
     local function IsStockSecureTransientAnchor(frame, spec)
         local state = secureTransientPoints[frame]
         local userPlaced = frame.IsUserPlaced and frame:IsUserPlaced()
+        if spec.groupLootRows and not userPlaced then
+            local manager = _G.BottomManagedFrameContainer
+            -- Blizzard's modern bottom column reparents this container and
+            -- changes its TOP offset as other HUD elements enter the column.
+            -- This is a native reflow, not an external loot-mover takeover.
+            if manager and frame == _G.GroupLootContainer and frame.GetParent
+                and frame:GetParent() == manager and frame.layoutParent == manager
+                and frame:GetNumPoints() == 1 then
+                local point, relative, relativePoint, x, y = frame:GetPoint(1)
+                if point == "TOP" and relative == manager and relativePoint == "TOP"
+                    and OrdinaryNumber(x) and math.abs(x) <= 0.5 and OrdinaryNumber(y) then
+                    return true
+                end
+            end
+        end
         if state and not userPlaced and SameSecurePoints(frame, state.applied) then return true end
         if state then
             secureTransientOwned[frame] = nil
@@ -598,6 +673,57 @@ function Transient.Install(HUD, services)
                         self:GetAttribute("offhandX"), self:GetAttribute("offhandY"))
                 end
             ]])
+        end)
+        return ok
+    end
+
+    local protectedMenuPoints = setmetatable({}, {__mode = "k"})
+
+    -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
+    -- center can be the upper-left corner of Mainhand in a mixed-height topology.
+    -- ConsolePort can make the stock menu protected through its secure ring.
+    -- Only repair the native center in that case, using the existing secure writer.
+    local function PositionForeverGameMenu()
+        if not UsesForeverEditMode() or InCombatLockdown()
+            or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect then return false end
+        local frame = _G.GameMenuFrame
+        local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
+            and Offhand.Viewport:GetMetrics() or nil
+        if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
+            or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
+
+        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+        local cx = (m.gameLeft + m.gameRight) / 2
+        local cy = (m.gameBottom + m.gameTop) / 2
+        local inspected, correct = pcall(function()
+            if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 1 then return false end
+            local point, relative, relativePoint, x, y = frame:GetPoint(1)
+            return point == "CENTER" and relative == UIParent and relativePoint == "BOTTOMLEFT"
+                and type(x) == "number" and type(y) == "number"
+                and math.abs(x-cx*factor) < .01 and math.abs(y-cy*factor) < .01
+        end)
+        if inspected and correct then return true end
+        if frame.IsProtected then
+            local ok, protected = pcall(frame.IsProtected, frame)
+            if not ok then return false end
+            if protected then
+                local native, eligible = pcall(function()
+                    if not _G.ConsolePort or frame:GetParent() ~= UIParent
+                        or (frame.IsUserPlaced and frame:IsUserPlaced())
+                        or frame:GetNumPoints() ~= 1 then return false end
+                    local current = { frame:GetPoint(1) }
+                    return SamePopupPoint(current, {"CENTER", UIParent, "CENTER", 0, 0})
+                        or SamePopupPoint(current, protectedMenuPoints[frame])
+                end)
+                if not native or not eligible then return false end
+                if not SecureScreenPoint(frame, "CENTER", cx * factor, cy * factor) then return false end
+                protectedMenuPoints[frame] = {"CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor}
+                return true
+            end
+        end
+        local ok = pcall(function()
+            frame:ClearAllPoints()
+            frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
         end)
         return ok
     end
@@ -855,7 +981,7 @@ function Transient.Install(HUD, services)
         local maxIndex = tonumber(container.maxIndex) or 0
         local reservedSize = tonumber(container.reservedSize) or 100
         local centerX, centerY = GetGroupLootCenter(metrics, container)
-        local stackStep = GetGroupLootStackDirection() == "DOWN" and -reservedSize or reservedSize
+        local direction = GetGroupLootStackDirection() == "DOWN" and -1 or 1
 
         -- Validate the complete native set before moving anything. This makes an
         -- addon-owned mover (a row relative to its own anchor) an explicit conflict
@@ -863,7 +989,8 @@ function Transient.Install(HUD, services)
         local margin = 12 * (metrics.hudScale or 1)
         local minX, maxX = metrics.gameLeft + margin, metrics.gameRight - margin
         local minY, maxY = metrics.gameBottom + margin, metrics.gameTop - margin
-        local slot = 0
+        local placements = {}
+        local offset, previousHalfSlot = 0, nil
         for index = 1, maxIndex do
             local row = rows[index]
             if row then
@@ -882,15 +1009,20 @@ function Transient.Install(HUD, services)
                 if not OrdinaryNumber(rowScale) or not OrdinaryNumber(parentScale)
                     or not OrdinaryNumber(width) or not OrdinaryNumber(height)
                     or rowScale <= 0 or parentScale <= 0 then return false end
-                local toUI = rowScale / math.max(parentScale, 0.0001)
+                local toUI = rowScale / parentScale
                 local halfWidth = width * toUI / 2
                 local halfHeight = height * toUI / 2
-                local offset = stackStep * slot * toUI
+                -- Reserve space between adjacent centers in the same units.
+                -- Multiplying a slot index by each row's scale can put a
+                -- later, smaller row on top of an earlier one.
+                local halfSlot = math.max(halfHeight, reservedSize * toUI / 2)
+                if previousHalfSlot then offset = offset + direction * (previousHalfSlot + halfSlot) end
+                previousHalfSlot = halfSlot
                 minX = math.max(minX, metrics.gameLeft + margin + halfWidth)
                 maxX = math.min(maxX, metrics.gameRight - margin - halfWidth)
                 minY = math.max(minY, metrics.gameBottom + margin + halfHeight - offset)
                 maxY = math.min(maxY, metrics.gameTop - margin - halfHeight - offset)
-                slot = slot + 1
+                placements[#placements + 1] = {row = row, offset = offset, fromUI = parentScale / rowScale}
             end
         end
 
@@ -900,14 +1032,11 @@ function Transient.Install(HUD, services)
         if minY <= maxY then centerY = math.max(minY, math.min(maxY, centerY)) end
 
         local moved = 0
-        for index = 1, maxIndex do
-            local row = rows[index]
-            if row and row.ClearAllPoints and row.SetPoint then
-                local rowScale = row.GetEffectiveScale and row:GetEffectiveScale() or 1
-                local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
-                local factor = parentScale / math.max(tonumber(rowScale) or 1, 0.0001)
+        for _, placement in ipairs(placements) do
+            local row, factor = placement.row, placement.fromUI
+            if row.ClearAllPoints and row.SetPoint then
                 local desired = {"CENTER", UIParent, "BOTTOMLEFT",
-                    centerX * factor, centerY * factor + stackStep * moved}
+                    centerX * factor, (centerY + placement.offset) * factor}
                 if not SameSecurePoints(row, {desired}) then
                     row:ClearAllPoints()
                     row:SetPoint(unpack(desired))

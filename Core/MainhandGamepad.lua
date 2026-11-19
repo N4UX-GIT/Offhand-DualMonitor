@@ -18,7 +18,6 @@ local gamepadDestinationPanelStatus = {}
 local gamepadDestinationDragHandles = setmetatable({}, { __mode = "k" })
 local fullscreenMapState
 local openMapWindowedLayout
-local unfadedGamepadMap
 local GAMEPAD_INTERFACE_SETTLE_SECONDS = 1.0
 local GAMEPAD_ACTIVE_PANEL_INTERVAL = 0.05
 local GAMEPAD_INACTIVE_PANEL_INTERVAL = 0.20
@@ -30,6 +29,7 @@ local GAMEPAD_INACTIVE_PANEL_INTERVAL = 0.20
 -- only that container's root anchor outside combat. Protected roots use a
 -- direct UIParent anchor instead of depending on an addon-owned frame.
 local gamepadMainMenuGlobalNames = {
+    "GamepadRadial",
     "GamepadMainMenuFrame", "GamepadMenuFrame", "GamepadRadialMenuFrame",
     "GamepadMenuRadialFrame", "MainMenuRadialFrame", "GamepadRadialFrame",
 }
@@ -574,7 +574,7 @@ local function SaveDestinationPanelOffset(name, state, x, y)
     OffhandCharDB.foreverGamepadPanelOffsets[name] = { x = x, y = y }
 end
 
-local function CenterDestinationPanel(frame, suppliedName)
+local function CenterDestinationPanel(frame, suppliedName, verticalFraction)
     local usable, reason = IsUsableGamepadDestinationPanel(frame, suppliedName)
     if not usable then return false, reason end
     local state = CaptureDestinationPanelPoints(frame)
@@ -582,8 +582,12 @@ local function CenterDestinationPanel(frame, suppliedName)
     local rect, x, y = DestinationPanelCenter()
     if not rect.isSpanned then return false, "span" end
     local name = suppliedName or (frame.GetName and frame:GetName())
-    local offsetX, offsetY = DestinationPanelOffset(name, state)
-    x, y = x + offsetX, y + offsetY
+    if verticalFraction then
+        y = y + (verticalFraction - 0.5) * rect.height
+    else
+        local offsetX, offsetY = DestinationPanelOffset(name, state)
+        x, y = x + offsetX, y + offsetY
+    end
     local frameScale = frame.GetEffectiveScale and frame:GetEffectiveScale() or 1
     local parentScale = UIParent.GetEffectiveScale and UIParent:GetEffectiveScale() or 1
     if not Number(frameScale) or not Number(parentScale)
@@ -609,6 +613,9 @@ local function CenterDestinationPanel(frame, suppliedName)
             frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
         end)
         if not ok then return false, "move-blocked" end
+        if name == "PlayerSpellsFrame" and Offhand.PopupBounds then
+            Offhand.PopupBounds:RefreshMovedSpellBookTooltip(frame)
+        end
     end
     state.applied = { x = x, y = y }
     if IsNativeBagDestinationName(name) then
@@ -779,26 +786,6 @@ local function UpdateFullscreenMap(map, maximized, active, inCombat, openMapOwns
         return "fullscreen-mainhand"
     end)
     return ok and status or "fullscreen-blocked"
-end
-
-local function UpdateGamepadMapFade(map, keepOpaque, inCombat)
-    if unfadedGamepadMap ~= map or not (map and map.IsShown and map:IsShown()) then
-        -- The native OnHide clears its registration, and OnShow creates a new one.
-        unfadedGamepadMap = nil
-    end
-    if inCombat or not PlayerMovementFrameFader then return end
-    if keepOpaque and not unfadedGamepadMap and PlayerMovementFrameFader.RemoveFrame then
-        if pcall(PlayerMovementFrameFader.RemoveFrame, map) then unfadedGamepadMap = map end
-    elseif not keepOpaque and unfadedGamepadMap and PlayerMovementFrameFader.AddDeferredFrame then
-        -- Standard UI's Canvas already handles a map that stays on the workspace.
-        if not NativeGamepadInterface() and Mainhand:GetRect().isSpanned and IsMapOnWorkspace(map) then
-            unfadedGamepadMap = nil
-        elseif pcall(PlayerMovementFrameFader.AddDeferredFrame, map, .5, 1.0, .5, function()
-            return GetCVarBool("mapFade") and not map:IsMouseOver()
-        end) then
-            unfadedGamepadMap = nil
-        end
-    end
 end
 
 -- Native Gamepad panels do not expose mouse movement and adding a grip to
@@ -1012,7 +999,6 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
                 openMapWindowedLayout = ReadOpenMapWindowedLayout(frame)
             end
         end
-        local centeredMap
         if maximized then
             gamepadDestinationPanelStatus[name] = fullscreenStatus
         elseif mapShown and externalMap then
@@ -1042,7 +1028,6 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
             local shown = frame.IsShown and frame:IsShown() or false
             if shown then
                 local centered, reason = CenterDestinationPanel(frame, name)
-                centeredMap = isWorldMap and centered
                 gamepadDestinationPanelStatus[name] = reason or "unknown"
                 if centered then moved = moved + 1 end
                 if centered and GamepadDestinationDragHandlesEnabled()
@@ -1063,12 +1048,6 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
             else
                 gamepadDestinationPanelStatus[name] = "combat"
             end
-        end
-        if isWorldMap then
-            UpdateGamepadMapFade(frame, centeredMap and IsMapOnWorkspace(frame), inCombat)
-        end
-        if isWorldMap then
-            UpdateGamepadMapFade(frame, centeredMap and IsMapOnWorkspace(frame), inCombat)
         end
     end
     for frame, handle in pairs(gamepadDestinationDragHandles) do
@@ -1105,10 +1084,20 @@ function Mainhand:CenterForeverGamepadReticle()
         return ReticleResult(RestoreDestinationPanel(frame, gamepadDestinationPanelState[frame], "GamepadReticle"))
     end
     if not frame.IsShown or not frame:IsShown() then return ReticleResult(false, "hidden") end
-    -- The native reticle's Recenter uses UIParent's horizontal center and a
-    -- full-canvas cursor height. Reuse only the root geometry adapter, without
-    -- adding it to movable/persistent destinations or changing targeting APIs.
-    return ReticleResult(CenterDestinationPanel(frame, "GamepadReticle"))
+    -- Translate the native cursor height into the Mainhand rectangle. Using
+    -- the midpoint discards Blizzard's vertical aim offset on a spanned window.
+    local fraction = 0.5
+    if type(GetCursorCenterPosition) == "function" and UIParent and UIParent.GetHeight then
+        local ok, _, cursorY = pcall(GetCursorCenterPosition)
+        local height = Number(UIParent:GetHeight())
+        local scale = UIParent.GetEffectiveScale and Number(UIParent:GetEffectiveScale())
+        cursorY = ok and Number(cursorY)
+        if cursorY and height and scale and height > 0 and scale > 0 then
+            local nativeFraction = cursorY / (height * scale)
+            if nativeFraction >= 0 and nativeFraction <= 1 then fraction = nativeFraction end
+        end
+    end
+    return ReticleResult(CenterDestinationPanel(frame, "GamepadReticle", fraction))
 end
 
 local function LootNumber(frame, method)
@@ -1224,8 +1213,13 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
         gamepadMainMenuController:RegisterEvent("ADDON_LOADED")
         gamepadMainMenuController:RegisterEvent("LOOT_OPENED")
         gamepadMainMenuController:RegisterEvent("LOOT_CLOSED")
+        gamepadMainMenuController:RegisterEvent("PLAYER_LOGOUT")
         gamepadMainMenuController:SetScript("OnEvent", function(_, event, addonName)
-            if event == "LOOT_OPENED" then
+            if event == "PLAYER_LOGOUT" then
+                local mapAdapter = Offhand.CanvasForeverMap
+                if mapAdapter then mapAdapter.ReleaseMovementFade(true) end
+                return
+            elseif event == "LOOT_OPENED" then
                 lootPending, lootElapsed = true, 0
                 return
             elseif event == "LOOT_CLOSED" then
@@ -1245,6 +1239,8 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
     local worldMapMaximized
     local shownDestinations = {}
     gamepadMainMenuController:SetScript("OnUpdate", function(_, elapsed)
+        local worldMap = _G.WorldMapFrame
+        if not (worldMap and worldMap.IsShown and worldMap:IsShown()) then worldMap = nil end
         local currentGamepadMode = NativeGamepadInterface()
         if currentGamepadMode ~= stableGamepadMode then
             lootPending = false
@@ -1266,6 +1262,8 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
         interfaceSettleElapsed = interfaceSettleElapsed + (elapsed or 0)
         if interfaceSettleElapsed < GAMEPAD_INTERFACE_SETTLE_SECONDS then
             HideDestinationPanelDragHandles()
+            local mapAdapter = Offhand.CanvasForeverMap
+            if mapAdapter and not worldMap then mapAdapter.ReleaseMovementFade() end
             return
         end
         radialElapsed = radialElapsed + (elapsed or 0)
@@ -1288,16 +1286,19 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
                 shownDestinations[name] = visible
             end
         end
-        local worldMap = _G.WorldMapFrame
-        if not (worldMap and worldMap.IsShown and worldMap:IsShown()) then worldMap = nil end
         local maximized = worldMap and worldMap.IsMaximized and worldMap:IsMaximized()
-        local mapChanged = worldMap and (worldMap ~= shownWorldMap or maximized ~= worldMapMaximized)
+        local mapChanged = worldMap ~= shownWorldMap or maximized ~= worldMapMaximized
         shownWorldMap, worldMapMaximized = worldMap, maximized
         local panelInterval = stableGamepadMode and GAMEPAD_ACTIVE_PANEL_INTERVAL
             or GAMEPAD_INACTIVE_PANEL_INTERVAL
         local panelUpdateDue = panelElapsed >= panelInterval
-        if panelUpdateDue or mapChanged or destinationsChanged then
+        if panelUpdateDue or (worldMap and mapChanged) or destinationsChanged then
             Mainhand:CenterForeverGamepadDestinationPanels()
+        end
+        local mapAdapter = Offhand.CanvasForeverMap
+        if mapAdapter and (panelUpdateDue or mapChanged or destinationsChanged) then
+            mapAdapter.UpdateMovementFade(worldMap,
+                worldMap and Offhand.db and Offhand.db.enabled and Mainhand:GetRect().isSpanned)
         end
         if panelUpdateDue then
             panelElapsed = 0

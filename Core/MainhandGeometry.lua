@@ -106,6 +106,7 @@ local function NotifyGeometry(rect, reason)
 end
 
 function Mainhand:Update(reason)
+    if Offhand._loggingOut then return false end
     local region = self:CreateAnchor()
     if not region then return false end
     local rect = Geometry.GetCurrentRect()

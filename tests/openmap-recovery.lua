@@ -1,7 +1,8 @@
 -- One-shot owner-coordinated recovery, including mixed-height physical voids.
 local addon = {isForever=true, db={enabled=true}, L=setmetatable({}, {__index=function(_, key) return key end})}
 local owner, combat, gamepad, held = "OpenMap", false, false, false
-addon.CanvasCompatibility = {GetWorldMapExternalOwner=function() return owner end}
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+addon.CanvasCompatibility.GetWorldMapExternalOwner=function() return owner end
 addon.IsGamepadUIEnabled = function() return gamepad end
 InCombatLockdown = function() return combat end
 IsMouseButtonDown = function() return held end
@@ -94,8 +95,58 @@ metrics={isSpanned=false, gameLeft=0,gameRight=3000,gameBottom=0,gameTop=2200}
 assert(recovery:Run() and db.window[3]==3000)
 metrics={isSpanned=true, gameLeft=0,gameRight=1200,gameBottom=900,gameTop=2200}
 assert(recovery:Run() and db.window[3]==1200)
+OpenMap.version="v0.8.6"
+metrics.workspaceLeft, metrics.workspaceRight = 1200, 3000
+metrics.workspaceBottom, metrics.workspaceTop = 0, 1300
+assert(recovery:Run(true))
+assert(db.window[3]==4200 and db.window[4]==2552 and db.windowSize==oldSize and db.windowScale==oldScale)
+map:SetPoint("CENTER",UIParent,"CENTER",0,0)
+assert(map.point[4]==4200 and map.point[5]==2552,
+    "OpenMap 0.8.6 must retain the saved Offhand anchor when it reapplies its position")
+OpenMap.version="v0.8.7"
+metrics.workspaceBottom = 1000
+local workspaceAnchor, before = db.window, writes
+local fitted, fitReason = recovery:Run(true)
+assert(not fitted and fitReason=="workspace-fit" and db.window==workspaceAnchor and writes==before)
+metrics.workspaceBottom, metrics.isSpanned = 0, false
+assert(not recovery:Run(true) and db.window==workspaceAnchor and writes==before)
+metrics.isSpanned = true
 local printed
 addon.Print=function(_, text) printed=text end
+assert(recovery:RunAndReport(true) and printed=="OPENMAP_WORKSPACE_DONE")
 assert(recovery:RunAndReport() and printed=="OPENMAP_RECOVERY_DONE")
 combat=true; recovery:RunAndReport(); assert(printed=="OPENMAP_RECOVERY_COMBAT")
+combat=false
+
+-- The later reviewed Forever releases maintain the same versioned DB contract
+-- for both explicit placement and their own movement fader.
+assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
+local mapAdapter = addon.CanvasForeverMap
+addon.CanvasCompatibility.IsAddonLoaded = function(name) return name == "OpenMap" end
+local workspace, refreshes = false, 0
+addon.Canvas = {IsFrameOnWorkspace=function(frame) return frame==map and workspace end}
+module.enabled = true
+module.RefreshExtras = function() refreshes=refreshes+1 end
+for _, version in ipairs({"v0.8.8", "v0.8.9"}) do
+    OpenMap.version = version
+    assert(recovery:Run(true), "reviewed OpenMap version cannot move to Offhand: "..version)
+    map:SetPoint("CENTER",UIParent,"CENTER",0,0)
+    assert(map.point[4]==4200 and map.point[5]==2552
+        and db.windowSize==oldSize and db.windowScale==oldScale,
+        "the owner's placement must survive a vendor reapply: "..version)
+
+    workspace, db.moveFade = true, .5
+    local before = refreshes
+    mapAdapter.UpdateMovementFade(map, true)
+    assert(db.moveFade==0, "reviewed OpenMap version kept its movement fade: "..version)
+    workspace = false
+    mapAdapter.UpdateMovementFade(map, true)
+    assert(db.moveFade==.5 and refreshes==before+1,
+        "leaving Offhand must restore the owner's fade: "..version)
+end
+OpenMap.version = "v0.8.10"
+Refuses("unavailable")
+workspace = true
+mapAdapter.UpdateMovementFade(map, true)
+assert(db.moveFade==.5, "an unreviewed version must keep its movement fade")
 print("PASS: OpenMap explicit recovery, ownership, scale/void geometry, guards, rollback and reporting")

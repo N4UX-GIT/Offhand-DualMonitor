@@ -178,6 +178,18 @@ print("PASS: HUD compatibility ownership and client capability policy")
 
 do
     local root = {IsUserPlaced=function() return false end}
+    for _, name in ipairs({'Questie_BaseFrame','ChatAlertFrame','TextToSpeechButtonFrame','QuickJoinToastButton'}) do
+        assert(compatibility.ShouldPreservePopupPosition(root, name),
+            'popup recovery must preserve the provider-owned root: '..name)
+    end
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'QuestieOptions'),
+        'Questie configuration windows must retain ordinary popup recovery')
+    assert(not compatibility.ShouldPreservePopupPosition(root, 'OtherQuickJoinToastButton'),
+        'linked-chat ownership must match an exact native root name')
+end
+
+do
+    local root = {IsUserPlaced=function() return false end}
     assert(compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrame1'))
     assert(compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrame12'))
     assert(not compatibility.ShouldPreservePopupPosition(root, 'DetailsBaseFrameSettings'),

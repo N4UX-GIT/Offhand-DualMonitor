@@ -67,6 +67,7 @@ function CreateFrame(kind, name, parent, template)
             return self.firstPoint.point, self.firstPoint.rel, self.firstPoint.relPoint, self.firstPoint.x, self.firstPoint.y
         end
     end
+    function f:SetAllPoints(relativeTo) self.allPoints = relativeTo end
     function f:ClearAllPoints() self.points = {} end
     function f:SetAutoFocus() end
     function f:SetNumeric() end
@@ -318,10 +319,92 @@ assert(not handoffNotice.hasEditBox and not topologyWarning.hasEditBox,
     "layout handoff notices must not imply that Companion needs downloading")
 assert(handoffNotice.text:find("versions may already be correct", 1, true),
     "missing-layout guidance must reassure users with matching versions")
+assert(handoffNotice.text:find("Span WoW Now", 1, true) and handoffNotice.text:find("/reload", 1, true),
+    "missing-layout guidance must give the explicit span and reload sequence")
 assert(not handoffNotice.text:find("is required", 1, true),
     "missing-layout guidance must not report a version requirement")
 assert(versionWarning.hasEditBox,
     "a genuine Companion version mismatch must retain the official download address")
+
+do
+    local savedAccount, savedTopology = OffhandDB, OffhandCompanionTopology
+    local savedScreenSize = GetPhysicalScreenSize
+    local savedWidth, savedHeight = UIParent:GetSize()
+    local savedPosition = addon.db.primaryPosition
+    local savedWorldFrame = WorldFrame
+    OffhandDB = {}
+    addon.db.primaryPosition = "LEFT"
+    GetPhysicalScreenSize = function() return 3640, 1920 end
+    UIParent:SetSize(1456, 768)
+    WorldFrame = CreateFrame("Frame")
+    WorldFrame.GetEffectiveScale = UIParent.GetEffectiveScale
+    OffhandCompanionTopology = nil
+    local viewport, manual = addon.Viewport, addon.ManualCanvas
+    local companion = {
+        schema = 1, physicalWidth = 3640, physicalHeight = 1920, mode = "DUAL_DISPLAY",
+        game = { x = 0, y = 0, width = 2560, height = 1440 },
+        workspace = { x = 2560, y = 0, width = 1080, height = 1920 },
+    }
+    assert(manual:RememberFromMetrics(viewport:GetManualPreviewMetrics(), "Older manual layout", "MANUAL"))
+    assert(manual:SetGeometryPreference("AUTO"))
+    local function expectRememberedManual()
+        local result = viewport:GetMetrics()
+        assert(result.isSpanned and result.manualCanvas and result.gamePixelWidth == 2330,
+            "independent setup must retain its confirmed manual canvas")
+        assert(not addon:GetCompanionNoticeKind(result))
+    end
+    expectRememberedManual() -- Legacy AUTO without a saved onboarding method.
+    assert(addon:SetOnboardingSetupMethod("COMPANION"))
+    OffhandCompanionTopology = companion
+    assert(viewport:GetMetrics().gamePixelWidth == 2560, "legacy Companion AUTO must prefer exact geometry")
+    viewport:Apply()
+    assert(WorldFrame.points.TOPRIGHT.x == 1024, "exact geometry must anchor the game to Mainhand")
+
+    assert(loadfile("Core/CompanionTopology.lua"))()
+    local missing = viewport:GetMetrics()
+    assert(not missing.isSpanned and not missing.manualCanvas and missing.gamePixelWidth == 3640
+        and missing.topologyStatus == "ABSENT" and missing.manualCanvasState == "EXACT_REQUIRED"
+        and OffhandDB.manualCanvases["manual-1"],
+        "a packaged placeholder must preserve saved calibration and enter exact recovery")
+    viewport:Apply()
+    assert(WorldFrame.allPoints == UIParent, "missing topology must release the wrong game rectangle")
+    assert(addon:GetCompanionNoticeKind(missing) == "HANDOFF"
+        and addon:GetOperatingDiagnostics(missing).topologySource == "Recovery")
+    local detection = addon.TopologyDetection.Detect()
+    assert(not detection.isSpanned and detection.description:find("Span WoW Now", 1, true),
+        "display detection must explain handoff recovery instead of guessing a manual layout")
+    assert(addon.Options:AutoConfigure(true).exactRequired and addon.db.primaryPosition == "LEFT",
+        "a recovery recommendation must not overwrite calibration while the bridge is missing")
+    assert(viewport:GetManualPreviewMetrics().gamePixelWidth == 2330,
+        "deliberate manual calibration must still be available")
+
+    assert(manual:SetGeometryPreference("MANUAL"))
+    expectRememberedManual()
+    assert(manual:SetGeometryPreference("AUTO"))
+    for _, method in ipairs({"MANUAL", "FANCYZONES"}) do
+        assert(addon:SetOnboardingSetupMethod(method))
+        expectRememberedManual()
+    end
+    assert(addon:SetOnboardingSetupMethod("COMPANION"))
+    OffhandCompanionTopology = companion
+    GetPhysicalScreenSize = function() return 2560, 1440 end
+    UIParent:SetSize(1365.333333, 768)
+    local restored = viewport:GetMetrics()
+    assert(not restored.isSpanned and restored.topologyStatus == "MISMATCH"
+        and addon:GetCompanionNoticeKind(restored) == "TOPOLOGY",
+        "Restore Window must retain the normal mismatch path and full-window viewport")
+    GetPhysicalScreenSize = function() return 3640, 1920 end
+    UIParent:SetSize(1456, 768)
+    local respanned = viewport:GetMetrics()
+    assert(respanned.isSpanned and respanned.companionTopology and respanned.gamePixelWidth == 2560
+        and not addon:GetCompanionNoticeKind(respanned),
+        "valid Companion topology must resume without changing configuration")
+
+    OffhandDB, OffhandCompanionTopology = savedAccount, savedTopology
+    GetPhysicalScreenSize, WorldFrame = savedScreenSize, savedWorldFrame
+    addon.db.primaryPosition = savedPosition
+    UIParent:SetSize(savedWidth, savedHeight)
+end
 
 local readyMatch = {
     topologyStatus = "READY", companionVersionStatus = "MATCH",
@@ -552,7 +635,7 @@ assert(not addon:IsSetupComplete(), "Opening window setup must not complete cali
 OffhandDB.onboarding = {}
 addon.isForever = true
 local createMainhandLayoutCount = 0
-local reloadPromptCount = 0
+local reloadPromptCount, reviewHUD = 0, nil
 local createMainhandLayoutResult = { true, "Offhand - Mainhand - Test", 52 }
 local mainhandLayoutDeferred = false
 addon.Mainhand = {
@@ -563,8 +646,9 @@ addon.Mainhand = {
         mainhandLayoutDeferred = deferred == true
         return true
     end,
-    PromptReload = function()
+    PromptReload = function(_, review)
         reloadPromptCount = reloadPromptCount + 1
+        reviewHUD = review
         return true
     end,
 }
@@ -1036,6 +1120,8 @@ assert(wizardFrame.step == 1, "Back must return to the previous step")
 
 local wizardMetrics = addon.Viewport.GetMetrics
 addon.isForever = true
+local previousWizardCharDB = OffhandCharDB
+OffhandCharDB = {}
 addon.Viewport.GetMetrics = function()
     return { companionTopology=false, topologyStatus="ABSENT", isSpanned=true }
 end
@@ -1044,9 +1130,28 @@ wizardFrame:SetStep(4)
 wizardFrame.finishBtn.scripts.OnClick()
 assert(wizardFrame.step == 5 and not addon:IsSetupComplete(),
     "Forever setup must require the Mainhand HUD layout action after calibration")
+local printedSetupReview, previousPrint = false, addon.Print
+addon.Print = function(_, message)
+    if message == addon.L.SETUP_REVIEW_HUD then printedSetupReview = true end
+end
 wizardFrame.finishBtn.scripts.OnClick()
+addon.Print = previousPrint
 assert(addon:IsSetupComplete() and createMainhandLayoutCount == 1 and reloadPromptCount == 1,
     "creating the Mainhand HUD layout must finish setup and offer the required reload")
+assert(reviewHUD == true and printedSetupReview, "final calibration must surface the Mainhand HUD review")
+assert(OffhandCharDB.wizardWorkspaceReadyPending and not addon.Wizard:ShowPendingWorkspaceReady(),
+    "the ready guidance must wait for the required HUD reload")
+do
+    local currentWizard = addon.Wizard
+    assert(loadfile("UI/Wizard.lua"))("Offhand", addon)
+    assert(addon.Wizard:ShowPendingWorkspaceReady() and addon._gamepadSafePopup.popupKey == "OFFHAND_WORKSPACE_READY",
+        "a new UI session must offer the pending workspace guidance")
+    addon:HidePopup("OFFHAND_WORKSPACE_READY")
+    assert(not OffhandCharDB.wizardWorkspaceReadyPending and not addon.Wizard:ShowPendingWorkspaceReady(),
+        "a new UI session must consume the guidance after displaying it")
+    addon.Wizard = currentWizard
+end
+OffhandCharDB = previousWizardCharDB
 OffhandDB.onboarding.setupComplete = false
 addon.Viewport.GetMetrics = function()
     return {
@@ -1141,14 +1246,21 @@ assert(skipPopup and skipPopup.key == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"
     "skipping HUD generation must require confirmation before changing setup state")
 local skipPrint, skipMessages = addon.Print, {}
 addon.Print = function(_, message) skipMessages[#skipMessages + 1] = message end
-StaticPopupDialogs[skipPopup.key].OnAccept(nil, skipPopup.callback)
+addon._gamepadSafePopup.accept.scripts.OnClick()
 addon.Print = skipPrint
-assert(#skipMessages == 3 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
-        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT
-        and skipMessages[3] == addon.L.SETUP_FIRST_PANEL,
-    "HUD skip must report pending work and next actions without completed-HUD or restart-success messaging")
+assert(#skipMessages == 2 and skipMessages[1] == addon.L.WIZARD_SKIP_HUD_COMPLETE
+        and skipMessages[2] == addon.L.WIZARD_SKIP_HUD_NEXT,
+    "HUD skip must report pending work without completed-HUD messaging")
 assert(addon:IsSetupComplete() and mainhandLayoutDeferred and OffhandCharDB.hudSetupReminder and not wizardFrame:IsShown(),
     "confirmed HUD deferral must complete setup, persist the choice, and close the wizard")
+assert(addon._gamepadSafePopup.popupKey == "OFFHAND_WORKSPACE_READY"
+        and addon._gamepadSafePopup.text:GetText():find(addon.L.WORKSPACE_READY_BODY, 1, true)
+        and addon._gamepadSafePopup.text:GetText():find(addon.L.WORKSPACE_READY_EDIT_MODE, 1, true)
+        and addon._gamepadSafePopup.text:GetText():find(addon.L.WORKSPACE_READY_ADDON, 1, true)
+        and not OffhandCharDB.wizardWorkspaceReadyPending,
+    "the workspace-ready dialog must explain the empty canvas and all supported placement paths")
+addon:HidePopup("OFFHAND_WORKSPACE_READY")
+assert(not addon.Wizard:ShowPendingWorkspaceReady(), "completion guidance must display once")
 StaticPopup_Show = skipPopupShow
 OffhandCharDB = skipCharacter
 OffhandDB.onboarding.setupComplete = false
@@ -1309,10 +1421,86 @@ onboardingFrame.closeButton.scripts.OnClick()
 assert(not onboardingFrame:IsShown() and not addon:IsSetupComplete(),
     "the explicit close button must remain available without completing setup")
 addon.Onboarding:Open()
+do
+    local oldIsMacClient = IsMacClient
+    local oldOnboarding = OffhandDB.onboarding
+    local oldMetrics = addon.Viewport.GetMetrics
+    local oldCharacterData = OffhandCharDB
+    local oldPreference = OffhandDB.preferredGeometrySource
+    OffhandDB.onboarding = {setupMethod = "COMPANION", resumeStep = 4}
+    OffhandCharDB = {wizardRecoveryStep = 2}
+    addon.Viewport.GetMetrics = function()
+        return {isSpanned = false, topologyStatus = "ABSENT", physicalWidth = 2000, physicalHeight = 1000}
+    end
+    IsMacClient = function() return true end
+    addon.Onboarding:Open()
+    assert(onboardingFrame.page == 2 and addon:GetOnboardingSetupMethod() == "COMPANION",
+        "macOS resumes at the manual choice when the old method lacks a usable bridge")
+    assert(OffhandCharDB.wizardRecoveryStep == 2,
+        "opening the macOS guide must wait for the manual choice before changing saved progress")
+    local oldNotices, oldShow = addon._companionNoticesShown, StaticPopup_Show
+    local handoffKey, topologyKey = "OFFHAND_COMPANION_HANDOFF_NOTICE", "OFFHAND_COMPANION_TOPOLOGY_WARNING"
+    local oldHandoff, oldTopology = {}, {}
+    for key, value in pairs(StaticPopupDialogs[handoffKey]) do oldHandoff[key] = value end
+    for key, value in pairs(StaticPopupDialogs[topologyKey]) do oldTopology[key] = value end
+    addon._companionNoticesShown = {}
+    StaticPopup_Show = function() end
+    addon:ShowCompanionNotice("HANDOFF", {topologyStatus = "ABSENT"})
+    addon:ShowCompanionNotice("TOPOLOGY", {topologyStatus = "MISMATCH"})
+    for _, key in ipairs({handoffKey, topologyKey}) do
+        local dialog = StaticPopupDialogs[key]
+        assert(dialog.text == addon.L.ONBOARD_MAC_CHOOSE_BRIEF
+            and dialog.button1 == addon.L.POPUP_BTN_SETUP_GUIDE,
+            "stale macOS Companion notices must offer manual setup")
+        dialog.OnAccept()
+        assert(onboardingFrame.page == 2)
+    end
+    addon:ShowForeverLayoutRecoveryPrompt("fallback", "Offhand", "Modern",
+        {topologyStatus = "MISMATCH", manualCanvasState = "EXACT_REQUIRED"})
+    local recoveryText = StaticPopupDialogs.OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT.text
+    assert(recoveryText:find("/offhand guide", 1, true) and not recoveryText:find("Span WoW Now", 1, true),
+        "macOS single-screen HUD recovery must include the manual guide")
+    addon._companionNoticesShown, StaticPopup_Show = oldNotices, oldShow
+    StaticPopupDialogs[handoffKey], StaticPopupDialogs[topologyKey] = oldHandoff, oldTopology
+    assert(onboardingFrame.pageBody:GetText() == addon.L.ONBOARD_MAC_CHOOSE_BRIEF
+        and onboardingFrame.actionButton:GetText() == addon.L.ONBOARD_USE_MANUAL
+        and not onboardingFrame.secondaryActionButton:IsShown()
+        and not onboardingFrame.tertiaryActionButton:IsShown(),
+        "macOS must offer manual placement without the Windows tools")
+    onboardingFrame.actionButton.scripts.OnClick()
+    assert(onboardingFrame.page == 3 and addon:GetOnboardingSetupMethod() == "MANUAL",
+        "the manual action must use the established placement workflow")
+    onboardingFrame.helpButton.scripts.OnClick()
+    assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_MAC_WINDOWED_HELP, 1, true)
+        and not onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_PATH_MANUAL_3, 1, true),
+        "expanded macOS help must use macOS-specific guidance")
+    onboardingFrame:SetPage(4)
+    assert(onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_MAC_DISPLAY_PLACEMENT, 1, true),
+        "macOS must receive display arrangement guidance before confirming placement")
+    IsMacClient = oldIsMacClient
+    OffhandDB.onboarding = oldOnboarding
+    addon.Viewport.GetMetrics = oldMetrics
+    OffhandCharDB = oldCharacterData
+    OffhandDB.preferredGeometrySource = oldPreference
+    onboardingFrame:SetPage(2)
+    assert(onboardingFrame.actionButton:GetText() == addon.L.ONBOARD_USE_COMPANION
+        and onboardingFrame.secondaryActionButton:IsShown() and onboardingFrame.tertiaryActionButton:IsShown(),
+        "a client with no platform API must retain the existing placement choices")
+end
 local identifyCalls = 0
 addon.DisplayIdentify = { Show = function() identifyCalls = identifyCalls + 1 end, Hide = function() end }
 onboardingFrame:SetPage(4)
 assert(onboardingFrame.secondaryActionButton:IsShown(), "region labels must be available during placement")
+do
+    local previousEllesmere, wasForever = EllesmereUI, addon.isForever
+    addon.isForever = true
+    EllesmereUI = {ExportProfile = function() error("opening setup must not export a profile") end}
+    onboardingFrame:RefreshPlacementState()
+    assert(onboardingFrame.pageBody:GetText():find(addon.L.ELLESMERE_HUD_BACKUP_BEFORE_SPAN, 1, true),
+        "placement refresh must show backup guidance before spanning")
+    EllesmereUI, addon.isForever = previousEllesmere, wasForever
+    onboardingFrame:RefreshPlacementState()
+end
 onboardingFrame.secondaryActionButton.scripts.OnClick()
 assert(identifyCalls == 1)
 do
@@ -2327,6 +2515,8 @@ assert(wizardFrame:IsShown() == false, "Wizard hidden when Options opens")
 assert(optPanel.tab1 ~= nil, "Tab 1 must exist")
 local card1_1 = optPanel.tab1
 local foundAutoDetectBtn = false
+local autoConfigMethod = addon:GetOnboardingSetupMethod()
+assert(addon:SetOnboardingSetupMethod("MANUAL"))
 for _, f in ipairs(frames) do
     if f.text == "1-Click Auto-Configure" then
         foundAutoDetectBtn = true
@@ -2335,6 +2525,7 @@ for _, f in ipairs(frames) do
         assert(math.abs(addon.db.deckWidthRatio - 0.36) < 0.001, "Card 1_1 1-Click button must auto-configure")
     end
 end
+assert(addon:SetOnboardingSetupMethod(autoConfigMethod))
 assert(foundAutoDetectBtn, "Card 1_1 must contain 1-Click Auto-Configure button")
 
 -- Recovery must preserve reachable panels on both monitors and skip protected UI.
@@ -2367,6 +2558,27 @@ for index, frame in ipairs({deck, game, lost, secure, rejected}) do
 end
 assert(addon:GatherOffScreenUI() == 1, "Only successfully moved, off-screen panels may count")
 assert(lost.moved and not deck.moved and not game.moved and not secure.moved)
+do
+    local loadCheck = C_AddOns.IsAddOnLoaded
+    local getChildren = UIParent.GetChildren
+    local previousChat, previousDock = ChatFrame1, GeneralDockManager
+    ChatFrame1, GeneralDockManager = RecoveryFrame(2000, 2400, 1), RecoveryFrame(1900, 2400, 1)
+    ChatFrame1.GetName = function() return "ChatFrame1" end
+    ChatFrame1.AddMessage = function() end
+    ChatFrame1.IsMovable, GeneralDockManager.IsMovable = function() return true end, function() return true end
+    UIParent.GetChildren = function() return ChatFrame1, GeneralDockManager end
+    C_AddOns.IsAddOnLoaded = function(name) return name == "EllesmereUIChat" end
+    lost.moved = nil
+    assert(addon:GatherOffScreenUI() == 1 and lost.moved,
+        "chat ownership must not exclude unrelated movable panels from Gather")
+    assert(not ChatFrame1.moved and not GeneralDockManager.moved,
+        "Gather must leave the native anchors used by the replacement chat intact")
+    C_AddOns.IsAddOnLoaded = function() return false end
+    assert(addon:GatherOffScreenUI() == 3 and ChatFrame1.moved and GeneralDockManager.moved,
+        "legacy Gather without a replacement chat provider must keep its established behavior")
+    C_AddOns.IsAddOnLoaded, UIParent.GetChildren = loadCheck, getChildren
+    ChatFrame1, GeneralDockManager = previousChat, previousDock
+end
 InCombatLockdown = function() return true end
 assert(addon:GatherOffScreenUI() == 0, "Recovery must do nothing in combat")
 InCombatLockdown = function() return false end
@@ -2374,6 +2586,25 @@ addon.db.primaryPosition = "LEFT"
 recoveryMetrics.gameLeft, recoveryMetrics.gameRight = 0, 2560
 assert(addon:IsWindowReachable(2800, 2200, 200, recoveryMetrics), "Right workspace must remain reachable")
 assert(not addon:IsWindowReachable(200, 2200, 200, recoveryMetrics), "Void over left game monitor must be recoverable")
+recoveryMetrics.workspaceLeft, recoveryMetrics.workspaceRight = 2560, 4000
+recoveryMetrics.workspaceBottom, recoveryMetrics.workspaceTop = 0, 2560
+recoveryMetrics.workspaceRegions = {{x=2560,y=0,width=1440,height=900},{x=2560,y=1800,width=1440,height=760}}
+assert(not addon:IsWindowReachable(2800, 1300, 200, recoveryMetrics), "Gap between workspaces must not count as reachable")
+assert(addon:IsWindowReachable(2800, 2200, 200, recoveryMetrics), "Explicit upper workspace must remain reachable")
+local previousForever, previousCanvas, previousMap = addon.isForever, addon.Canvas, WorldMapFrame
+local map = RecoveryFrame(500, 2300, 1)
+addon.isForever, WorldMapFrame = true, map
+UIPanelWindows.WorldMapFrame = {}
+local recoveredMap = 0
+addon.Canvas = {GatherSafeUIToMainhand=function(_, missingOnly, target)
+    assert(missingOnly and target==map, "Legacy gather must use the guarded map-only recovery path")
+    recoveredMap = recoveredMap + 1
+    return true, nil, 1
+end}
+assert(addon:GatherOffScreenUI() >= 1 and recoveredMap==1 and not map.moved,
+    "Legacy gather failed to count map recovery or moved the map twice")
+addon.isForever, addon.Canvas, WorldMapFrame = previousForever, previousCanvas, previousMap
+UIPanelWindows.WorldMapFrame = nil
 addon.Viewport.GetMetrics = getMetrics
 
 -- A profile mutation must be deferred until the confirmation is accepted.
@@ -2475,6 +2706,20 @@ do
         'loaded geometry must resume the same step without automatically creating a layout')
     assert(wizardFrame.backBtn:IsShown(),'normal Back must reappear after span recovery')
     ready=false
+    do
+        local oldIsMacClient = IsMacClient
+        IsMacClient = function() return true end
+        wizardFrame:SetStep(2)
+        assert(wizardFrame.recoveryBody:GetText() == addon.L.ONBOARD_MAC_CHOOSE_BRIEF
+            and wizardFrame.finishBtn:GetText():find(addon.L.WIZARD_RECOVERY_CHOOSE_METHOD, 1, true),
+            "macOS with a stale Companion selection must offer manual placement rather than reload")
+        local oldReloads = reloads
+        wizardFrame.finishBtn.scripts.OnClick()
+        assert(onboardingFrame:IsShown() and onboardingFrame.page == 2 and reloads == oldReloads,
+            "the macOS recovery action must open placement choice without reloading")
+        IsMacClient = oldIsMacClient
+        addon.Wizard:Open(2)
+    end
     wizardFrame:SetStep(2)
     wizardFrame.recoveryBackButton.scripts.OnClick()
     assert(onboardingFrame:IsShown() and onboardingFrame.page==4 and not wizardFrame:IsShown())
@@ -2600,6 +2845,8 @@ do
 end
 
 local oldAfter = C_Timer.After
+local previewMethod = addon:GetOnboardingSetupMethod()
+assert(addon:SetOnboardingSetupMethod("MANUAL"))
 local previewTimeout
 C_Timer.After = function(delay, callback)
     if delay == 4 then previewTimeout = callback end
@@ -2611,6 +2858,7 @@ previewTimeout()
 assert(addon.Options:IsSeamGuideShown(), "Old auto-setup timeout must not hide a manually enabled guide")
 addon.Options:HideSeamGuide()
 C_Timer.After = oldAfter
+assert(addon:SetOnboardingSetupMethod(previewMethod))
 
 -- Profile presentation must retain selection, keyboard and scroll contracts
 -- without changing the profile storage/mutation implementation.
@@ -2860,13 +3108,22 @@ do
     assert(wizardFrame:IsShown() and wizardFrame.step == 6 and not OffhandCharDB.wizardRecoveryStep,
         string.format("reload must open Step 6 (step %s, total %s, recovery %s)", tostring(wizardFrame.step),
             tostring(wizardFrame.totalSteps), tostring(wizardFrame.recoveryReason)))
-    local previewButton
+    local previewButton, keepButton
     for _, child in ipairs({wizardFrame.pages[6]:GetChildren()}) do
         if child:GetObjectType() == "Button" and child:GetText() == addon.L.ELLESMERE_HUD_VISUAL then
             previewButton = child
         end
     end
-    assert(previewButton and not wizardFrame.pages[5]:IsShown())
+    for _, child in ipairs({wizardFrame:GetChildren()}) do
+        if child:GetObjectType() == "Button" and child:GetText() == addon.L.ELLESMERE_HUD_FINISH_CURRENT then
+            keepButton = child
+        end
+    end
+    assert(previewButton and not previewButton:IsShown() and keepButton and keepButton:IsShown()
+        and not wizardFrame.pages[5]:IsShown())
+    assert(wizardFrame.recommendedButton == wizardFrame.finishBtn
+        and wizardFrame.finishBtn:GetText() == addon.L.ELLESMERE_HUD_VISUAL,
+        "preview must be the recommended action before profile review")
     local transferTab = wizardFrame.progressRail.cells[6]
     assert(transferTab.text:GetText() == addon.L.SETUP_STAGE_ELLESMERE,
         "the progress tab must use the short product label")
@@ -2889,12 +3146,12 @@ do
     for index = 1, 6 do rail.cells[index].text.GetUnboundedStringWidth = nil end
     wizardFrame:LayoutStep()
     assert(transferTab.text.textScale == 1, "the next layout must restore the base tab text scale")
-    previewButton.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
     assert(reopen and not wizardFrame:IsShown())
     reopen()
     assert(wizardFrame:IsShown() and wizardFrame.step == 6, "closing the preview returns to the same wizard step")
     previewGamepad = true
-    previewButton.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
     assert(addon.Wizard:IsOpen(), "the Gamepad preview must keep automatic setup from covering the wizard")
     reopen()
     previewGamepad = nil
@@ -2904,12 +3161,12 @@ do
     assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
         "a matching existing layout must advance without being recreated or reloaded")
     addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
-    wizardFrame.finishBtn.scripts.OnClick()
+    keepButton.scripts.OnClick()
     assert(wizardFrame:IsShown() and wizardFrame.step == 5,
         "Finish Setup must recheck that Blizzard still has the matching layout active")
     addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = true} end
     wizardFrame.finishBtn.scripts.OnClick()
-    wizardFrame.finishBtn.scripts.OnClick()
+    keepButton.scripts.OnClick()
     assert(not wizardFrame:IsShown() and not OffhandCharDB.wizardProgressStep
         and not OffhandCharDB.wizardRecoveryStep, "Finish Setup must be available without an import")
 
@@ -2920,9 +3177,9 @@ do
     addon.Wizard:OpenHUDSetup(true)
     assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
         "enabling EllesmereUI with an active character layout must open Step 6 directly")
-    previewButton.scripts.OnClick()
+    wizardFrame.finishBtn.scripts.OnClick()
     reopen("inactive")
-    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_FINISH and not importPrompts,
+    assert(wizardFrame.finishBtn:GetText() == addon.L.BTN_FINISH and not keepButton:IsShown() and not importPrompts,
         "an inactive profile must leave Finish unchanged")
     previewButton.scripts.OnClick()
     importReload = true

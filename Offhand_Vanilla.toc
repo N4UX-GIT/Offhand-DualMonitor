@@ -3,12 +3,13 @@
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.5
-## X-Offhand-Release: beta.28
-## X-Offhand-Addon-Release: beta.28
-## X-Offhand-Companion-Version: 2.1.5
+## X-Offhand-Release: beta.36
+## X-Offhand-Addon-Release: beta.36
+## X-Offhand-Companion-Version: 2.1.8
 ## X-Offhand-Companion-Release:
 ## X-Offhand-Companion-Protocol: 1
 ## X-Offhand-Topology-Schemas: 1,2,3
+## X-Offhand-Max-Workspaces: 3
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Vanilla
 ## X-Website: https://offhand-wow.onrender.com/
@@ -32,6 +33,7 @@ Core\WorkspaceProfiles.lua
 Core\WorkspaceRouting.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
+Core\CenterGuide.lua
 Core\EllesmereScaleCompatibility.lua
 Core\PopupBounds.lua
 Core\MainhandGeometry.lua
@@ -103,5 +105,6 @@ UI\SetupVisuals.lua
 UI\DisplayIdentify.lua
 UI\Minimap.lua
 UI\Onboarding.lua
+UI\WhatsNew.lua
 UI\Wizard.lua
 UI\EllesmereLayoutPreview.lua

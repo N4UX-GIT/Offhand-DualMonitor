@@ -14,6 +14,8 @@ local combat,spanned,loaded=false,true,false
 local loads,shows,restores=0,0,0
 local e={Offhand=addon,PanelRegistry=registry,Canvas={panelLoadRequests={}},_G=false}
 e._G=e; setmetatable(e,{__index=_G})
+setfenv(registry.CanAutoOpen,e)
+e.CanAutoOpenSavedPanel=registry.CanAutoOpen
 e.C_Timer={After=function(_,fn) timers[#timers+1]=fn end}
 e.CanManagePanelsFromAddon=function() return true end
 e.IsPersistentPanelLoadCandidate=function(name) return registry.IsBasePersistentCandidate(name) end

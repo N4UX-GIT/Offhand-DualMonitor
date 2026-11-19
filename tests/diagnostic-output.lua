@@ -24,10 +24,12 @@ local metrics = {
 }
 local topology = { status = "READY", liveWidth = 3840, liveHeight = 1080,
     canvasWidth = 3900, canvasHeight = 1097 }
+local viewportMatches = true
 addon.Viewport = {
-    CaptureDiagnostics = function(_, storeSnapshot)
-        assert(storeSnapshot == false, 'support snapshot requested a SavedVariables write')
-        return {viewportMatches = true, metrics = metrics}
+    CaptureDiagnostics = function(_, remember)
+        assert(remember == false, "support diagnostics must not persist a geometry snapshot")
+        return {viewportMatches = viewportMatches, metrics = metrics,
+            frames = {WorldFrame = {x=0,y=2,width=1920,height=1080}}}
     end,
     GetMetrics = function() error("do not recapture the same geometry") end,
     GetTopologyDiagnostics = function() return topology end,
@@ -39,7 +41,11 @@ addon.Viewport = {
 addon.HUD = {
     GetInteractionVisibilityDiagnostics = probe("interaction", { "ProfessionsFrame=hidden", "PVEFrame=absent" }),
     GetForeverEditModeLayoutStatus = function() return {} end,
-    GetGroupLootDiagnostics = probe("loot", {}),
+    GetGroupLootDiagnostics = function(_, capturedMetrics)
+        assert(capturedMetrics == metrics, "loot diagnostics must use the captured display bounds")
+        probes.loot = (probes.loot or 0) + 1
+        return {activeRolls=2, containerVisibility="visible", slots={"2=hidden", "3=visible,rectUI=10/20/30/40 mainhand"}}
+    end,
     GetPetBattleDiagnostics = probe("pets", {}),
     GetForeverGroupFrameDiagnostics = probe("groups", "bounds"),
     GetForeverProtectedHUDDiagnostics = probe("protected", "bounds"),
@@ -64,6 +70,7 @@ addon.Canvas = {
     -- The old caller discarded reports without the substring 'loaded'.
     GetCompatibilityDiagnostics = function() return "WorldMapOwner=OpenMap" end,
     GetPanelControllerDiagnostics = probe("panels", "idle"),
+    GetPanelPlacementDiagnostics = probe("placement", {"CharacterFrame | parent=UIParent | rectUI=10/20/30/40"}),
     GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
 addon.DialogueUICompat = { GetDiagnostics = probe("dialogue", "animation") }

@@ -21,9 +21,11 @@ function Identify:GetRegions(m)
     if not m or not m.isSpanned or not Positive(m.physicalWidth)
         or not Positive(m.physicalHeight) then
         local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
+        local isMac = Offhand.IsMacClient and Offhand:IsMacClient()
+        local detail = isMac and "IDENTIFY_UNSPANNED_MAC"
+            or (method == "COMPANION" and "IDENTIFY_UNSPANNED_COMPANION" or "IDENTIFY_UNSPANNED")
         return {{ x = 0, y = 0, width = sw, height = sh, unspanned = true,
-            title = L["IDENTIFY_WINDOW"],
-            detail = L[method == "COMPANION" and "IDENTIFY_UNSPANNED_COMPANION" or "IDENTIFY_UNSPANNED"] }}
+            title = L["IDENTIFY_WINDOW"], detail = L[detail] }}
     end
     local result = {}
     for _, entry in ipairs({{"game", "IDENTIFY_MAINHAND"}, {"workspace", "IDENTIFY_OFFHAND"}}) do

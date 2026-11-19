@@ -170,6 +170,48 @@ assert(safeCancelled == 1 and safeHidden == 2 and staticHides == 0,
     "cancelling a Gamepad-safe dialog must remain outside Blizzard's focus stack")
 StaticPopupDialogs.OFFHAND_GAMEPAD_SAFE_TEST = nil
 
+do
+    local previousText = addon.L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"]
+    local previousName = LAYOUT_STYLE_GAMEPAD
+    addon.L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = "Use the Gamepad preset. Restore '%s' later."
+    LAYOUT_STYLE_GAMEPAD = "Gamepad preset"
+    local choice
+    addon.HUD.ApplyForeverRecoveryChoice = function(_, value)
+        assert(safePrompt.shown, "the recovery action must run before the clicked card closes")
+        choice = value
+    end
+
+    addon:ShowForeverLayoutRecoveryPrompt("fallback", "Offhand Gamepad", "Gamepad")
+    assert(safePrompt.shown and staticShows == 0
+        and safePrompt.text.text == "Use the Gamepad preset. Restore 'Offhand Gamepad' later."
+        and safePrompt.accept.text == "Gamepad preset", "Gamepad recovery must name its own preset")
+    safePrompt.accept.scripts.OnClick()
+    assert(choice == "fallback" and not safePrompt.shown)
+
+    addon:ShowForeverLayoutRecoveryPrompt("restore", "Offhand Gamepad", "Gamepad")
+    local characterSetup = addon.CharacterSetup
+    local setupChecks = 0
+    addon.CharacterSetup = { Refresh = function()
+        setupChecks = setupChecks + 1
+        addon:ShowPopup("OFFHAND_HUD_SETUP_REMINDER")
+        return true
+    end }
+    addon:RefreshMainhandLayoutAttention()
+    assert(setupChecks == 0 and safePrompt.popupKey == "OFFHAND_FOREVER_RESTORE_LAYOUT",
+        "automatic HUD setup must not replace the visible Gamepad recovery card")
+    assert(safePrompt.shown and safePrompt.cancel.text == addon.L["FOREVER_KEEP_CURRENT_LAYOUT"],
+        "the Gamepad restore prompt must offer to keep the current preset")
+    safePrompt.accept.scripts.OnClick()
+    assert(choice == "restore" and not safePrompt.shown)
+    addon:RefreshMainhandLayoutAttention()
+    assert(setupChecks == 1, "setup may resume after the Gamepad recovery card closes")
+    addon:HidePopup("OFFHAND_HUD_SETUP_REMINDER")
+    addon.CharacterSetup = characterSetup
+    addon.HUD.ApplyForeverRecoveryChoice = nil
+    addon.L["FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"] = previousText
+    LAYOUT_STYLE_GAMEPAD = previousName
+end
+
 -- Keyboard setup confirmations must sit above the fullscreen wizard, inside
 -- Mainhand, without changing any native popup's strata or point handlers.
 InputUtil.IsGamepadUIEnabled = function() return false end
@@ -449,14 +491,35 @@ addon.UpdateCanvas = function() addon:ApplyFullLayout() end
 addon:ApplyFullLayout()
 assert(calls == 3, "layout guard did not recover or prevent recursion")
 
-local menuRefreshes = 0
-local previousViewport, previousMenus = addon.Viewport, addon.MenuPlacement
+local menuRefreshes, tooltipRefreshes = 0, 0
+local previousViewport, previousMenus, previousPopupBounds = addon.Viewport, addon.MenuPlacement, addon.PopupBounds
 addon.Viewport = {GetMetrics=function() return {isSpanned=false} end}
 addon.MenuPlacement = {Refresh=function() menuRefreshes=menuRefreshes+1 end}
+addon.PopupBounds = {ApplyLayout=function() tooltipRefreshes=tooltipRefreshes+1 end}
+local previousPopupModule = addon.modules.PopupBounds
+addon.modules.PopupBounds = addon.PopupBounds
 addon.UpdateCanvas = function() end
 addon:ApplyFullLayout()
 assert(menuRefreshes==1,"single-window fallback must refresh owned open menus, not only spanned HUD")
-addon.Viewport,addon.MenuPlacement=previousViewport,previousMenus
+assert(tooltipRefreshes==1,"single-window fallback must release tooltip comparison bounds")
+addon.Viewport.GetMetrics = function() return {isSpanned=true} end
+addon:ApplyFullLayout()
+assert(tooltipRefreshes==2,"spanned layout must refresh tooltip comparison bounds once")
+addon.Viewport,addon.MenuPlacement,addon.PopupBounds=previousViewport,previousMenus,previousPopupBounds
+addon.modules.PopupBounds=previousPopupModule
+
+do
+    local oldViewport=addon.Viewport
+    local rootWrites=0
+    addon.Viewport={GetMetrics=function()return{isSpanned=true}end,
+        ApplyGlobalScale=function()rootWrites=rootWrites+1 end}
+    local before=calls
+    addon:ApplyFullLayout(true)
+    assert(calls==before+1 and rootWrites==0,'external scale refresh must run geometry without replacing root scale')
+    addon:ApplyFullLayout()
+    assert(rootWrites==1,'ordinary layout lost its scale ownership')
+    addon.Viewport=oldViewport
+end
 
 do
     local oldViewport=addon.Viewport
@@ -797,6 +860,9 @@ do
     addon.IsSetupComplete = function() return complete end
     addon.db.firstRunComplete = false
     addon.db.enabled = true
+    -- The preceding cases tear down the simulated UI. This block represents
+    -- a fresh session using the same fixture.
+    addon._loggingOut = nil
     addon._displayGeometryTransitionActive = false
     local function Enter(first)
         if first then addon._hasEnteredWorld = nil end

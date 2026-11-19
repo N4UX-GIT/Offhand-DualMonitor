@@ -127,3 +127,65 @@ assert(not persistence.InstallPlayerSpellsCloseObserver({}))
 addon.isRetail=true; addon.isForever=true
 assert(not persistence.InstallPlayerSpellsCloseObserver({}))
 print("PASS: native PlayerSpells close intent, transient visibility and transition preservation")
+
+-- A vendor panel's generic peer repair must respect Baganator's own title drag
+-- even when a profile still contains coordinates from an earlier Gather.
+local function no() return false end
+local function noop() end
+local workspace = {isSpanned=true, gameLeft=1000, gameRight=2000, gameBottom=0, gameTop=900,
+    workspaceLeft=0, workspaceRight=1000, workspaceBottom=0, workspaceTop=900}
+local anchorWrites = 0
+local specialFrameRemovals = 0
+local function anchor(frame, objectPoint, relative, relativePoint)
+    anchorWrites = anchorWrites + 1
+    frame.objectPoint, frame.relative, frame.relativePoint = objectPoint, relative, relativePoint
+end
+InCombatLockdown = no
+UIParent = {GetEffectiveScale=function() return 1 end}
+addon.Viewport = {GetMetrics=function() return workspace end}
+addon.CanvasPanelRegistry = {GetPositionRoot=function(frame) return frame end, IsInputWidget=no}
+CreateFrame = function() return {RegisterEvent=noop, SetScript=noop} end
+assert(loadfile("Core/BagPersistence.lua"))("Offhand", addon)
+local restore = persistence.InstallRestore({ShouldDeferSecondaryChatRestore=no, PlacePanelOnMainhand=function(_,frame)
+    anchor(frame, "TOPLEFT", UIParent, "BOTTOMLEFT")
+end}, {
+    IsWorldMapMaximized=no, ShouldYieldFrameToClassicUIForever=no, ShouldYieldWorldMapToMoveAny=no,
+    IsForeverEditModeFrame=no, IsUnsafeForPanelMutation=no, IsForeverProfessionsPanel=no,
+    IsRetailChatEditModeActive=no, WithWorkspace=function(metrics) return metrics end,
+    UnregisterSpecialFrame=function() specialFrameRemovals = specialFrameRemovals + 1 end,
+    RemodalizePanel=noop,
+})
+for _, view in ipairs({"SingleView", "CategoryView"}) do
+    local name = "Baganator_" .. view .. "BackpackViewFrame1"
+    local frame = {GetName=function() return name end, GetParent=function() return UIParent end,
+        GetEffectiveScale=function() return 0.8 end, GetWidth=function() return 300 end,
+        GetHeight=function() return 500 end, GetLeft=function(self) return self.left end,
+        GetTop=function(self) return self.top end, ClearAllPoints=noop, SetPoint=anchor,
+        GetPoint=function(self) return self.objectPoint, self.relative, self.relativePoint end}
+    local old = {x=1100, y=550}
+    addon.db = {enabled=true, savedMainPositions={[name]=old}, savedWorkspacePositions={}}
+    frame.left, frame.top = 1700, 910
+    anchor(frame, "BOTTOMRIGHT", UIParent, "BOTTOMRIGHT")
+    anchorWrites = 0
+    restore(frame)
+    assert(anchorWrites == 0 and addon.db.savedMainPositions[name] == nil,
+        view .. " vendor peer repair must retire the stale Mainhand record and preserve Baganator's anchor")
+
+    addon.db.savedMainPositions[name] = old
+    frame.left = -1000
+    restore(frame)
+    assert(anchorWrites == 1 and addon.db.savedMainPositions[name] == old,
+        view .. " must retain explicit Mainhand recovery when its native anchor is off-screen")
+    frame.left, frame.top = 1375, 687.5
+    restore(frame)
+    assert(addon.db.savedMainPositions[name] == old,
+        view .. " must distinguish Offhand's recovery anchor from a new native anchor")
+
+    addon.db.savedWorkspacePositions[name] = {x=30, y=880}
+    restore(frame)
+    assert(frame.objectPoint == "TOPLEFT" and frame.relativePoint == "BOTTOMLEFT" and anchorWrites == 3,
+        view .. " must still replay an intentional Offhand workspace position")
+    assert(specialFrameRemovals == 0,
+        view .. " workspace restoration must preserve Baganator's native Escape registration")
+end
+print("PASS: Baganator native Mainhand anchors, explicit recovery and workspace playback")

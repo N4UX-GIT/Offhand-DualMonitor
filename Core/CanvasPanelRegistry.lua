@@ -125,6 +125,29 @@ function PanelRegistry.GetPositionRoot(frame)
     return ok and root or frame
 end
 
+-- SavedVariables are historical intent, not authority to show an arbitrary
+-- frame. Chat edit boxes and other controls must never become panel roots.
+function PanelRegistry.IsInputWidget(frame, name)
+    if type(name) == "string" and name:match("^ChatFrame")
+        and not name:match("^ChatFrame%d+$") then return true end
+    return frame and frame.IsObjectType and frame:IsObjectType("EditBox") or false
+end
+
+function PanelRegistry.CanAutoOpen(frame, name)
+    local ok, allowed = pcall(function()
+        if not frame or frame ~= _G[name] then return false end
+        if frame.IsForbidden and frame:IsForbidden() then return false end
+        if PanelRegistry.IsInputWidget(frame, name) then return false end
+        -- Keyboard-enabled roots can reserve every gameplay key. Leave their
+        -- visibility to the player/native owner, even if they were saved open.
+        if frame.IsKeyboardEnabled and frame:IsKeyboardEnabled() then return false end
+        return (UIPanelWindows and UIPanelWindows[name] ~= nil)
+            or knownPanelLoadAddons[name] ~= nil or frame._OffhandMovable == true
+            or name:match("^ChatFrame%d+$") ~= nil
+    end)
+    return ok and allowed == true
+end
+
 function PanelRegistry.InitializeTracking(owner)
     if owner.knownUIPanelNames then return end
     owner.knownUIPanelNames = {}

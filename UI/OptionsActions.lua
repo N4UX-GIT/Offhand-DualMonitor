@@ -134,6 +134,10 @@ function Actions.Install(Options, services)
     function Options:AutoConfigure(silent, fromWizard)
         local info = Options:DetectTopology()
         if not Offhand.db then return info end
+        if info.exactRequired then
+            if not silent then Offhand:Print(L["ONBOARD_STATUS_COMPANION_RELOAD_REQUIRED"]) end
+            return info
+        end
 
         if Offhand.SetEnabled then Offhand:SetEnabled(true) else Offhand.db.enabled = true end
         Offhand.db.layoutPreset = info.recommendedPreset

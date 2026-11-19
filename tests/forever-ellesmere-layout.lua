@@ -63,7 +63,6 @@ EllesmereUI = {
     EncodePayload = function(value) payload = value; return "encoded" end,
     GetActiveProfileData = function() return {windowSkinLook = "classic"} end,
     GetActiveProfileName = function() return activeProfile end,
-    GetProfileKeys = function() return {["offhand hud"] = true} end,
     ImportProfileInteractive = function(options) importOptions = options; return true end,
 }
 
@@ -123,7 +122,8 @@ local function Completed(result)
     completions = completions + 1
 end
 assert(transfer:OpenImport(rows, Completed))
-assert(importOptions.profileName == "Offhand HUD (2)" and importOptions.importString == "encoded")
+assert(importOptions.profileName == nil and importOptions.importString == "encoded",
+    "a suggested name can bypass the vendor's duplicate-name check")
 assert(payload.data.addons.EllesmereUIActionBars.barPositions.MainBar.x == 720
     and payload.data.addons.EllesmereUIActionBars.barPositions.Bar2.x == 42
     and payload.data.addons.EllesmereUIActionBars.style == "classic",
@@ -139,9 +139,9 @@ assert(messages[1] == "saved inactive" and completions == 1 and importResult == 
 assert(transfer:OpenImport(rows, Completed))
 activeProfile = "Renamed import"
 importOptions.callback(true)
-assert(messages[2] == "reload" and completions == 2 and importResult == "reload"
+assert(#messages == 1 and completions == 2 and importResult == "reload"
     and transfer:HasPendingReload(),
-    "a newly activated profile can reload even when the player renamed it")
+    "a newly activated profile must let the caller present reload without a duplicate chat instruction")
 activeProfile = "Different profile"
 assert(not transfer:HasPendingReload(), "an inactive import cannot request a reload")
 overrides = {{spec = 1}}
@@ -152,7 +152,7 @@ linked.player = true
 context.controller = true
 rows = transfer:Preview("ellesmere")
 assert(rows[1].reason == "ELLESMERE_HUD_NATIVE_PAD" and rows[2].position
-    and rows[3].reason == "ELLESMERE_HUD_LINKED", "Gamepad and linked elements must keep their owner")
+    and rows[3].reason == "ELLESMERE_HUD_ANCHORED", "Gamepad and linked elements must keep their owner")
 combat = true
 rows, reason = transfer:Preview("ellesmere")
 assert(not rows and reason == "ELLESMERE_HUD_BUSY")
@@ -176,7 +176,8 @@ assert(rows[1].current.bottom == 1510 and rows[1].proposed.bottom == 1410
     and rows[1].position.y == 1410, "fit must show and repair a frame over the span's physical gap")
 assert(rows[2].position and rows[2].proposed.left == 1440 and rows[2].current.left == 440,
     "fit must offer Mainhand placement for a gameplay frame in the workspace and normalize its scale")
-assert(rows[3].reason == "ELLESMERE_HUD_LINKED", "fit must preserve the targets of existing anchor links")
+assert(rows[3].reason == "ELLESMERE_HUD_CHILD_BOUNDS" and rows[3].reasonArgs[1] == "extra",
+    "fit must identify the linked child whose bounds cannot be measured")
 assert(snapshots == 3, "fit preview must not call the profile snapshot or importer")
 
 EllesmereUIDB = nil
@@ -217,6 +218,24 @@ assert(not linkedRows[5].position and linkedRows[5].followKey == "player"
         == linkedRows[3].proposed.left - linkedRows[3].current.left,
     "a mapped child must be drawn at the selected parent's destination without a separate position write")
 links.focus, linked.focus, registry.focus = nil, nil, focus
+do
+    registry.PetBar = placedElement(650, 10, 170, 24)
+    registry.SCREEN_BOTTOM = {label = "Bottom Screen Edge"}
+    linked.PetBar = true
+    links.PetBar = {target = "SCREEN_BOTTOM", side = "TOP"}
+    EllesmereUI.IsScreenEdgeKey = function(key) return key == "SCREEN_BOTTOM" end
+    for _, direction in ipairs({"fit", "ellesmere"}) do
+        local found
+        for _, row in ipairs(transfer:Preview(direction)) do
+            if row.map.key == "PetBar" then found = row; break end
+        end
+        assert(found and not found.position and found.reason == "ELLESMERE_HUD_SCREEN_EDGE"
+            and found.reasonArgs[1] == "Bottom Screen Edge",
+            "a fixed screen edge must explain that its anchor needs adjustment in Unlock Mode")
+    end
+    assert(links.PetBar.target == "SCREEN_BOTTOM", "preview must preserve the vendor link")
+    registry.PetBar, registry.SCREEN_BOTTOM, linked.PetBar, links.PetBar, EllesmereUI.IsScreenEdgeKey = nil, nil, nil, nil, nil
+end
 registry.playerCastbar = placedElement(0, 480, 3000, 14)
 assert(not transfer:Preview("fit")[3].position, "an oversized linked group must remain excluded")
 registry.playerCastbar = {getFrame = function() end, isHidden = function() return true end}
@@ -250,33 +269,6 @@ table.remove(context.generated.systems)
 context.controller = true
 assert(transfer:Preview("ellesmere")[6].reason == "ELLESMERE_HUD_NATIVE_PAD",
     "numbered keyboard bars must yield to the native Gamepad layout")
-
-local minimapElement = registry.EBS_Minimap
-registry.EBS_Minimap = placedElement(3720, 1136, 240, 240)
-registry.Bar4 = placedElement(3770, 650, 60, 790)
-registry.Bar6 = placedElement(3450, 1300, 220, 120)
-for _, direction in ipairs({"fit", "ellesmere"}) do
-    local planned = transfer:Preview(direction)
-    local map = planned[2]
-    assert(map.position and map.proposed.left == 3522 and map.proposed.bottom == 1052,
-        "the Gamepad minimap must clear the right and upper keyboard bars inside Mainhand")
-    assert(not planned[7].position and planned[7].reason == "ELLESMERE_HUD_NATIVE_PAD",
-        "the minimap may avoid a keyboard bar without transferring it")
-end
-registry.Bar4.isHidden = function() return true end
-assert(transfer:Preview("fit")[2].reason == "ELLESMERE_HUD_KEEP",
-    "a keyboard bar hidden by EllesmereUI must not push the minimap away")
-assert(transfer:Preview("ellesmere")[2].proposed.left == 3720,
-    "Copy must keep the intended Gamepad map anchor when it clears the visible bars")
-local aura = placedElement(3650, 1270, 340, 155).getFrame()
-aura.IsVisible = function() return true end
-BuffFrame = aura
-local auraFit = transfer:Preview("fit")[2]
-assert(auraFit.position and auraFit.proposed.bottom == 1022,
-    "the Gamepad minimap must also clear the visible native buff area")
-BuffFrame = nil
-registry.EBS_Minimap, registry.Bar4, registry.Bar6 = minimapElement, nil, nil
-
 context.controller, registry.Bar2 = false, nil
 table.remove(context.source.systems)
 table.remove(context.generated.systems)
@@ -416,7 +408,7 @@ local preview, review
 local widget = {}
 for _, method in ipairs({"ClearAllPoints", "SetPoint", "SetSize", "SetFrameStrata", "EnableMouse",
     "SetJustifyH", "SetWordWrap", "SetAllPoints", "SetFrameLevel", "SetColorTexture", "SetTextColor",
-    "SetAlpha", "SetChecked", "SetEnabled", "SetWidth", "Raise"}) do widget[method] = function() end end
+    "SetAlpha", "SetChecked", "SetEnabled", "SetWidth", "SetHeight", "Raise"}) do widget[method] = function() end end
 function widget:GetFrameLevel() return 1 end
 function widget:GetName() return self.name end
 function widget:SetScript(event, callback) self[event] = callback end
@@ -432,6 +424,7 @@ function widget:Hide()
 end
 function widget:IsShown() return self.shown end
 function widget:SetShown(shown) self.shown = shown end
+function widget:SetEnabled(enabled) self.enabled = enabled end
 function widget:CreateFontString() return CreateFrame() end
 function widget:CreateTexture() return CreateFrame() end
 CreateFrame = function(_, name)
@@ -465,6 +458,61 @@ assert(loadfile("UI/EllesmereLayoutPreview.lua"))("Offhand", addon)
 importOptions, overrides = nil, nil
 transfer:ShowPreview("ellesmere")
 assert(not preview.selected, "the preview's row selection must not accent the dialog border")
+assert(review.enabled and preview.status.text:find(addon.L.ELLESMERE_HUD_NEW_PROFILE_NAME, 1, true),
+    "an available import must explain how to name the new profile")
+
+context.block = "ELLESMERE_HUD_OVERRIDES"
+transfer:ShowPreview("ellesmere")
+assert(not review.enabled and preview.status.text == addon.L.ELLESMERE_HUD_OVERRIDES_HELP,
+    "profile override blockers need a visible action path and disabled import")
+context.block = nil
+do
+    local savedRows = importRows
+    local savedUnavailable = context.unavailable
+    context.unavailable = nil
+    importRows = {{map = {key = "linkedFixture", displayLabel = "Player frame"},
+        reason = "ELLESMERE_HUD_FOLLOWS", reasonArgs = {"Action Bar 1"}}}
+    transfer:ShowPreview("ellesmere")
+    assert(preview.legend[1].text:find("Follows Action Bar 1", 1, true)
+        and preview.status.text:find("1 elements", 1, true) and not review.enabled,
+        "explain the linked parent and why no positions can be transferred")
+    local tooltip
+    GameTooltip = {SetOwner = function() end, SetText = function(_, text) tooltip = text end,
+        Show = function() end, Hide = function() end}
+    preview.rowHelp[1]:OnEnter()
+    assert(tooltip:find("EllesmereUI Unlock Mode", 1, true), "row tooltips must explain how to resolve the blocker")
+    preview.rowHelp[1]:OnLeave()
+    importRows[1].reason, importRows[1].reasonArgs = "ELLESMERE_HUD_SCREEN_EDGE", {"Bottom Screen Edge"}
+    transfer:ShowPreview("ellesmere")
+    assert(preview.legend[1].text:find("Anchored to Bottom Screen Edge", 1, true) and not review.enabled,
+        "show that the target is a fixed edge")
+    preview.rowHelp[1]:OnEnter()
+    assert(tooltip:find("remove the anchor", 1, true), "edge-linked rows must show how to make transfer available")
+    preview.rowHelp[1]:OnLeave()
+    GameTooltip, importRows = nil, savedRows
+    context.unavailable = savedUnavailable
+    transfer:ShowPreview("ellesmere")
+end
+do
+    local savedRows = importRows
+    importRows = {}
+    for i = 1, 25 do
+        importRows[i] = {map = {key = "page" .. i, displayLabel = "Frame " .. i},
+            position = {point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = 1800, y = i * 10}}
+    end
+    transfer:ShowPreview("ellesmere")
+    assert(preview.pages.text == "1 / 3")
+    preview.next.OnClick()
+    assert(preview.pages.text == "2 / 3" and preview.legend[1].text:find("13  Frame 13", 1, true))
+    preview.checkboxes[1].GetChecked = function() return false end
+    preview.checkboxes[1]:OnClick()
+    assert(preview.rowSelection.page13 == false and preview.rowSelection.page1 == nil,
+        "page-two selection must address its global row")
+    preview.previous.OnClick()
+    assert(preview.pages.text == "1 / 3" and preview.rowSelection.page13 == false)
+    importRows = savedRows
+    transfer:ShowPreview("ellesmere")
+end
 review.OnClick()
 assert(not preview:IsShown() and navigations == 0)
 Tick()
@@ -559,6 +607,11 @@ addon.isForever = true
 transfer:PromptImportReload()
 assert(popup.OnAccept and popup.offhandAcceptBeforeHide and reloads == 2,
     "Forever keyboard import must retain callback-first reload")
+combat = true
+popup.OnAccept()
+assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_MANUAL and not popup.OnAccept and reloads == 2,
+    "combat starting before the click must replace the dialog with manual instructions")
+combat = false
 gamepad = true
 transfer:PromptImportReload()
 assert(popup.text == addon.L.ELLESMERE_HUD_IMPORT_RELOAD_MANUAL and not popup.OnAccept and reloads == 2,

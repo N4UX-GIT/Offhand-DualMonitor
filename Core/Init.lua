@@ -32,6 +32,8 @@ Offhand.release = (getMetadata and getMetadata(addonName, "X-Offhand-Release"))
 local betaNumber = Offhand.release:match("^beta%.(%d+)$")
 Offhand.releaseDisplay = betaNumber and ("Beta " .. betaNumber) or Offhand.release
 Offhand.fullVersion = Offhand.version .. (Offhand.release ~= "" and ("-" .. Offhand.release) or "")
+Offhand.candidate = getMetadata and (getMetadata(addonName, "X-Offhand-Candidate")
+    or getMetadata(addonName, "X-Offhand-Test-Build"))
 local companionBetaNumber = Offhand.companionRelease:match("^beta%.(%d+)$")
 Offhand.companionReleaseDisplay = companionBetaNumber
     and ("Beta " .. companionBetaNumber) or Offhand.companionRelease
@@ -439,6 +441,8 @@ StaticPopupDialogs["OFFHAND_FOREVER_PARTY_FRAME_RECOVERY"] = {
         end
         if ok then
             Offhand:Print(Offhand.L["MAINHAND_LAYOUT_CREATED"], tostring(value), moved or 0)
+        elseif value == "repair-system" then
+            Offhand:Print(Offhand.L["HUD_FAILURE_REPAIR"])
         elseif value == "maximum" then
             Offhand:Print(Offhand.L["MAINHAND_LAYOUT_MAXIMUM"])
             if Offhand.Wizard and Offhand.Wizard.OpenLayoutCapacityRecovery then
@@ -653,6 +657,7 @@ end
 function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local helpPopup = popupKey == "OFFHAND_SETTINGS_HELP"
+    local readyPopup = popupKey == "OFFHAND_WORKSPACE_READY"
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
@@ -665,7 +670,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         or popupKey == "OFFHAND_MAINHAND_LAYOUT_SELECT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
         or popupKey == "OFFHAND_CHARACTER_SETUP"
-        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD"
+        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD" or readyPopup
     if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup and not helpPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
@@ -677,7 +682,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     if frame.popupKey then frame:Hide() end
     frame.popupGeneration = (frame.popupGeneration or 0) + 1
     frame.popupKey, frame.definition, frame.data = popupKey, definition, data
-    frame.text:SetJustifyH((recoveryPopup or helpPopup) and "LEFT" or "CENTER")
+    frame.text:SetJustifyH((recoveryPopup or helpPopup or readyPopup) and "LEFT" or "CENTER")
     if frame.text.SetFontObject then
         frame.text:SetFontObject(GameFontHighlight)
     end
@@ -942,6 +947,7 @@ local function ScheduleCinematicSkipDialogRecovery()
 end
 
 function Offhand:DeferAutomaticUIForCinematic()
+    if self.WhatsNew then self.WhatsNew:Interrupt() end
     self._automaticUIPendingAfterCinematic = true
 end
 
@@ -957,6 +963,13 @@ function Offhand:HideCompanionNotices(exceptKind)
 end
 
 function Offhand:RefreshMainhandLayoutAttention()
+    -- Gamepad recovery and automatic setup share one popup card. Let the
+    -- player finish the layout recovery choice before offering setup.
+    local popup = self._gamepadSafePopup
+    if popup and (popup.popupKey == "OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT"
+        or popup.popupKey == "OFFHAND_FOREVER_RESTORE_LAYOUT") then
+        return true
+    end
     if self.CharacterSetup and self.CharacterSetup:Refresh() then return true end
     if InCombatLockdown and InCombatLockdown() then return false end
     local pendingHUD = type(OffhandCharDB) == "table"
@@ -1040,10 +1053,13 @@ function Offhand:ShowCompanionNotice(kind, metrics)
             or Offhand.companionFullVersion
         dialog.text = string.format(CompanionPopupLocale("POPUP_COMPANION_VERSION_TEXT"), actual, expected)
         Offhand:ShowPopup("OFFHAND_COMPANION_VERSION_WARNING")
-    elseif kind == "TOPOLOGY" then
-        Offhand:ShowPopup("OFFHAND_COMPANION_TOPOLOGY_WARNING")
-    elseif kind == "HANDOFF" then
-        Offhand:ShowPopup("OFFHAND_COMPANION_HANDOFF_NOTICE")
+    elseif kind == "TOPOLOGY" or kind == "HANDOFF" then
+        local key = companionNoticePopups[kind]
+        local mac = Offhand.IsMacClient and Offhand:IsMacClient() and not (metrics and metrics.companionTopology)
+        if mac then
+            StaticPopupDialogs[key].text = Offhand.L["ONBOARD_MAC_CHOOSE_BRIEF"]
+        end
+        Offhand:ShowPopup(key)
     end
 end
 
@@ -1054,6 +1070,9 @@ function Offhand:RefreshCompanionNoticeState(metrics)
     if not Offhand.db or not Offhand.db.enabled or not setupComplete then
         Offhand:HideCompanionNotices()
         return nil
+    end
+    if metrics and metrics.manualCanvasState == "EXACT_REQUIRED" and Offhand.WhatsNew then
+        Offhand.WhatsNew:Interrupt()
     end
     local hud = Offhand.HUD
     if hud and hud.IsForeverLayoutRecoveryHandlingSpan and hud:IsForeverLayoutRecoveryHandlingSpan(metrics) then
@@ -1107,12 +1126,16 @@ function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName, fallbackName,
     definition.offhandAcceptBeforeHide = gamepad or nil
     if kind == "fallback" then
         definition.button1 = gamepad and (_G.LAYOUT_STYLE_GAMEPAD or fallbackName) or Offhand.L["FOREVER_USE_MODERN"]
-        local text = Offhand.L["FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"]
+        local text = Offhand.L[gamepad and "FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"
+            or "FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"]
         local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
         local preference = Offhand.ManualCanvas and Offhand.ManualCanvas:GetGeometryPreference()
         if (metrics and metrics.manualCanvasState == "EXACT_REQUIRED")
             or (method == "COMPANION" and preference ~= "MANUAL") then
-            text = text .. "\n\n" .. CompanionPopupLocale("FOREVER_SINGLE_SCREEN_COMPANION_HINT")
+            local mac = Offhand.IsMacClient and Offhand:IsMacClient() and not (metrics and metrics.companionTopology)
+            local hint = mac and Offhand.L["ONBOARD_MAC_CHOOSE_BRIEF"] .. "\n\n|cffffd100/offhand guide|r"
+                or CompanionPopupLocale("FOREVER_SINGLE_SCREEN_COMPANION_HINT")
+            text = text .. "\n\n" .. hint
         end
         definition.text = text
     else
@@ -1328,8 +1351,17 @@ local function EvaluateEntryNotices(attempt)
         or Offhand.db.firstRunComplete
     local onboardingResumeStep = Offhand.GetOnboardingResumeStep
         and Offhand:GetOnboardingResumeStep() or nil
-    if Offhand.db.automaticSetupSuppressed ~= true
-        and (onboardingResumeStep or not welcomeDismissed or not setupComplete) then
+    -- Setup resumes before recovery. Both precede release notes if the
+    -- Companion layout still requires a matching display handoff.
+    local setupAllowed = Offhand.db.automaticSetupSuppressed ~= true
+    local resumingSetup = setupAllowed and onboardingResumeStep
+    local showSetup = setupAllowed and (onboardingResumeStep or not welcomeDismissed or not setupComplete)
+    local handoffPending = viewportMetrics and viewportMetrics.manualCanvasState == "EXACT_REQUIRED"
+        and (showSetup or (Offhand.db.enabled and setupComplete))
+    if not resumingSetup and not handoffPending and Offhand.WhatsNew
+        and Offhand.WhatsNew:MaybeShow(viewportMetrics, EvaluateEntryNotices) then return end
+    if showSetup then
+        if (resumingSetup or handoffPending) and Offhand.WhatsNew then Offhand.WhatsNew:Interrupt() end
         Offhand:HideCompanionNotices()
         Offhand:HideResolvedSpanPrompts(viewportMetrics)
         -- Installation onboarding is deliberately independent from display
@@ -1348,8 +1380,24 @@ local function EvaluateEntryNotices(attempt)
         end
     elseif Offhand.db.enabled and setupComplete then
         local companionNotice = Offhand:RefreshCompanionNoticeState(viewportMetrics)
-        if not companionNotice then Offhand:RefreshMainhandLayoutAttention() end
+        if not companionNotice and not (Offhand.Wizard and Offhand.Wizard.ShowPendingWorkspaceReady
+            and Offhand.Wizard:ShowPendingWorkspaceReady()) then
+            Offhand:RefreshMainhandLayoutAttention()
+        end
     end
+end
+
+local function BeginLogout()
+    if Offhand._loggingOut then return end
+    -- Stop runtime layout before either logout handler reaches native code.
+    -- Leave temporary root scale to the next UI session. Resetting it here
+    -- can reenter layout while the old UI is being destroyed.
+    Offhand._loggingOut = true
+    Offhand._displayGeometryGeneration = (Offhand._displayGeometryGeneration or 0) + 1
+    local timer = Offhand._displayDebounceTimer
+    Offhand._displayDebounceTimer = nil
+    Offhand._displayGeometryTransitionActive = false
+    if timer and timer.Cancel then timer:Cancel() end
 end
 
 eventFrame:RegisterEvent("ADDON_LOADED")
@@ -1446,6 +1494,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         -- PLAYER_LEAVING_WORLD, during /reload. Capture once per transition so
         -- a later teardown event cannot replace the visible snapshot with an
         -- empty one after Blizzard has already hidden its panels.
+        if event == "PLAYER_LOGOUT" then BeginLogout() end
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
         if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:PauseForTransition() end
@@ -1521,6 +1570,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand._hasEnteredWorld = true
         -- Refresh viewport and layout after zone transition or loading screen
         C_Timer.After(0.5, function()
+            if Offhand._loggingOut then return end
             Offhand:ApplyFullLayout()
             local entryMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
             if Offhand.RawMouse and Offhand.RawMouse.Refresh then
@@ -1570,7 +1620,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             ScheduleCinematicSkipDialogRecovery()
             local welcomePending = not (Offhand.IsWelcomeDismissed and Offhand:IsWelcomeDismissed())
                 or (Offhand.GetOnboardingResumeStep and Offhand:GetOnboardingResumeStep() ~= nil)
-            if welcomePending or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown))
+            if welcomePending or (Offhand.WhatsNew and Offhand.WhatsNew:IsShown())
+                or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown))
                 or (Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown)
                 or (Offhand.CharacterSetup and Offhand.CharacterSetup.shown) then
                 Offhand:DeferAutomaticUIForCinematic()
@@ -1591,6 +1642,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         ScheduleCinematicViewportRecovery()
         if event == "CINEMATIC_STOP" then
             C_Timer.After(0.5, function()
+                if Offhand._loggingOut then return end
                 local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
                     and Offhand.Viewport:GetMetrics() or nil
                 if Offhand.RawMouse and Offhand.RawMouse.Refresh then
@@ -1609,12 +1661,16 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
+        if Offhand._loggingOut then return end
         ProcessCombatQueue()
+        if Offhand.Wizard and Offhand.Wizard.ShowPendingWorkspaceReady
+            and Offhand.Wizard:ShowPendingWorkspaceReady() then return end
         if Offhand.CharacterSetup and Offhand.CharacterSetup.pendingCombat then
             Offhand:RefreshMainhandLayoutAttention()
         end
 
     elseif event == "UI_SCALE_CHANGED" or event == "DISPLAY_SIZE_CHANGED" then
+        if Offhand._loggingOut then return end
         -- A Companion span can dispatch several size/scale notifications while
         -- Blizzard is still rebuilding UIParent and Edit Mode geometry. Treat
         -- the whole burst as one transition and restore saved panels only after
@@ -1633,6 +1689,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 -- Only the newest settled generation may restore geometry.
                 if generation ~= Offhand._displayGeometryGeneration then return end
                 Offhand:ApplyFullLayout()
+                if Offhand._loggingOut then return end
                 local displayMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
                 if Offhand.RawMouse and Offhand.RawMouse.Refresh then
                     Offhand.RawMouse:Refresh(displayMetrics)
@@ -1664,7 +1721,7 @@ local isApplyingLayout = false
 local layoutPending = false
 
 function Offhand:ApplyFullLayout(preserveGlobalScale)
-    if not Offhand.db then return end
+    if Offhand._loggingOut or not Offhand.db then return end
     if InCombatLockdown() then
         if not layoutPending then
             layoutPending = true
@@ -1730,6 +1787,9 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
                     module:ApplyLayout()
                 end
             end
+        elseif Offhand.PopupBounds and Offhand.PopupBounds.ApplyLayout then
+            -- Release tooltip clamp insets when the canvas returns to one screen.
+            Offhand.PopupBounds:ApplyLayout()
         end
     end)
 
@@ -1754,9 +1814,13 @@ SlashCmdList["OFFHAND"] = function(msg)
     local cmd, arg = strsplit(" ", msg, 2)
 
     if cmd == "recovermap" and Offhand.OpenMapRecovery then
-        Offhand.OpenMapRecovery:RunAndReport()
+        Offhand.OpenMapRecovery:RunAndReport(strtrim(arg or "") == "offhand")
     elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
         Offhand.EllesmereLayout:Run(strtrim(arg or ""))
+    elseif cmd == "centerline" or cmd == "centre" or cmd == "center" then
+        if Offhand.CenterGuide and not Offhand.CenterGuide:Toggle() then
+            Offhand:Print(L["MSG_CENTER_GUIDE_REQUIRES_SPAN"])
+        end
     elseif cmd == "notifycapture" then
         local hud = Offhand.HUD
         if not hud or not hud.ArmNotificationCapture then return end
@@ -1799,6 +1863,9 @@ SlashCmdList["OFFHAND"] = function(msg)
         Offhand:Print("Versions: WoW=%s | Build=%s | Interface=%s | Client=%s | Offhand=%s.",
             versions.clientVersion, versions.clientBuild, versions.interfaceVersion,
             versions.clientProject, versions.addonVersion)
+        if Offhand.candidate and Offhand.candidate ~= "" then
+            Offhand:Print("Candidate build: %s.", Offhand.candidate)
+        end
         Offhand:Print("Companion: Writer=%s | Paired=%s | Minimum=%s | Protocol=%s | Status=%s.",
             tostring(versions.companionWriter), tostring(versions.companionPaired),
             tostring(versions.companionMinimum), tostring(versions.companionProtocol),
@@ -1822,6 +1889,13 @@ SlashCmdList["OFFHAND"] = function(msg)
             end
             Offhand:Print("Workspace sizing ownership: Scaled=%d | Released=%d | LastRejected=%s.",
                 sizing.scaled,sizing.released,tostring(sizing.lastFailure or "none"))
+        end
+        if fullDiagnostics or not snapshot.viewportMatches then
+            local world = snapshot.frames and snapshot.frames.WorldFrame
+            local actual = world and string.format("(%.1f,%.1f %.1fx%.1f)",
+                world.x, world.y, world.width, world.height) or "unavailable"
+            Offhand:Print("WorldFrame bounds (physical pixels): actual=%s | planned=(%d,%d %dx%d).", actual,
+                operating.mainhandLeft, operating.mainhandBottom, operating.mainhandWidth, operating.mainhandHeight)
         end
         local physW, physH = m.physicalWidth or 0, m.physicalHeight or 0
         local screenW = GetScreenWidth()
@@ -1955,7 +2029,7 @@ SlashCmdList["OFFHAND"] = function(msg)
                     bubbles.visualManaged or 0)
             end
             if Offhand.HUD and Offhand.HUD.GetGroupLootDiagnostics then
-                local loot = Offhand.HUD:GetGroupLootDiagnostics()
+                local loot = Offhand.HUD:GetGroupLootDiagnostics(m)
                 Offhand:Print("Group loot diagnostics: Loaded=%s | Preload=%s | SecureAnchor=%s | RowMover=%s/%s | Rows=%d | Position=%s | Stack=%s | Preview=%s | Conflict=%s | Triggers=%d | Combat=%s.",
                     loot.loaded and "yes" or "no",
                     loot.preloadAttempted and "yes" or "no",
@@ -1969,6 +2043,11 @@ SlashCmdList["OFFHAND"] = function(msg)
                     tostring(loot.conflict or "none"),
                     loot.triggerCount or 0,
                     loot.inCombat and "yes" or "no")
+                if loot.activeRolls ~= nil then
+                    Offhand:Print("Group loot visibility: ActiveRolls=%s | Container=%s | KeyboardRows=%s.",
+                        tostring(loot.activeRolls), loot.containerVisibility,
+                        #loot.slots > 0 and table.concat(loot.slots, " | ") or "none")
+                end
             end
             if Offhand.HUD and Offhand.HUD.GetPetBattleDiagnostics then
                 local petBattle = Offhand.HUD:GetPetBattleDiagnostics()
@@ -2006,6 +2085,11 @@ SlashCmdList["OFFHAND"] = function(msg)
         if panelDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",
                 Offhand.Canvas:GetPanelControllerDiagnostics())
+        end
+        if panelDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelPlacementDiagnostics then
+            for _, report in ipairs(Offhand.Canvas:GetPanelPlacementDiagnostics()) do
+                Offhand:Print("Panel placement: %s.", report)
+            end
         end
         if panelDiagnostics and Offhand.isForever and Offhand.Canvas and Offhand.Canvas.GetForeverNativeBagDiagnostics then
             local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
@@ -2077,6 +2161,8 @@ SlashCmdList["OFFHAND"] = function(msg)
     elseif msg == "debug" then
         Offhand.db.debugMode = not Offhand.db.debugMode
         Offhand:Print(L["MSG_DEBUG_TOGGLED"], Offhand.db.debugMode and L["MSG_DEBUG_ON"] or L["MSG_DEBUG_OFF"])
+    elseif cmd == "whatsnew" and Offhand.WhatsNew then
+        Offhand.WhatsNew:Open()
     elseif cmd == "guide" or cmd == "setup" then
         if Offhand.Onboarding and Offhand.Onboarding.Open then
             Offhand.Onboarding:Open()
@@ -2127,9 +2213,7 @@ SlashCmdList["Offhand"] = SlashCmdList["OFFHAND"]
 local logoutFix = CreateFrame('Frame')
 logoutFix:RegisterEvent('PLAYER_LOGOUT')
 logoutFix:SetScript('OnEvent', function()
-    if Offhand.Viewport and Offhand.Viewport.PrepareForLogout then
-        Offhand.Viewport:PrepareForLogout()
-    end
+    BeginLogout()
     if Offhand.RawMouse and Offhand.RawMouse.Restore then
         Offhand.RawMouse:Restore()
     end
@@ -2196,6 +2280,7 @@ function Offhand:IsWindowReachable(left, top, width, m)
     for _,r in ipairs(m.workspaceRegions or {}) do
         if InArea(r.x,r.y,r.x+r.width,r.y+r.height) then return true end
     end
+    if m.workspaceRegions and #m.workspaceRegions > 0 then return false end
     if m.workspaceLeft ~= nil then
         return InArea(m.workspaceLeft, m.workspaceBottom, m.workspaceRight, m.workspaceTop)
     end
@@ -2208,6 +2293,9 @@ function Offhand:GatherOffScreenUI()
     local m = self.Viewport and self.Viewport:GetMetrics()
     if not m then return 0 end
     local parentScale = UIParent:GetEffectiveScale() or 1
+    local compatibility = self.HUDCompatibility
+    local customChat = compatibility and compatibility.HasCustomChatAddon
+        and compatibility.HasCustomChatAddon()
     local candidates = {}
     for name in pairs(UIPanelWindows or {}) do
         if _G[name] then candidates[_G[name]] = true end
@@ -2221,11 +2309,24 @@ function Offhand:GatherOffScreenUI()
         end
     end
     local moved = 0
+    local map = self.isForever and _G.WorldMapFrame
+    if map and m.isSpanned and self.Canvas and self.Canvas.GatherSafeUIToMainhand then
+        candidates[map] = nil
+        local called, ok, _, recovered = pcall(self.Canvas.GatherSafeUIToMainhand, self.Canvas, true, map)
+        if called and ok then moved = recovered end
+    end
     for frame in pairs(candidates) do
         local ok, recovered = pcall(function()
             if frame == WorldFrame or frame == self.canvas then return false end
             if frame.IsForbidden and frame:IsForbidden() then return false end
             if not frame:IsShown() or frame:IsProtected() then return false end
+            if frame == map and self.CanvasCompatibility and self.CanvasCompatibility.ShouldYieldWorldMap
+                and self.CanvasCompatibility.ShouldYieldWorldMap(frame) then return false end
+            if customChat then
+                local name = frame.GetName and frame:GetName()
+                if frame == _G.GeneralDockManager or frame == _G.GENERAL_CHAT_DOCK
+                    or (name and name:match("^ChatFrame%d+$")) then return false end
+            end
             if frame.IsObjectType and frame:IsObjectType("GameTooltip") then return false end
             local scale = frame:GetEffectiveScale()
             if not scale or scale <= 0 then return false end

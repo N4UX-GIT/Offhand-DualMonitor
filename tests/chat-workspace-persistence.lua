@@ -973,3 +973,25 @@ addon.Canvas:RestorePersistentFrames()
 assert(ChatFrame1:IsShown(), "native selection of General must still allow primary-chat visibility recovery")
 print("PASS: late native chat reset, queued redocking and Ellesmere ownership")
 
+do
+    local previous = C_AddOns
+    local oldVisible, oldAlpha = ChatFrame1.IsVisible, ChatFrame1.GetEffectiveAlpha
+    C_AddOns = {IsAddOnLoaded = function(name) return name == "EllesmereUIChat" end}
+    ChatFrame1.IsVisible = function() return true end
+    ChatFrame1.GetEffectiveAlpha = function() return 0 end
+    local point, relative, anchor, x, y = ChatFrame1:GetPoint(1)
+    local report = table.concat(addon.CanvasChat:GetPlacementDiagnostics(false), "\n")
+    assert(report:find("ChatProviders=EllesmereUIChat", 1, true)
+        and report:find("DockSelected=ChatFrame1", 1, true),
+        "chat support must distinguish the loaded chat addon from the selected native tab")
+    assert(report:find("ChatFrame1 shown=yes | visible=yes | effectiveAlpha=0.000", 1, true),
+        "shown chat and transparent chat must be distinguishable in a report")
+    local afterPoint, afterRelative, afterAnchor, afterX, afterY = ChatFrame1:GetPoint(1)
+    assert(point == afterPoint and relative == afterRelative and anchor == afterAnchor
+        and x == afterX and y == afterY and ChatFrame1:IsShown(),
+        "collecting chat diagnostics must leave the native anchor and visibility intact")
+    C_AddOns = previous
+    ChatFrame1.IsVisible, ChatFrame1.GetEffectiveAlpha = oldVisible, oldAlpha
+    print("PASS: read-only chat provider, dock selection and transparency diagnostics")
+end
+

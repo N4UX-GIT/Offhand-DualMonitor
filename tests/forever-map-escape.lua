@@ -130,18 +130,18 @@ WorldMapFrameCloseButton = WorldMapFrame.CloseButton
 
 local createdHandles = {}
 CreateFrame = function(_, _, parent)
-    local handle = { parent = parent, scripts = {} }
+    local handle = { parent = parent, scripts = {}, layoutWrites = 0 }
     function handle:SetFrameStrata(value) self.strata = value end
     function handle:SetFrameLevel(value) self.level = value end
-    function handle:EnableMouse(value) self.mouseEnabled = value end
+    function handle:EnableMouse(value) self.mouseEnabled = value; self.layoutWrites = self.layoutWrites + 1 end
     function handle:RegisterForDrag(value) self.dragButton = value end
     function handle:SetScript(event, callback) self.scripts[event] = callback end
-    function handle:SetSize(width, height) self.width, self.height = width, height end
-    function handle:ClearAllPoints() self.point = nil end
-    function handle:SetPoint(...) self.point = { ... } end
+    function handle:SetSize(width, height) self.width, self.height = width, height; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:ClearAllPoints() self.point = nil; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:SetPoint(...) self.point = { ... }; self.layoutWrites = self.layoutWrites + 1 end
     function handle:SetText(value) self.text = value end
-    function handle:Show() self.shown = true end
-    function handle:Hide() self.shown = false end
+    function handle:Show() self.shown = true; self.layoutWrites = self.layoutWrites + 1 end
+    function handle:Hide() self.shown = false; self.layoutWrites = self.layoutWrites + 1 end
     table.insert(createdHandles, handle)
     return handle
 end
@@ -207,6 +207,26 @@ assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == 
         and WorldMapFrame._OffhandDragging == nil,
     "Forever World Map bookkeeping must not be written onto the Blizzard frame")
 
+local function AssertStableMapControls(state)
+    local handle, button = createdHandles[1], createdHandles[2]
+    local writes = handle.layoutWrites + button.layoutWrites
+    for _ = 1, 60 do handle.scripts.OnUpdate(nil, .1) end
+    assert(handle.layoutWrites + button.layoutWrites == writes,
+        state .. " map repeated unchanged drag-handle or button writes")
+end
+AssertStableMapControls("stationary windowed")
+do
+    local left = WorldMapFrame.left
+    local handle = createdHandles[1]
+    local x = handle.point[4]
+    WorldMapFrame.left = left + 20
+    handle.scripts.OnUpdate(nil, .1)
+    assert(math.abs(handle.point[4] - x - 20 * WorldMapFrame.scale) < .00001 and handle.mouseEnabled,
+        "the active handle must follow changed map geometry")
+    WorldMapFrame.left = left
+    handle.scripts.OnUpdate(nil, .1)
+end
+
 -- A maximized Forever map is Blizzard-owned. Configure and the external
 -- controls' OnUpdate may read that state, but must not apply the saved windowed
 -- scale or position. The explicit hardware click minimizes and then restores
@@ -222,6 +242,7 @@ assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(createdHandles[2].shown == true,
     "The Return to Windowed Map control must be visible while Full Map is active")
+AssertStableMapControls("stationary full")
 assert(WorldMapFrame.scale == 0.37 and WorldMapFrame.left == 900
         and WorldMapFrame.bottom == 300,
     "The independent control update must never mutate the protected World Map")
@@ -272,8 +293,8 @@ assert((WorldMapFrame.ignoreParentScaleWrites or 0) == 0,
 addon.Canvas:UpdateMapMovementBehavior()
 assert(next(WorldMapFrame.registeredEvents) == nil,
     "Forever must preserve the World Map's native event registration")
-assert(PlayerMovementFrameFader.removed > 0 and PlayerMovementFrameFader.added == 0,
-    "A Forever workspace map must be removed from Blizzard's movement-dimming fader")
+assert(PlayerMovementFrameFader.removed == 0 and PlayerMovementFrameFader.added == 0,
+    "Forever keyboard UI must leave the native movement fader untouched before a switch to Gamepad UI")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(),
     "Escape must not close a Forever map with a saved workspace position")
@@ -341,6 +362,7 @@ addon.Canvas:RefocusPersistentWorldMap()
 createdHandles[1].scripts.OnUpdate(nil, 1)
 createdHandles[1].scripts.OnDragStart()
 createdHandles[1].scripts.OnDragStop()
+AssertStableMapControls("Gamepad-owned")
 WorldMapFrame.maximized = true
 createdHandles[2].scripts.OnClick()
 WorldMapFrame.maximized = false
@@ -435,6 +457,10 @@ gamepadUI = false
 -- Reload restoration must reopen the saved workspace map without replacing
 -- Blizzard's protected scripts.
 WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(not createdHandles[1].mouseEnabled and createdHandles[1].point[4] == -100,
+    "closing the map must park its handle outside the window")
+AssertStableMapControls("closed")
 addon.db.openWorkspacePanels.WorldMapFrame = true
 addon.Canvas:RestorePersistentFrames()
 assert(WorldMapFrame:IsShown(),
@@ -794,6 +820,47 @@ assert(mapOnWorkspace or mapOnMainhand,
     "the external Forever map toggle must rescue an unsaved map from mixed-height dead space")
 assert(WorldMapFrame.setScriptWrites == 0 and WorldMapFrame.hookScriptWrites == 0,
     "unsaved map rescue must preserve the native Forever MapCanvas script boundary")
+
+-- On equal-height landscape displays, Blizzard's default anchor can already
+-- land entirely on Offhand. Escape protection should work before any drag.
+metrics.screenWidth, metrics.screenHeight = 5120, 1440
+metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop = 2560, 0, 5120, 1440
+metrics.gameWidth, metrics.gameHeight = 2560, 1440
+metrics.workspaceLeft, metrics.workspaceBottom, metrics.workspaceRight, metrics.workspaceTop = 0, 0, 2560, 1440
+metrics.workspaceWidth, metrics.workspaceHeight = 2560, 1440
+WorldMapFrame:Hide()
+createdHandles[1].scripts.OnUpdate(nil, 1)
+WorldMapFrame.left, WorldMapFrame.bottom = 40, 400
+WorldMapFrame:Show()
+activePanels.left = WorldMapFrame
+table.insert(UISpecialFrames, "WorldMapFrame")
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+assert(WorldMapFrame:IsShown() and activePanels.left == nil
+        and not table.concat(UISpecialFrames, ","):find("WorldMapFrame", 1, true),
+    "a windowed map already on Offhand must survive Escape before its first drag")
+assert(addon.db.savedWorkspacePositions.WorldMapFrame == nil,
+    "protecting the visible map must not create a saved placement")
+
+addon.db.persistentWorkspacePanels = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+assert(isSpecial("WorldMapFrame"),
+    "turning off Escape protection must restore the close path for the detached map")
+addon.db.persistentWorkspacePanels = true
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+pressEscapeCloseSpecialFrames()
+assert(WorldMapFrame:IsShown() and not isSpecial("WorldMapFrame"),
+    "turning Escape protection back on must protect the same open map")
+addon.db.persistentWorkspacePanels = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+flushTimers()
+pressEscapeCloseSpecialFrames()
+assert(not WorldMapFrame:IsShown(),
+    "the windowed map must close on Escape after protection is turned off")
+addon.db.persistentWorkspacePanels = true
+
 for key in pairs(metrics) do metrics[key] = nil end
 for key, value in pairs(originalMetrics) do metrics[key] = value end
 addon.db.savedWorkspacePositions.WorldMapFrame = savedWorkspaceMap
@@ -824,8 +891,8 @@ assert(not ContainerFrame1:IsShown(),
 
 -- MoveAny cannot observe Offhand's deliberately script-free Forever map drag
 -- adapter, so the two addons would otherwise both restore WorldMapFrame after
--- M/L. Loading MoveAny must dynamically make every already-installed Offhand
--- map path inert without deleting the user's saved Offhand position.
+-- M/L. MoveAny owns placement while Offhand handles Escape for the visible
+-- workspace map. The saved Offhand position remains dormant.
 local moveAnyWorkspacePosition = addon.db.savedWorkspacePositions.WorldMapFrame
 local moveAnyOpenState = addon.db.openWorkspacePanels.WorldMapFrame
 addon.db.openWorkspacePanels.WorldMapFrame = true
@@ -852,13 +919,14 @@ flushTimers()
 assert(not WorldMapFrame:IsShown(),
     "Offhand reload restoration must not open a World Map owned by MoveAny")
 
-createdHandles[1]:Show()
-createdHandles[1]:EnableMouse(true)
 createdHandles[1].scripts.OnUpdate(nil, 1)
-assert(createdHandles[1].shown == false and createdHandles[1].mouseEnabled == false,
-    "a previously-created Offhand map drag handle must retire after MoveAny loads")
+assert(createdHandles[1].shown and not createdHandles[1].mouseEnabled
+        and createdHandles[1].point[4] == -100,
+    "MoveAny's map must keep its noninteractive observer for the next opening")
 
+table.insert(UISpecialFrames, "WorldMapFrame")
 ToggleWorldMap()
+activePanels.left = WorldMapFrame
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
         and WorldMapFrame.bottom == 1300,
@@ -867,6 +935,15 @@ flushTimers()
 assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
         and WorldMapFrame.bottom == 1300,
     "Offhand's installed M post-hook must stay inert while MoveAny owns the map")
+assert(GetUIPanel("left") ~= WorldMapFrame,
+    "a MoveAny workspace map must free the panel slot used by NPC windows")
+pressEscapeCloseSpecialFrames()
+assert(WorldMapFrame:IsShown(), "a MoveAny workspace map must survive Escape")
+addon.db.persistentWorkspacePanels = false
+createdHandles[1].scripts.OnUpdate(nil, 1)
+assert(isSpecial("WorldMapFrame"), "turning Escape protection off must return the map to native Escape")
+addon.db.persistentWorkspacePanels = true
+createdHandles[1].scripts.OnUpdate(nil, 1)
 WorldMapFrame:Hide()
 createdHandles[1].scripts.OnUpdate(nil, 1)
 ToggleQuestLog()
@@ -877,6 +954,30 @@ assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 760
     "Offhand's installed L post-hook must stay inert while MoveAny owns the map")
 assert(addon.db.savedWorkspacePositions.WorldMapFrame == moveAnyWorkspacePosition,
     "yielding to MoveAny must preserve the user's dormant Offhand map position")
+
+do
+    local previousMap = WorldMapFrame
+    local observerIndex = #createdHandles + 1
+    WorldMapFrame = makeMap()
+    WorldMapFrame:Hide()
+    addon.db.savedWorkspacePositions.WorldMapFrame = nil
+    addon.Canvas:EnableFreeDragging()
+    local observer = assert(createdHandles[observerIndex], "MoveAny already loaded must receive a map observer")
+    assert(observer.shown and not observer.mouseEnabled, "the observer must park while MoveAny positions the map")
+    table.insert(UISpecialFrames, "WorldMapFrame")
+    ToggleWorldMap()
+    activePanels.left = WorldMapFrame
+    observer.scripts.OnUpdate(nil, 1)
+    assert(not isSpecial("WorldMapFrame") and activePanels.left ~= WorldMapFrame,
+        "a vendor-positioned workspace map needs Escape protection without a saved Offhand anchor")
+    ToggleWorldMap()
+    assert(not WorldMapFrame:IsShown(), "the map binding must still close a MoveAny workspace map")
+    assert(not addon.db.savedWorkspacePositions.WorldMapFrame
+        and WorldMapFrame.hookScriptWrites == 0 and WorldMapFrame.setScriptWrites == 0,
+        "the compatibility path must leave placement and native map scripts with their owners")
+    WorldMapFrame = previousMap
+    addon.db.savedWorkspacePositions.WorldMapFrame = moveAnyWorkspacePosition
+end
 
 MoveAny = nil
 local originalAddOns = C_AddOns
@@ -902,6 +1003,35 @@ assert(addon.db.openWorkspacePanels.WorldMapFrame,
     "Forever's external observer must retain external-map workspace open intent")
 pressEscapeCloseSpecialFrames()
 assert(WorldMapFrame:IsShown(), externalOwner .. " workspace map must survive Escape")
+if externalOwner == "OpenMap" then
+    -- Native panel layout can register the visible map again after the first
+    -- protection pass. OpenMap retains the same geometry across the reflow.
+    activePanels.left = WorldMapFrame
+    table.insert(UISpecialFrames, "WorldMapFrame")
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(activePanels.left ~= WorldMapFrame and not isSpecial("WorldMapFrame"),
+        "OpenMap must recover Escape protection after native registration changes at the same position")
+    pressEscapeCloseSpecialFrames()
+    assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+        and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
+        "restoring Escape protection must preserve OpenMap's visible placement")
+    local originalHide, attempts = HideUIPanel, 0
+    HideUIPanel = function(frame)
+        assert(frame == WorldMapFrame)
+        attempts = attempts + 1
+    end
+    activePanels.left = WorldMapFrame
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(attempts == 1 and activePanels.left == WorldMapFrame,
+        "a refused native detach must not trigger another write on every observation")
+    HideUIPanel = originalHide
+    activePanels.left = nil
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    activePanels.left = WorldMapFrame
+    createdHandles[1].scripts.OnUpdate(nil, 1)
+    assert(activePanels.left ~= WorldMapFrame, "a new close path must permit another detach attempt")
+end
 WorldMapFrame.left = 2000
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(isSpecial("WorldMapFrame"), externalOwner .. " dragging to Mainhand must restore native Escape closure")
@@ -948,11 +1078,30 @@ addon.db.savedMainPositions.WorldMapFrame = { x = 1600, y = 1000 }
 addon.Canvas:ConfigureWorldMap()
 assert(isSpecial("WorldMapFrame"),
     "A map on Mainhand must return to Blizzard's Escape-close registry")
-assert(PlayerMovementFrameFader.added > 0,
-    "A Mainhand map must return to Blizzard's native movement fader")
+assert(PlayerMovementFrameFader.removed == 0 and PlayerMovementFrameFader.added == 0,
+    "Forever map placement and persistence must leave the native movement fader untouched")
 pressEscapeCloseSpecialFrames()
 assert(not WorldMapFrame:IsShown(),
     "Escape must retain native close behavior for a Mainhand map")
+
+do
+    local inCombat, pending, timers = true, {}, {}
+    local previousCombat, previousAfter = InCombatLockdown, C_Timer.After
+    InCombatLockdown = function() return inCombat end
+    addon.RunOrQueueCombat = function(_, fn) pending[#pending + 1] = fn end
+    C_Timer.After = function(_, fn) timers[#timers + 1] = fn end
+    WorldMapFrame:Show()
+    for _ = 1, 12 do
+        mapTransactions.RepairUIPanelTransaction(nil, true)
+        while #timers > 0 do table.remove(timers, 1)() end
+    end
+    assert(#pending == 1, "repeated panel transactions must retain only one combat map retry")
+    inCombat = false
+    pending[1]()
+    assert(WorldMapFrame:IsShown(), "combat settlement must preserve the latest map visibility")
+    WorldMapFrame:Hide()
+    InCombatLockdown, C_Timer.After, addon.RunOrQueueCombat = previousCombat, previousAfter, nil
+end
 
 do
     -- A keyboard map can grow once when dropped onto a larger workspace. AUTO
@@ -989,4 +1138,224 @@ do
     addon.Canvas:ConfigureWorldMap()
     assert(WorldMapFrame:GetScale() == fitted, "Mainhand AUTO failed to settle")
 end
-print("PASS: Forever map persists through reload/Escape without script replacement; AUTO settles and explicit scale is retained")
+do
+    -- MapWise can replay its canvas-relative anchor during any compact layout.
+    -- The workspace is a 1080 x 1920 portrait monitor below Mainhand.
+    metrics.screenWidth, metrics.screenHeight = 2560, 3360
+    metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop = 0, 1920, 2560, 3360
+    metrics.gameWidth, metrics.gameHeight = 2560, 1440
+    metrics.workspaceLeft, metrics.workspaceBottom = 700, 0
+    metrics.workspaceRight, metrics.workspaceTop = 1780, 1920
+    metrics.workspaceWidth, metrics.workspaceHeight = 1080, 1920
+    local oldUIWidth, oldUIHeight = UIParent.GetWidth, UIParent.GetHeight
+    UIParent.GetWidth = function() return metrics.screenWidth end
+    UIParent.GetHeight = function() return metrics.screenHeight end
+
+    local map = WorldMapFrame
+    local observer = createdHandles[1].scripts.OnUpdate
+    local elapsed, pending = 0, {}
+    local oldAfter, oldAddOns = C_Timer.After, C_AddOns
+    C_Timer.After = function(delay, callback)
+        pending[#pending + 1] = { due = elapsed + delay, callback = callback }
+    end
+    local function advanceMap(ticks)
+        for _ = 1, ticks do
+            elapsed = elapsed + .11
+            observer(nil, .11)
+            while true do
+                local nextIndex
+                for index, entry in ipairs(pending) do
+                    if entry.due <= elapsed and (not nextIndex or entry.due < pending[nextIndex].due) then
+                        nextIndex = index
+                    end
+                end
+                if not nextIndex then break end
+                table.remove(pending, nextIndex).callback()
+            end
+        end
+    end
+    local function moveMap(left, top)
+        map.left = left / map.scale
+        map.bottom = top / map.scale - map.height
+    end
+    local function mapBounds()
+        local scale = map:GetEffectiveScale()
+        local left, top = map:GetLeft() * scale, map:GetTop() * scale
+        return left, top, left + map:GetWidth() * scale, top - map:GetHeight() * scale
+    end
+    local function assertMapFits(message)
+        local left, top, right, bottom = mapBounds()
+        assert(map:IsShown() and left >= metrics.workspaceLeft - .001
+            and right <= metrics.workspaceRight + .001 and top <= metrics.workspaceTop + .001
+            and bottom >= metrics.workspaceBottom - .001, message)
+    end
+
+    local compactPosition = { x = .32, y = .18 }
+    local passiveVendorWrites = 0
+    local vendor = { windowOrigin = {} }
+    function vendor:Compact() return not map:IsMaximized() end
+    function vendor:UpdateWindowResetIcon() end
+    function vendor:PlaceWindow(left, fromTop)
+        moveMap(left, UIParent:GetHeight() - fromTop)
+    end
+    function vendor:ApplyWindowPosition()
+        local position = MapWiseAtlasDB.compactPosition
+        if not position then return end
+        passiveVendorWrites = passiveVendorWrites + 1
+        self:PlaceWindow(position.x * UIParent:GetWidth(), position.y * UIParent:GetHeight())
+    end
+    local function assertPassiveReplayBlocked(message)
+        local left, top = mapBounds()
+        local writes = passiveVendorWrites
+        vendor:ApplyWindowPosition()
+        local afterLeft, afterTop = mapBounds()
+        assert(left == afterLeft and top == afterTop and passiveVendorWrites == writes, message)
+    end
+    local function assertVendorReplay(message)
+        local writes = passiveVendorWrites
+        vendor:ApplyWindowPosition()
+        local left, top = mapBounds()
+        assert(passiveVendorWrites == writes + 1
+            and math.abs(left - compactPosition.x * metrics.screenWidth) < .001
+            and math.abs(top - (1 - compactPosition.y) * metrics.screenHeight) < .001, message)
+    end
+    MapWiseAtlasDB = { rightClosed = true, compactPosition = compactPosition }
+    MapWiseAPI = { version = "2.3.98", db = MapWiseAtlasDB, Integration = { native = map }, MapWiseUI = vendor }
+    C_AddOns = { IsAddOnLoaded = function(name) return name == "MapWise" end }
+    local savedPosition = { x = 1080, y = 1200 }
+    addon.db.savedMainPositions.WorldMapFrame = nil
+    addon.db.savedWorkspacePositions.WorldMapFrame = savedPosition
+    addon.db.workspaceMapScale = 1
+    map:Hide()
+    advanceMap(4)
+    map.width, map.height, map.scale = 664, 470, 1
+    moveMap(savedPosition.x, savedPosition.y)
+    map:Show()
+    assertPassiveReplayBlocked("first-open MapWise layout must not replay its anchor over saved Offhand placement")
+    advanceMap(4)
+    assertMapFits("the compact MapWise map must begin on the saved portrait workspace")
+
+    MapWiseAtlasDB.rightClosed = false
+    map.width = 1087
+    assertPassiveReplayBlocked("expanding the sidebar must not synchronously move the map to MapWise's stale anchor")
+    advanceMap(1)
+    assertMapFits("MapWise sidebar expansion must fit even if the saved anchor did not move")
+    assert(map.width == 1087 and map:GetScale() < addon.db.workspaceMapScale,
+        "Offhand must fit the expanded map without changing MapWise's native dimensions")
+    moveMap(savedPosition.x, metrics.workspaceTop + 90)
+    assertPassiveReplayBlocked("a follow-up MapWise layout must defer even after a native anchor write")
+    advanceMap(8)
+    assertMapFits("a deferred native anchor write must not pull the expanded map off the workspace")
+
+    for _, tab in ipairs({"environment", "search", "quests", "route"}) do
+        MapWiseAtlasDB.modernTab = tab
+        assertPassiveReplayBlocked("switching to MapWise tab " .. tab .. " must preserve the saved Offhand position immediately")
+        advanceMap(1)
+    end
+    pressEscapeCloseSpecialFrames()
+    assertPassiveReplayBlocked("a MapWise layout after Escape must not flash at the stale anchor")
+    advanceMap(8)
+    assertMapFits("the persistent map must stay on its saved workspace after Escape")
+
+    MapWiseAtlasDB.rightClosed = true
+    map.width = 664
+    assertPassiveReplayBlocked("closing the sidebar must not move the map through its stale anchor")
+    advanceMap(8)
+    local restoredLeft, restoredTop = mapBounds()
+    assert(math.abs(restoredLeft - savedPosition.x) < .001 and math.abs(restoredTop - savedPosition.y) < .001
+        and map:GetScale() == 1, "closing the sidebar must recover the saved anchor and preferred scale")
+    assert(addon.db.savedWorkspacePositions.WorldMapFrame == savedPosition
+        and savedPosition.x == 1080 and savedPosition.y == 1200 and addon.db.workspaceMapScale == 1,
+        "sidebar fits must not rewrite the saved Offhand position or scale preference")
+
+    map:Hide()
+    advanceMap(4)
+    addon.db.savedWorkspacePositions.WorldMapFrame = nil
+    map.width, map.scale = 664, 1
+    moveMap(1080, 1200)
+    map:Show()
+    MapWiseAtlasDB.compactPosition = nil
+    vendor:ApplyWindowPosition()
+    MapWiseAtlasDB.compactPosition = compactPosition
+    advanceMap(4)
+    assertMapFits("MapWise's own drag can place a compact map on Offhand without an Offhand record")
+    assertPassiveReplayBlocked("same-size tab layout must preserve an already-visible unsaved workspace placement")
+
+    MapWiseAtlasDB.rightClosed = false
+    map.width = 1087
+    assertPassiveReplayBlocked("sidebar expansion must preserve an unsaved workspace placement before the next frame")
+    advanceMap(8)
+    assertMapFits("MapWise sidebar expansion must preserve an unsaved workspace placement")
+    local _, unsavedTop = mapBounds()
+    assert(math.abs(unsavedTop - 1200) < .001,
+        "MapWise's spanned anchor must not replace the previous workspace height")
+    assert(addon.db.savedWorkspacePositions.WorldMapFrame == nil
+        and addon.db.savedMainPositions.WorldMapFrame == nil
+        and addon.db.openWorkspacePanels.WorldMapFrame == nil
+        and MapWiseAtlasDB.compactPosition == compactPosition
+        and compactPosition.x == .32 and compactPosition.y == .18,
+        "sidebar recovery must not invent a saved placement or change MapWise's position")
+
+    local idleAnchorWrites, idleScaleWrites = 0, 0
+    local setPoint, setScale = map.SetPoint, map.SetScale
+    map.SetPoint = function(self, ...)
+        idleAnchorWrites = idleAnchorWrites + 1
+        setPoint(self, ...)
+    end
+    map.SetScale = function(self, ...)
+        idleScaleWrites = idleScaleWrites + 1
+        setScale(self, ...)
+    end
+    advanceMap(12)
+    assert(idleAnchorWrites == 0 and idleScaleWrites == 0 and #pending == 0,
+        "MapWise sidebar recovery must settle without ongoing map writes or timers")
+    assert(map.setScriptWrites == 0 and map.hookScriptWrites == 0,
+        "MapWise sidebar recovery must retain the native map's script boundary")
+    map.SetPoint, map.SetScale = setPoint, setScale
+
+    vendor.dragging = true
+    vendor:PlaceWindow(1300, 400)
+    advanceMap(8)
+    local draggedLeft, draggedTop = mapBounds()
+    assert(math.abs(draggedLeft - 1300) < .001 and math.abs(draggedTop - 2960) < .001,
+        "the adapter must allow an explicit MapWise drag while preserving passive-layout ownership")
+    vendor.dragging = nil
+
+    map:Hide()
+    advanceMap(4)
+    local mainPosition = { x = 1500, y = 3000 }
+    addon.db.savedMainPositions.WorldMapFrame = mainPosition
+    addon.db.mainMapScale = 1
+    map.width, map.scale = 664, 1
+    moveMap(mainPosition.x, mainPosition.y)
+    map:Show()
+    assertPassiveReplayBlocked("reopening the map must not flash at the stale MapWise anchor on Mainhand")
+    advanceMap(4)
+    assertPassiveReplayBlocked("same-size tab layout must preserve an Offhand-saved Mainhand anchor")
+    MapWiseAtlasDB.rightClosed = true
+    assertPassiveReplayBlocked("Mainhand sidebar layout must retain the saved Mainhand anchor")
+    advanceMap(8)
+    local mainLeft, mainTop = mapBounds()
+    assert(mainLeft == mainPosition.x and mainTop == mainPosition.y and map:GetScale() == 1
+        and addon.db.savedMainPositions.WorldMapFrame == mainPosition,
+        "MapWise layout must preserve the Mainhand position and its saved record")
+
+    addon.db.enabled = false
+    assertVendorReplay("disabled Offhand must let MapWise replay its own position")
+    addon.db.enabled = true
+    map:Hide()
+    advanceMap(4)
+    addon.db.savedMainPositions.WorldMapFrame = nil
+    map:Show()
+    assertVendorReplay("a fresh unsaved Mainhand map must retain MapWise's native placement")
+    advanceMap(4)
+    MapWiseAtlasDB.rightClosed = false
+    map.width = 1087
+    assertPassiveReplayBlocked("an already-visible unsaved Mainhand map must retain its current anchor")
+    advanceMap(8)
+
+    C_Timer.After, C_AddOns = oldAfter, oldAddOns
+    UIParent.GetWidth, UIParent.GetHeight = oldUIWidth, oldUIHeight
+    MapWiseAtlasDB, MapWiseAPI = nil, nil
+end
+print("PASS: Forever map persists through reload/Escape, settles scale, and preserves placement across MapWise layouts")

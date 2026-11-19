@@ -24,6 +24,18 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         if type(value) == "string" then return value:sub(1, 80) end
         return "unknown"
     end
+    local function Rect(frame)
+        local ok, left, bottom, width, height = pcall(function()
+            if frame.IsForbidden and frame:IsForbidden() then return end
+            if frame.GetRect then return frame:GetRect() end
+        end)
+        if not ok then return "unknown" end
+        local bounds = { Value(left), Value(bottom), Value(width), Value(height) }
+        for _, value in ipairs(bounds) do
+            if value == "unknown" then return "unknown" end
+        end
+        return table.concat(bounds, "/")
+    end
     local db = Offhand.db or {}
     local compatibility = Offhand.HUDCompatibility
     local function Loaded(name)
@@ -44,7 +56,8 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         "MinimapOwner=SexyMap:%s,EllesmereCore:%s,EllesmereMinimap:%s,EllesmereOptions:%s,EllesmereMover:%s,EllesmereProfileEnabled:%s",
         Loaded("SexyMap"), Loaded("EllesmereUI"), Loaded("EllesmereUIMinimap"), Loaded("EllesmereUIOptions"),
         registered and "registered" or "missing", ok and Value(enabled) or "unknown") }
-    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal", "LFGMinimapFrame" }) do
+    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal",
+        "LFGMinimapFrame", "QueueStatusButton" }) do
         local frame = _G[name]
         if not frame then
             reports[#reports + 1] = name .. ".state=absent"
@@ -58,13 +71,13 @@ function Recovery.GetMinimapVisibilityDiagnostics()
                 end
             end
             reports[#reports + 1] = string.format(
-                "%s.state=shown:%s,visible:%s,alpha:%s,effectiveAlpha:%s,parent:%s,parentShown:%s,parentVisible:%s,userPlaced:%s,scale:%s,savedWorkspace:%s,savedMainhand:%s,escapeRegistered:%s",
+                "%s.state=shown:%s,visible:%s,alpha:%s,effectiveAlpha:%s,parent:%s,parentShown:%s,parentVisible:%s,userPlaced:%s,scale:%s,savedWorkspace:%s,savedMainhand:%s,escapeRegistered:%s,rectLocal:%s",
                 name, Value(Read(frame, "IsShown")), Value(Read(frame, "IsVisible")),
                 Value(Read(frame, "GetAlpha")), Value(Read(frame, "GetEffectiveAlpha")),
                 Value(Read(parent, "GetName")), Value(Read(parent, "IsShown")), Value(Read(parent, "IsVisible")),
                 Value(Read(frame, "IsUserPlaced")), Value(Read(frame, "GetEffectiveScale")),
                 db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "yes" or "no",
-                db.savedMainPositions and db.savedMainPositions[name] and "yes" or "no", special)
+                db.savedMainPositions and db.savedMainPositions[name] and "yes" or "no", special, Rect(frame))
         end
     end
     return reports
@@ -106,9 +119,9 @@ function Recovery.Install(HUD)
     end
 
     local function MatchesForeverRecoveryStyle(layout, fallbackName)
-        if not layout then return false end
         local styles = Enum and Enum.InputDeviceInterfaceType
         local gamepad = styles and styles.Gamepad
+        if not layout then return false end
         local isGamepad = gamepad ~= nil and layout.interfaceStyle == gamepad
         return isGamepad == (fallbackName == "Gamepad")
     end
@@ -436,7 +449,6 @@ function Recovery.Install(HUD)
         local recovery = type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeRecovery or nil
         if type(recovery) == "table" and tonumber(recovery.fallbackLayoutID) ~= fallbackID then
             OffhandCharDB.foreverEditModeRecovery = nil
-            recovery = nil
             self.foreverMismatchConfirmed = nil
             self.foreverMismatchDeclined = nil
             self.foreverRecoveryPromptShown = nil
@@ -445,6 +457,7 @@ function Recovery.Install(HUD)
                 Offhand:HideForeverLayoutRecoveryPrompt("restore")
             end
             PersistForeverEditModeState()
+            return
         end
 
         if IsForeverSingleScreenRecovery(metrics) then
@@ -537,10 +550,12 @@ function Recovery.Install(HUD)
         if not data then return end
         local restoreID, layout = ResolveForeverLayoutID(data, recovery.restoreLayoutID, recovery.restoreLayoutName)
         if not restoreID or not MatchesForeverRecoveryStyle(layout, fallbackName) then return end
-        local activeID, targetID = tonumber(data.activeLayout), nil
+        local activeID = tonumber(data.activeLayout)
+        local targetID
         if choice == "restore" and activeID == fallbackID then
             targetID = restoreID
-            recovery.restoreLayoutID, recovery.restoreLayoutName = restoreID, layout.layoutName
+            recovery.restoreLayoutID = restoreID
+            recovery.restoreLayoutName = layout.layoutName
         elseif choice == "fallback" and activeID == restoreID then
             targetID = fallbackID
         end
@@ -570,9 +585,9 @@ function Recovery.Install(HUD)
         if kind == "fallback" then self.foreverMismatchDeclined = true end
     end
 
-    local function FrameFitsPhysicalDisplay(frame, metrics)
+    local function FrameFitsPhysicalDisplay(frame, metrics, requireBounds)
         if not frame or not metrics or not frame.GetLeft or not frame.GetBottom
-            or not frame.GetWidth or not frame.GetHeight then return true end
+            or not frame.GetWidth or not frame.GetHeight then return not requireBounds end
         local ok, left, bottom, width, height = pcall(function()
             local parentScale = (UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
@@ -580,7 +595,8 @@ function Recovery.Install(HUD)
             return frame:GetLeft() * factor, frame:GetBottom() * factor,
                 frame:GetWidth() * factor, frame:GetHeight() * factor
         end)
-        if not ok or not left or not bottom or not width or not height then return true end
+        if not ok or not left or not bottom or not width or not height then return not requireBounds end
+        if requireBounds and (width <= 0 or height <= 0) then return false end
         local right, top = left + width, bottom + height
         local function Fits(l, b, r, t)
             return l and b and r and t and left >= l - 1 and bottom >= b - 1
@@ -767,6 +783,14 @@ function Recovery.Install(HUD)
             (self.foreverEditModeControlsCandidateGeneration or 0) + 1
     end
 
+    local function FrameIsActuallyVisible(frame)
+        if not frame then return false end
+        local method = type(frame.IsVisible) == "function" and frame.IsVisible or frame.IsShown
+        if type(method) ~= "function" then return false end
+        local ok, visible = pcall(method, frame)
+        return ok and not (issecretvalue and issecretvalue(visible)) and visible == true
+    end
+
     local function CenterUnprotectedEditModeControl(frame, metrics)
         if not frame or not frame.IsShown or not frame:IsShown()
             or (frame.IsForbidden and frame:IsForbidden())
@@ -774,13 +798,18 @@ function Recovery.Install(HUD)
             or FrameFitsPhysicalDisplay(frame, metrics) then return false end
         local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
         local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or parentScale
+        if parentScale <= 0 or frameScale <= 0 then return false end
         local factor = parentScale / frameScale
-        local centerX = (metrics.gameLeft + metrics.gameRight) / 2
-        local centerY = (metrics.gameBottom + metrics.gameTop) / 2
+        local x = (metrics.gameLeft + metrics.gameRight - UIParent:GetWidth()) / 2 * factor
+        local y = (metrics.gameBottom + metrics.gameTop - UIParent:GetHeight()) / 2 * factor
+        if frame.GetNumPoints and frame.GetPoint and frame:GetNumPoints() == 1 then
+            local point, relative, relativePoint, offsetX, offsetY = frame:GetPoint(1)
+            if point == "CENTER" and relative == UIParent and relativePoint == "CENTER"
+                and math.abs((offsetX or 0) - x) < 0.001
+                and math.abs((offsetY or 0) - y) < 0.001 then return false end
+        end
         frame:ClearAllPoints()
-        frame:SetPoint("CENTER", UIParent, "CENTER",
-            (centerX - UIParent:GetWidth() / 2) * factor,
-            (centerY - UIParent:GetHeight() / 2) * factor)
+        frame:SetPoint("CENTER", UIParent, "CENTER", x, y)
         return true
     end
 
@@ -804,6 +833,26 @@ function Recovery.Install(HUD)
         return moved
     end
 
+    -- Cooldown Manager uses the Edit Mode dialog templates from its own
+    -- settings. Its stock center anchor can fall in a void on a spanned window.
+    local cooldownViewerDialogNames = {
+        "CooldownViewerImportLayoutDialog",
+        "CooldownViewerLayoutDialog",
+    }
+
+    local function RecoverCooldownViewerDialogs(metrics)
+        if InCombatLockdown() then return end
+        for _, name in ipairs(cooldownViewerDialogNames) do
+            local frame = _G[name]
+            if FrameIsActuallyVisible(frame) then
+                metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+                    and Offhand.Viewport:GetMetrics())
+                if not CanRecoverForeverEditModeControls(metrics) then return end
+                pcall(CenterUnprotectedEditModeControl, frame, metrics)
+            end
+        end
+    end
+
     -- Blizzard can anchor its Edit Mode manager outside the physical displays on a
     -- mixed-height span. This occurs on Retail as well as Forever. Detection stays
     -- read-only until a candidate survives native layout settlement. Only known
@@ -811,6 +860,7 @@ function Recovery.Install(HUD)
     -- recovery prompt for players who disable automatic recovery.
     function HUD:UpdateForeverEditModeControlsRecovery(metrics)
         if not HasBlizzardEditMode() or not Offhand.db or not Offhand.db.enabled then return end
+        RecoverCooldownViewerDialogs(metrics)
         local manager = _G.EditModeManagerFrame
         local shown = manager and manager.IsShown and manager:IsShown()
         if not shown then
@@ -975,14 +1025,6 @@ function Recovery.Install(HUD)
         CompactRaidFrameContainer = true,
     }
 
-    local function FrameIsActuallyVisible(frame)
-        if not frame then return false end
-        local method = type(frame.IsVisible) == "function" and frame.IsVisible or frame.IsShown
-        if type(method) ~= "function" then return false end
-        local ok, visible = pcall(method, frame)
-        return ok and visible == true
-    end
-
     local function ProtectedHUDIsPresented(name, frame)
         -- Layout generation already yields these systems to their replacement
         -- addons. Their borrowed native previews must not offer a repair that
@@ -1132,6 +1174,7 @@ function Recovery.Install(HUD)
 
         local manager = _G.EditModeManagerFrame
         local editModeOpen = manager and manager.IsShown and manager:IsShown() or false
+        if not editModeOpen and manager and manager.editModeActive then return end
         local outsideName
         if editModeOpen then
             -- Blizzard retains several dormant ownership roots with stale bounds.
@@ -1160,6 +1203,12 @@ function Recovery.Install(HUD)
             if self.foreverProtectedHUDDetectedInEditMode
                 and self.foreverPartyFrameOutsideDisplays then
                 outsideName = self.foreverPartyFrameOutsideDisplays
+                -- Exiting Edit Mode can revert an unsaved preview position.
+                -- Keep hidden previews eligible, but clear a visibly reachable root.
+                local frame = _G[outsideName]
+                if FrameIsActuallyVisible(frame) and FrameFitsPhysicalDisplay(frame, metrics, true) then
+                    outsideName = nil
+                end
             end
         end
 

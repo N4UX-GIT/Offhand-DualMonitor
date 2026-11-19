@@ -1,102 +1,182 @@
--- Run the production logout handler with a temporary spanned UI scale.
-local logout
+-- Run the production logout and display handlers with a temporary spanned UI scale.
 StaticPopupDialogs, SlashCmdList = {}, {}
-CreateFrame = function()
-    local events = {}
-    return {
-        RegisterEvent = function(_, event) events[event] = true end,
-        SetScript = function(_, script, callback)
-            if script == "OnEvent" and events.PLAYER_LOGOUT and not events.PLAYER_LOGIN then
-                logout = callback
-            end
-        end,
-    }
-end
-GetBuildInfo = function() return "1.60.1", "70862", "", 16001 end
-local combat, scale, writes = false, 0.8, 0
+GetBuildInfo = function() return "1.60.1", "70938", "", 16001 end
+local combat = false
 InCombatLockdown = function() return combat end
+local scale, scaleWrites, cvarWrites, worldResets, worldAnchors = 0.8, 0, 0, 0, 0
+local onScaleWrite, onWorldReset
 UIParent = {
     GetScale = function() return scale end,
-    SetScale = function(_, value) scale, writes = value, writes + 1 end,
+    GetEffectiveScale = function() return scale end,
+    SetScale = function(_, value)
+        scale, scaleWrites = value, scaleWrites + 1
+        if onScaleWrite then onScaleWrite() end
+    end,
 }
-WorldFrame = {ClearAllPoints = function() end, SetAllPoints = function() end}
-local cvarWrites = 0
+WorldFrame = {
+    GetEffectiveScale = function() return 1 end,
+    SetPoint = function() worldAnchors = worldAnchors + 1 end,
+    ClearAllPoints = function() end,
+    SetAllPoints = function()
+        worldResets = worldResets + 1
+        if onWorldReset then onWorldReset() end
+    end,
+}
 GetCVar = function() return nil end
 SetCVar = function() cvarWrites = cvarWrites + 1 end
-local addon = {}
-assert(loadfile("Core/Init.lua"))("Offhand", addon)
-assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
-assert(logout, "production PLAYER_LOGOUT cleanup was not captured")
-local viewport = addon.Viewport
-viewport.GetMetrics = function() return {isSpanned = true,
-    gamePixelHeight = 1080, gamePixelWidth = 1920, physicalHeight = 2160} end
-local function apply()
-    addon.db = {enabled = true, hudScale = 0.7}
-    viewport:ApplyGlobalScale()
+
+local function setup()
+    local mainEvent, logout
+    CreateFrame = function(_, name)
+        local events = {}
+        return {
+            RegisterEvent = function(_, event) events[event] = true end,
+            SetScript = function(_, script, callback)
+                if script ~= "OnEvent" then return end
+                if name == "OffhandEventFrame" then
+                    mainEvent = callback
+                elseif events.PLAYER_LOGOUT and not events.PLAYER_LOGIN then
+                    logout = callback
+                end
+            end,
+        }
+    end
+    local addon = {}
+    assert(loadfile("Core/Init.lua"))("Offhand", addon)
+    assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+    assert(mainEvent and logout, "production event handlers were not captured")
+    local metrics = {
+        isSpanned = true, gamePixelHeight = 1080, gamePixelWidth = 1920, physicalHeight = 2160,
+        gameLeft = 0, gameBottom = 0, gameRight = 960, gameTop = 540,
+    }
+    addon.Viewport.GetMetrics = function() return metrics end
+    addon.db = {enabled = true, hudScale = 0.7, restoreWorkspaceOnReload = true,
+        savedWorkspacePositions = {}}
+    addon.IsGamepadUIEnabled = function() return false end
+    scale = 0.8
+    addon.Viewport:ApplyGlobalScale()
     assert(math.abs(scale - 0.35) < 0.00001, "fixture did not apply spanned UI scale")
+    return addon, mainEvent, logout, metrics
 end
-apply()
+
+local timers = {}
+C_Timer = {
+    NewTimer = function(_, callback)
+        local timer = { callback = callback }
+        function timer:Cancel() self.cancelled = true end
+        timers[#timers + 1] = timer
+        return timer
+    end,
+}
+
+-- Simulate a native notification and direct layout retry during teardown.
+local addon, mainEvent, logout = setup()
+local spannedScale, beforeScaleWrites, beforeResets = scale, scaleWrites, worldResets
+local layoutWrites, rawRestores, rawUpdates, rawRefreshes, panelRestores = 0, 0, 0, 0, 0
+addon.UpdateCanvas = function() layoutWrites = layoutWrites + 1 end
+addon.RawMouse = {
+    Restore = function() rawRestores = rawRestores + 1 end,
+    Update = function() rawUpdates = rawUpdates + 1 end,
+    Refresh = function() rawRefreshes = rawRefreshes + 1 end,
+}
+addon.Canvas = {
+    RestorePersistentFrames = function() panelRestores = panelRestores + 1 end,
+}
+local function retryLayout()
+    mainEvent(nil, "UI_SCALE_CHANGED")
+    addon:ApplyFullLayout()
+    addon.Viewport:Apply()
+end
+onScaleWrite, onWorldReset = retryLayout, retryLayout
+mainEvent(nil, "DISPLAY_SIZE_CHANGED")
+local pendingTimer = timers[1]
 logout()
-assert(scale == 0.8, "logout left Offhand's temporary scale on UIParent")
-assert(addon.db.enabled, "logout changed the saved enabled preference")
-assert(cvarWrites == 0, "runtime-scale cleanup changed saved UI/font preferences")
-local restoredWrites = writes
--- Simulate a synchronous display callback or late layout event during teardown.
+onScaleWrite, onWorldReset = nil, nil
+assert(scale == spannedScale and scaleWrites == beforeScaleWrites,
+    "PLAYER_LOGOUT wrote the native UI root scale during teardown")
+assert(pendingTimer.cancelled and #timers == 1,
+    "PLAYER_LOGOUT did not cancel existing display work or accepted a new notification")
+assert(rawRestores == 1 and worldResets == beforeResets + 1, "legacy logout cleanup did not run")
+mainEvent(nil, "DISPLAY_SIZE_CHANGED")
+pendingTimer.callback() -- A timer already dispatched before cancellation must be harmless.
+addon.Viewport:ApplyGlobalScale()
+assert(#timers == 1 and layoutWrites == 0 and rawUpdates == 0
+    and rawRefreshes == 0 and panelRestores == 0 and worldAnchors == 0,
+    "display layout resumed after shutdown began")
+assert(addon.db.enabled and cvarWrites == 0, "logout changed saved UI/font preferences")
+
+-- A display pass that already transferred into the combat queue must also stop,
+-- even if the main event frame gets PLAYER_LOGOUT before the cleanup frame.
+addon, mainEvent, logout = setup()
+combat = true
+local queued
+local queue = addon.RunOrQueueCombat
+addon.RunOrQueueCombat = function(_, callback) queued = callback end
+mainEvent(nil, "DISPLAY_SIZE_CHANGED")
+timers[#timers].callback()
+assert(queued, "fixture did not queue display work for combat")
+local captured = false
+addon.ForeverPersistence = {
+    SaveOpenPanels = function() end,
+    SaveProfileSnapshot = function() captured = true end,
+}
+addon.RawMouse = { Refresh = function() rawRefreshes = rawRefreshes + 1 end }
+addon.RunOrQueueCombat = queue
+local combatWrites = scaleWrites
+mainEvent(nil, "PLAYER_LOGOUT")
+local timerCount = #timers
+mainEvent(nil, "DISPLAY_SIZE_CHANGED")
+logout()
+combat = false
+queued()
+assert(captured, "PLAYER_LOGOUT skipped saved workspace state")
+assert(#timers == timerCount and rawRefreshes == 0 and scaleWrites == combatWrites,
+    "logout accepted display work or a queued refresh rewrote runtime scale")
+
+-- Explicit disable or an unspanned window releases the runtime scale while the
+-- UI is still active, preserving any later scale owner.
+local viewport, metrics
+addon, mainEvent, logout, metrics = setup()
+viewport = addon.Viewport
+metrics.isSpanned = false
 viewport:ApplyGlobalScale()
-logout()
-assert(scale == 0.8 and writes == restoredWrites, "teardown reapplied or repeatedly restored scale")
+assert(scale == 0.8 and addon.db.enabled, "unspan did not restore the native baseline")
+assert(viewport.originalScale == nil and viewport.appliedScale == nil,
+    "unspan retained stale scale ownership")
 
--- Another scale owner wins if it changed the root after Offhand's last write.
-assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+addon = setup()
 viewport = addon.Viewport
-viewport.GetMetrics = function() return {isSpanned = true,
-    gamePixelHeight = 1080, gamePixelWidth = 1920, physicalHeight = 2160} end
-apply()
-scale = 0.9
-logout()
-assert(scale == 0.9, "logout overwrote another owner's UI scale")
+addon.db.enabled = false
+viewport:ApplyGlobalScale()
+assert(scale == 0.8, "disable did not restore the native baseline")
 
--- A synchronous native/other-addon hook can change the root before our setter
--- returns. Track our requested value, never claim that hook's replacement.
-assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+for _, externalScale in ipairs({0.9, 0.95}) do
+    addon = setup()
+    viewport = addon.Viewport
+    scale = externalScale
+    if externalScale == 0.95 then
+        -- A new explicit reapplication captures the newer owner as its baseline.
+        viewport:ApplyGlobalScale()
+    end
+    addon.db.enabled = false
+    viewport:ApplyGlobalScale()
+    assert(scale == externalScale, "disable overwrote another owner's baseline")
+    assert(viewport.originalScale == nil and viewport.appliedScale == nil,
+        "disable retained stale scale ownership")
+end
+
+addon = setup()
 viewport = addon.Viewport
-viewport.GetMetrics = function() return {isSpanned = true,
-    gamePixelHeight = 1080, gamePixelWidth = 1920, physicalHeight = 2160} end
 local setScale = UIParent.SetScale
 UIParent.SetScale = function(self, value)
     setScale(self, value)
-    scale = 0.95
+    scale = 0.93
 end
-addon.db = {enabled = true, hudScale = 0.7}
+scale = 0.91
 viewport:ApplyGlobalScale()
 UIParent.SetScale = setScale
-logout()
-assert(scale == 0.95, "logout claimed another owner's synchronous scale replacement")
-
--- A reload requested in combat must not write the protected root or queue
--- a restore into a session which is already being torn down.
-assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
-viewport = addon.Viewport
-viewport.GetMetrics = function() return {isSpanned = true,
-    gamePixelHeight = 1080, gamePixelWidth = 1920, physicalHeight = 2160} end
-apply()
-combat = true
-addon.RunOrQueueCombat = function() end
-local combatWrites = writes
-logout()
-assert(writes == combatWrites, "logout changed UIParent scale during combat")
-combat = false
+addon.db.enabled = false
 viewport:ApplyGlobalScale()
-assert(writes == combatWrites, "a late callback reapplied scale after combat logout")
-print("PASS: logout restores owned UI scale, preserves preferences/external ownership, and guards combat/late callbacks")
-
--- Explicit disable must release ownership as carefully as logout does.
-assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
-viewport=addon.Viewport
-viewport.GetMetrics=function()return{isSpanned=true,gamePixelHeight=1080,gamePixelWidth=1920,physicalHeight=2160}end
-apply();scale=.9;addon.db.enabled=false;viewport:ApplyGlobalScale()
-assert(scale==.9,'disable overwrote a later external UI scale')
-assert(viewport.originalScale==nil and viewport.appliedScale==nil,'disable retained stale ownership')
-apply();scale=.95;viewport:ApplyGlobalScale();addon.db.enabled=false;viewport:ApplyGlobalScale()
-assert(scale==.95,'reclaiming the root forgot the latest external baseline')
-print('PASS: disable yields external scale and restores the latest baseline after an explicit reclaim')
+assert(scale == 0.93, "disable claimed another owner's synchronous scale replacement")
+print("PASS: logout blocks new and queued layout work without changing root scale or saved preferences")
+print("PASS: disable and unspan restore owned scale and preserve external ownership")

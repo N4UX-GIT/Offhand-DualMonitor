@@ -1,9 +1,12 @@
 local function entries(path)
-    local result={}
+    local result, seen = {}, {}
     for line in io.lines(path) do
         local file=line:match("^%s*(.-%.lua)%s*$")
         if file and not file:match("^#") then
             file=file:gsub("\\", "/")
+            local key = file:lower()
+            assert(not seen[key], "Duplicate TOC file in " .. path .. ": " .. file)
+            seen[key] = true
             assert(loadfile(file), "Invalid or missing TOC file: "..file)
             result[#result+1]=file
         end
@@ -16,12 +19,20 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
     assert(text:match("## Version:%s*2%.1%.5"), "Matching 2.1.5 addon version missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.28[ \t]*\r?\n"), "Pre-Release Beta 28 addon marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Companion%-Version:%s*2%.1%.5"), "Matching Companion version marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.36[ \t]*\r?\n"), "Pre-Release Beta 36 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Version:[ \t]*2%.1%.8[ \t]*\r?\n"), "Matching Companion version marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*\r?\n"), "Stable Companion release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.28[ \t]*\r?\n"), "Pre-Release Beta 28 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.36[ \t]*\r?\n"), "Pre-Release Beta 36 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Max%-Workspaces:[ \t]*3[ \t]*\r?\n"),
+        "Three-workspace capability missing: " .. toc)
+    local guide = assert(text:find("Core\\CenterGuide.lua", 1, true), toc)
+    assert(assert(text:find("Core\\Viewport.lua", 1, true), toc) < guide
+        and guide < assert(text:find("Core\\SeamRedirect.lua", 1, true), toc), toc)
+    local scale = assert(text:find("Core\\WorkspaceScale.lua", 1, true), toc)
+    local controls = assert(text:find("UI\\WorkspaceScaleControls.lua", 1, true), toc)
+    assert(scale < controls and controls < assert(text:find("UI\\Wizard.lua", 1, true), toc), toc)
 end
 local genericText = assert(io.open("Offhand.toc", "rb")):read("*a")
 local mainlineText = assert(io.open("Offhand_Mainline.toc", "rb")):read("*a")
