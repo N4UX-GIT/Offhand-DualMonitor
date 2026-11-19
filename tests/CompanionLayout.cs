@@ -232,6 +232,8 @@ namespace Offhand.Companion
                 var layoutStatus = status.Controls.OfType<Label>().Single(label => label.Text.StartsWith("Display layout"));
                 var roomyDesktop = new Rectangle(0, 0, 2560, 2300);
                 form.FitDashboardToWorkingArea(roomyDesktop);
+                // Leave room for growth even when the runner caps native window height.
+                form.Height = form.MinimumSize.Height;
                 Rectangle startupBounds = form.Bounds;
                 var legacy = new Dictionary<string, string> { { "DisplayIdentityVersion", "1" } };
                 string review = CompanionForm.DisplaySelectionPrompt(legacy, true, true);
@@ -514,6 +516,7 @@ namespace Offhand.Companion
             {
                 form.Show();
                 LayoutAll(form);
+                form.Height = form.MinimumSize.Height;
                 var startup = form.Bounds;
                 var roomyDesktop = new Rectangle(startup.Left, startup.Top, startup.Width, 1700);
                 var status = One<Panel>(form, panel => panel.Controls.OfType<Label>().Any(label => label.Text == "SYSTEM STATUS"));
@@ -530,10 +533,14 @@ namespace Offhand.Companion
                     throw new Exception("Setup must keep its height when WoW closes.");
 
                 form.SelectDashboardPage(true);
+                // Setup may already have reached the host's maximum track height.
+                // Exercise Advanced growth from its own compact starting size.
+                form.Height = form.MinimumSize.Height;
+                var advancedStart = form.Bounds;
                 form.SetLayoutNotice(123, string.Concat(Enumerable.Repeat("Review the display layout. ", 25)));
                 form.GrowDashboardToWorkingArea(roomyDesktop);
                 LayoutAll(form);
-                if (form.Height <= grown.Height || !roomyDesktop.Contains(form.Bounds))
+                if (form.Height <= advancedStart.Height || !roomyDesktop.Contains(form.Bounds))
                     throw new Exception("Advanced must grow to fit its content within the working area.");
                 form.SetLayoutNotice(123, "WoW did not keep the span. Restore Window, then reload and try again.", spanFailed: true);
                 form.UpdateClientStatus(null, true);
