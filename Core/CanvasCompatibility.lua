@@ -128,6 +128,35 @@ function Compatibility.GetWorldMapFadeAddon()
     if Compatibility.HasLeatrixMaps() then return "Leatrix_Maps" end
 end
 
+local mapAddons = {"OpenMap", "MapWise", "MapUtils", "Leatrix_Maps", "DaylightUI",
+    "BlizzMove", "MoveAny", "MoveAnything", "ClassicUIForever"}
+local mapVersionNamespaces = {OpenMap = "OpenMap", MapWise = "MapWiseAPI"}
+
+local function DiagnosticVersion(value)
+    if type(value) ~= "string" or (issecretvalue and issecretvalue(value)) then return end
+    local version = value:gsub("[%c|]", ""):match("^%s*(.-)%s*$")
+    if version ~= "" then return version:sub(1, 64) end
+end
+
+function Compatibility.GetMapIntegrationDiagnostics()
+    local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local detected = {}
+    for _, name in ipairs(mapAddons) do
+        if Compatibility.IsAddonLoaded(name) then
+            local namespaceName = mapVersionNamespaces[name]
+            local namespace = namespaceName and rawget(_G, namespaceName)
+            local version
+            if type(namespace) == "table" then version = DiagnosticVersion(rawget(namespace, "version")) end
+            if not version and type(getMetadata) == "function" then
+                local ok, value = pcall(getMetadata, name, "Version")
+                if ok then version = DiagnosticVersion(value) end
+            end
+            detected[#detected + 1] = name .. "=" .. (version or "unknown version")
+        end
+    end
+    return #detected > 0 and table.concat(detected, " | ") or "none detected"
+end
+
 -- Window placement and movement fading use the vendor's internal settings.
 local reviewedOpenMapVersions = {
     ["v0.7.5-beta"] = true,

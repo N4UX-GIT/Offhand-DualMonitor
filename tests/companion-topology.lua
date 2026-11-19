@@ -75,3 +75,81 @@ for _, forever in ipairs({false, true}) do
     end
 end
 print("PASS: Companion topology dimensions, canvas agreement, stale APIs, offsets, split and malformed data")
+
+local physicalWidth, physicalHeight = 4520, 1922
+local canvasWidth, canvasHeight = 4520, 1922
+local timers, queued, points = {}, {}, {}
+local inCombat, reserved = false, false
+GetPhysicalScreenSize = function() return physicalWidth, physicalHeight end
+InCombatLockdown = function() return inCombat end
+UIParent = {
+    GetWidth = function() return canvasWidth end,
+    GetHeight = function() return canvasHeight end,
+    GetEffectiveScale = function() return 1 end,
+}
+WorldFrame = {
+    GetEffectiveScale = function() return 1 end,
+    ClearAllPoints = function() points = {} end,
+    SetPoint = function(_, point, _, relative, x, y) points[point] = {relative, x, y} end,
+}
+C_Timer = {After = function(delay, callback)
+    assert(delay > 0)
+    timers[#timers + 1] = callback
+end}
+addon.RunOrQueueCombat = function(_, callback) queued[#queued + 1] = callback end
+addon.IsBlizzardInputReserved = function() return reserved end
+addon.Debug = function() end
+addon.companionMinVersion = "2.1.8"
+addon.db = {enabled=true, firstRunComplete=true, hudScale=0.65}
+local reporterPlan = plan(4520, 1922, rect(1080, 0, 3440, 1440), rect(0, 2, 1080, 1920))
+reporterPlan.companionVersion = "2.1.8"
+OffhandCompanionTopology = reporterPlan
+
+-- Simulate WoW replacing a correct rectangle after the normal entry apply.
+local function expectRefresh()
+    assert(points.BOTTOMLEFT[2] == 1080 and points.BOTTOMLEFT[3] == 0)
+    assert(points.TOPRIGHT[2] == 4520 and points.TOPRIGHT[3] == 1440)
+    assert(viewport.settledCompanionRefresh and addon.db.firstRunComplete and addon.db.hudScale == 0.65)
+end
+local function tick() table.remove(timers, 1)() end
+for cycle = 1, 3 do
+    viewport:Apply()
+    points = {}
+    viewport:ScheduleSettledCompanionRefresh()
+    assert(not next(points), "the settled pass must be delayed")
+    tick()
+    expectRefresh()
+end
+points = {}
+viewport:ScheduleSettledCompanionRefresh()
+addon._displayGeometryGeneration = 1
+tick()
+assert(not next(points), "a newer display event must invalidate stale work")
+viewport:ScheduleSettledCompanionRefresh()
+inCombat = true
+tick()
+assert(not next(points) and #queued == 1, "combat must defer the viewport write")
+inCombat = false
+table.remove(queued, 1)()
+expectRefresh()
+
+local function expectSkipped()
+    points = {}
+    viewport:ScheduleSettledCompanionRefresh()
+    tick()
+    assert(not next(points) and not viewport.settledCompanionRefresh)
+end
+physicalWidth, physicalHeight, canvasWidth, canvasHeight = 3440, 1440, 3440, 1440
+expectSkipped()
+physicalWidth, physicalHeight, canvasWidth, canvasHeight = 4520, 1922, 4520, 1922
+reporterPlan.companionVersion = "2.1.7"
+expectSkipped()
+reporterPlan.companionVersion = "2.1.8"
+reserved = true
+expectSkipped()
+reserved = false
+OffhandCompanionTopology = split
+physicalWidth, physicalHeight, canvasWidth, canvasHeight = 5120, 1440, 5120, 1440
+expectSkipped()
+assert(#timers == 0, "the settled refresh must not poll")
+print("PASS: repeated mixed-height re-spans recover the viewport without calibration in the fixture")

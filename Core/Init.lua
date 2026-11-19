@@ -262,10 +262,12 @@ end
 -- installation with stale locale files never exposes localization identifiers
 -- such as POPUP_COMPANION_VERSION_TEXT to the player.
 local companionPopupFallbacks = {
-    POPUP_COMPANION_HANDOFF_TEXT = "|cffffd100Offhand could not confirm the current display span.|r\n\nOpen Companion, select your displays and Mainhand monitor, then click Span WoW Now. If WoW was already running, type /reload once afterward.",
-    POPUP_COMPANION_TOPOLOGY_TEXT = "|cffffd100The saved display layout no longer matches this WoW window.|r\n\nOpen Companion, confirm the selected displays and Mainhand monitor, then click Span WoW Now. If WoW was already running, type /reload once afterward.",
+    POPUP_COMPANION_HANDOFF_TEXT = "Your addon and Companion versions may already be correct. Offhand has not loaded matching display geometry. In Companion, check your displays and Mainhand, then click Span WoW Now.",
+    POPUP_COMPANION_TOPOLOGY_TEXT = "The loaded layout does not match this WoW window. Restore the intended span in Companion, or select your new displays and Mainhand and click Span WoW Now.",
     POPUP_COMPANION_VERSION_TEXT = "|cffffd100Companion version mismatch|r\n\nThis display layout was created by Companion %s, but this addon requires %s. Update Companion, span WoW again, and type /reload.\n\nCopy the official download address below:",
-    FOREVER_SINGLE_SCREEN_COMPANION_HINT = "To span again, click Span WoW Now in Companion, then type /reload in WoW.",
+    FOREVER_SINGLE_SCREEN_COMPANION_HINT = "If WoW shrank after spanning, type /reload and wait before clicking Span WoW Now again. Reload after spanning only when the layout is new, changed or not loaded in WoW. Restore Window and Span WoW Now can reuse the same loaded layout without another reload or calibration.",
+    FOREVER_SINGLE_SCREEN_COMPANION_RELOAD_BUTTON_HINT = "If WoW shrank after spanning, click %s below and wait before clicking Span WoW Now again. Reload after spanning only when the layout is new, changed or not loaded in WoW. Restore Window and Span WoW Now can reuse the same loaded layout without another reload or calibration.",
+    POPUP_COMPANION_LAYOUT_RELOAD_HINT = "After spanning, use %s only if the layout is new, changed or not loaded in WoW. Reusing the same loaded layout needs no additional reload or calibration.",
     POPUP_BTN_GOT_IT = "Got it",
 }
 
@@ -622,13 +624,14 @@ local function GetGamepadSafePopup()
 
     local function Finish(handler)
         local definition, data = frame.definition, frame.data
-        if handler == "OnAccept" and definition and definition.offhandAcceptBeforeHide
-            and type(definition.OnAccept) == "function" then
+        local beforeHide = definition and ((handler == "OnAccept" and definition.offhandAcceptBeforeHide)
+            or (handler == "OnAlt" and definition.offhandAltBeforeHide))
+        if beforeHide and type(definition[handler]) == "function" then
             -- Forever revokes reload's hardware-click permission when its
             -- clicked parent is hidden first. Keep this ordering opt-in so
             -- ordinary confirmation callbacks retain their existing lifecycle.
             local generation = frame.popupGeneration
-            definition.OnAccept(frame, data, "clicked")
+            definition[handler](frame, data, "clicked")
             -- A callback may replace/reopen this same pooled card, including
             -- the same definition after an input-style or combat change.
             if frame.popupGeneration == generation and frame.definition == definition then frame:Hide() end
@@ -658,6 +661,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local helpPopup = popupKey == "OFFHAND_SETTINGS_HELP"
     local readyPopup = popupKey == "OFFHAND_WORKSPACE_READY"
+    local definition = StaticPopupDialogs and StaticPopupDialogs[popupKey]
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
@@ -671,12 +675,12 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
         or popupKey == "OFFHAND_CHARACTER_SETUP"
         or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD" or readyPopup
+        or (definition and definition.offhandAltBeforeHide)
     if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup and not helpPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
         return nil
     end
 
-    local definition = StaticPopupDialogs and StaticPopupDialogs[popupKey]
     if not definition then return nil end
     local frame = GetGamepadSafePopup()
     if frame.popupKey then frame:Hide() end
@@ -1030,6 +1034,26 @@ function Offhand:GetCompanionNoticeKind(metrics, recoveryPromptActive)
     return nil
 end
 
+function Offhand:PrepareCompanionLayoutReload(popupKey, textKey)
+    local definition = StaticPopupDialogs[popupKey]
+    definition.button3, definition.OnAlt, definition.offhandAltBeforeHide = nil, nil, nil
+    local action = "/reload"
+    if not self:IsGamepadUIEnabled() and self:GetReloadUIFunction()
+        and not (InCombatLockdown and InCombatLockdown()) then
+        action = self.L["ONBOARD_RELOAD_UI"]
+        definition.button3 = action
+        definition.offhandAltBeforeHide = true
+        definition.OnAlt = function()
+            local reload = Offhand:GetReloadUIFunction()
+            if reload and not Offhand:IsGamepadUIEnabled()
+                and not (InCombatLockdown and InCombatLockdown()) then reload()
+            else Offhand:ShowManualReloadPrompt() end
+        end
+    end
+    definition.text = CompanionPopupLocale(textKey) .. "\n\n"
+        .. string.format(CompanionPopupLocale("POPUP_COMPANION_LAYOUT_RELOAD_HINT"), action)
+end
+
 function Offhand:ShowCompanionNotice(kind, metrics)
     if kind and Offhand:IsBlizzardInputReserved() then
         Offhand:DeferAutomaticUIForCinematic()
@@ -1057,7 +1081,11 @@ function Offhand:ShowCompanionNotice(kind, metrics)
         local key = companionNoticePopups[kind]
         local mac = Offhand.IsMacClient and Offhand:IsMacClient() and not (metrics and metrics.companionTopology)
         if mac then
-            StaticPopupDialogs[key].text = Offhand.L["ONBOARD_MAC_CHOOSE_BRIEF"]
+            local dialog = StaticPopupDialogs[key]
+            dialog.text = Offhand.L["ONBOARD_MAC_CHOOSE_BRIEF"]
+            dialog.button3, dialog.OnAlt, dialog.offhandAltBeforeHide = nil, nil, nil
+        else
+            Offhand:PrepareCompanionLayoutReload(key, kind == "TOPOLOGY" and "POPUP_COMPANION_TOPOLOGY_TEXT" or "POPUP_COMPANION_HANDOFF_TEXT")
         end
         Offhand:ShowPopup(key)
     end
@@ -1125,6 +1153,7 @@ function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName, fallbackName,
     local gamepad = fallbackName == "Gamepad"
     definition.offhandAcceptBeforeHide = gamepad or nil
     if kind == "fallback" then
+        definition.button3, definition.OnAlt, definition.offhandAltBeforeHide = nil, nil, nil
         definition.button1 = gamepad and (_G.LAYOUT_STYLE_GAMEPAD or fallbackName) or Offhand.L["FOREVER_USE_MODERN"]
         local text = Offhand.L[gamepad and "FOREVER_GAMEPAD_SINGLE_SCREEN_LAYOUT_TEXT"
             or "FOREVER_SINGLE_SCREEN_LAYOUT_TEXT"]
@@ -1135,6 +1164,21 @@ function Offhand:ShowForeverLayoutRecoveryPrompt(kind, layoutName, fallbackName,
             local mac = Offhand.IsMacClient and Offhand:IsMacClient() and not (metrics and metrics.companionTopology)
             local hint = mac and Offhand.L["ONBOARD_MAC_CHOOSE_BRIEF"] .. "\n\n|cffffd100/offhand guide|r"
                 or CompanionPopupLocale("FOREVER_SINGLE_SCREEN_COMPANION_HINT")
+            if not mac and not gamepad and Offhand:GetReloadUIFunction()
+                and not (InCombatLockdown and InCombatLockdown()) then
+                definition.button3 = Offhand.L["ONBOARD_RELOAD_UI"]
+                hint = string.format(CompanionPopupLocale("FOREVER_SINGLE_SCREEN_COMPANION_RELOAD_BUTTON_HINT"),
+                    definition.button3)
+                definition.offhandAltBeforeHide = true
+                definition.OnAlt = function()
+                    local reload = Offhand:GetReloadUIFunction()
+                    if reload and not (InCombatLockdown and InCombatLockdown()) then
+                        reload()
+                    else
+                        Offhand:ShowManualReloadPrompt()
+                    end
+                end
+            end
             text = text .. "\n\n" .. hint
         end
         definition.text = text
@@ -1572,6 +1616,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         C_Timer.After(0.5, function()
             if Offhand._loggingOut then return end
             Offhand:ApplyFullLayout()
+            if shouldEvaluateNotices and Offhand.Viewport and Offhand.Viewport.ScheduleSettledCompanionRefresh then
+                Offhand.Viewport:ScheduleSettledCompanionRefresh()
+            end
             local entryMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
             if Offhand.RawMouse and Offhand.RawMouse.Refresh then
                 Offhand.RawMouse:Refresh(entryMetrics)
@@ -1710,6 +1757,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 end
                 if generation == Offhand._displayGeometryGeneration then
                     Offhand._displayGeometryTransitionActive = false
+                    if Offhand.Viewport and Offhand.Viewport.ScheduleSettledCompanionRefresh then
+                        Offhand.Viewport:ScheduleSettledCompanionRefresh()
+                    end
                     -- The resize event reached the guide while the transition
                     -- was active. Refresh readiness only after this generation
                     -- finishes, including layout work deferred by combat.
@@ -1911,6 +1961,23 @@ SlashCmdList["OFFHAND"] = function(msg)
         local effScale = UIParent and UIParent:GetEffectiveScale() or 1.0
         Offhand:Print("Geometry: Physical=%dx%d | ScreenUI=%.0fx%.0f | EffectiveScale=%.3f | GameUI=%.0fx%.0f.",
             physW, physH, screenW, screenH, effScale, m.gameWidth or 0, m.gameHeight or 0)
+        if fullDiagnostics then
+            local graphics = Offhand.Viewport:GetGraphicsDiagnostics()
+            Offhand:Print("Graphics: FPS=%s | VSync=%s | maxFPS=%s | maxFPSBk=%s | API=%s"
+                .. " | RenderScale=%s | DynamicRenderScale=%s | ResampleQuality=%s"
+                .. " | ResampleAlwaysSharpen=%s | ResampleSharpness=%s.",
+                graphics.fps and string.format("%.1f", graphics.fps) or "unavailable",
+                graphics.gxVSync, graphics.maxFPS, graphics.maxFPSBk, graphics.gxApi,
+                graphics.renderScale, graphics.dynamicRenderScale, graphics.resampleQuality,
+                graphics.resampleAlwaysSharpen, graphics.resampleSharpness)
+            Offhand:Print("Graphics AA settings: ffxAntiAliasingMode=%s | CMAA2Quality=%s | MSAAQuality=%s | MSAAAlphaTest=%s | OffhandAntiShimmer=%s.",
+                graphics.antiAliasingMode, graphics.cmaa2Quality, graphics.msaaQuality, graphics.msaaAlphaTest,
+                Offhand.db and Offhand.db.antiShimmer == true and "on" or "off")
+            if Offhand.isForever and m.companionTopology and m.gamePixelHeight < physH then
+                Offhand:Print("Settled Companion viewport refresh: %s.",
+                    Offhand.Viewport.settledCompanionRefresh and "applied" or "not recorded")
+            end
+        end
         if Offhand.isLegacyWrath then
             Offhand:Print("Legacy Wrath diagnostics: Interface=%s | Timer=%s | PhysicalSource=%s.",
                 tostring(Offhand.tocVersion or "unknown"),
@@ -2089,6 +2156,9 @@ SlashCmdList["OFFHAND"] = function(msg)
             if compatibility then
                 Offhand:Print("Compatibility diagnostics: %s.", compatibility)
             end
+        end
+        if fullDiagnostics and Offhand.CanvasCompatibility then
+            Offhand:Print("Map integrations: %s.", Offhand.CanvasCompatibility.GetMapIntegrationDiagnostics())
         end
         if panelDiagnostics and Offhand.Canvas and Offhand.Canvas.GetPanelControllerDiagnostics then
             Offhand:Print("Panel controller diagnostics: %s.",

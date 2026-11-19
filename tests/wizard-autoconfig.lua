@@ -2971,12 +2971,16 @@ do
     addon.Onboarding = {Open = function() guides = guides + 1 end}
     addon.Wizard = {Open = function() calibrations = calibrations + 1 end}
     for _, notice in ipairs({handoffNotice, topologyWarning, versionWarning}) do
-        assert(notice.button1 and notice.button2 and notice.button3,
-            "recovery warnings must offer guide, calibration and dismiss actions")
+        assert(notice.button1 and notice.button2,
+            "recovery warnings must retain guide and dismiss actions")
         notice.OnAccept()
+    end
+    for _, notice in ipairs({versionWarning}) do
+        assert(notice.button1 and notice.button2 and notice.button3,
+            "version warnings must retain their calibration action")
         notice.OnAlt()
     end
-    assert(guides == 3 and calibrations == 3, "warning actions must launch their named recovery flow")
+    assert(guides == 3 and calibrations == 1, "warning actions must launch their named recovery flow")
     addon.Onboarding, addon.Wizard = guideModule, wizardModule
 end
 
