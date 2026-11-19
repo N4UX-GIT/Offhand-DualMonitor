@@ -4,7 +4,7 @@ Updated 19 November 2026 for the Forever integration branch. The shared addon ba
 
 ## Live acceptance with Companion 2.1.9 Beta 1
 
-Use the Beta 36 QA ZIP and Companion in `dist/qa-companion-219-expanded-map/` for continued testing. The addon ZIP SHA-256 is `9ff5c4d90f14c08b40ba79b3c8c733f7d86a9d336363b7abf203e56d1e61a28a`. The Companion executable SHA-256 is `08602635f061aa7d278dd8a74d6bc6aebbd0bf304e55d3fe1266d0f60bce4f66`. The preceding `76e2400` addon ZIP used for the scale tests below had SHA-256 `46e8f0fdb5abedb8fe57a29a5921ae4f05713e323f176fbfdae57efb787e798f`.
+Use the Beta 36 QA ZIP and Companion in `dist/qa-companion-219-map-slider/` for continued testing. The addon ZIP SHA-256 is `d9e4de0bc2e153b4543fd33e972aec8f02fc3c48a0facabdd57ac40afd907728`. The Companion executable SHA-256 is `08602635f061aa7d278dd8a74d6bc6aebbd0bf304e55d3fe1266d0f60bce4f66`. Prior addon ZIPs used for the expanded-map and programmatic scale checks had SHA-256 `9ff5c4d90f14c08b40ba79b3c8c733f7d86a9d336363b7abf203e56d1e61a28a` and `46e8f0fdb5abedb8fe57a29a5921ae4f05713e323f176fbfdae57efb787e798f`, respectively.
 
 On Forever 1.60.1.70959 the two-character test used this same executable with the preceding Beta 36 addon ZIP from `dd1725e` (SHA-256 `f96c024783286f6970810924b12c0b26992d11d98d034217ae4ebcedb59ab9b6`). The executable produced the recovery file after WoW exited. The generated monitor geometry was retained when staging each addon.
 
@@ -19,13 +19,31 @@ On the local 2560 × 1440 Mainhand and 1440 × 2560 portrait Offhand, Standard s
 
 The installed addon, generated files, Offhand account/character settings, native layout files and portable Companion preferences were restored after the run. Private evidence remains under the ignored `dist/forever-219-live-1795052566718/` directory. The shared knowledge query returned general persistence guidance for this build. The observations above came from the running client.
 
-On the subsequent `76e2400` run, OpenMap 0.8.10 owned the visible world map on the physical portrait Offhand. The map settings API reported a 5 percentage-point step. Setting 115% updated both the live frame and OpenMap’s saved scale. Auto Fit calculated 110.86%, and closing and reopening the map preserved that value. The control was unavailable while the stitched map was closed. Restore returned the original window rectangle, and all 144 backed-up files and the portable preferences passed verification after cleanup. The test exercised the settings handler. Pointer drag and keyboard adjustment still need an interaction pass.
+On the subsequent `76e2400` run, OpenMap 0.8.10 owned the visible world map on the physical portrait Offhand. The map settings API reported a 5 percentage-point step. Setting 115% updated both the live frame and OpenMap’s saved scale. Auto Fit calculated 110.86%, and closing and reopening the map preserved that value. The control was unavailable while the stitched map was closed. Restore returned the original window rectangle, and all 144 backed-up files and the portable preferences passed verification after cleanup.
+
+### Map slider and BugSack replay on 19 November
+
+On Noggaholic Naux, the previous OpenMap slider moved from 100% to 120% on a 60-pixel drag, and Up in the focused percentage field had no effect. On the 4000-pixel span, that drag produced 18 cursor-coordinate units. The revised map rail samples the physical travel through release. Up and Down in the percentage field move by one provider step, and Shift multiplies the step by five. The following results came from live input outside combat.
+
+| Interaction | Blizzard map pinned to Offhand | OpenMap 0.8.10 on Offhand |
+| --- | --- | --- |
+| Drag 60 pixels right from 100% | 120% | 110% |
+| Press Up, then Shift+Up | 121%, then 126% | 115%, then 140% |
+| Enter 113% and reopen | 113% | 115% |
+| Enter a value below the minimum | 50% saved and rendered | 50% saved and rendered |
+| Enter a value above the maximum | 250% saved, 152.87% rendered to fit the portrait display | 160% saved and rendered |
+
+In a separate unpinned Blizzard map check, the oversized request rendered at about 201%. Entering 10% next saved 50%, but the frame rendered at about 153%. Repeat while recording the selected display, preference key and frame anchor before and after each size change. The pinned test passed the same lower bound.
+
+BugSack reads captured errors from the account’s `!BugGrabber.lua`. The prior centre-line, bag and map QA sessions 515, 516, 518 and 525 contained 15 distinct QA-command errors with 17 occurrences. The commands were truncated or called missing helpers. Earlier history also contained an Offhand bag diagnostic error involving EllesmereUI and a forbidden SpellStopCasting action attributed to Offhand in the Escape/Game Menu path. The current bag diagnostic guards the optional addon. Neither error recurred in the final replay. An older QA probe also attempted the protected RunBinding action. The saved entries cannot identify which error sounded the alert.
+
+During this investigation, six failed diagnostic commands added 13 occurrences in sessions 533 and 540. After replacing those commands, the per-message counters did not increase from the end of session 540 through logout in session 543. On that replay, M and B opened OpenMap and Bagnon on Offhand and kept both open on repeat. Explicit close restored the original bindings, and both keys reopened their windows. F11 expanded the map and Escape returned it to compact on Offhand with the Game Menu closed. The visible centre line stayed on the same 2560 × 1440 Mainhand rectangle while the HUD changed from 70% to 56% and back. Restore returned the original window. All 149 backed-up files and the portable preferences matched after cleanup. BugGrabber history was retained.
 
 ## Original session
 
 | Request | Current evidence and remaining work |
 | --- | --- |
-| Easier first map scaling and finer slider sensitivity | OpenMap 0.8.10 passed manual scale, Auto Fit and reopen on the spanned portrait display. ClassicUI Forever and MoveAny ownership still take precedence. Check first-run discovery, a short workspace, pointer drag, keyboard increments and limits. Repeat with the native map. |
+| Easier first map scaling and finer slider sensitivity | Physical drag, focused keyboard adjustment, typed input, limits and reopen passed with OpenMap and the pinned Blizzard map. Check first-run discovery, a short workspace and the unpinned native scale discrepancy above. |
 | Theme labels and Studio opacity | Paired preset swatches and Studio-layer opacity are in the working checkout. Compare the label and rendered colour for each preset and check both opacity endpoints with a custom image and a built-in background. |
 | XP bar under action bars | Beta 36 fits the generated XP and reputation anchors and preserves custom positions. The merged regression checks cover existing layouts and other visible bars. Capture the reported character’s actual XP owner and action bars if overlap persists. |
 | Spoken addon placement | Identify the addon, frame and action that opens it. Capture the position with the native Talking Head and with Spoken enabled before choosing an owner-specific placement fix. |
@@ -38,7 +56,7 @@ On the subsequent `76e2400` run, OpenMap 0.8.10 owned the visible world map on t
 | Website Studio entry | Passed on the deployed website. The homepage link opened Background Studio. Edge exported a four-file media ZIP and the Studio successfully re-imported it. |
 | Donation buttons | Companion links to the website support section with the Ko-fi action. The deployed homepage has the Ko-fi link. Its footer still needs the QA branch’s `id="support"` to make the packaged `/#support` link scroll to it. The project’s addon policy keeps donation requests outside the game. |
 | Clear/reset guidance | Fresh-profile controls and reset copy are present in the working checkout. Verify that creating preferences and rebuilding a character HUD have distinct labels and that a shared reset explains who it affects. |
-| In-game centre line | Display settings and `/offhand centerline` use the same Mainhand guide. The guide passed the mixed-height show/hide check on Naux. A UI-scale change while the guide is visible remains open. |
+| In-game centre line | The Display settings button and `/offhand centerline` control the same guide. Show/hide and live HUD scale changes passed on Naux’s mixed-height desk. |
 | In-game Windows monitor arrangement | The placement page now explains Identify, dragging numbered displays, matching height and touching edges, and Apply in all eleven locales. Check readability and actual physical placement on the affected desk. |
 
 ## Game Menu chat

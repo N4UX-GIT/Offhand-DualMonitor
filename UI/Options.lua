@@ -1148,7 +1148,7 @@ function Options:CreateFloatingPanel()
         Offhand.MapScale:GetState().max, 0.01,
         function() return Offhand.MapScale:GetState().value end,
         function(val) Offhand.MapScale:Set(val) end,
-        "%.0f%%", L["MAP_SCALE"], L["MAP_SCALE_TARGET_HELP"]
+        "%.0f%%", L["MAP_SCALE"], L["MAP_SCALE_TARGET_HELP"], true
     )
     -- This action applies through the map owner; a full UI layout can move
     -- unrelated windows and is not needed for a scale preference.
