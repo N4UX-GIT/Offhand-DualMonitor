@@ -126,6 +126,149 @@ namespace Offhand.Companion
             Console.WriteLine("PASS: 160 single/secondary custom native rollback cases, both origins, prior clipping or none, five failure stages");
         }
 
+        private static void CheckCustomDpiResize()
+        {
+            var requested = new Rectangle(-2160, -611, 4720, 2069);
+            var plan = new MonitorSelection.Plan {
+                Bounds = requested, MainhandBounds = new Rectangle(0, 0, 2560, 1440),
+                WorkspaceBounds = new Rectangle(-2160, -611, 2160, 2069),
+            };
+            var observed = new ClassicGraphicsRecovery.Observation {
+                Bounds = new Rectangle(-2160, -611, 6660, 3104), Client = new Size(6660, 3104),
+                Region = new Rectangle(Point.Empty, requested.Size), Style = 0x140B0000, Usable = true,
+            };
+            Check(SpanDpiRetry.Matches(requested, observed, 96, 144), "150% custom span with capped width");
+            Check(!SpanDpiRetry.Matches(requested, observed, 144, 144), "unchanged DPI does not trigger a retry");
+            Check(!SpanDpiRetry.Matches(requested, observed, 0, 144), "unavailable DPI does not trigger a retry");
+            observed.Bounds.Offset(1, 0);
+            Check(!SpanDpiRetry.Matches(requested, observed, 96, 144), "different origin does not trigger a retry");
+            observed.Bounds.Offset(-1, 0);
+            observed.Bounds.Height = 3000;
+            observed.Client = observed.Bounds.Size;
+            Check(!SpanDpiRetry.Matches(requested, observed, 96, 144), "height must match the measured DPI ratio");
+            observed.Bounds.Height = 3104;
+            observed.Client = observed.Bounds.Size;
+            observed.Style |= NativeMethods.WS_THICKFRAME;
+            Check(!SpanDpiRetry.Matches(requested, observed, 96, 144), "changed window style does not trigger a retry");
+            observed.Style = 0x140B0000;
+            observed.Region = Rectangle.Empty;
+            Check(!SpanDpiRetry.Matches(requested, observed, 96, 144), "missing clipping does not trigger a retry");
+            observed.Region = new Rectangle(Point.Empty, requested.Size);
+            Check(!SpanDpiRetry.IsExact(requested, observed, 0x140B0000), "oversized retry cannot commit");
+            observed.Bounds = requested;
+            Check(!SpanDpiRetry.IsExact(requested, observed, 0x140B0000),
+                "exact window with an oversized client cannot commit");
+            observed.Client = requested.Size;
+            Check(SpanDpiRetry.IsExact(requested, observed, 0x140B0000),
+                "exact window, client and region can commit");
+
+            using (var window = new Form())
+            {
+                IntPtr handle = window.Handle;
+                Check(!SpanClipRegion.Matches(handle, plan, requested), "no clipping does not match");
+                Check(NativeMethods.SetWindowRgn(handle, NativeMethods.CreateRectRgn(0, 0, 4720, 2069), false) != 0,
+                    "install clipping with the same bounds but a different shape");
+                Check(!SpanClipRegion.Matches(handle, plan, requested),
+                    "matching clipping bounds alone cannot authorize a retry");
+                Check(NativeMethods.SetWindowRgn(handle, SpanClipRegion.Create(plan, requested), false) != 0,
+                    "install exact custom clipping");
+                Check(SpanClipRegion.Matches(handle, plan, requested), "exact clipping shape matches");
+            }
+            Console.WriteLine("PASS: reported custom span DPI signature and exact native clipping verification");
+        }
+
+        private static void CheckRestoreDpiResize()
+        {
+            foreach (string scenario in new[] { "success", "same DPI", "unknown DPI", "different origin",
+                "wrong size", "changed style", "clipped", "window changed", "retry rejected", "late DPI change" })
+            using (var window = new NativeRestoreFixture())
+            {
+                IntPtr handle = window.Handle;
+                NativeMethods.RECT before;
+                Check(NativeMethods.GetWindowRect(handle, out before), "pre-restore DPI fixture bounds");
+                int style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
+                int targetStyle = style | NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                // Keep this replay inside small CI desktops and away from real
+                // monitor seams. The 2/3 resize still includes fractional
+                // rounding, just as the live 1920x968 -> 1280x645 case did.
+                var target = new Rectangle(64, 48, 600, 448);
+                var shrunk = new Size(400, 298);
+                IntPtr clipping = Shape();
+                try
+                {
+                    Check(NativeMethods.SetWindowRgn(handle, Shape(), false) != 0, "DPI fixture pre-restore clipping");
+                    uint dpi = 144;
+                    int retryCount = 0;
+                    string failure = null;
+                    bool retried = false;
+                    uint flags = NativeMethods.SWP_NOZORDER | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_FRAMECHANGED;
+                    try
+                    {
+                        retried = WindowRestore.Apply(handle, target, targetStyle, stage =>
+                        {
+                            // Mimic WoW applying the suggested smaller rectangle
+                            // during the first resize. The next call is real Win32.
+                            if (stage == "bounds")
+                            {
+                                dpi = scenario == "same DPI" ? 144u : scenario == "unknown DPI" ? 0u : 96u;
+                                Check(NativeMethods.SetWindowPos(handle, IntPtr.Zero,
+                                    target.X + (scenario == "different origin" ? 1 : 0), target.Y, shrunk.Width,
+                                    shrunk.Height + (scenario == "wrong size" ? 6 : 0), flags), "DPI fixture first shrink");
+                                if (scenario == "changed style")
+                                    NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, style);
+                                if (scenario == "clipped")
+                                    Check(NativeMethods.SetWindowRgn(handle, Shape(), false) != 0, "DPI fixture retained clipping");
+                            }
+                            if (stage == "dpi-retry")
+                            {
+                                retryCount++;
+                                if (scenario == "retry rejected")
+                                    Check(NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y,
+                                        shrunk.Width, shrunk.Height, flags),
+                                        "DPI fixture second shrink");
+                                if (scenario == "late DPI change") dpi = 120;
+                            }
+                        }, _ => dpi, () => scenario != "window changed");
+                    }
+                    catch (IOException ex) { failure = ex.Message; }
+                    bool succeeds = scenario == "success";
+                    bool shouldRetry = succeeds || scenario == "retry rejected" || scenario == "late DPI change";
+                    Check(retryCount == (shouldRetry ? 1 : 0), "bound restore DPI retry: " + scenario + " " + failure);
+                    Check(retried == succeeds, "expected DPI restore outcome: " + scenario + " " + failure);
+                    if (succeeds)
+                    {
+                        var restored = new NativeMethods.RECT { Left = target.Left, Top = target.Top,
+                            Right = target.Right, Bottom = target.Bottom };
+                        Verify(handle, restored, targetStyle, IntPtr.Zero);
+                    }
+                    else
+                    {
+                        Check(failure != null && failure.Contains("Window DPI before/after")
+                            && (!shouldRetry || failure.Contains("DPI retry observed")),
+                            "restore error retains actionable readback: " + scenario);
+                        Verify(handle, before, style, clipping);
+                    }
+                }
+                finally { NativeMethods.DeleteObject(clipping); }
+            }
+            Console.WriteLine("PASS: reverse-DPI Restore retries once, verifies exact normal size or restores prior span");
+        }
+
+        private sealed class NativeRestoreFixture : NativeWindow, IDisposable
+        {
+            internal NativeRestoreFixture()
+            {
+                // A Form can reapply its managed clipping after a native resize.
+                // A hidden top-level native window keeps this a Win32-only replay.
+                CreateHandle(new CreateParams { X = 80, Y = 64, Width = 540, Height = 420 });
+            }
+
+            public void Dispose()
+            {
+                DestroyHandle();
+            }
+        }
+
         [STAThread]
         private static void CheckStandardRespanRollback(string root)
         {
@@ -172,9 +315,13 @@ namespace Offhand.Companion
             Directory.CreateDirectory(root);
             try
             {
+                // This fixture verifies that the native window is responsive.
+                // Run it before the lengthy cases that do not pump UI messages.
+                CheckRestoreDpiResize();
                 CheckStandardRespanRollback(root);
                 CheckCustomRollback(root);
                 CheckCustomRestore();
+                CheckCustomDpiResize();
                 for (int clipped = 0; clipped < 2; clipped++)
                 for (int stage = 0; stage < 5; stage++)
                 using (var window = new Form())

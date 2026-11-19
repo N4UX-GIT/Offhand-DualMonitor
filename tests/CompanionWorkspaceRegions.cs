@@ -34,6 +34,7 @@ namespace Offhand.Companion
             var table=scroll.Controls.OfType<TableLayoutPanel>().Single();table.PerformLayout();
             Check(!scroll.HorizontalScroll.Visible,"Editor requires horizontal scrolling at "+scale);
             foreach(Control control in table.Controls) {
+                if (!control.Visible) continue;
                 Check(control.Left>=0&&control.Right<=table.ClientSize.Width,"Editor field escapes content width at "+scale+": "+control.Text);
                 var label=control as Label;
                 if(label!=null){var measured=TextRenderer.MeasureText(label.Text,label.Font,new Size(label.ClientSize.Width,int.MaxValue),TextFormatFlags.WordBreak|TextFormatFlags.NoPrefix);
@@ -107,7 +108,10 @@ namespace Offhand.Companion
             Check(MonitorSelection.CreatePlan(PreferenceFile.Read(prefs),displays).PrimaryWorkspaceId=="right","Settings round trip lost primary");
             var editorSettings=Settings();editorSettings["WorkspaceRegionsEnabled"]="False";
             foreach(float scale in new[]{1f,1.25f,1.5f,2f})using(var editor=new WorkspaceRegionsDialog(displays,editorSettings)) {
-                editor.CreateControl();editor.Scale(new SizeF(scale,scale));editor.PerformLayout();
+                editor.Opacity = 0;
+                editor.Show();
+                editor.Scale(new SizeF(scale,scale));
+                editor.PerformLayout();
                 var pending=editor.Proposed();var edited=MonitorSelection.CreatePlan(pending,displays);
                 Check(edited.Workspaces.Length==2&&edited.Bounds==plan.Bounds,"Editor changed the saved pending geometry");
                 CheckLayout(editor,scale);
@@ -115,7 +119,8 @@ namespace Offhand.Companion
                     var table=editor.Controls.OfType<Panel>().Single(control=>control.AutoScroll).Controls.OfType<TableLayoutPanel>().Single();
                     using(var bitmap=new Bitmap(table.Width,table.Height)) {
                         table.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));
-                        foreach(Control control in table.Controls)control.DrawToBitmap(bitmap,control.Bounds);
+                        foreach(Control control in table.Controls)
+                            if (control.Visible) control.DrawToBitmap(bitmap,control.Bounds);
                         bitmap.Save(args[1],System.Drawing.Imaging.ImageFormat.Png);
                     }
                 }
@@ -129,6 +134,25 @@ namespace Offhand.Companion
                 Check(!MonitorSelection.MultiEnabled(editor.Proposed())&&MonitorSelection.CreatePlan(editor.Proposed(),displays).Indices.Length==2,"Disabling multi-region mode did not restore a two-display plan");
                 Check(!editor.Areas[0,0].Enabled&&!editor.SelectAreas[0].Enabled&&!editor.Second.Enabled,"Disabled region mode still offered area-edit actions");
             }
+            var fourDisplays = new List<MonitorSelection.Display>(displays) {
+                new MonitorSelection.Display { StableId = "far", DeviceName = "far", Bounds = new Rectangle(4480,0,1600,900) }
+            };
+            foreach (float scale in new[] { 1f, 1.25f, 1.5f, 2f })
+            using (var editor = new WorkspaceRegionsDialog(fourDisplays, Settings()))
+            {
+                editor.Opacity = 0;
+                editor.Show();
+                editor.Scale(new SizeF(scale, scale));
+                Check(!editor.Monitors[2].Visible, "Inactive Workspace C must not occupy an editor row");
+                editor.Third.Checked = true;
+                Check(editor.Monitors[2].Visible && editor.SavePlan.Enabled, "Workspace C must appear with a valid fourth display");
+                CheckLayout(editor, scale);
+                var scroll = (Panel)editor.Monitors[2].Parent.Parent;
+                scroll.ScrollControlIntoView(editor.SelectAreas[2]);
+                var area = scroll.RectangleToClient(editor.SelectAreas[2].RectangleToScreen(editor.SelectAreas[2].ClientRectangle));
+                Check(scroll.ClientRectangle.Contains(area), "Workspace C area picker is reachable by scrolling");
+            }
+
             using(var missing=new WorkspaceRegionsDialog(new List<MonitorSelection.Display>{displays[0],displays[1]},Settings())) {
                 Check(missing.Monitors[1].SelectedIndex==-1,"Missing saved monitor silently substituted another display");
                 bool missingRejected=false;try{missing.Proposed();}catch(InvalidOperationException){missingRejected=true;}

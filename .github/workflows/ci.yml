@@ -50,6 +50,7 @@ jobs:
         shell: powershell
         run: |
           ./tests/companion-preferences.ps1
+          ./tests/companion-update-notices.ps1
           ./tests/companion-store-updates.ps1
           ./tests/companion-store-persistence.ps1
 
@@ -73,6 +74,9 @@ jobs:
         run: |
           ./tests/companion-workspace-regions.ps1
           ./tests/companion-workspace-profiles.ps1
+          ./tests/companion-four-monitors.ps1
+          ./tests/companion-workspace-ux.ps1
+          ./tests/companion-forever-recovery.ps1
           ./tests/companion-layout-document.ps1
           ./tests/companion-flexible-layouts.ps1
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -57,11 +57,11 @@ using Timer = System.Windows.Forms.Timer;
 #elif RDP_TEST
 [assembly: AssemblyVersion("2.1.3.0")]
 #else
-[assembly: AssemblyVersion("2.1.6.0")]
+[assembly: AssemblyVersion("2.1.9.0")]
 #endif
 #if UI_PREVIEW
-[assembly: AssemblyFileVersion("2.1.6.8008")]
-[assembly: AssemblyInformationalVersion("2.1.6")]
+[assembly: AssemblyFileVersion("2.1.9.8005")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.1")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.6.1")]
-[assembly: AssemblyInformationalVersion("2.1.6")]
+[assembly: AssemblyFileVersion("2.1.9.1")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.1")]
 #endif
 
 namespace Offhand.Companion
@@ -252,12 +252,30 @@ namespace Offhand.Companion
             return storePackage && state == StoreUpdateState.Available ? "Update available…" : UpdateButtonText(storePackage);
         }
 
-        internal static string StoreUpdateTip(StoreUpdateState state)
+        internal static string StoreUpdateTimeText(StoreUpdateState state, DateTime? attempted)
+        {
+            if (!attempted.HasValue) return "No Store check recorded yet.";
+            string caption = state == StoreUpdateState.Available || state == StoreUpdateState.NoUpdate
+                ? "Last checked: " : "Last attempted: ";
+            return caption + attempted.Value.ToLocalTime().ToString("g", CultureInfo.CurrentCulture) + " (local time).";
+        }
+
+        internal static string StoreUpdateDetails(StoreUpdateState state, DateTime? attempted)
+        {
+            string status = state == StoreUpdateState.Available ? "An update is available in Microsoft Store."
+                : state == StoreUpdateState.NoUpdate ? "No update found at the last check."
+                : state == StoreUpdateState.Unavailable ? "The last automatic check was unavailable."
+                : "No current Store result. Quiet checks run every six hours.";
+            return status + "\r\n" + StoreUpdateTimeText(state, attempted);
+        }
+
+        internal static string StoreUpdateTip(StoreUpdateState state, DateTime? attempted = null)
         {
             string status = state == StoreUpdateState.Available ? "A Companion update is available. "
                 : state == StoreUpdateState.NoUpdate ? "The last Store check found no update. "
                 : state == StoreUpdateState.Unavailable ? "The automatic Store check was unavailable. " : "";
-            return status + "Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.";
+            return status + "Open Microsoft Store to check and install updates when convenient. The Companion never installs an update itself.\r\n"
+                + StoreUpdateTimeText(state, attempted) + " Quiet checks run every six hours.";
         }
 
         internal static string UpdateMenuText(bool storePackage)
@@ -268,14 +286,14 @@ namespace Offhand.Companion
         internal static string UpdateHelpText(bool storePackage)
         {
             return storePackage
-                ? "Store Updates: Companion quietly checks Microsoft Store after startup, at most once daily. Update available means the Store reported an update. Click to open the official Store page and install when convenient. The Companion does not contact GitHub."
+                ? "Store Updates: Companion quietly checks Microsoft Store after startup and then at most once every six hours, including while in the tray. Advanced and the Store button tooltip show the last check time in your local time. A failed or incomplete check is shown as an attempt. Update available means the Store reported an update. Click to open the official Store page and install when convenient. The Companion does not contact GitHub."
                 : "Check for Updates: Make a one-time HTTPS request to the official GitHub Releases API. Update checks never run automatically.";
         }
 
         internal static string PrivacyNetworkText(bool storePackage)
         {
             return storePackage
-                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Store installations quietly ask Microsoft's Windows Store service about available Companion updates after startup, at most once daily. A local cache stores the check time, build and result. Clicking Store Updates or Update available opens the official Store page; Microsoft Store manages downloading and installation."
+                ? "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. Store installations quietly ask Microsoft's Windows Store service about available Companion updates after startup, at most once every six hours. Failed attempts also wait six hours before retrying. A local cache stores the check time, build and result. Clicking Store Updates or Update available opens the official Store page; Microsoft Store manages downloading and installation."
                 : "The Companion does not collect telemetry, credentials, chat, or gameplay data. It does not configure Windows startup persistence or inspect process security tokens. The Companion itself contacts the official GitHub Releases API only when you click Check for Updates. Release checksums, source, and build provenance are published with official GitHub releases.";
         }
     }
@@ -286,7 +304,7 @@ namespace Offhand.Companion
     // so restarting the app cannot turn an unavailable Store into rapid retries.
     internal sealed class StoreUpdateCache
     {
-        internal static readonly TimeSpan Interval = TimeSpan.FromDays(1);
+        internal static readonly TimeSpan Interval = TimeSpan.FromHours(6);
         private readonly string path;
         private readonly string version;
         internal StoreUpdateCache(string path, string version) { this.path = path; this.version = version; }
@@ -315,6 +333,12 @@ namespace Offhand.Companion
                 && values.TryGetValue("State", out state) && Enum.TryParse(state, out parsed)
                 && Enum.IsDefined(typeof(StoreUpdateState), parsed)) return parsed;
             return StoreUpdateState.NotChecked;
+        }
+
+        internal DateTime? LastAttemptUtc(DateTime now)
+        {
+            DateTime attempted;
+            return TryTime(Read(), now, out attempted) ? (DateTime?)attempted : null;
         }
 
         internal TimeSpan UntilDue(DateTime now)
@@ -607,15 +631,26 @@ namespace Offhand.Companion
             if (!selected.Contains(mainhand))
                 return new State { Code = "MAINHAND_NOT_CHECKED", Message = "The Mainhand display is not checked. Check it in the display list, or choose a checked display as Mainhand (game)." };
             var missing = new List<string>();
+            var identityDetails = new List<string>();
             foreach (int index in selected)
             {
                 if (index < 0 || index >= displays.Count || displays[index] == null)
                     return new State { Code = "SELECTION_UNAVAILABLE", Message = "The display selection changed. Review the checked displays and Mainhand, then try again." };
-                if (string.IsNullOrWhiteSpace(displays[index].StableId)) missing.Add(Label(displays[index], index));
+                var display = displays[index];
+                if (!string.IsNullOrWhiteSpace(display.StableId)) continue;
+                string label = Label(display, index);
+                missing.Add(label);
+                if (!string.IsNullOrWhiteSpace(display.IdentityDetail))
+                    identityDetails.Add(label + " [" + display.IdentityDetail + "]");
             }
             if (missing.Count > 0)
-                return new State { Code = "MISSING_MONITOR_IDENTITY", Message = "Companion could not read a monitor identity for: "
-                    + string.Join(", ", missing.ToArray()) + ". Click Copy Display Diagnostics and send the text with your report." };
+            {
+                string message = "Companion could not read a monitor identity for " + string.Join(", ", missing.ToArray()) + ".";
+                if (identityDetails.Count > 0)
+                    message += Environment.NewLine + string.Join(Environment.NewLine, identityDetails.ToArray());
+                return new State { Code = "MISSING_MONITOR_IDENTITY", Message = message + Environment.NewLine
+                    + "Open Display Diagnostics, click Copy Display Diagnostics, and include the text in your report." };
+            }
             foreach (int index in selected)
                 if (MonitorSelection.FindDisplay(displays, displays[index].StableId, null) != index)
                     return new State { Code = "AMBIGUOUS_MONITOR_IDENTITY", Message = "Companion could not distinguish the monitor identity for "
@@ -935,7 +970,7 @@ namespace Offhand.Companion
                 throw new InvalidOperationException("Workspace dimensions are incomplete. Review Workspaces.");return value;};
             if(read("WorkspaceRegionVersion")!="2") throw new InvalidOperationException("Unsupported workspace plan. Review Workspaces.");
             int count=number("WorkspaceRegionCount");
-            if(count<1||count>2)throw new InvalidOperationException("Select one or two workspaces.");
+            if(count<1||count>WorkspaceLayoutPlanner.MaximumWorkspaces)throw new InvalidOperationException("Select one to three workspaces.");
             Func<string,int> display=id=> {
                 if(string.IsNullOrWhiteSpace(id))throw new InvalidOperationException("A workspace display identity is missing.");
                 int found=FindDisplay(displays,id,null);
@@ -980,8 +1015,7 @@ namespace Offhand.Companion
             if(bounds.Width<=0||bounds.Height<=0||bounds.Width>16384||bounds.Height>16384
                 || (long)bounds.Width*bounds.Height>(long)game.Width*game.Height*4)
                 throw new InvalidOperationException("This workspace plan exceeds the prototype surface budget (16384 pixels per axis and four times the game area). Move or reduce the workspace areas.");
-            // Preserve all identities in preferences. Older Companions reject a
-            // three-selected-display plan rather than silently dropping a region.
+            // A saved selection must account for every workspace and Mainhand.
             var selected=new HashSet<int>();
             foreach(string identity in Tokens(read("MonitorIdentities"),'|')) {
                 int index=display(identity);
@@ -1691,7 +1725,7 @@ namespace Offhand.Companion
                         var area=map(Plan.Workspaces[i].Bounds);
                         e.Graphics.DrawRectangle(edge,area.X+.5f,area.Y+.5f,Math.Max(0,area.Width-1),Math.Max(0,area.Height-1));
                         if(area.Width>=font.Height&&area.Height>=font.Height)
-                            e.Graphics.DrawString(i==0?"A":"B",font,brush,area,center);
+                            e.Graphics.DrawString(((char)('A'+i)).ToString(),font,brush,area,center);
                     }
                 }
                 center.Dispose();
@@ -1922,7 +1956,7 @@ namespace Offhand.Companion
             layout.AddWide(EnableCustom);
             SingleButton = AddOption(layout, "Custom split on one monitor", "Choose unequal game/workspace widths or leave part of one screen for other desktop apps.");
             SecondaryButton = AddOption(layout, "Custom area on a second monitor", "Use only a chosen rectangle on the second screen. For the whole second monitor, keep standard layout instead.");
-            MultipleButton = AddOption(layout, "Custom areas on separate monitors", "Use one full game monitor and up to two selected workspace regions on other monitors.");
+            MultipleButton = AddOption(layout, "Custom areas on separate monitors", "Use one full game monitor and up to three selected workspace regions on other monitors.");
             FlexibleButton = AddOption(layout, "Flexible custom layout (prototype)", "Place game and workspace rectangles on one screen. " + WorkspaceEditorLayout.FlexibleAddon);
 
             Button savedChoice = current == WorkspaceEditorLayout.Flexible ? FlexibleButton
@@ -1972,7 +2006,7 @@ namespace Offhand.Companion
         public sealed class Store { public int Version=1; public List<Record> Items=new List<Record>(); }
         internal static bool PlanKey(string key)
         {
-            return WorkspaceLayoutSettings.IsSetting(key) || Regex.IsMatch(key,@"^WorkspaceRegion(?:sEnabled|Version|Count|[12](?:Id|Identity|MonitorWidth|MonitorHeight|X|Y|Width|Height))$")
+            return WorkspaceLayoutSettings.IsSetting(key) || WorkspaceLayoutSettings.IsWorkspaceRegionSetting(key)
                 || Array.IndexOf(new[]{"WorkspacePrimary","MainhandIdentity","MainhandDevice","DisplayIdentityVersion","MonitorIdentities","MonitorDevices","Monitors","SingleDisplaySplit","PartialSpanEnabled","SecondaryAreaEnabled"},key)>=0;
         }
         internal static string Name(string name)
@@ -1981,6 +2015,11 @@ namespace Offhand.Companion
             if(name.Length<1||name.Length>48||name.IndexOf('|')>=0)throw new InvalidOperationException("Use a profile name with 1 to 48 characters, without vertical bars or control characters.");
             foreach(char c in name)if(char.IsControl(c))throw new InvalidOperationException("Profile names cannot contain control characters.");
             return name;
+        }
+
+        internal static bool CanSaveLayout(IDictionary<string, string> settings)
+        {
+            return MonitorSelection.MultiEnabled(settings) || WorkspaceLayoutSettings.Enabled(settings);
         }
         private static Store ReadLegacy(IDictionary<string,string> settings)
         {
@@ -2045,7 +2084,7 @@ namespace Offhand.Companion
         internal static Dictionary<string,string> Save(IDictionary<string,string> current,string name,string replaceID,IList<MonitorSelection.Display> displays)
         {
             name=Name(name);var store=Read(current);
-            if(!MonitorSelection.MultiEnabled(current)&&!WorkspaceLayoutSettings.Enabled(current))throw new InvalidOperationException("Configure custom workspaces before saving a workspace profile.");
+            if(!CanSaveLayout(current))throw new InvalidOperationException("Save a Multiple workspaces or Flexible layout plan before creating a workspace profile.");
             var plan=MonitorSelection.CreatePlan(current,displays);
             var item=replaceID==null?null:Find(store,replaceID);
             if(store.Items.Exists(other=>other!=item&&string.Equals(other.Name,name,StringComparison.OrdinalIgnoreCase)))throw new InvalidOperationException("A workspace profile already has that name.");
@@ -2112,13 +2151,26 @@ namespace Offhand.Companion
             Controls.Add(layout);Controls.Add(footer);AcceptButton=done;CancelButton=cancel;
             selection.SelectedIndexChanged+=(s,e)=>{var item=selection.SelectedItem as WorkspacePlanProfiles.Record;if(item!=null)name.Text=item.Name;UpdateActions();};
             name.TextChanged+=(s,e)=>UpdateActions();RefreshProfiles();CompanionUi.Apply(this);
-            feedback.Text=selection.Items.Count==0?"No saved plans yet. Set up a custom layout, enter a name, then choose Save as new.":"Choose a saved plan to load or manage. Changes stay pending until Save changes.";
+            if (!WorkspacePlanProfiles.CanSaveLayout(Settings))
+            {
+                feedback.Text = "Saved layout is " + WorkspaceEditorLayout.CurrentMode(Settings)
+                    + ". To create a profile, open Workspace layout, choose " + WorkspaceEditorLayout.Multiple
+                    + " or " + WorkspaceEditorLayout.Flexible + ", then click Save plan to enable Save as new.";
+            }
+            else if (selection.Items.Count == 0)
+            {
+                feedback.Text = "Enter a name and choose Save as new. Click Save changes to keep the profile.";
+            }
+            else
+            {
+                feedback.Text = "Choose a saved plan to load or manage. Changes stay pending until Save changes.";
+            }
         }
         private void UpdateActions()
         {
             bool selected=selection.SelectedItem is WorkspacePlanProfiles.Record,validName=true;
             try{WorkspacePlanProfiles.Name(name.Text);}catch(InvalidOperationException){validName=false;}
-            bool plan=MonitorSelection.MultiEnabled(Settings)||WorkspaceLayoutSettings.Enabled(Settings);
+            bool plan=WorkspacePlanProfiles.CanSaveLayout(Settings);
             var store=WorkspacePlanProfiles.Read(Settings);bool fresh=!store.Items.Exists(item=>string.Equals(item.Name,name.Text.Trim(),StringComparison.OrdinalIgnoreCase));
             foreach(var pair in actionsByName)pair.Value.Enabled=pair.Key=="Save as new"?plan&&validName&&fresh&&store.Items.Count<20:
                 pair.Key=="Update selected"?selected&&plan:pair.Key=="Rename"?selected&&validName:selected;
@@ -2146,15 +2198,21 @@ namespace Offhand.Companion
         internal readonly ComboBox Primary=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
         internal readonly CheckBox UseRegions=new CheckBox{Text="Use this layout",Checked=true,AutoSize=true};
         internal readonly CheckBox Second=new CheckBox{Text="Use Workspace B",Checked=true,AutoSize=true};
-        internal readonly ComboBox[] Monitors=new ComboBox[2];
-        internal readonly NumericUpDown[,] Areas=new NumericUpDown[2,4];
-        internal readonly Button[] SelectAreas=new Button[2];
+        internal readonly CheckBox Third=new CheckBox{Text="Use Workspace C",Checked=false,AutoSize=true};
+        internal const int Slots=WorkspaceLayoutPlanner.MaximumWorkspaces;
+        internal static string WorkspaceName(int index)
+        {
+            return "Workspace " + (char)('A' + index);
+        }
+        internal readonly ComboBox[] Monitors=new ComboBox[Slots];
+        internal readonly NumericUpDown[,] Areas=new NumericUpDown[Slots,4];
+        internal readonly Button[] SelectAreas=new Button[Slots];
         private readonly IList<MonitorSelection.Display> displays;
         private readonly IDictionary<string,string> original;
-        private readonly string[] ids=new string[2];
+        private readonly string[] ids=new string[Slots];
         private bool loading;
         private Label preview;
-        private Label secondHeading;
+        private readonly Label[] slotHeadings=new Label[Slots];
         private readonly Panel pinnedPreview;
         internal readonly Button SavePlan=new Button{Text="Save plan",AutoSize=true};
         internal readonly WorkspacePlanPreview Diagram=new WorkspacePlanPreview();
@@ -2165,37 +2223,40 @@ namespace Offhand.Companion
             var layout = new WorkspaceEditorLayout(this, WorkspaceEditorLayout.Multiple, new Size(670, 768), new Size(520, 440), 39, 61);
             var table = layout.Table;
             layout.Heading("1. Choose the game monitor");
-            layout.Guide("Use one full monitor for the game and a different monitor for each workspace. The default workspace receives panels without a workspace assignment.");
+            layout.Guide("Use one full monitor for the game and a different monitor for each workspace (up to three workspaces, four monitors in total). The default workspace receives panels without a workspace assignment.");
             layout.ExplainReplacement(settings, WorkspaceEditorLayout.Multiple);
             for(int i=0;i<displays.Count;i++)Game.Items.Add(CompanionUi.DisplayName(displays[i],i));
             string main;settings.TryGetValue("MainhandIdentity",out main);
-            Game.SelectedIndex=Find(main,displays.Count > 0 ? 0 : -1);Primary.Items.AddRange(new object[]{"Workspace A","Workspace B"});Primary.SelectedIndex=0;
-            string count;Second.Checked=settings.TryGetValue("WorkspaceRegionCount",out count)?count!="1":displays.Count>=3;
+            Game.SelectedIndex=Find(main,displays.Count > 0 ? 0 : -1);
+            string count;
+            if(settings.TryGetValue("WorkspaceRegionCount",out count)){Second.Checked=count!="1";Third.Checked=count=="3";}
+            else{Second.Checked=displays.Count>=3;Third.Checked=false;}
             layout.Field("Layout", UseRegions);
             layout.Field("Game monitor", Game);
             layout.Field("Second workspace", Second);
+            layout.Field("Third workspace", Third);
+            Third.AccessibleDescription = "Adds Workspace C on a fourth monitor.";
             layout.Field("Default workspace", Primary);
             Primary.AccessibleDescription = "Where supported panels go when they have no assigned workspace.";
             loading = true;
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < Slots; i++)
             {
                 int slot = i;
                 string p = "WorkspaceRegion" + (i + 1), id, identity;
-                var areaHeading = layout.Heading(i == 0 ? "2. Set Workspace A" : "3. Set Workspace B");
-                if (i == 1) secondHeading = areaHeading;
-                ids[i]=settings.TryGetValue(p+"Id",out id)?id:(i==0?"workspace-a":"workspace-b");
+                slotHeadings[i] = layout.Heading((i + 2) + ". Set " + WorkspaceName(i));
+                ids[i]=settings.TryGetValue(p+"Id",out id)?id:("workspace-" + (char)('a' + i));
                 settings.TryGetValue(p+"Identity",out identity);
                 Monitors[i]=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Dock=DockStyle.Fill};
                 for(int j=0;j<displays.Count;j++)Monitors[i].Items.Add(CompanionUi.DisplayName(displays[j],j));
                 int fallback = -1;
                 for (int j = 0; j < displays.Count; j++)
-                    if (j != Game.SelectedIndex && (i == 0 || j != Monitors[0].SelectedIndex))
-                    {
-                        fallback = j;
-                        break;
-                    }
+                {
+                    bool used = j == Game.SelectedIndex;
+                    for (int k = 0; k < i; k++) used = used || j == Monitors[k].SelectedIndex;
+                    if (!used) { fallback = j; break; }
+                }
                 Monitors[i].SelectedIndex=Find(identity,fallback);
-                layout.Field(i == 0 ? "Workspace A monitor" : "Workspace B monitor", Monitors[i]);
+                layout.Field(WorkspaceName(i) + " monitor", Monitors[i]);
                 var visual = new Button { Text = WorkspaceEditorLayout.SelectArea, AutoSize = true, Dock = DockStyle.Fill, MaximumSize = new Size(0, 38) };
                 SelectAreas[i] = visual;
                 layout.Field("Pick an area", visual);
@@ -2204,34 +2265,36 @@ namespace Offhand.Companion
                 {
                     Areas[i,n] = new NumericUpDown { Minimum = 0, Maximum = 32768, Dock = DockStyle.Fill };
                     layout.Field(labels[n], Areas[i,n]);
-                    Areas[i,n].AccessibleName = "Workspace " + (i == 0 ? "A " : "B ") + labels[n];
+                    Areas[i,n].AccessibleName = WorkspaceName(i) + " " + labels[n];
                 }
-                visual.AccessibleName="Select Workspace "+(i==0?"A":"B")+" area on monitor";
+                visual.AccessibleName="Select " + WorkspaceName(i) + " area on monitor";
                 visual.Click+=(s,e)=>EditArea(slot);
                 Monitors[i].SelectedIndexChanged+=(s,e)=> {if(!loading){LoadArea(slot);UpdatePreview();}};
                 for(int n=0;n<4;n++)Areas[i,n].ValueChanged+=(s,e)=>{if(!loading)UpdatePreview();};
                 LoadArea(i);
             }
-            string primary;if(settings.TryGetValue("WorkspacePrimary",out primary)&&primary==ids[1])Primary.SelectedIndex=1;
+            UpdateDefaultChoices();
+            string primary;
+            if(settings.TryGetValue("WorkspacePrimary",out primary))
+                for(int i=1;i<Slots;i++)if(primary==ids[i]&&i<ActiveCount())Primary.SelectedIndex=i;
             loading=false;
             Diagram.Displays = displays;
             pinnedPreview = new Panel { Dock = DockStyle.Bottom, Height = 164, Padding = new Padding(20, 6, 20, 0) };
             pinnedPreview.Controls.Add(Diagram);
             preview = new Label();
             Game.SelectedIndexChanged+=(s,e)=>UpdatePreview();Primary.SelectedIndexChanged+=(s,e)=>UpdatePreview();UseRegions.CheckedChanged+=(s,e)=>UpdatePreview();
-            Second.CheckedChanged+=(s,e)=> {
-                string savedCount;
-                if(!Second.Checked&&MonitorSelection.MultiEnabled(original)&&original.TryGetValue("WorkspaceRegionCount",out savedCount)&&savedCount=="2") {
-                    if(MessageBox.Show(this,"Remove Workspace B from the next plan? Its saved frames will fall back to Workspace A when applied. Existing positions are retained for recovery.",Text,MessageBoxButtons.OKCancel,MessageBoxIcon.Question)!=DialogResult.OK){Second.Checked=true;return;}
-                }
-                if(!Second.Checked)Primary.SelectedIndex=0;UpdatePreview();
-            };
+            Second.CheckedChanged += (s, e) => UpdatePreview();
+            Third.CheckedChanged += (s, e) => UpdatePreview();
             SavePlan.Click += (s, e) =>
             {
                 try
                 {
                     var proposed = Proposed();
-                    if (UseRegions.Checked) MonitorSelection.CreatePlan(proposed, displays);
+                    if (UseRegions.Checked)
+                    {
+                        MonitorSelection.CreatePlan(proposed, displays);
+                        if (!ConfirmWorkspaceRemoval()) return;
+                    }
                     Settings = proposed;
                     DialogResult = DialogResult.OK;
                     Close();
@@ -2271,12 +2334,43 @@ namespace Offhand.Companion
                     loading=true;int[] values={selection.Area.X,selection.Area.Y,selection.Area.Width,selection.Area.Height};for(int n=0;n<4;n++)Areas[slot,n].Value=values[n];loading=false;UpdatePreview();}}
             catch(ArgumentException ex){loading=false;MessageBox.Show(this,ex.Message,Text);}
         }
-        internal Dictionary<string,string> Proposed()
+        // Workspaces in use: A always, B when checked, C only together with B.
+        internal int ActiveCount()
         {
-            return Proposed(Second.Checked);
+            return 1 + (Second.Checked ? 1 : 0) + (Second.Checked && Third.Checked ? 1 : 0);
         }
 
-        private Dictionary<string,string> Proposed(bool includeSecond)
+        internal Dictionary<string,string> Proposed()
+        {
+            return Proposed(ActiveCount());
+        }
+
+        private bool ConfirmWorkspaceRemoval()
+        {
+            string value;
+            int savedCount;
+            int count = ActiveCount();
+            if (!MonitorSelection.MultiEnabled(original)
+                || !original.TryGetValue("WorkspaceRegionCount", out value)
+                || !int.TryParse(value, out savedCount) || savedCount <= count) return true;
+
+            string removed = savedCount == 3 && count == 1
+                ? "Workspaces B and C" : WorkspaceName(count);
+            return MessageBox.Show(this, "Remove " + removed + " from the next plan? Their panels will use the default workspace. Saved positions are retained.",
+                Text, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
+        }
+
+        private void UpdateDefaultChoices()
+        {
+            int count = ActiveCount();
+            if (Primary.Items.Count == count) return;
+            int selected = Primary.SelectedIndex;
+            Primary.Items.Clear();
+            for (int i = 0; i < count; i++) Primary.Items.Add(WorkspaceName(i));
+            Primary.SelectedIndex = selected >= 0 && selected < count ? selected : 0;
+        }
+
+        private Dictionary<string,string> Proposed(int count)
         {
             if(!UseRegions.Checked) {
                 // Turning the feature off must remain possible after a required
@@ -2295,19 +2389,22 @@ namespace Offhand.Companion
             }
             if (Game.SelectedIndex < 0 || Monitors[0].SelectedIndex < 0)
                 throw new InvalidOperationException("Choose connected monitors for the game and Workspace A.");
-            if (includeSecond)
+            for (int slot = 1; slot < count; slot++)
             {
-                if (displays.Count < 3)
-                    throw new InvalidOperationException("Workspace B needs a third connected monitor. Connect one or turn off Workspace B.");
-                int second = Monitors[1].SelectedIndex;
-                if (second < 0 || second == Game.SelectedIndex || second == Monitors[0].SelectedIndex)
-                    throw new InvalidOperationException("Choose a separate monitor for Workspace B.");
+                string name = WorkspaceName(slot);
+                if (displays.Count < slot + 2)
+                    throw new InvalidOperationException(name + " needs " + (slot == 1 ? "a third" : "a fourth")
+                        + " connected monitor. Connect one or turn off " + name + ".");
+                int chosen = Monitors[slot].SelectedIndex;
+                bool clash = chosen < 0 || chosen == Game.SelectedIndex;
+                for (int k = 0; k < slot; k++) clash = clash || chosen == Monitors[k].SelectedIndex;
+                if (clash) throw new InvalidOperationException("Choose a separate monitor for " + name + ".");
             }
-            var result=new Dictionary<string,string>(original);int count=includeSecond?2:1;
+            var result=new Dictionary<string,string>(original);
             result[WorkspaceLayoutSettings.EnabledKey]="False";result["WorkspaceRegionsEnabled"]=UseRegions.Checked.ToString();result["WorkspaceRegionVersion"]="2";result["WorkspaceRegionCount"]=count.ToString();
             result["PartialSpanEnabled"]="False";result["SecondaryAreaEnabled"]="False";result["SingleDisplaySplit"]="False";result["AutoSpan"]="False";
             result["DisplayIdentityVersion"]="2";result["MainhandIdentity"]=displays[Game.SelectedIndex].StableId;result["MainhandDevice"]=displays[Game.SelectedIndex].DeviceName;
-            result["WorkspacePrimary"]=ids[Primary.SelectedIndex==1&&count==2?1:0];
+            result["WorkspacePrimary"]=ids[Primary.SelectedIndex>0&&Primary.SelectedIndex<count?Primary.SelectedIndex:0];
             var identities=new List<string>{displays[Game.SelectedIndex].StableId};var devices=new List<string>{displays[Game.SelectedIndex].DeviceName};var legacy=new List<string>{Game.SelectedIndex.ToString()};
             for(int i=0;i<count;i++) {
                 var monitor=displays[Monitors[i].SelectedIndex];string p="WorkspaceRegion"+(i+1);result[p+"Id"]=ids[i];result[p+"Identity"]=monitor.StableId;
@@ -2321,25 +2418,32 @@ namespace Offhand.Companion
         {
             if(loading||preview==null)return;
             bool enabled=UseRegions.Checked;
-            Second.Enabled=enabled;Primary.Enabled=enabled&&Second.Checked;
-            secondHeading.Visible=Second.Checked;
+            int count=ActiveCount();
+            Second.Enabled=enabled;Third.Enabled=enabled&&Second.Checked;Primary.Enabled=enabled&&count>1;
             pinnedPreview.Visible = enabled;
             var table = (TableLayoutPanel)Monitors[1].Parent;
             table.SuspendLayout();
             try
             {
-                foreach (Control field in new Control[] { Monitors[1], Areas[1,0], Areas[1,1], Areas[1,2], Areas[1,3], SelectAreas[1] })
+                for (int slot = 1; slot < Slots; slot++)
                 {
-                    field.Visible = Second.Checked;
-                    var label = table.GetControlFromPosition(0, table.GetRow(field));
-                    label.Visible = Second.Checked;
+                    bool shown = slot < count;
+                    slotHeadings[slot].Visible = shown;
+                    foreach (Control field in new Control[] { Monitors[slot], Areas[slot,0], Areas[slot,1], Areas[slot,2], Areas[slot,3], SelectAreas[slot] })
+                    {
+                        field.Visible = shown;
+                        var label = table.GetControlFromPosition(0, table.GetRow(field));
+                        if (label != null) label.Visible = shown;
+                    }
                 }
             }
             finally { table.ResumeLayout(true); }
-            if(!Second.Checked&&Primary.SelectedIndex!=0)Primary.SelectedIndex=0;
-            for(int i=0;i<2;i++) {
-                bool active=enabled&&(i==0||Second.Checked);
-                if(i==1)Monitors[i].Enabled=active;
+            loading = true;
+            try { UpdateDefaultChoices(); }
+            finally { loading = false; }
+            for(int i=0;i<Slots;i++) {
+                bool active=enabled&&i<count;
+                if(i>0)Monitors[i].Enabled=active;
                 for(int n=0;n<4;n++)Areas[i,n].Enabled=active;
                 SelectAreas[i].Enabled=active&&Monitors[i].SelectedIndex>=0;
             }
@@ -2354,7 +2458,8 @@ namespace Offhand.Companion
                 }
                 var plan = MonitorSelection.CreatePlan(settings, displays);
                 double ratio = (double)plan.Bounds.Width * plan.Bounds.Height / ((long)plan.MainhandBounds.Width * plan.MainhandBounds.Height);
-                string summary = plan.Workspaces.Length == 1 ? "One workspace is ready." : "Two workspaces are ready.";
+                string[] ready = { "One workspace is ready.", "Two workspaces are ready.", "Three workspaces are ready." };
+                string summary = ready[Math.Max(0, Math.Min(ready.Length, plan.Workspaces.Length) - 1)];
                 if (ratio >= 2)
                     summary += string.Format(" WoW renders {0:0.0}× the game area. This can affect performance.", ratio);
                 WorkspaceEditorLayout.UpdateStatus(SavePlan, preview, Diagram, plan, summary, true);
@@ -2362,18 +2467,19 @@ namespace Offhand.Companion
             }
             catch (Exception ex)
             {
-                // Keep the valid part of the current draft in view while the
-                // user fixes Workspace B. Never save that partial preview.
-                MonitorSelection.Plan gameAndA = null;
-                if (Second.Checked)
+                // Keep the largest valid part of the current draft in view while
+                // the user fixes a later workspace. Never save that partial preview.
+                MonitorSelection.Plan partial = null; int partialCount = 0;
+                for (int tryCount = count - 1; tryCount >= 1 && partial == null; tryCount--)
                 {
-                    try { gameAndA = MonitorSelection.CreatePlan(Proposed(false), displays); }
+                    try { partial = MonitorSelection.CreatePlan(Proposed(tryCount), displays); partialCount = tryCount; }
                     catch (InvalidOperationException) { }
                 }
+                string shown = partialCount == 2 ? "Preview shows the game, Workspace A and Workspace B." : "Preview shows the game and Workspace A.";
                 string message = WorkspaceEditorLayout.InvalidPlan + ex.Message;
-                if (gameAndA != null) message += "\r\nPreview shows the game and Workspace A.";
-                WorkspaceEditorLayout.UpdateStatus(SavePlan, preview, Diagram, gameAndA, message, false, showEmptyPreview: true);
-                Diagram.AccessibleDescription = gameAndA == null ? message : "Preview shows the game and Workspace A.";
+                if (partial != null) message += "\r\n" + shown;
+                WorkspaceEditorLayout.UpdateStatus(SavePlan, preview, Diagram, partial, message, false, showEmptyPreview: true);
+                Diagram.AccessibleDescription = partial == null ? message : shown;
             }
         }
     }
@@ -2619,6 +2725,58 @@ namespace Offhand.Companion
                 return detail + " Windows blocked cross-process window control. Close both programs and launch WoW and Offhand Companion at the same privilege level; avoid Run as administrator unless both must use it.";
             return detail + " Confirm WoW is using standard Windowed mode, then restart WoW and the Companion and retry.";
         }
+
+        internal static string SpanReadback(Rectangle expected, Rectangle? actual, int readError,
+            ClassicGraphicsRecovery.Observation observation)
+        {
+            string outer = actual.HasValue ? actual.Value.ToString() : "unavailable";
+            if (!actual.HasValue && readError != 0) outer += " (Windows error " + readError + ")";
+            string details = observation == null ? ""
+                : "; client=" + observation.Client + "; region=" + observation.Region
+                    + "; style=" + observation.Style.ToString("X8");
+            return "span readback: outer=" + outer + details + "; expected=" + expected + ".";
+        }
+
+        internal static string FailedSpan(DateTime capturedUtc, MonitorSelection.Plan plan, string readback,
+            string rollbackFailure)
+        {
+            var text = new StringBuilder();
+            text.AppendLine("Most recent span bounds failure in this Companion session (" + capturedUtc.ToString("u") + ")");
+            text.AppendLine("Attempted layout: " + (plan.IsCustom ? "custom workspace" : "standard display selection"));
+            text.AppendLine("Requested Mainhand: " + plan.MainhandBounds);
+            Rectangle[] visible = MonitorSelection.VisibleRectangles(plan);
+            for (int i = 1; i < visible.Length; i++) text.AppendLine("Requested workspace " + i + ": " + visible[i]);
+            text.AppendLine(readback);
+            text.Append("Span rollback: " + (rollbackFailure ?? "completed."));
+            return text.ToString();
+        }
+    }
+
+    internal static class SpanDpiRetry
+    {
+        internal static bool Matches(Rectangle requested, ClassicGraphicsRecovery.Observation actual,
+            uint beforeDpi, uint afterDpi)
+        {
+            if (beforeDpi == 0 || afterDpi <= beforeDpi || actual == null || !actual.Usable
+                || actual.Bounds.Location != requested.Location || actual.Client != actual.Bounds.Size
+                || actual.Region != new Rectangle(Point.Empty, requested.Size)
+                || (actual.Style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) != 0)
+                return false;
+            // Windows can round the suggested dimensions and cap width at its
+            // tracking limit. Require the height to match the measured DPI ratio
+            // and the width to grow without exceeding the scaled request.
+            double ratio = (double)afterDpi / beforeDpi;
+            return actual.Bounds.Width > requested.Width
+                && actual.Bounds.Width <= Math.Ceiling(requested.Width * ratio)
+                && Math.Abs(actual.Bounds.Height - requested.Height * ratio) <= 1;
+        }
+
+        internal static bool IsExact(Rectangle requested, ClassicGraphicsRecovery.Observation actual, int style)
+        {
+            return actual != null && actual.Usable && actual.Bounds == requested
+                && actual.Client == requested.Size && actual.Style == style
+                && actual.Region == new Rectangle(Point.Empty, requested.Size);
+        }
     }
 
     // Pure decision logic for the captured graphics-reset signature.
@@ -2806,7 +2964,7 @@ namespace Offhand.Companion
         internal const string LegacyCompanionVersion = "2.1.2";
         private static readonly string[] ManifestNames = new string[] {
             "Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc",
-            "Offhand_Classic.toc", "Offhand_Forever.toc"
+            "Offhand_Classic.toc", "Offhand_Forever.toc", "Offhand_Wrath335a.toc"
         };
 
         private static string ChildDirectory(string parent, string wanted)
@@ -2841,24 +2999,31 @@ namespace Offhand.Companion
             return false;
         }
 
+        private static string ReadManifestMetadata(string path, string key)
+        {
+            string prefix = "## " + key + ":";
+            try
+            {
+                foreach (string line in File.ReadLines(path))
+                {
+                    if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        return line.Substring(prefix.Length).Trim();
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            return null;
+        }
+
         private static string ReadMetadata(string addonDir, string key)
         {
             if (string.IsNullOrEmpty(addonDir)) return null;
-            string prefix = "## " + key + ":";
             foreach (string manifest in ManifestNames)
             {
                 string path = Path.Combine(addonDir, manifest);
                 if (!File.Exists(path)) continue;
-                try
-                {
-                    foreach (string line in File.ReadAllLines(path))
-                    {
-                        if (line.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                            return line.Substring(prefix.Length).Trim();
-                    }
-                }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
+                string value = ReadManifestMetadata(path, key);
+                if (value != null) return value;
             }
             return null;
         }
@@ -2883,6 +3048,26 @@ namespace Offhand.Companion
                 int supported;if(int.TryParse(token.Trim(),out supported)&&supported==schema)return true;
             }
             return false;
+        }
+
+        // Addons that predate four-monitor support declare nothing and accept
+        // at most two workspace regions.
+        internal static int SupportedWorkspaceCount(string wowDir)
+        {
+            var install = Inspect(wowDir);
+            if (!install.Installed) return 0;
+            // A partial addon update can leave different client manifests in
+            // the same folder. Use the lowest declared capability.
+            int supported = WorkspaceLayoutPlanner.MaximumWorkspaces;
+            foreach (string manifest in ManifestNames)
+            {
+                string path = Path.Combine(install.AddonDir, manifest);
+                if (!File.Exists(path)) continue;
+                int count;
+                string value = ReadManifestMetadata(path, "X-Offhand-Max-Workspaces");
+                supported = Math.Min(supported, int.TryParse(value, out count) && count > 0 ? count : 2);
+            }
+            return supported;
         }
 
         private static string FindVersionedOffhandFolder(string addOnsDir)
@@ -3162,6 +3347,8 @@ namespace Offhand.Companion
             IList<MonitorSelection.Display> displays)
         {
             if (string.IsNullOrEmpty(wowDir) || plan == null || displays == null) return BridgeMatch.DifferentLayout;
+            if (plan.MultiRegion && plan.Workspaces.Length > 2
+                && plan.Workspaces.Length > AddonInstallation.SupportedWorkspaceCount(wowDir)) return BridgeMatch.DifferentLayout;
             string target = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua");
             string content;
             try { content = File.ReadAllText(target); }
@@ -3170,11 +3357,11 @@ namespace Offhand.Companion
             if (!content.StartsWith("-- Generated by Offhand Companion.", StringComparison.Ordinal))
                 return BridgeMatch.DifferentLayout;
             if (!content.Contains("\r\n  schema = " + plan.TopologySchema + ",")
-                || !content.Contains("\r\n  " + LayoutFields(plan, displays) + ",\r\n")
-                || !content.Contains("\r\n  " + PanelScaleFields(plan, displays) + ",\r\n"))
+                || !content.Contains("\r\n  " + LayoutFields(plan, displays) + ",\r\n"))
                 return BridgeMatch.DifferentLayout;
 
             return content.Contains("companionVersion = " + LuaString(CurrentVersion()))
+                && content.Contains("\r\n  " + PanelScaleFields(plan, displays) + ",\r\n")
                 ? BridgeMatch.Current : BridgeMatch.NeedsRefresh;
         }
 
@@ -3195,6 +3382,12 @@ namespace Offhand.Companion
                 message=plan.FlexibleLayout
                     ? "The Offhand addon installed for this WoW client does not support Flexible Layout. " + WorkspaceEditorLayout.FlexibleAddon
                     : "The installed addon does not support this workspace topology schema. Update it before applying this plan.";
+                return false;
+            }
+            if (plan.MultiRegion && plan.Workspaces.Length > 2
+                && plan.Workspaces.Length > AddonInstallation.SupportedWorkspaceCount(wowDir))
+            {
+                message = "The installed addon does not support this many workspaces. Update Offhand before applying the plan.";
                 return false;
             }
             string core = Path.Combine(wowDir, "Interface", "AddOns", "Offhand", "Core");
@@ -3370,6 +3563,10 @@ namespace Offhand.Companion
 
         // The callback is used only by failure-injection tests of this exact path.
         internal static void Apply(IntPtr handle, Rectangle target, int style, Action<string> afterStage)
+        { Apply(handle, target, style, afterStage, null, null); }
+
+        internal static bool Apply(IntPtr handle, Rectangle target, int style, Action<string> afterStage,
+            Func<IntPtr, uint> readDpi, Func<bool> isCurrentWindow)
         {
             // Restore always requests normal placement, including when no
             // remembered pre-span style exists for an adopted/minimized window.
@@ -3382,6 +3579,7 @@ namespace Offhand.Companion
                     rollback.WindowChanged = true;
                     if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
                         NativeMethods.ShowWindow(handle, NativeMethods.SW_RESTORE);
+                    uint beforeDpi = readDpi == null ? 0 : readDpi(handle);
                     NativeMethods.SetLastError(0);
                     int previous = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, style);
                     int error = Marshal.GetLastWin32Error();
@@ -3397,15 +3595,40 @@ namespace Offhand.Companion
                     if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height, flags))
                         throw new IOException("Windows rejected restoring the window bounds.");
                     if (afterStage != null) afterStage("bounds");
-                    NativeMethods.RECT actual;
                     int borderMask = NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
-                    if (!NativeMethods.GetWindowRect(handle, out actual)
-                        || actual.Left != target.X || actual.Top != target.Y
-                        || actual.Width != target.Width || actual.Height != target.Height
-                        || (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borderMask) != (style & borderMask))
-                        throw new IOException("WoW did not accept the restore. Select Windowed mode and retry.");
+                    Rectangle? actual = ReadBounds(handle);
+                    bool matchingBorders = (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borderMask)
+                        == (style & borderMask);
+                    bool retried = false;
+                    if (actual != target || !matchingBorders)
+                    {
+                        uint afterDpi = readDpi == null ? 0 : readDpi(handle);
+                        string diagnostics = readDpi == null ? "" : " Expected " + target
+                            + ". Observed " + (actual.HasValue ? actual.Value.ToString() : "unavailable")
+                            + ". Window DPI before/after " + beforeDpi + "/" + afterDpi + ".";
+                        if (matchingBorders && actual.HasValue && MatchesDpiShrink(target, actual.Value, beforeDpi, afterDpi)
+                            && isCurrentWindow != null && isCurrentWindow() && IsUnclippedNormalWindow(handle))
+                        {
+                            retried = true;
+                            bool resized = NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y,
+                                target.Width, target.Height, flags);
+                            if (afterStage != null) afterStage("dpi-retry");
+                            Rectangle? afterRetry = ReadBounds(handle);
+                            uint retryDpi = readDpi(handle);
+                            if (!resized || afterRetry != target || retryDpi != afterDpi || !isCurrentWindow()
+                                || (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borderMask) != (style & borderMask)
+                                || !IsUnclippedNormalWindow(handle))
+                                throw new IOException("WoW did not accept the restore. Select Windowed mode and retry."
+                                    + diagnostics + " DPI retry observed "
+                                    + (afterRetry.HasValue ? afterRetry.Value.ToString() : "unavailable")
+                                    + ". Window DPI after retry " + retryDpi + ".");
+                        }
+                        else
+                            throw new IOException("WoW did not accept the restore. Select Windowed mode and retry." + diagnostics);
+                    }
                     if (afterStage != null) afterStage("verification");
                     rollback.Commit();
+                    return retried;
                 }
                 catch (Exception ex)
                 {
@@ -3415,6 +3638,23 @@ namespace Offhand.Companion
                 }
             }
         }
+
+        private static Rectangle? ReadBounds(IntPtr handle)
+        {
+            NativeMethods.RECT bounds;
+            if (!NativeMethods.GetWindowRect(handle, out bounds)) return null;
+            return new Rectangle(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+        }
+
+        private static bool MatchesDpiShrink(Rectangle target, Rectangle actual, uint beforeDpi, uint afterDpi)
+        {
+            if (afterDpi == 0 || afterDpi >= beforeDpi || actual.Location != target.Location
+                || actual.Width >= target.Width || actual.Height >= target.Height) return false;
+            double ratio = (double)afterDpi / beforeDpi;
+            return Math.Abs(actual.Width - target.Width * ratio) <= 1
+                && Math.Abs(actual.Height - target.Height * ratio) <= 1;
+        }
+
         internal static bool IsUnclippedNormalWindow(IntPtr handle)
         {
             if (NativeMethods.IsHungAppWindow(handle) || NativeMethods.IsIconic(handle) || NativeMethods.IsZoomed(handle))
@@ -4081,6 +4321,15 @@ namespace Offhand.Companion
         public static extern IntPtr GetForegroundWindow();
 
         [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hWnd);
+
+        internal static uint ReadWindowDpi(IntPtr window)
+        {
+            try { return GetDpiForWindow(window); }
+            catch (EntryPointNotFoundException) { return 0; }
+        }
+
+        [DllImport("user32.dll")]
         public static extern bool IsWindowVisible(IntPtr hWnd);
 
         [DllImport("user32.dll")]
@@ -4143,7 +4392,7 @@ namespace Offhand.Companion
         [DllImport("gdi32.dll")]
         public static extern bool DeleteObject(IntPtr hObject);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll")]
@@ -4382,10 +4631,10 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.6";
+        internal const string BaseVersion = "2.1.9-beta.1";
 #endif
 #if UI_PREVIEW
-        internal const string ReleaseLabel = "UI Preview 8";
+        internal const string ReleaseLabel = "UI Preview 5";
         internal static readonly bool GraphicsRecoveryEnabled = false;
         internal static readonly bool RetailGraphicsRecoveryEnabled = false;
         internal static readonly bool ForeverGraphicsRecoveryEnabled = false;
@@ -4567,6 +4816,7 @@ namespace Offhand.Companion
         private Panel dashboardHeader;
         private bool layingOutDashboard;
         private string colorDiagnostics = "Select a valid display plan to inspect color modes.";
+        private string lastSpanBoundsFailure;
         private string lastColorDiagnostic;
         private Label lblAddonReason;
         private string lastAddonDiagnostic;
@@ -4712,6 +4962,18 @@ namespace Offhand.Companion
             return result;
         }
 
+        private List<MonitorSelection.Display> TryReadRestoreDisplays()
+        {
+            try { return ReadDisplays(); }
+            catch (Exception ex)
+            {
+                // Display enumeration is only needed to authorize a DPI retry.
+                // A normal restore still works when this snapshot is unavailable.
+                AddLog("Could not verify displays for a restore retry: " + ex.Message);
+                return null;
+            }
+        }
+
         private static bool HasStableIdentitySettings()
         {
             return MonitorSelection.HasStableIdentitySettings(appSettings);
@@ -4847,7 +5109,11 @@ namespace Offhand.Companion
             chkSingleSplit.Enabled = local && !partial;
             cmbSingleSide.Enabled = local && !partial && chkSingleSplit.Checked;
             numDelaySpan.Enabled = local;
+#if UI_PREVIEW
+            chkAutoSpan.Enabled = false;
+#else
             chkAutoSpan.Enabled = local && !partial && !GraphicsRecoveryTestBuild;
+#endif
             if (itemAuto != null) itemAuto.Enabled = chkAutoSpan.Enabled;
         }
 
@@ -4886,6 +5152,7 @@ namespace Offhand.Companion
             {
                 Dictionary<string,string> proposed;
                 List<MonitorSelection.Display> confirmedDisplays = null;
+                int[] standardSelection = null;
                 using (var choice = new CustomRegionModeDialog(appSettings))
                 {
                     if (!useStandard && choice.ShowDialog(this) != DialogResult.OK) return;
@@ -4895,9 +5162,8 @@ namespace Offhand.Companion
                         // chooser must not rewrite preferences or monitor selection.
                         if (WorkspaceEditorLayout.CurrentMode(appSettings) == WorkspaceEditorLayout.Standard) return;
                         confirmedDisplays = ReadDisplays();
-                        int[] selection;
-                        proposed = CustomRegionPreferences.StandardLayout(appSettings, confirmedDisplays, out selection);
-                        if (!ConfirmStandardLayout(confirmedDisplays, selection)) return;
+                        proposed = CustomRegionPreferences.StandardLayout(appSettings, confirmedDisplays, out standardSelection);
+                        if (!ConfirmStandardLayout(confirmedDisplays, standardSelection)) return;
                     }
                     else if (choice.Flexible) {
                         using(var dialog=new FlexibleWorkspaceEditor(ReadDisplays(),appSettings)) {
@@ -4930,25 +5196,41 @@ namespace Offhand.Companion
                 RefreshDisplayControls(currentDisplays, true);
                 chkAutoSpan.Checked = appSettings.ContainsKey("AutoSpan") && appSettings["AutoSpan"] == "True";
                 UpdatePartialControls(); RefreshSelectedColorStatus();
-                if (!layoutNoticeIsFailure) SetLayoutNotice(0, "");
-                AddLog(confirmedDisplays == null
-                    ? "Custom region plan saved. Click Span WoW Now to apply, or Restore Window to return to the ordinary window."
-                    : "Standard display layout saved. Review the dashboard displays before spanning or restoring WoW.");
+                if (standardSelection == null)
+                {
+                    if (!layoutNoticeIsFailure) SetLayoutNotice(0, "");
+                    AddLog("Custom region plan saved. Click Span WoW Now, then type /reload in WoW.");
+                }
+                else
+                {
+                    string next = StandardLayoutNextStep(standardSelection.Length);
+                    AddLog("Standard layout saved. " + next);
+                    if (!layoutNoticeIsFailure)
+                    {
+                        using (Process proc = GetWoWProcess())
+                            SetLayoutNotice(proc == null ? 0 : proc.Id,
+                                proc == null ? "" : "Standard layout saved. WoW still has its previous layout. " + next);
+                    }
+                }
             }
             catch (Exception ex) { AddLog("Workspace layout was not saved: " + ex.Message); MessageBox.Show(this, ex.Message, "Workspace layout", MessageBoxButtons.OK, MessageBoxIcon.Information); }
             finally { ResumeUiPolling(); }
         }
 
+        internal static string StandardLayoutNextStep(int displayCount)
+        {
+            return displayCount == 1
+                ? "Click Restore Window for normal play. To split this display, enable Single-display 32:9 split in Setup, click Span WoW Now, then type /reload in WoW."
+                : "Click Span WoW Now, then type /reload in WoW.";
+        }
+
         private bool ConfirmStandardLayout(IList<MonitorSelection.Display> displays, int[] selected)
         {
             string review = DescribeDisplayRole("Mainhand (game)", selected[0], displays);
-            string next = "Use Restore Window if WoW is currently spanned.";
             if (selected.Length == 2)
-            {
                 review += "\r\n" + DescribeDisplayRole("Offhand workspace", selected[1], displays);
-                next = "Click Span WoW Now to apply, then reload the WoW UI.";
-            }
-            return MessageBox.Show(this, review + "\r\n\r\nClick OK to turn off custom workspaces and save this display selection. Named profiles stay saved.\r\n\r\n" + next,
+            return MessageBox.Show(this, review + "\r\n\r\nClick OK to save Standard. Any running WoW session keeps its current layout for now.\r\n\r\n"
+                + StandardLayoutNextStep(selected.Length),
                 "Use standard display layout", MessageBoxButtons.OKCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.OK;
         }
 
@@ -5035,7 +5317,7 @@ namespace Offhand.Companion
             if (reviewed.MultiRegion)
             {
                 for (int i = 0; i < reviewed.Workspaces.Length; i++)
-                    screens.Add(DescribeDisplayRole(i == 0 ? "Workspace A" : "Workspace B", reviewed.Workspaces[i].DisplayIndex, uiDisplays));
+                    screens.Add(DescribeDisplayRole(WorkspaceRegionsDialog.WorkspaceName(i), reviewed.Workspaces[i].DisplayIndex, uiDisplays));
             }
             else
             {
@@ -5135,6 +5417,8 @@ namespace Offhand.Companion
         private readonly CancellationTokenSource storeUpdateLifetime = new CancellationTokenSource();
         private bool storeUpdateStopped;
         private StoreUpdateCache storeUpdateCache;
+        private Label lblStoreUpdateInfo;
+        private bool startupIntroductionScheduled;
         private ToolStripMenuItem itemCheckUpdates;
         private Func<IntPtr, CancellationToken, Task<StoreUpdateState>> storeUpdateQuery = StoreUpdateRuntime.QueryAsync;
         private readonly bool isStorePackage = CompanionDistribution.IsStorePackage();
@@ -5450,9 +5734,19 @@ namespace Offhand.Companion
         {
             base.OnShown(e);
             QueueDashboardFit();
-            if (IsHandleCreated && Visible && TutorialNeeded(appSettings)) BeginInvoke(new Action(() => {
-                if (!IsDisposed && Visible && !uiInteractionPaused) StartDashboardTutorial();
-            }));
+            if (IsHandleCreated && Visible && !startupIntroductionScheduled) {
+                startupIntroductionScheduled = true;
+                bool tutorial = TutorialNeeded(appSettings);
+                bool news = UpdateNoticeNeeded(appSettings);
+                if (tutorial || news) BeginInvoke(new Action(() => {
+                    if (IsDisposed || !Visible || uiInteractionPaused) return;
+                    if (tutorial) {
+                        if (RememberCompanionVersion(appSettings)) SaveConfig();
+                        StartDashboardTutorial();
+                    }
+                    else ShowWhatsNew();
+                }));
+            }
             if (!StoreUpdateCheck.Eligible(isStorePackage) || storeUpdateTimer != null) return;
             string build = ((AssemblyFileVersionAttribute)Attribute.GetCustomAttribute(
                 typeof(CompanionForm).Assembly, typeof(AssemblyFileVersionAttribute))).Version;
@@ -5493,13 +5787,23 @@ namespace Offhand.Companion
         private void ApplyStoreUpdateState(StoreUpdateState state)
         {
             if (!isStorePackage || IsDisposed || Disposing) return;
+            DateTime? attempted = null;
+            try { if (storeUpdateCache != null) attempted = storeUpdateCache.LastAttemptUtc(DateTime.UtcNow); }
+            catch (Exception) { }
+            string tip = CompanionDistribution.StoreUpdateTip(state, attempted);
             btnCheckUpdates.Text = CompanionDistribution.UpdateButtonText(true, state);
             btnCheckUpdates.AccessibleName = btnCheckUpdates.Text;
-            btnCheckUpdates.AccessibleDescription = CompanionDistribution.StoreUpdateTip(state);
+            btnCheckUpdates.AccessibleDescription = tip;
             btnCheckUpdates.ForeColor = state == StoreUpdateState.Available ? cGoldBright : cText;
-            uiToolTips.SetToolTip(btnCheckUpdates, CompanionDistribution.StoreUpdateTip(state));
+            uiToolTips.SetToolTip(btnCheckUpdates, tip);
+            if (lblStoreUpdateInfo != null) {
+                lblStoreUpdateInfo.Visible = true;
+                lblStoreUpdateInfo.Text = CompanionDistribution.StoreUpdateDetails(state, attempted);
+                lblStoreUpdateInfo.AccessibleDescription = tip;
+            }
             if (itemCheckUpdates != null) itemCheckUpdates.Text = state == StoreUpdateState.Available
                 ? "Update available in Microsoft Store…" : CompanionDistribution.UpdateMenuText(true);
+            if (itemCheckUpdates != null) itemCheckUpdates.ToolTipText = tip;
         }
 
         protected override void OnLoad(EventArgs e)
@@ -5847,6 +6151,10 @@ namespace Offhand.Companion
 
             advancedPanel = CreateCardPanel(16, 510, 490, 170, "Advanced Options");
             this.Controls.Add(advancedPanel);
+            lblStoreUpdateInfo = new Label { Text = CompanionDistribution.StoreUpdateDetails(StoreUpdateState.NotChecked, null),
+                AutoSize = false, Font = new Font("Segoe UI", 8.5f), ForeColor = cMuted, BackColor = Color.Transparent,
+                UseMnemonic = false, Visible = isStorePackage, AccessibleName = "Store update check status" };
+            advancedPanel.Controls.Add(lblStoreUpdateInfo);
             var advancedLayout = CreateDashboardGrid(advancedPanel, 2);
             var layoutOptions = CreateDashboardColumn(new Padding(0, 0, 6, 8));
             var profileOptions = CreateDashboardColumn(new Padding(6, 0, 0, 8));
@@ -6127,6 +6435,31 @@ namespace Offhand.Companion
             string value;
             bool seen;
             return !settings.TryGetValue("CompanionTutorialSeen", out value) || !bool.TryParse(value, out seen) || !seen;
+        }
+
+        internal static bool UpdateNoticeNeeded(Dictionary<string, string> settings)
+        {
+            // New installs and older users meeting the tutorial for the first
+            // time get that introduction alone. Legacy 2.1.6 users have the
+            // tutorial flag but no release marker yet, so see this notice once.
+            if (TutorialNeeded(settings)) return false;
+            string value;
+            CompanionReleaseVersion seen, current;
+            if (!CompanionReleaseVersion.TryParse(BaseVersion, out current)) return false;
+            return !settings.TryGetValue("CompanionLastSeenVersion", out value)
+                || !CompanionReleaseVersion.TryParse(value, out seen)
+                || current.CompareTo(seen) > 0;
+        }
+
+        internal static bool RememberCompanionVersion(Dictionary<string, string> settings)
+        {
+            string value;
+            CompanionReleaseVersion seen, current;
+            if (!CompanionReleaseVersion.TryParse(BaseVersion, out current)) return false;
+            if (settings.TryGetValue("CompanionLastSeenVersion", out value)
+                && CompanionReleaseVersion.TryParse(value, out seen) && seen.CompareTo(current) >= 0) return false;
+            settings["CompanionLastSeenVersion"] = BaseVersion;
+            return true;
         }
 
         private List<TutorialStep> CreateTutorialSteps()
@@ -6475,7 +6808,7 @@ namespace Offhand.Companion
                 section.Panel.SizeChanged += (s, e) => { LayoutDashboardCards(); };
             }
             foreach (Label label in new[] { lblWowStatus, lblAddonStatus, lblDisplayInfo, lblAddonReason,
-                lblColorModes, lblColorWarning, lblScaleInfo })
+                lblColorModes, lblColorWarning, lblScaleInfo, lblStoreUpdateInfo })
                 label.TextChanged += (s, e) =>
                 {
                     UpdateDashboardStatusSummary();
@@ -6507,13 +6840,14 @@ namespace Offhand.Companion
                 dashboardScroll.ResumeLayout(true);
             }
             LayoutDashboardCards();
+            QueueDashboardFit();
         }
 
         private void UpdateDashboardNavigation()
         {
             if (setupTab == null) return;
             bool custom = IsCustomSelection();
-            advancedTab.Text = custom ? "Advanced · Custom layout active" : "Advanced";
+            advancedTab.Text = custom ? "Advanced · Custom layout saved" : "Advanced";
             foreach (Button tab in new[] { setupTab, advancedTab }) {
                 bool selected = (tab == advancedTab) == advancedPage;
                 tab.BackColor = cBg;
@@ -6521,11 +6855,9 @@ namespace Offhand.Companion
                 tab.Invalidate();
                 tab.AccessibleName = tab == setupTab ? "Setup tab" : "Advanced tab";
                 tab.AccessibleDescription = (selected ? "Selected. " : "") + (tab == advancedTab
-                    ? "Workspace layouts, profiles, automatic spanning, diagnostics and activity log. " + (custom ? "Custom layout active." : "")
+                    ? "Workspace layouts, profiles, automatic spanning, diagnostics and activity log. " + (custom ? "Custom layout saved." : "")
                     : "Display selection and setup guidance. Switching tabs does not change your saved layout.");
             }
-            LayoutDashboardCards();
-            QueueDashboardFit();
         }
 
         internal void SetLayoutNotice(int processId, string message, bool spanFailed = false)
@@ -6654,6 +6986,13 @@ namespace Offhand.Companion
             }
             table.Height=height;
             panel.Height=table.Bottom+inset;
+            if (panel == advancedPanel && lblStoreUpdateInfo != null && isStorePackage) {
+                int available = Math.Max(1, panel.Width - 2 * inset);
+                int textHeight = TextRenderer.MeasureText(lblStoreUpdateInfo.Text, lblStoreUpdateInfo.Font,
+                    new Size(available, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
+                lblStoreUpdateInfo.SetBounds(inset, table.Bottom + (int)Math.Ceiling(10 * scale), available, textHeight);
+                panel.Height = lblStoreUpdateInfo.Bottom + inset;
+            }
         }
 
         private void LayoutDashboardCards()
@@ -6917,15 +7256,23 @@ namespace Offhand.Companion
         }
 
         internal Form CreateHelpDialog(bool displayTroubleshooting)
+        { return CreateGuideDialog(displayTroubleshooting, false); }
+
+        internal Form CreateWhatsNewDialog()
+        { return CreateGuideDialog(false, true); }
+
+        private Form CreateGuideDialog(bool displayTroubleshooting, bool whatsNew)
         {
-            string title = displayTroubleshooting ? "Display Troubleshooting" : "Setup and Help";
+            string title = whatsNew ? "What's new in " + BaseVersion
+                : displayTroubleshooting ? "Display Troubleshooting" : "Setup and Help";
             var help = new Form
             {
-                Text = displayTroubleshooting ? title : "Offhand Companion Help",
+                Text = whatsNew ? "Offhand Companion " + BaseVersion + " - What's new"
+                    : displayTroubleshooting ? title : "Offhand Companion Help",
                 StartPosition = FormStartPosition.CenterParent,
                 AutoScaleDimensions = new SizeF(96F, 96F),
                 AutoScaleMode = AutoScaleMode.Dpi,
-                Size = new Size(740, 710),
+                Size = whatsNew ? new Size(660, 600) : new Size(740, 710),
                 MinimumSize = new Size(540, 430),
                 BackColor = cBg,
                 ForeColor = cText,
@@ -6947,9 +7294,18 @@ namespace Offhand.Companion
                 BackColor = cCard
             };
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 56, Padding = new Padding(22, 10, 22, 12), BackColor = cCard };
-            Button close = CreateButton("Close", 0, 0, 120, 32, cBtnPrimaryBg, cGoldBright, cGold);
+            Button close = CreateButton(whatsNew ? "Got it" : "Close", 0, 0, 120, 32, cBtnPrimaryBg, cGoldBright, cGold);
             close.Click += (s, e) => help.Close();
-            if (displayTroubleshooting)
+            if (whatsNew)
+            {
+                Button setupHelp = CreateButton("Setup help",0,0,180,32,cBtnBg,cText,cBorderDim);
+                setupHelp.Click += (s,e) => { help.DialogResult = DialogResult.Retry; help.Close(); };
+                var buttons = DashboardButtonRow(new Control[] { setupHelp, close }, 32);
+                buttons.Dock = DockStyle.Fill;
+                buttons.BackColor = cCard;
+                footer.Controls.Add(buttons);
+            }
+            else if (displayTroubleshooting)
             {
                 Button settings = CreateButton("Windows Display Settings", 0, 0, 0, 32, cBtnBg, cText, cBorderDim);
                 settings.Click += (s, e) => OpenWindowsDisplaySettings(help);
@@ -6966,7 +7322,9 @@ namespace Offhand.Companion
                 tutorial.Click += (s,e) => { help.DialogResult = DialogResult.Retry; help.Close(); };
                 Button support = CreateButton("Support Offhand", 0, 0, 0, 32, cBtnBg, cText, cBorderDim);
                 support.Click += (s, e) => OpenCommunityLink(CompanionDistribution.WebsiteUrl + "#support", "the Offhand support page");
-                var buttons = DashboardButtonRow(new Control[] { tutorial, support, close }, 32);
+                Button news = CreateButton("What's new",0,0,130,32,cBtnBg,cText,cBorderDim);
+                news.Click += (s,e) => { help.DialogResult = DialogResult.Yes; help.Close(); };
+                var buttons = DashboardButtonRow(new Control[] { tutorial, news, support, close }, 32);
                 buttons.Dock = DockStyle.Fill;
                 buttons.BackColor = cCard;
                 footer.Controls.Add(buttons);
@@ -6987,7 +7345,21 @@ namespace Offhand.Companion
             CompanionUi.StyleScrollbars(guide);
             using (var sectionFont = new Font(guide.Font.FontFamily, 11, FontStyle.Bold))
             {
-                if (displayTroubleshooting)
+                if (whatsNew)
+                {
+                    AppendHelpSection(guide, sectionFont, "Workspace C preview",
+                        "With Offhand addon Beta 34, open the custom workspace editor to add Workspace C on a fourth display.",
+                        "Identify your displays and check the preview before applying. Four physical displays and mixed HDR or DPI configurations still need live testing.");
+                    AppendHelpSection(guide, sectionFont, "Your saved setup",
+                        "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
+                    AppendHelpSection(guide, sectionFont, "If something looks wrong",
+                        "If WoW looks blurry, incorrectly sized or misaligned:",
+                        "1. Review displays, Mainhand and Workspace layout in the Companion.",
+                        "2. Click Span WoW Now, then type /reload in WoW.",
+                        "3. Type /offhand guide, choose Companion, and repeat the placement/calibration steps. Follow any Mainhand HUD layout and reload prompts.",
+                        "You can read this notice again from Help > What's new.");
+                }
+                else if (displayTroubleshooting)
                 {
                     AppendHelpSection(guide, sectionFont, "Color and HDR", DisplayColor.Guidance);
                     AppendHelpSection(guide, sectionFont, "Windows display scaling", DisplayScaling.Guidance);
@@ -7009,15 +7381,29 @@ namespace Offhand.Companion
 
         private void ShowHelpDialog(bool displayTroubleshooting = false)
         {
-            bool replayTutorial = false;
+            DialogResult action = DialogResult.None;
             SuspendUiPolling();
             try
             {
                 using (Form help = CreateHelpDialog(displayTroubleshooting))
-                    replayTutorial = help.ShowDialog(this) == DialogResult.Retry;
+                    action = help.ShowDialog(this);
             }
             finally { ResumeUiPolling(); }
-            if (replayTutorial) StartDashboardTutorial();
+            if (action == DialogResult.Retry) StartDashboardTutorial();
+            else if (action == DialogResult.Yes) ShowWhatsNew();
+        }
+
+        private void ShowWhatsNew()
+        {
+            bool setupHelp = false;
+            SuspendUiPolling();
+            try {
+                using (Form news = CreateWhatsNewDialog()) setupHelp = news.ShowDialog(this) == DialogResult.Retry;
+                if (RememberCompanionVersion(appSettings)) SaveConfig();
+            }
+            catch (Exception ex) { AddLog("Could not show update notes. Read them from Help > What's new. " + ex.Message); }
+            finally { ResumeUiPolling(); }
+            if (setupHelp) ShowHelpDialog();
         }
 
         private void InitializeTray()
@@ -7310,7 +7696,9 @@ namespace Offhand.Companion
                     + "\r\nWindows: " + Environment.OSVersion.Version
                     + "\r\nSettings storage: " + (isStorePackage ? "Microsoft Store package data" : "local user profile")
                     + "\r\nCaptured UTC: " + DateTime.UtcNow.ToString("u")
-                    + "\r\n" + colorDiagnostics + "\r\nWindows display state only; game HDR conversion, WoW UI/render scale and image brightness are not measured.");
+                    + "\r\n" + colorDiagnostics
+                    + "\r\nWindows display state only; game HDR conversion, WoW UI/render scale and image brightness are not measured."
+                    + (lastSpanBoundsFailure == null ? "" : "\r\n\r\n" + lastSpanBoundsFailure));
                 AddLog("Display diagnostics copied to clipboard.");
             }
             catch (ExternalException) { MessageBox.Show(this, "The clipboard is busy. Try copying the diagnostics again.", "Display Diagnostics"); }
@@ -7866,8 +8254,14 @@ namespace Offhand.Companion
 
         private static ClassicGraphicsRecovery.Observation ReadRecoveryObservation(IntPtr handle)
         {
-            NativeMethods.RECT bounds, client, box;
-            if (!NativeMethods.GetWindowRect(handle, out bounds) || !NativeMethods.GetClientRect(handle, out client)) return null;
+            NativeMethods.RECT bounds;
+            return NativeMethods.GetWindowRect(handle, out bounds) ? ReadRecoveryObservation(handle, bounds) : null;
+        }
+
+        private static ClassicGraphicsRecovery.Observation ReadRecoveryObservation(IntPtr handle, NativeMethods.RECT bounds)
+        {
+            NativeMethods.RECT client, box;
+            if (!NativeMethods.GetClientRect(handle, out client)) return null;
             var result = new ClassicGraphicsRecovery.Observation {
                 Handle = handle, Bounds = new Rectangle(bounds.Left, bounds.Top, bounds.Width, bounds.Height),
                 Client = new Size(client.Width, client.Height), Style = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE),
@@ -7979,7 +8373,26 @@ namespace Offhand.Companion
                 
                 if (GetWoWWindowHandle(proc) != handle)
                     throw new InvalidOperationException("The selected WoW window changed before it could be restored.");
-                WindowRestore.Apply(handle, target, newStyle);
+                if (known && manual && activeRemoteSpan == null && !fillConnectedMainhand
+                    && RemoteDesktop.Read() == RemoteDesktop.State.Local)
+                {
+                    uint restoreOwner;
+                    uint restoreThread = NativeMethods.GetWindowThreadProcessId(handle, out restoreOwner);
+                    List<MonitorSelection.Display> displays = TryReadRestoreDisplays();
+                    if (WindowRestore.Apply(handle, target, newStyle, null, NativeMethods.ReadWindowDpi, () =>
+                        {
+                            uint currentOwner;
+                            return displays != null && restoreThread != 0 && restoreOwner == proc.Id
+                                && RemoteDesktop.Read() == RemoteDesktop.State.Local
+                                && MonitorSelection.SameDisplays(displays, TryReadRestoreDisplays())
+                                && GetWoWWindowHandle(proc) == handle
+                                && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == restoreThread
+                                && currentOwner == restoreOwner;
+                        }))
+                        AddLog("Exact window restore verified after the window DPI settled: " + target + ".");
+                }
+                else
+                    WindowRestore.Apply(handle, target, newStyle);
                 SetTaskbarFullscreen(handle, false);
                 if (remoteSpan != null && remoteSpan.ProcessId == proc.Id) InvalidateRemoteSpan();
                 
@@ -8174,6 +8587,9 @@ namespace Offhand.Companion
             if (standardRespanTimer != null) return false;
             Process proc = null;
             SpanRollback rollback = null;
+            MonitorSelection.Plan plan = null;
+            string failedBoundsReadback = null;
+            DateTime failedBoundsAt = default(DateTime);
             try
             {
                 RemoteDesktop.State session = RemoteDesktop.Read();
@@ -8188,7 +8604,6 @@ namespace Offhand.Companion
                 WoWClientWindow confirmedClient = clientSelection.Current;
                 int confirmedGeneration = remoteGeneration;
                 List<MonitorSelection.Display> displays = ReadDisplays();
-                MonitorSelection.Plan plan;
                 if (remote)
                 {
                     plan = ConfirmRemotePlan(displays);
@@ -8230,6 +8645,14 @@ namespace Offhand.Companion
                 Rectangle bounds = plannedBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
 
+                bool canRetryDpi = !remote && manual && plan.IsCustom && !graphicsRecovery && !GraphicsRecoveryTestBuild;
+#if GRAININESS_TEST
+                canRetryDpi = false;
+#endif
+                uint spanOwner;
+                uint spanThread = NativeMethods.GetWindowThreadProcessId(handle, out spanOwner);
+                if (spanThread == 0 || spanOwner != proc.Id)
+                    throw new InvalidOperationException("The WoW window changed. Wait for the client to open and try Span WoW Now again.");
                 if (remote) ValidateRemoteConfirmation(confirmedGeneration, displays);
                 else if (RemoteDesktop.Read() != RemoteDesktop.State.Local)
                     throw new InvalidOperationException("The Windows session changed. Review the displays and click Span WoW Now again.");
@@ -8253,6 +8676,7 @@ namespace Offhand.Companion
 
                 NativeMethods.RECT oldRect;
                 if (!NativeMethods.GetWindowRect(handle, out oldRect)) throw new Exception("Could not read WoW window bounds.");
+                uint beforeDpi = canRetryDpi ? NativeMethods.ReadWindowDpi(handle) : 0;
 
                 NativeMethods.RECT oldClient;
                 Size oldClientSize = NativeMethods.GetClientRect(handle, out oldClient)
@@ -8335,22 +8759,66 @@ namespace Offhand.Companion
                         AddLog("Render resize handshake applied; exact display bounds restored.");
                     }
 
-                    NativeMethods.RECT actual;
                     if (GraphicsRecoveryEnabled)
                     {
-                        var observedSpan = ReadRecoveryObservation(handle);
-                        if (observedSpan != null)
-                            AddLog(RecoveryScope + " span readback: outer=" + observedSpan.Bounds + "; client="
-                                + observedSpan.Client + "; region=" + observedSpan.Region + "; style="
-                                + observedSpan.Style.ToString("X8") + "; expected=" + bounds + ".");
+                        var observation = ReadRecoveryObservation(handle);
+                        if (observation != null)
+                            AddLog(RecoveryScope + " " + WindowInteropDiagnostics.SpanReadback(bounds, observation.Bounds, 0, observation));
                     }
-                    if (!NativeMethods.GetWindowRect(handle, out actual) ||
-                        actual.Left != bounds.X || actual.Top != bounds.Y ||
-                        actual.Width != bounds.Width || actual.Height != bounds.Height)
+
+                    NativeMethods.RECT actual;
+                    NativeMethods.SetLastError(0);
+                    bool boundsRead = NativeMethods.GetWindowRect(handle, out actual);
+                    int readError = boundsRead ? 0 : Marshal.GetLastWin32Error();
+                    Rectangle? observedBounds = boundsRead
+                        ? new Rectangle(actual.Left, actual.Top, actual.Width, actual.Height) : (Rectangle?)null;
+                    if (observedBounds != bounds)
                     {
-                        throw new Exception(GraphicsRecoveryEnabled
-                            ? "WoW changed its window bounds during spanning. Use Restore Window and retain the diagnostic capture; recovery was not armed."
-                            : "WoW did not accept the requested bounds. Select Windowed mode and retry.");
+                        var observation = boundsRead ? ReadRecoveryObservation(handle, actual) : null;
+                        failedBoundsReadback = WindowInteropDiagnostics.SpanReadback(bounds, observedBounds, readError, observation);
+                        if (canRetryDpi)
+                        {
+                            uint afterDpi = NativeMethods.ReadWindowDpi(handle);
+                            failedBoundsReadback += " Window DPI before/after span: " + beforeDpi + "/" + afterDpi + ".";
+                            uint currentOwner;
+                            if (SpanDpiRetry.Matches(bounds, observation, beforeDpi, afterDpi)
+                                && RemoteDesktop.Read() == RemoteDesktop.State.Local
+                                && MonitorSelection.SameDisplays(displays, ReadDisplays())
+                                && GetWoWWindowHandle(proc) == handle
+                                && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == spanThread
+                                && spanOwner == currentOwner
+                                && SpanClipRegion.Matches(handle, plan, bounds))
+                            {
+                                AddLog(failedBoundsReadback + " Retrying the exact custom span once after the DPI change.");
+                                NativeMethods.SetLastError(0);
+                                bool resized = NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.X, bounds.Y,
+                                    bounds.Width, bounds.Height, flags);
+                                int resizeError = resized ? 0 : Marshal.GetLastWin32Error();
+                                var afterRetry = ReadRecoveryObservation(handle);
+                                uint retryDpi = NativeMethods.ReadWindowDpi(handle);
+                                bool recovered = resized && SpanDpiRetry.IsExact(bounds, afterRetry, observation.Style)
+                                    && retryDpi == afterDpi && GetWoWWindowHandle(proc) == handle
+                                    && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == spanThread
+                                    && spanOwner == currentOwner && SpanClipRegion.Matches(handle, plan, bounds);
+                                failedBoundsReadback += " DPI retry: " + WindowInteropDiagnostics.SpanReadback(bounds,
+                                    afterRetry == null ? (Rectangle?)null : afterRetry.Bounds, 0, afterRetry)
+                                    + " Window DPI after retry: " + retryDpi + ".";
+                                if (!resized) failedBoundsReadback += " SetWindowPos Windows error " + resizeError + ".";
+                                if (recovered)
+                                {
+                                    AddLog("Exact custom span verified after the window DPI settled.");
+                                    failedBoundsReadback = null;
+                                }
+                            }
+                        }
+                    }
+                    if (failedBoundsReadback != null)
+                    {
+                        failedBoundsAt = DateTime.UtcNow;
+                        AddLog("Failed " + failedBoundsReadback);
+                        string reason = boundsRead ? "WoW did not retain the requested window bounds."
+                            : "Companion could not read WoW's window bounds after spanning.";
+                        throw new Exception(reason + " Use Copy Display Diagnostics to capture the failure. Select Windowed mode before trying again.");
                     }
                     if (graphicsRecovery)
                     {
@@ -8442,11 +8910,10 @@ namespace Offhand.Companion
             }
             catch (Exception ex)
             {
-                if (rollback != null)
-                {
-                    string rollbackFailure = rollback.Rollback();
-                    if (rollbackFailure != null) AddLog(rollbackFailure);
-                }
+                string rollbackFailure = rollback == null ? null : rollback.Rollback();
+                if (rollbackFailure != null) AddLog(rollbackFailure);
+                if (failedBoundsReadback != null)
+                    lastSpanBoundsFailure = WindowInteropDiagnostics.FailedSpan(failedBoundsAt, plan, failedBoundsReadback, rollbackFailure);
                 AddLog(ex.Message);
                 if (manual)
                 {
@@ -8468,60 +8935,63 @@ namespace Offhand.Companion
                 AddLog("Windows taskbar fullscreen notification was unavailable: " + failure);
         }
 
-        [STAThread]
-        public static void Main()
+        private static bool WithInstanceMutex(string name, Func<bool> run)
         {
-#if GRAININESS_TEST
-            try
-            {
-                SpanPresentationTest.Initialize(Environment.GetCommandLineArgs().Length > 1
-                    ? new System.Collections.Generic.List<string>(Environment.GetCommandLineArgs()).GetRange(1,
-                        Environment.GetCommandLineArgs().Length - 1).ToArray() : new string[0]);
-                SpanPresentationTest.ImportConfig();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(ex.Message, "Offhand Graininess Test2"); return;
-            }
-#endif
-            bool ownsInstance = false;
-            System.Threading.Mutex instanceMutex = null;
-            try
+            System.Threading.Mutex mutex;
+            try { mutex = new System.Threading.Mutex(false, name); }
+            catch (UnauthorizedAccessException) { return false; }
+            using (mutex)
             {
                 try
                 {
-#if UI_PREVIEW
-                    instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanionDashboardPreview", out ownsInstance);
-#else
-                    instanceMutex = new System.Threading.Mutex(true, @"Local\OffhandCompanion", out ownsInstance);
-#endif
+                    if (!mutex.WaitOne(0)) return false;
                 }
                 catch (System.Threading.AbandonedMutexException)
                 {
-                    ownsInstance = true;
+                    // Windows grants ownership when the previous holder exits unexpectedly.
                 }
-                if (!ownsInstance)
+                try { return run(); }
+                finally { mutex.ReleaseMutex(); }
+            }
+        }
+
+        internal static bool TryRunAsOnlyInstance(string releaseMutex, string legacyPreviewMutex, Action run)
+        {
+            // Hold both names for the whole session. Older previews used a separate
+            // name even though they wrote to the same add-on layout file.
+            return WithInstanceMutex(releaseMutex, () => WithInstanceMutex(legacyPreviewMutex, () =>
+            {
+                run();
+                return true;
+            }));
+        }
+
+        [STAThread]
+        public static void Main()
+        {
+            if (TryRunAsOnlyInstance(@"Local\OffhandCompanion", @"Local\OffhandCompanionDashboardPreview", () =>
+            {
+#if GRAININESS_TEST
+                try
                 {
-                    MessageBox.Show("Offhand Companion is already running. Open it from the Windows notification area.",
-                        "Offhand Companion", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    SpanPresentationTest.Initialize(Environment.GetCommandLineArgs().Length > 1
+                        ? new System.Collections.Generic.List<string>(Environment.GetCommandLineArgs()).GetRange(1,
+                            Environment.GetCommandLineArgs().Length - 1).ToArray() : new string[0]);
+                    SpanPresentationTest.ImportConfig();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Offhand Graininess Test2");
                     return;
                 }
+#endif
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
                 Application.Run(new CompanionForm());
-            }
-            finally
-            {
-                if (instanceMutex != null)
-                {
-                    if (ownsInstance)
-                    {
-                        try { instanceMutex.ReleaseMutex(); }
-                        catch { }
-                    }
-                    instanceMutex.Dispose();
-                }
-            }
+            })) return;
+
+            MessageBox.Show("Offhand Companion is already running. To use this version, choose Exit Companion in the running app. It may be in the Windows notification area.",
+                "Offhand Companion", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
     }
 }
