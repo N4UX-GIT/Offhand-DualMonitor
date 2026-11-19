@@ -761,6 +761,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "地图布局错误：%s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "配置"
+L["KEEP_MAP_TOGGLE_OPEN"] = "再次按下地图快捷键时保持副屏地图开启"
+L["KEEP_BAG_TOGGLE_OPEN"] = "再次按下背包快捷键时保持副屏背包开启"
 L["PROFILE_CHARACTER_HUD"] = "此角色保存的 HUD 布局"
 L["PROFILES_CURRENT_LABEL"] = "此角色所选配置"
 L["PROFILES_LIST_TITLE"] = "账号共享的 Offhand 配置"

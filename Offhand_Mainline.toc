@@ -75,6 +75,7 @@ Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
 Core\WorkspaceBehavior.lua
+Core\WorkspaceToggleKeys.lua
 Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
 Core\Recovery.lua

@@ -10,7 +10,7 @@ Updated 19 November 2026 for the Forever integration branch. The shared addon ba
 | Theme labels and Studio opacity | Paired preset swatches and Studio-layer opacity are in the working checkout. Compare the label and rendered colour for each preset and check both opacity endpoints with a custom image and a built-in background. |
 | XP bar under action bars | Beta 36 fits the generated XP and reputation anchors and preserves custom positions. The merged regression checks cover existing layouts and other visible bars. Capture the reported character’s actual XP owner and action bars if overlap persists. |
 | Spoken addon placement | Identify the addon, frame and action that opens it. Capture the position with the native Talking Head and with Spoken enabled before choosing an owner-specific placement fix. |
-| Block map and bag keybinds | Open. Specify whether the request is to prevent closing an already-open Offhand window or suppress opening as well. Test separate map and bag controls, controller ownership, explicit close, combat transitions and restoring bindings. |
+| Block map and bag keybinds | Separate opt-in settings keep the keyboard from closing a map or inventory on Offhand. A closed window opens through its existing binding. Forever live input results are below. Repeat on physical Mainhand/Offhand rectangles, check combat transitions, and extend provider coverage. |
 | Shared profile visibility and numeric Edit Mode labels | Retest the picker on both characters. Record the displayed label, actual layout name and scope. Profiles now labels account-wide settings, the character’s selection and its saved HUD by name. Add a reviewed copy/reuse action for compatible HUD layouts. Keep Blizzard layout ownership intact. |
 | Profile selection after switching characters | GUID-matched legacy and all-character recovery is in the branch. Recheck cold launch and switching in both directions on the combined package with distinct shared preferences and character HUD names. See the [two-character test record](FOREVER-PROFILE-LIVE-QA-20261118.md). |
 | Expanded/compact map hotkey | Open. Define close/reopen behaviour for both sizes, verify native and OpenMap dispatch, then expose a bindable action. |
@@ -41,5 +41,21 @@ Updated 19 November 2026 for the Forever integration branch. The shared addon ba
 | Standard re-span and Companion notifications | Confirm rollback restores an unclipped window on a genuine shrink. Check the persistent Span failed card and delivery of one background/tray failure warning on the combined executable. Check dashboard height and tray flash at multiple DPI scales. |
 | Reload guidance and acknowledgement | Try same-layout restore/re-span, a first span with WoW already open, a changed layout and a real failed span. Check localized Reload UI, guide and dismiss actions. A future “Layout loaded” message should require verified current geometry. A delayed General.log receipt may retire a matching normal reminder only. Check stale/rotated logs and simultaneous clients before enabling automatic dismissal. |
 | Native Companion and release | Run the actual candidate executable through monitor hotplug, mixed DPI, restore and dashboard flows. Compare with the Store baseline and test signed install/update/rollback separately. Package the merged addon, repeat live interaction and profile tests on those exact bytes, and record the hash and compatibility receipt before promotion. |
+
+## Keyboard acceptance on Forever 1.60.1.70959
+
+On Moonweaver Noggaholic, the regular map action owned M and BetterBags owned B. An isolated test addon supplied workspace or Mainhand as the location result. WoW dispatched the real keys to the installed map and inventory providers.
+
+| Action | Observed result |
+| --- | --- |
+| Press M and B with both windows closed | World Map and BetterBags Backpack opened. |
+| Press both again with workspace ownership | Both remained visible. |
+| Click each window's X | Both closed. WoW reported the original map and BetterBags bindings again. |
+| Press both keys again | Both reopened. |
+| Switch the location result to Mainhand and press both keys | Both closed normally. |
+
+The client was out of combat on an unspanned desktop. A subsequent optimization reuses the location while a visible root's bounds and scale stay unchanged. The regression covers a drag and restoration of the vendor binding. Physical display routing, rapid input after moving a window, equipped bag hotkeys, other provider versions and combat still need the packaged-client pass. The temporary probe was removed after the client closed.
+
+The focused native dashboard, rollback and tray tests pass. The legacy all-DPI layout suite still searches the Setup panel for the startup-delay control that moved to Advanced. Reconcile that fixture with the branch dashboard and rerun it before Companion promotion.
 
 The donor's live bag receipt intentionally keeps its original fingerprints. Run `python scripts/check-compatibility.py` and the checker unit tests during development. Use `--require-fresh-live` after repeating the affected live checks. The original mixed-refresh observations are recorded in the shared knowledge project under `knowledge/offhand-mixed-refresh-map-report-20261117.md` for Forever 1.60.1.70938 and 1.60.1.70959.

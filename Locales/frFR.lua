@@ -760,6 +760,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Erreur de disposition de la carte : %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Profils"
+L["KEEP_MAP_TOGGLE_OPEN"] = "Garder la carte ouverte sur Offhand si je rappuie sur sa touche"
+L["KEEP_BAG_TOGGLE_OPEN"] = "Garder les sacs ouverts sur Offhand si je rappuie sur leur touche"
 L["PROFILE_CHARACTER_HUD"] = "ATH enregistré pour ce personnage"
 L["PROFILES_CURRENT_LABEL"] = "Profil choisi pour ce personnage"
 L["PROFILES_LIST_TITLE"] = "Profils Offhand du compte"

@@ -759,6 +759,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Fehler im Karten-Layout: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Profile"
+L["KEEP_MAP_TOGGLE_OPEN"] = "Offhand-Karte beim erneuten Tastendruck offen lassen"
+L["KEEP_BAG_TOGGLE_OPEN"] = "Offhand-Taschen beim erneuten Tastendruck offen lassen"
 L["PROFILE_CHARACTER_HUD"] = "Gespeichertes HUD dieses Charakters"
 L["PROFILES_CURRENT_LABEL"] = "Für diesen Charakter ausgewählt"
 L["PROFILES_LIST_TITLE"] = "Accountweite Offhand-Profile"

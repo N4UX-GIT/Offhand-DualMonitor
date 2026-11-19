@@ -1801,6 +1801,7 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
             Offhand.Viewport:ApplyGlobalScale()
         end
         if Offhand.EllesmereScaleCompatibility then Offhand.EllesmereScaleCompatibility:Refresh() end
+        if Offhand.WorkspaceToggleKeys then Offhand.WorkspaceToggleKeys:Refresh() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
         end

@@ -761,6 +761,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Ошибка расположения карты: %
 
 -- Profile Management
 L["TAB_PROFILES"] = "Профили"
+L["KEEP_MAP_TOGGLE_OPEN"] = "Оставлять карту на Offhand открытой при повторном нажатии клавиши"
+L["KEEP_BAG_TOGGLE_OPEN"] = "Оставлять сумки на Offhand открытыми при повторном нажатии клавиши"
 L["PROFILE_CHARACTER_HUD"] = "Сохранённый интерфейс персонажа"
 L["PROFILES_CURRENT_LABEL"] = "Профиль этого персонажа"
 L["PROFILES_LIST_TITLE"] = "Профили Offhand учётной записи"

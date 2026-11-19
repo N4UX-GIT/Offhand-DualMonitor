@@ -761,6 +761,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "地圖配置錯誤：%s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "設定檔"
+L["KEEP_MAP_TOGGLE_OPEN"] = "再次按下地圖快捷鍵時保持副螢幕地圖開啟"
+L["KEEP_BAG_TOGGLE_OPEN"] = "再次按下背包快捷鍵時保持副螢幕背包開啟"
 L["PROFILE_CHARACTER_HUD"] = "此角色儲存的 HUD 配置"
 L["PROFILES_CURRENT_LABEL"] = "此角色選用的設定檔"
 L["PROFILES_LIST_TITLE"] = "帳號共用的 Offhand 設定檔"

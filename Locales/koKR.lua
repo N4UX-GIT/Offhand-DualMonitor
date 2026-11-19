@@ -761,6 +761,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "지도 레이아웃 오류: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "프로필"
+L["KEEP_MAP_TOGGLE_OPEN"] = "지도 키를 다시 눌러도 오프핸드 지도 열어 두기"
+L["KEEP_BAG_TOGGLE_OPEN"] = "가방 키를 다시 눌러도 오프핸드 가방 열어 두기"
 L["PROFILE_CHARACTER_HUD"] = "이 캐릭터에 저장된 HUD"
 L["PROFILES_CURRENT_LABEL"] = "이 캐릭터에서 선택한 프로필"
 L["PROFILES_LIST_TITLE"] = "계정 공용 오프핸드 프로필"

@@ -761,6 +761,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Errore disposizione mappa: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Profili"
+L["KEEP_MAP_TOGGLE_OPEN"] = "Lascia aperta la mappa su Offhand quando ripremo il tasto"
+L["KEEP_BAG_TOGGLE_OPEN"] = "Lascia aperte le borse su Offhand quando ripremo il tasto"
 L["PROFILE_CHARACTER_HUD"] = "Interfaccia salvata per questo personaggio"
 L["PROFILES_CURRENT_LABEL"] = "Profilo selezionato per questo personaggio"
 L["PROFILES_LIST_TITLE"] = "Profili Offhand dell’account"

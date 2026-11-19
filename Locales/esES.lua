@@ -759,6 +759,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Error en la distribución del mapa: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Perfiles"
+L["KEEP_MAP_TOGGLE_OPEN"] = "Mantener abierto el mapa de Offhand al pulsar de nuevo su tecla"
+L["KEEP_BAG_TOGGLE_OPEN"] = "Mantener abiertas las bolsas de Offhand al pulsar de nuevo su tecla"
 L["PROFILE_CHARACTER_HUD"] = "HUD guardado para este personaje"
 L["PROFILES_CURRENT_LABEL"] = "Seleccionado para este personaje"
 L["PROFILES_LIST_TITLE"] = "Perfiles de Offhand de la cuenta"

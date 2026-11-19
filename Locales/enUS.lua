@@ -924,6 +924,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Map layout error: %s"
 -- Profile Management
 -- ============================================================================
 L["TAB_PROFILES"] = "Profiles"
+L["KEEP_MAP_TOGGLE_OPEN"] = "Keep the Offhand map open when I press its key again"
+L["KEEP_BAG_TOGGLE_OPEN"] = "Keep Offhand bags open when I press the bag key again"
 L["PROFILE_CHARACTER_HUD"] = "Saved HUD for this character"
 L["PROFILES_CURRENT_LABEL"] = "Selected for this character"
 L["PROFILES_LIST_TITLE"] = "Account-wide Offhand profiles"

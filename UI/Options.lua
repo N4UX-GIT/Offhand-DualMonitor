@@ -1268,6 +1268,17 @@ function Options:CreateFloatingPanel()
                 Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
             end
         end
+        local keepOpenChecks = {}
+        if Offhand.WorkspaceToggleKeys and Offhand.WorkspaceToggleKeys:Available() then
+            local function AddKeepOpenCheck(key, label)
+                local check = CreateNativeCheckbox(card2_1, L[label],
+                    function() return Offhand.db and Offhand.db[key] == true end,
+                    function(value) Offhand.db[key] = value == true end)
+                keepOpenChecks[#keepOpenChecks + 1] = {check = check, key = key}
+            end
+            AddKeepOpenCheck("keepMapToggleOpen", "KEEP_MAP_TOGGLE_OPEN")
+            AddKeepOpenCheck("keepBagToggleOpen", "KEEP_BAG_TOGGLE_OPEN")
+        end
         function card2_1.RefreshIntegration(openMapOwner)
             local fadeHelp
             if Offhand.isForever then
@@ -1296,7 +1307,13 @@ function Options:CreateFloatingPanel()
                 placeOpenMap:SetPoint("TOPLEFT", 12, -top - 30)
                 placeOpenMap:SetPoint("TOPRIGHT", -12, -top - 30)
             end
-            ResizeMonitorCard(card2_1, top + (recoverMap and openMapOwner and 66 or 0))
+            top = top + (recoverMap and openMapOwner and 66 or 0)
+            for _, entry in ipairs(keepOpenChecks) do
+                entry.check:SetPoint("TOPLEFT", 10, -top)
+                entry.check:SetChecked(Offhand.db and Offhand.db[entry.key] == true)
+                top = top + math.max(28, Controls.MeasureWrappedText(entry.check.Text, entry.check.Text:GetText(), 530) + 10)
+            end
+            ResizeMonitorCard(card2_1, top)
         end
         card2_1.RefreshIntegration(IsIntegrationActive("OpenMap") and Offhand.MapScale:GetState().owner == "OpenMap")
     end

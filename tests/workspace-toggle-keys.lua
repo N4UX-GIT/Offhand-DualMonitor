@@ -1,0 +1,93 @@
+local addon = {isForever=true, db={enabled=true}, Canvas={}, Viewport={}}
+local combat, spanned, controller, reserved = false, true, false, false
+local overrides, native, vendor, observer, owner, driver, dispatched = {}, {}, {}, nil, nil, nil, {}
+local keys = {TOGGLEWORLDMAP={"M", "CTRL-M"}, TOGGLEBACKPACK={"SHIFT-B"}, OPENALLBAGS={"B","PAD2"}}
+for action, assigned in pairs(keys) do for _, key in ipairs(assigned) do native[key]=action end end
+function GetBindingKey(action) return unpack(keys[action] or {}) end
+function GetBindingAction(key, check) return check and (overrides[key] or vendor[key]) or native[key] end
+function InCombatLockdown() return combat end
+function addon.Canvas.CanManagePanelsFromAddon() return not controller end
+function addon:IsBlizzardInputReserved() return reserved end
+function addon.Viewport:GetMetrics() return {isSpanned=spanned} end
+function addon.Canvas.IsFrameOnWorkspace(frame) return frame.workspace end
+function CreateFrame(kind, name, _, template)
+    local frame = {scripts={}}
+    function frame:RegisterEvent() end
+    function frame:SetScript(key, fn) self.scripts[key]=fn end
+    function frame:SetAttribute(_, code) self.combatSnippet=code end
+    if name then assert(template=="SecureHandlerStateTemplate");owner=frame else observer=frame end
+    return frame
+end
+function ClearOverrideBindings(button)
+    assert(button==owner and not combat)
+    for key, action in pairs(overrides) do if action:match("^CLICK OffhandWorkspaceToggleKey:") then overrides[key]=nil end end
+end
+function SetOverrideBindingClick(button, priority, key, name, action)
+    assert(not combat and button==owner and priority==true and action=="LeftButton")
+    overrides[key]="CLICK "..name..":"..action
+end
+function RegisterStateDriver(button, state, spec)
+    assert(button==owner and state=="combat" and spec=="[combat] combat; nocombat")
+    driver=button.combatSnippet
+end
+local function root(id)
+    return {shown=false,workspace=true,IsVisible=function(self) return self.shown end,
+        GetID=function() return id end, IsForbidden=function() return false end,
+        GetEffectiveScale=function() return 1 end,
+        GetRect=function(self) return self.workspace and 1800 or 10,20,400,300 end}
+end
+WorldMapFrame,ContainerFrame1,ContainerFrame2,ContainerFrameCombinedBags=root(),root(0),root(1),root()
+function RunBinding(action)
+    dispatched[#dispatched+1]=action
+    local f=action=="TOGGLEWORLDMAP" and WorldMapFrame or ContainerFrame1
+    f.shown=not f.shown
+end
+local function press(key)
+    local binding=GetBindingAction(key,true)
+    if binding~="CLICK OffhandWorkspaceToggleKey:LeftButton" then RunBinding(binding) end
+    if observer.scripts.OnUpdate then observer.scripts.OnUpdate(observer,0.06) end
+end
+assert(loadfile("Core/WorkspaceToggleKeys.lua"))("Offhand",addon)
+local module=addon.WorkspaceToggleKeys
+module:Refresh(); assert(not owner and not next(overrides))
+addon.db.keepMapToggleOpen=true; module:Refresh()
+assert(not overrides.M,"opening uses the original binding")
+press("M"); press("CTRL-M")
+assert(WorldMapFrame.shown and #dispatched==1 and not overrides.B, "closed map opens, second key preserves it")
+WorldMapFrame.workspace=false; module:Refresh(); press("M"); assert(not WorldMapFrame.shown,"Mainhand toggle must close")
+WorldMapFrame.workspace=true; WorldMapFrame.shown=true
+WorldMapFrame.shown=false; module:Refresh(); press("M"); assert(WorldMapFrame.shown,"explicit close must allow the next open")
+addon.db.keepBagToggleOpen=true; module:Refresh()
+assert(not overrides.PAD2)
+press("B"); press("B"); press("SHIFT-B"); assert(ContainerFrame1.shown,"both normal bag keys must preserve the workspace backpack")
+ContainerFrame2.shown=true; ContainerFrame2.workspace=false; module:Refresh()
+press("B"); assert(not ContainerFrame1.shown,"mixed-screen all-bags group must yield")
+ContainerFrame2.shown=false; ContainerFrameCombinedBags.shown=true;module:Refresh()
+local count=#dispatched; press("B");assert(#dispatched==count,"combined bag")
+addon.HasCustomBagAddon=function() return true end
+local bag=root(); bag.shown=true; addon.BagPersistence={frames={inventory=bag}};module:Refresh()
+press("SHIFT-B");assert(#dispatched==count,"replacement inventory")
+vendor.B="BETTERBAGS_TOGGLEBAGS"
+addon.BagPersistence.betterBags={Bags={Backpack={frame=bag}}}
+addon.db.keepBagToggleOpen=false;module:Refresh()
+assert(GetBindingAction("B",true)=="BETTERBAGS_TOGGLEBAGS")
+addon.db.keepBagToggleOpen=true;module:Refresh()
+assert(overrides.B,"the reviewed BetterBags inventory toggle must be maskable")
+bag.workspace=false;observer.scripts.OnUpdate(observer,0.06)
+assert(GetBindingAction("B",true)=="BETTERBAGS_TOGGLEBAGS","dragging restores the original vendor override")
+bag.workspace=true;vendor.B=nil;module:Refresh()
+reserved=true; module:Refresh(); press("B"); assert(#dispatched==count+1); reserved=false
+overrides.B="CLICK OtherAddon:Open";keys.TOGGLEWORLDMAP={"F8"};native.M=nil;native["F8"]="TOGGLEWORLDMAP"
+observer.scripts.OnEvent()
+assert(not overrides.M and overrides.F8 and overrides.B=="CLICK OtherAddon:Open","rebind and competing owner")
+combat=true
+assert(driver:find("self:ClearBindings()",1,true))
+for key, action in pairs(overrides) do if action:find("OffhandWorkspaceToggleKey",1,true) then overrides[key]=nil end end
+module:Refresh();assert(not overrides.F8)
+combat=false;observer.scripts.OnEvent();assert(overrides.F8,"restore after secure combat cleanup")
+spanned=false;module:Refresh();assert(not overrides.F8)
+spanned=true;controller=true;module:Refresh();assert(not overrides.F8)
+controller=false;module:Refresh();assert(overrides.F8)
+addon.db={enabled=true};module:Refresh()
+assert(not overrides.F8 and overrides.B=="CLICK OtherAddon:Open","profile switch releases only Offhand overrides")
+print("PASS: normal map and inventory keys, explicit close, workspace ownership, rebinding and combat cleanup")
