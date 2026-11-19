@@ -61,6 +61,62 @@ local function DescribeForeverXPBarSave()
     return string.format("%s/%s/%.1f/%.1f", point, relativePoint, x, y)
 end
 
+-- Keep the native panel manager's secure placement path in combat. These
+-- are Blizzard's layout offsets, not attributes on the protected panels.
+local stockPanelOffsets = { LEFT_OFFSET = 16, TOP_OFFSET = -116, RIGHT_OFFSET_BUFFER = 80 }
+local nativeOffsetOwner, appliedPanelOffsets
+
+function Placement.RefreshNativeMainhandOrigin(metrics, enabled)
+    if not Offhand.isForever or InCombatLockdown() or not GetUIPanelLayoutFrame
+        or not GetUIPanelLayoutAttribute or not SetUIPanelLayoutAttribute then return end
+
+    local layout = GetUIPanelLayoutFrame()
+    if not layout or not layout.CanChangeProtectedState or layout:CanChangeProtectedState() ~= true then return end
+    if nativeOffsetOwner ~= layout then
+        nativeOffsetOwner, appliedPanelOffsets = layout, nil
+    end
+
+    local desired = stockPanelOffsets
+    if enabled and metrics and metrics.isSpanned then
+        local top, right = UIParent:GetTop(), UIParent:GetRight()
+        if IsPublicNumber(top) and IsPublicNumber(right)
+            and IsPublicNumber(metrics.gameLeft) and IsPublicNumber(metrics.gameTop)
+            and IsPublicNumber(metrics.gameRight) then
+            desired = {
+                LEFT_OFFSET = stockPanelOffsets.LEFT_OFFSET + metrics.gameLeft,
+                TOP_OFFSET = stockPanelOffsets.TOP_OFFSET - math.max(0, top - metrics.gameTop),
+                RIGHT_OFFSET_BUFFER = stockPanelOffsets.RIGHT_OFFSET_BUFFER + math.max(0, right - metrics.gameRight),
+            }
+        end
+    end
+
+    local expected = appliedPanelOffsets or stockPanelOffsets
+    local current = {}
+    for key in pairs(expected) do
+        current[key] = GetUIPanelLayoutAttribute(key)
+        if not IsPublicNumber(current[key]) then return end
+    end
+    for key, value in pairs(expected) do
+        if current[key] ~= value then
+            -- If another mover took an offset, keep its value and release only
+            -- the offsets we still own.
+            if appliedPanelOffsets then
+                for ownedKey, ownedValue in pairs(appliedPanelOffsets) do
+                    if current[ownedKey] == ownedValue and ownedValue ~= stockPanelOffsets[ownedKey] then
+                        SetUIPanelLayoutAttribute(ownedKey, stockPanelOffsets[ownedKey])
+                    end
+                end
+            end
+            appliedPanelOffsets = nil
+            return
+        end
+    end
+    for key, value in pairs(desired) do
+        if expected[key] ~= value then SetUIPanelLayoutAttribute(key, value) end
+    end
+    appliedPanelOffsets = desired ~= stockPanelOffsets and desired or nil
+end
+
 function Placement.InstallSingleScreen(Canvas, services)
     local IsForeverProfessionsPanel = services.IsForeverProfessionsPanel
     local IsForeverEditModeFrame = services.IsForeverEditModeFrame
@@ -695,9 +751,240 @@ function Placement.Install(Canvas, services)
             and math.abs(placement.y - position.y) < 0.5
     end
 
+    local combatSlots = { "left", "center", "right", "doublewide" }
+    local socialWaitingForSpace = setmetatable({}, { __mode = "k" })
+    local combatAnchorRepairing = setmetatable({}, { __mode = "k" })
+
+    local function ReadShownSlot(slot)
+        local frame = GetUIPanel(slot)
+        if not IsPublic(frame) then return nil, true end
+        if not frame then return nil end
+        local ok, shown = pcall(function() return frame:IsShown() end)
+        if not ok or not IsPublic(shown) then return nil, true end
+        return shown and frame or nil
+    end
+
+    local function SavedAnchorOverlapsPeer(frame, x, y, width, height)
+        if not GetUIPanel then return false end
+        for _, slot in ipairs(combatSlots) do
+            local peer, unreadable = ReadShownSlot(slot)
+            if unreadable then return true end
+            if peer and peer ~= frame then
+                local other = GetPanelPhysicalPlacement(peer)
+                if not other or not IsPublicNumber(other.x) or not IsPublicNumber(other.y)
+                    or not IsPublicNumber(other.width) or not IsPublicNumber(other.height) then return true end
+                if x < other.x + other.width and x + width > other.x
+                    and y > other.y - other.height and y - height < other.y then return true end
+            end
+        end
+        return false
+    end
+
+    local function ResolveCombatWorkspaceAnchor(metrics, frame, position, width, height)
+        if type(position) ~= "table" or position.autoRoute
+            or not IsPublicNumber(position.x) or not IsPublicNumber(position.y) then return end
+        if Offhand.WorkspaceRegions then metrics = Offhand.WorkspaceRegions:ForFrame(metrics, frame, position) end
+        local persistence = Offhand.CanvasPersistence
+        if not persistence.FitsWorkspace(metrics, width, height) then return end
+        return persistence.ResolveWorkspacePosition(metrics, position, width, height, false, UIParent:GetHeight())
+    end
+
+    local combatPanelClamps = {}
+
+    local function InsetsMatch(current, expected)
+        for i = 1, 4 do
+            if not IsPublicNumber(current[i]) or math.abs(current[i] - expected[i]) > 0.01 then return false end
+        end
+        return true
+    end
+
+    local function PrepareCombatPanelClamp(frame, metrics, position)
+        if not frame or combatPanelClamps[frame] then return end
+        local ok, record = pcall(function()
+            if frame:IsForbidden() ~= false or frame:IsProtected() ~= true
+                or frame:CanChangeProtectedState() ~= true or frame:GetParent() ~= UIParent
+                or IsPanelDragging(frame) then return end
+            local uiScale, frameScale = UIParent:GetEffectiveScale(), frame:GetEffectiveScale()
+            local frameWidth, frameHeight = frame:GetWidth(), frame:GetHeight()
+            if not IsPublicNumber(uiScale) or uiScale <= 0 or not IsPublicNumber(frameScale) or frameScale <= 0
+                or not IsPublicNumber(frameWidth) or frameWidth <= 0
+                or not IsPublicNumber(frameHeight) or frameHeight <= 0 then return end
+            local factor = frameScale / uiScale
+            local width, height = frameWidth * factor, frameHeight * factor
+            local left, right, bottom, top = metrics.gameLeft, metrics.gameRight, metrics.gameBottom, metrics.gameTop
+            if position then
+                left, top = ResolveCombatWorkspaceAnchor(metrics, frame, position, width, height)
+                if not IsPublicNumber(left) or not IsPublicNumber(top) then return end
+                right, bottom = left + width, top - height
+            elseif width > right - left or height > top - bottom then
+                return
+            end
+
+            local original = {frame:GetClampRectInsets()}
+            local wasClamped = frame:IsClampedToScreen()
+            if not IsPublic(wasClamped) or type(wasClamped) ~= "boolean" or not InsetsMatch(original, original) then return end
+            local desired = {-left / factor, (UIParent:GetWidth() - right) / factor,
+                (UIParent:GetHeight() - top) / factor, -bottom / factor}
+            return {original=original, wasClamped=wasClamped, desired=desired, workspace=position ~= nil}
+        end)
+        if not ok or not record then return end
+        -- The client still assigns every native slot. Bounds constrain the
+        -- resulting rectangle even when it cannot accept addon anchor writes.
+        local applied = pcall(function()
+            frame:SetClampRectInsets(unpack(record.desired))
+            frame:SetClampedToScreen(true)
+        end)
+        if applied then
+            combatPanelClamps[frame] = record
+        else
+            pcall(frame.SetClampRectInsets, frame, unpack(record.original))
+        end
+    end
+
+    function Canvas:PrepareCombatPanelClamps()
+        local db = Offhand.db
+        if not Offhand.isForever or not db or not db.enabled or InCombatLockdown() or not UIPanelWindows
+            or not self.CanManagePanelsFromAddon() or Offhand.CanvasCompatibility.HasMoveAny()
+            or Offhand.CanvasCompatibility.HasClassicUIForever()
+            or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
+        local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
+        if not metrics or not metrics.isSpanned then return end
+
+        local workspacePositions = db.savedWorkspacePositions or {}
+        for name, position in pairs(workspacePositions) do
+            local registration = UIPanelWindows[name]
+            local frame = registration and _G[name]
+            if frame and (registration.area == "left" or registration.area == "doublewide"
+                or name == "PlayerSpellsFrame")
+                and self:GetPanelController(name) == "generic"
+                and not Offhand.CanvasPanelRegistry.IsContextBoundPanel(name)
+                and not IsUnsafeForPanelMutation(frame, name) then
+                PrepareCombatPanelClamp(frame, metrics, position)
+            end
+        end
+        -- An expanded Spellbook or Talents takes the true center slot. Native
+        -- horizontal placement for that slot uses the entire spanned window.
+        if not workspacePositions.PlayerSpellsFrame then
+            PrepareCombatPanelClamp(_G.PlayerSpellsFrame, metrics)
+        end
+    end
+
+    function Canvas:ReleaseCombatPanelClamps()
+        if InCombatLockdown() then return end
+        local repairDefaults
+        for frame, record in pairs(combatPanelClamps) do
+            combatPanelClamps[frame] = nil
+            local released, shown, name = pcall(function()
+                if frame:IsForbidden() ~= false or frame:CanChangeProtectedState() ~= true
+                    or not InsetsMatch({frame:GetClampRectInsets()}, record.desired) then return false end
+                frame:SetClampRectInsets(unpack(record.original))
+                if frame:IsClampedToScreen() then frame:SetClampedToScreen(record.wasClamped) end
+                return frame:IsShown(), frame:GetName()
+            end)
+            if released and shown then
+                local mainPositions = Offhand.db and Offhand.db.savedMainPositions
+                if record.workspace or (IsPublic(name) and mainPositions and mainPositions[name]) then
+                    RestoreWorkspacePosition(frame)
+                else
+                    repairDefaults = true
+                end
+            end
+        end
+        if repairDefaults then self:RepairDefaultForeverSlots() end
+    end
+
+    function Canvas:ShouldDeferCombatSocialAnchor(frame)
+        local pending = socialWaitingForSpace[frame]
+        if not pending then return false end
+        local position = Offhand.db and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.SocialUIFrame
+        local current = GetPanelPhysicalPlacement(frame)
+        if frame == _G.SocialUIFrame and position == pending.position and current
+            and IsPublicNumber(current.width) and IsPublicNumber(current.height)
+            and SavedAnchorOverlapsPeer(frame, pending.x, pending.y, current.width, current.height) then return true end
+        socialWaitingForSpace[frame] = nil
+        return false
+    end
+
+    local function RestoreCombatSavedAnchor(frame, workspace, position)
+        if combatAnchorRepairing[frame] or type(position) ~= "table" or position.autoRoute
+            or not IsPublicNumber(position.x) or not IsPublicNumber(position.y)
+            or not Canvas.CanManagePanelsFromAddon()
+            or Offhand.CanvasCompatibility.HasMoveAny()
+            or Offhand.CanvasCompatibility.HasClassicUIForever()
+            or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return false end
+        local ok, restored = pcall(function()
+            if not frame.IsForbidden or not IsPublic(frame:IsForbidden()) or frame:IsForbidden()
+                or not frame.IsProtected or not IsPublic(frame:IsProtected()) or frame:IsProtected()
+                or not frame.CanChangeProtectedState or frame:CanChangeProtectedState() ~= true
+                or not frame.IsAnchoringRestricted or frame:IsAnchoringRestricted() ~= false
+                or not frame.IsAnchoringSecret or frame:IsAnchoringSecret() ~= false
+                or frame:GetParent() ~= UIParent then return false end
+
+            local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
+            if not metrics or not metrics.isSpanned then return false end
+
+            local placement = GetPanelPhysicalPlacement(frame)
+            if not placement or not IsPublicNumber(placement.factor) or placement.factor <= 0
+                or not IsPublicNumber(placement.x) or not IsPublicNumber(placement.y)
+                or not IsPublicNumber(placement.width) or not IsPublicNumber(placement.height)
+                or placement.width <= 0 or placement.height <= 0 then return false end
+            local x, y = position.x, position.y
+            if workspace then
+                x, y = ResolveCombatWorkspaceAnchor(metrics, frame, position, placement.width, placement.height)
+            else
+                local left, right = metrics.gameLeft + 12, metrics.gameRight - 12
+                local bottom, top = metrics.gameBottom + 12, metrics.gameTop - 12
+                if placement.width > right - left or placement.height > top - bottom then return false end
+                x = math.max(left, math.min(x, right - placement.width))
+                y = math.max(bottom + placement.height, math.min(y, top))
+            end
+            if not IsPublicNumber(x) or not IsPublicNumber(y) then return false end
+            if frame == _G.SocialUIFrame then
+                if not workspace and SavedAnchorOverlapsPeer(frame, x, y, placement.width, placement.height) then
+                    socialWaitingForSpace[frame] = {position=position, x=x, y=y}
+                    return true
+                end
+                socialWaitingForSpace[frame] = nil
+            end
+            if PlacementMatchesPosition(placement, {x=x, y=y}) then return true end
+            combatAnchorRepairing[frame] = true
+            frame:ClearAllPoints()
+            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / placement.factor, y / placement.factor)
+            return true
+        end)
+        combatAnchorRepairing[frame] = nil
+        return ok and restored or false
+    end
+
+    function Canvas:RepairCombatWorkspaceSlots()
+        local db = Offhand.db
+        if not Offhand.isForever or not db or not db.enabled or not db.savedWorkspacePositions
+            or not GetUIPanel or not InCombatLockdown() then return end
+        for _, slot in ipairs(combatSlots) do
+            local frame = ReadShownSlot(slot)
+            if frame and frame ~= _G.SocialUIFrame and frame.GetName and not IsPanelDragging(frame) then
+                local name = frame:GetName()
+                local position = IsPublic(name) and type(name) == "string" and db.savedWorkspacePositions[name]
+                if position and _G[name] == frame and Canvas:GetPanelController(name) == "generic"
+                    and not Offhand.CanvasPanelRegistry.IsContextBoundPanel(name)
+                    and not IsUnsafeForPanelMutation(frame, name) then
+                    RestoreCombatSavedAnchor(frame, true, position)
+                end
+            end
+        end
+    end
+
     local function RepairShownSocialPanel(frame, suppliedName)
         if not frame or not frame.IsShown or not frame:IsShown()
-            or IsPanelDragging(frame) or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return false end
+            or IsPanelDragging(frame) or not Offhand.db or not Offhand.db.enabled then return false end
+        if InCombatLockdown() then
+            if frame ~= _G.SocialUIFrame then return false end
+            local db = Offhand.db
+            local workspace = db.savedWorkspacePositions and db.savedWorkspacePositions.SocialUIFrame
+            return RestoreCombatSavedAnchor(frame, workspace,
+                workspace or db.savedMainPositions and db.savedMainPositions.SocialUIFrame)
+        end
+        if Canvas:ShouldDeferCombatSocialAnchor(frame) then return true end
         if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return false end
         local name = (frame.GetName and frame:GetName()) or suppliedName
         if not name then return false end
@@ -796,7 +1083,8 @@ function Placement.Install(Canvas, services)
     end
 
     function Canvas:RepairShownSocialCommunityPanels()
-        if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
+        if not Offhand.db or not Offhand.db.enabled then return end
+        local inCombat = InCombatLockdown()
         local repaired = setmetatable({}, { __mode = "k" })
         local names = {
             "FriendsFrame", "FriendsListFrame", "SocialFrame", "SocialUIFrame",
@@ -806,7 +1094,7 @@ function Placement.Install(Canvas, services)
             local frame = _G[name]
             if frame and not repaired[frame] and frame.IsShown and frame:IsShown() then
                 repaired[frame] = true
-                HookSocialPanelAnchorResets(frame, name)
+                if not inCombat then HookSocialPanelAnchorResets(frame, name) end
                 RepairShownSocialPanel(frame, name)
             end
         end

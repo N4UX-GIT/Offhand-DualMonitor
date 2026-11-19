@@ -3252,9 +3252,9 @@ print("PASS: login and delayed restoration reject input capture and stale child 
 end
 
 -- Spellbook, Macros, Collections, and similar panels do not exist at the first
--- reload restoration pass. Offhand must load only the Blizzard addon belonging
--- to an explicitly saved/open workspace panel, then use the normal delayed
--- panel restoration path after registration has settled.
+-- reload restoration pass. Offhand loads the corresponding Blizzard addon,
+-- then uses the normal delayed panel restoration path for explicitly open panels.
+-- Closed protected panels need their owner loaded before combat, without reopening.
 local loadedBlizzardAddons, requestedBlizzardAddons = {}, {}
 C_AddOns = {
     IsAddOnLoaded = function(name) return loadedBlizzardAddons[name] == true end,
@@ -3265,6 +3265,10 @@ C_AddOns = {
             MacroFrame = makeMockFrame("MacroFrame", 700, 800)
             MacroFrame:Hide()
             RegisterUIPanel(MacroFrame)
+        elseif name == "Blizzard_PlayerSpells" then
+            PlayerSpellsFrame = makeMockFrame("PlayerSpellsFrame", 577, 720)
+            PlayerSpellsFrame:Hide()
+            RegisterUIPanel(PlayerSpellsFrame)
         elseif name == "Blizzard_Professions" then
             ProfessionsFrame = makeMockFrame("ProfessionsFrame", 700, 800)
             ProfessionsFrame:Hide()
@@ -3286,6 +3290,26 @@ assert(requestedBlizzardAddons.Blizzard_MacroUI == 1,
     "reload restoration must request the saved MacroFrame's Blizzard addon exactly once")
 assert(MacroFrame and MacroFrame:IsShown() and addon.Canvas.IsFrameOnWorkspace(MacroFrame),
     "a saved/open MacroFrame must reopen on the workspace after its addon loads")
+
+do
+    local oldSpellbook, oldRegistration = PlayerSpellsFrame, UIPanelWindows.PlayerSpellsFrame
+    local oldPosition = addon.db.savedWorkspacePositions.PlayerSpellsFrame
+    local oldOpen = addon.db.openWorkspacePanels.PlayerSpellsFrame
+    PlayerSpellsFrame, UIPanelWindows.PlayerSpellsFrame = nil, nil
+    addon.db.savedWorkspacePositions.PlayerSpellsFrame = {x=210, y=1510}
+    addon.db.openWorkspacePanels.PlayerSpellsFrame = nil
+    addon.Canvas:RestorePersistentFrames()
+    addon.Canvas:RestorePersistentFrames()
+    flushTimers()
+    flushTimers()
+    assert(requestedBlizzardAddons.Blizzard_PlayerSpells == 1,
+        "prepare a deliberately closed protected Spellbook once")
+    assert(PlayerSpellsFrame and not PlayerSpellsFrame:IsShown(),
+        "prepare the native root without restoring visible state")
+    PlayerSpellsFrame, UIPanelWindows.PlayerSpellsFrame = oldSpellbook, oldRegistration
+    addon.db.savedWorkspacePositions.PlayerSpellsFrame = oldPosition
+    addon.db.openWorkspacePanels.PlayerSpellsFrame = oldOpen
+end
 
 -- New Blizzard modules are learned from UIPanels registered during their
 -- ADDON_LOADED turn, providing forward compatibility beyond the seed table.
