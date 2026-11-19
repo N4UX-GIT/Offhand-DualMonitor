@@ -36,6 +36,12 @@ Affected issue IDs:
 
 ## Ownership and compatibility
 
+Run `python scripts/check-compatibility.py` for the portable addon checks.
+For ownership or input changes, include the affected compatibility rows from
+`docs/COMPATIBILITY.md` and the live evidence freshness result. Record any
+deliberate differences between the installed test addon and this branch.
+Before release, repeat affected live cases on the combined packaged candidate.
+
 - [ ] Capability detection is used where client APIs differ
 - [ ] Blizzard and third-party ownership boundaries remain intact
 - [ ] Saved-variable and localization compatibility was considered

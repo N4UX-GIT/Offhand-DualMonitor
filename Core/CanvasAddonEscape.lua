@@ -23,11 +23,11 @@ local function Source(frame)
     return value:gsub("\\", "/"):lower()
 end
 
-local function OrdinaryRoot(frame)
+local function OrdinaryRoot(frame, parent)
     return frame and frame.IsShown and frame.GetParent
         and not (frame.IsForbidden and frame:IsForbidden())
         and not (frame.IsProtected and frame:IsProtected())
-        and frame:GetParent() == UIParent
+        and frame:GetParent() == (parent or UIParent)
 end
 
 local function IsDonGameplayRoot(frame, name, addon)
@@ -228,6 +228,26 @@ local function Release(frame, state)
     state.removed, state.index = nil, nil
 end
 
+local function Exclude(state)
+    for index = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[index] == state.name then
+            state.index = index
+            table.remove(UISpecialFrames, index)
+            state.removed = true
+        end
+    end
+end
+
+function Adapter:SetSpecialFrameExcluded(frame, state, excluded, parent)
+    if InCombatLockdown and InCombatLockdown() then return end
+    if type(UISpecialFrames) ~= "table" or #UISpecialFrames > MAX_SPECIAL then return end
+    if excluded and _G[state.name] == frame and OrdinaryRoot(frame, parent) then
+        Exclude(state)
+    else
+        Release(frame, state)
+    end
+end
+
 local function Refresh()
     if InCombatLockdown and InCombatLockdown() then return false end
     if type(UISpecialFrames) ~= "table" or #UISpecialFrames > MAX_SPECIAL then return false end
@@ -280,13 +300,7 @@ local function Refresh()
                 and Offhand.Canvas.IsFrameOnWorkspace(frame)
         end)
         if ok and keep then
-            for index = #UISpecialFrames, 1, -1 do
-                if UISpecialFrames[index] == state.name then
-                    state.index = index
-                    table.remove(UISpecialFrames, index)
-                    state.removed = true
-                end
-            end
+            Exclude(state)
             active = true
         else
             Release(frame, state)

@@ -22,6 +22,14 @@ jobs:
         with:
           luaVersion: "5.1.5"
 
+      - name: Validate addon load paths and compatibility evidence
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_compatibility_check.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Compatibility checker tests failed.' }
+          python scripts/check-compatibility.py --skip-lua-tests --report dist/compatibility-check.json
+          if ($LASTEXITCODE -ne 0) { throw 'Addon compatibility checks failed.' }
+
       - name: Run Unit Tests
         shell: pwsh
         run: |
