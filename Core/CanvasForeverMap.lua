@@ -487,6 +487,9 @@ function Adapter.Install(Canvas, services)
         if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
         if ShouldYieldWorldMapToMoveAny(map) and not SupportsExternalWorldMapEscapeProtection(map) then return false end
         local state = GetForeverWorldMapState(map)
+        if Offhand.OpenMapRecovery and Compatibility.GetWorldMapExternalOwner() == "OpenMap" then
+            Offhand.OpenMapRecovery:ObserveUserDrag(map)
+        end
         if state.handle then return true end
 
         local handle = CreateFrame("Frame", nil, UIParent)

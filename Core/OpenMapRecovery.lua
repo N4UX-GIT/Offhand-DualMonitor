@@ -1,4 +1,4 @@
--- Explicit, version-scoped recovery. No startup work, frame hooks or recurring mover.
+-- Version-scoped compatibility for OpenMap's saved window placement.
 local _, Offhand = ...
 local Recovery = {}
 Offhand.OpenMapRecovery = Recovery
@@ -7,6 +7,60 @@ local function Number(value)
     if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
     if type(value) ~= "number" or value ~= value or math.abs(value) == math.huge then return nil end
     return value
+end
+
+local dragObservers = setmetatable({}, { __mode = "k" })
+
+local function GetDraggableOpenMapDB(map)
+    if Offhand._loggingOut or not Offhand.db or not Offhand.db.enabled or InCombatLockdown()
+        or (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled())
+        or map:IsForbidden() or not map:IsShown() or map:IsMaximized() then return end
+    local compatibility = Offhand.CanvasCompatibility
+    if compatibility.GetWorldMapExternalOwner() ~= "OpenMap" then return end
+    local module, db = compatibility.GetOpenMapWorldMapModule()
+    -- OpenMap's window code is active even when its stitched canvas is not.
+    if not module or (module.MoveAnyOn and module.MoveAnyOn()) then return end
+    local scale, savedScale = Number(map:GetScale()), Number(db.windowScale)
+    if scale and savedScale and savedScale > 0 and math.abs(scale - savedScale) < .001 then return db end
+end
+
+function Recovery:ObserveUserDrag(map)
+    if dragObservers[map] or not hooksecurefunc
+        or not map.StartMoving or not map.StopMovingOrSizing then return end
+    local drag
+    hooksecurefunc(map, "StartMoving", function()
+        drag = nil
+        local ok, db, left, top = pcall(function()
+            -- A paired native move is enough. Querying the mouse button from
+            -- this post-hook can fail under Forever's limited input rules.
+            return GetDraggableOpenMapDB(map), Number(map:GetLeft()), Number(map:GetTop())
+        end)
+        if ok and db and left and top then
+            drag = { db = db, window = db.window, left = left, top = top }
+        end
+    end)
+    hooksecurefunc(map, "StopMovingOrSizing", function()
+        local completed = drag
+        drag = nil
+        if not completed then return end
+        -- Other movers can bypass OpenMap's title script. Store the released
+        -- point in the same owner settings that OpenMap reads on panel reflow.
+        pcall(function()
+            local db = GetDraggableOpenMapDB(map)
+            if db ~= completed.db or db.window ~= completed.window or map:GetNumPoints() ~= 1 then return end
+            local left, top = Number(map:GetLeft()), Number(map:GetTop())
+            if not left or not top
+                or (math.abs(left - completed.left) < .5 and math.abs(top - completed.top) < .5) then return end
+            local point, relative, relativePoint, x, y = map:GetPoint(1)
+            if issecretvalue and (issecretvalue(point) or issecretvalue(relative) or issecretvalue(relativePoint)) then return end
+            -- StopMovingOrSizing may omit the relative frame for a screen anchor.
+            if (relative == UIParent or relative == nil) and type(point) == "string"
+                and type(relativePoint) == "string" and Number(x) and Number(y) then
+                db.window = { point, relativePoint, x, y }
+            end
+        end)
+    end)
+    dragObservers[map] = true
 end
 
 local function Inspect(workspace)
