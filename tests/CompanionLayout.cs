@@ -425,7 +425,7 @@ namespace Offhand.Companion
                         throw new Exception("Help body text must use the regular guide style.");
                     if (!troubleshooting)
                     {
-                        string[] orderedSections = { "First-time setup:", "Calibration: finish", "After calibration:", "Optional: custom", "Recovery: choose", "Updates and support" };
+                        string[] orderedSections = { "First-time setup:", "Click Window is positioned", "then Reload UI", "click Confirm placement", "Then click Start Calibration", "Calibration: finish", "After calibration:", "Optional: custom", "Recovery: choose", "Updates and support" };
                         int previous = -1;
                         foreach (string expected in orderedSections)
                         {
@@ -433,7 +433,7 @@ namespace Offhand.Companion
                             if (position <= previous) throw new Exception("Help section missing or out of sequence: " + expected);
                             previous = position;
                         }
-                        if (!guide.Text.Contains("Span WoW Now at the top") || !guide.Text.Contains("Reload UI, Confirm placement, then Start Calibration") ||
+                        if (!guide.Text.Contains("Span WoW Now at the top") ||
                             !guide.Text.Contains("Load selected, then Save changes") || !guide.Text.Contains("Installed files do not confirm"))
                             throw new Exception("Help must match dashboard controls, calibration handoff and staged profile saving.");
                     }
