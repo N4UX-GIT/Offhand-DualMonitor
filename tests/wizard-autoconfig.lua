@@ -2194,7 +2194,8 @@ for _, method in ipairs({"FANCYZONES", "COMPANION", "MANUAL"}) do
     for _, page in ipairs({3, 4}) do
         onboardingFrame:SetPage(page)
         local expectedBody = page == 3 and addon.L["ONBOARD_MODE_READY_BODY"]
-            or string.format(addon.L["ONBOARD_SPAN_" .. method], "|cffffd100" .. addon.L["ONBOARD_SPAN_ACK"] .. "|r")
+            or addon.L.ONBOARD_WINDOWS_DISPLAY_PLACEMENT .. "\n\n" ..
+                string.format(addon.L["ONBOARD_SPAN_" .. method], "|cffffd100" .. addon.L["ONBOARD_SPAN_ACK"] .. "|r")
         assert(onboardingFrame.pageBody:GetText() == expectedBody,
             "preparation must be one task and placement must describe only the selected method")
         onboardingFrame.helpButton.scripts.OnClick()
