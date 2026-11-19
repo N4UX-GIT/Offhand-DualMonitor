@@ -319,8 +319,8 @@ assert(not handoffNotice.hasEditBox and not topologyWarning.hasEditBox,
     "layout handoff notices must not imply that Companion needs downloading")
 assert(handoffNotice.text:find("versions may already be correct", 1, true),
     "missing-layout guidance must reassure users with matching versions")
-assert(handoffNotice.text:find("Span WoW Now", 1, true) and handoffNotice.text:find("/reload", 1, true),
-    "missing-layout guidance must give the explicit span and reload sequence")
+assert(handoffNotice.text:find("Span WoW Now", 1, true),
+    "missing-layout guidance must give the span action before placement review")
 assert(not handoffNotice.text:find("is required", 1, true),
     "missing-layout guidance must not report a version requirement")
 assert(versionWarning.hasEditBox,

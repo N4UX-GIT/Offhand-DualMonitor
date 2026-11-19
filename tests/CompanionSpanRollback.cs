@@ -127,6 +127,44 @@ namespace Offhand.Companion
         }
 
         [STAThread]
+        private static void CheckStandardRespanRollback(string root)
+        {
+            string path = Path.Combine(root, "standard-respan.lua");
+            byte[] original = { 7, 10, 12 };
+            byte[] written = { 14, 15 };
+            File.WriteAllBytes(path, original);
+            using (var window = new Form { StartPosition = FormStartPosition.Manual, Bounds = new Rectangle(210, 110, 650, 450) })
+            {
+                IntPtr handle = window.Handle;
+                using (var rollback = new SpanRollback(path, handle))
+                {
+                    Check(rollback.IsRestoredNormalWindow(), "capture an unclipped single-screen window");
+                    int borders = NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+                    int originalStyle = NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE);
+                    var span = new Rectangle(50, 50, 1150, 800);
+                    IntPtr clip = Shape();
+                    try
+                    {
+                        // Model a span that succeeds and then shrinks at the span origin.
+                        File.WriteAllBytes(path, written);
+                        rollback.TopologyWritten(written);
+                        rollback.WindowChanged = true;
+                        NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, originalStyle & ~borders);
+                        Check(NativeMethods.SetWindowPos(handle, IntPtr.Zero, span.X, span.Y, span.Width, span.Height, 0x0034), "apply the spanned bounds");
+                        Check(NativeMethods.SetWindowRgn(handle, clip, false) != 0, "apply the span clip");
+                        clip = IntPtr.Zero;
+                        NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, originalStyle);
+                        Check(NativeMethods.SetWindowPos(handle, IntPtr.Zero, span.X, span.Y, 600, 400, 0x0034), "shrink the window in place while leaving the clip");
+                        Check(!rollback.IsRestoredNormalWindow(), "the shrunken window is still clipped and misplaced");
+                        Check(rollback.Rollback() == null, "revert the delayed failure");
+                        Check(rollback.IsRestoredNormalWindow(), "restore the prior position, size and unclipped borders");
+                        Check(SpanRollback.SameBytes(File.ReadAllBytes(path), original), "restore the previous topology");
+                    }
+                    finally { if (clip != IntPtr.Zero) NativeMethods.DeleteObject(clip); }
+                }
+            }
+        }
+
         public static void Main()
         {
             Check(Marshal.SizeOf(typeof(NativeMethods.WINDOWPLACEMENT)) == 44, "Windows SDK placement ABI");
@@ -134,6 +172,7 @@ namespace Offhand.Companion
             Directory.CreateDirectory(root);
             try
             {
+                CheckStandardRespanRollback(root);
                 CheckCustomRollback(root);
                 CheckCustomRestore();
                 for (int clipped = 0; clipped < 2; clipped++)

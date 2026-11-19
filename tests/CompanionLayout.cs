@@ -235,12 +235,13 @@ namespace Offhand.Companion
                 var cards = scrollPanel.Controls.OfType<TableLayoutPanel>().Single();
                 if (cards.Height + scrollPanel.Padding.Vertical <= scrollPanel.ClientSize.Height)
                     throw new Exception("Fixture did not reproduce the initial status refresh outgrowing the startup window.");
-                // Status updates and panel toggles must scroll within the
-                // existing window rather than grow or move the dashboard.
+                form.GrowDashboardToWorkingArea(roomyDesktop);
                 LayoutAll(form);
                 bool contentOverflows = cards.Bottom > scrollPanel.ClientSize.Height - scrollPanel.Padding.Bottom;
-                if (form.Bounds != startupBounds || (contentOverflows != scrollPanel.VerticalScroll.Visible))
-                    throw new Exception("Status refresh must preserve bounds and scroll overflowing content at " + factor
+                if (form.Width != startupBounds.Width || form.Left != startupBounds.Left
+                    || form.Height <= startupBounds.Height || !roomyDesktop.Contains(form.Bounds)
+                    || contentOverflows != scrollPanel.VerticalScroll.Visible)
+                    throw new Exception("Status refresh must grow the Setup window within the work area at " + factor
                         + "x. Startup=" + startupBounds + ", current=" + form.Bounds
                         + ", viewport=" + scrollPanel.ClientSize + ", cardsBottom=" + cards.Bottom
                         + ", padding=" + scrollPanel.Padding + ", scrollbar=" + scrollPanel.VerticalScroll.Visible
@@ -263,7 +264,6 @@ namespace Offhand.Companion
                 if (!status.Controls.OfType<Label>().Any(label => label.Text == "WoW: Forever running") ||
                     !status.Controls.OfType<Label>().Any(label => label.Text == "Offhand addon: Installed (beta.26)"))
                     throw new Exception("System Status omitted the client or addon release.");
-
                 // Reproduce the reported outer-scrollbar regression with the
                 // complete dashboard, not only controls inside one card.
                 foreach (Rectangle workArea in new[] { new Rectangle(0, 0, 2560, 1400),
@@ -460,8 +460,61 @@ namespace Offhand.Companion
             }
         }
 
+        private static void CheckSpanNotice()
+        {
+            if (!CompanionForm.ReloadLayoutInstruction.Contains("new, changed or not loaded")
+                || !CompanionForm.ReloadLayoutInstruction.Contains("without another reload or calibration"))
+                throw new Exception("Span guidance must distinguish layout loading from an unchanged re-span.");
+            using (var form = new CompanionForm())
+            {
+                form.Show();
+                LayoutAll(form);
+                var startup = form.Bounds;
+                var roomyDesktop = new Rectangle(startup.Left, startup.Top, startup.Width, 1700);
+                var status = One<Panel>(form, panel => panel.Controls.OfType<Label>().Any(label => label.Text == "SYSTEM STATUS"));
+                var showStatus = One<Button>(status, button => button.Text == "Show");
+                showStatus.PerformClick();
+                form.UpdateClientStatus(new AddonStatus { Installed = true, Version = "2.1.5", ReleaseTag = "beta.36" }, true);
+                form.GrowDashboardToWorkingArea(roomyDesktop);
+                if (form.Width != startup.Width || form.Height <= startup.Height || !roomyDesktop.Contains(form.Bounds))
+                    throw new Exception("Setup must grow when the detected client adds status content.");
+                var grown = form.Bounds;
+                form.UpdateClientStatus(null, false);
+                form.GrowDashboardToWorkingArea(roomyDesktop);
+                if (form.Bounds != grown)
+                    throw new Exception("Setup must keep its height when WoW closes.");
+
+                form.SelectDashboardPage(true);
+                form.SetLayoutNotice(123, string.Concat(Enumerable.Repeat("Review the display layout. ", 25)));
+                form.GrowDashboardToWorkingArea(roomyDesktop);
+                LayoutAll(form);
+                if (form.Height <= grown.Height || !roomyDesktop.Contains(form.Bounds))
+                    throw new Exception("Advanced must grow to fit its content within the working area.");
+                form.SetLayoutNotice(123, "WoW did not keep the span. Restore Window, then reload and try again.", spanFailed: true);
+                form.UpdateClientStatus(null, true);
+                form.SelectDashboardPage(false);
+                form.SelectDashboardPage(true);
+                LayoutAll(form);
+                var warning = One<Panel>(form, panel => panel.AccessibleName == "Span failure warning");
+                var warningHeading = One<Label>(warning, label => label.AccessibleName == "Span failed");
+                var message = One<Label>(warning, label => label.AccessibleName == "Layout notice instructions");
+                var dismiss = One<Button>(warning, button => button.AccessibleName == "Dismiss span failure warning");
+                if (!warning.Visible || warningHeading.Bottom > message.Top || message.Right >= dismiss.Left
+                    || !warning.ClientRectangle.Contains(message.Bounds))
+                    throw new Exception("The span failure warning must remain visible and fit across dashboard updates.");
+                form.SetLayoutNotice(123, CompanionForm.ReloadLayoutInstruction);
+                if (warning.AccessibleName != "Layout reminder" || message.Text != CompanionForm.ReloadLayoutInstruction)
+                    throw new Exception("A successful span must replace the warning with the normal reminder.");
+                form.SetLayoutNotice(0, "");
+                form.SelectDashboardPage(false);
+
+                form.Hide();
+            }
+            Console.WriteLine("PASS: dashboard grows in Setup and Advanced; span failure warning fits and survives status updates");
+        }
+
         [STAThread]
-        internal static void Main()
+        internal static void Main(string[] options)
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -471,6 +524,8 @@ namespace Offhand.Companion
                 typeof(CompanionForm).GetField(field, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
                     .SetValue(null, isolated);
             AppDomain.CurrentDomain.ProcessExit += (sender, args) => { if (System.IO.File.Exists(isolated)) System.IO.File.Delete(isolated); };
+            CheckSpanNotice();
+            if (options.Length == 1 && options[0] == "--span-notice") return;
             CheckHostWorkingArea();
             CheckScale(1f);
             CheckScale(1.25f);
