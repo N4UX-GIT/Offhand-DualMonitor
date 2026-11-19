@@ -710,11 +710,12 @@ function Persistence.InstallRestore(Canvas, services)
             return
         end
 
-        -- If frame is WorldMapFrame and on the main gaming screen:
+        -- An unpinned map restores to Mainhand. Resizing it can leave its
+        -- previous anchor offsets on the other display until SetPoint below.
         if frame == WorldMapFrame then
-            Canvas:ConfigureWorldMap()
-              RemodalizePanel(frame)
-              RegisterSpecialFrame("WorldMapFrame")
+            Canvas:ConfigureWorldMap("MAINHAND")
+            RemodalizePanel(frame)
+            RegisterSpecialFrame("WorldMapFrame")
 
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1

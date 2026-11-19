@@ -84,3 +84,26 @@ addon.db.workspaceMapScale = .55
 addon.Canvas:ConfigureWorldMap()
 assert(#map.scaleWrites == 2 and map.scale == .55, 'the explicit smaller scale was not preserved')
 print('PASS: Forever stacked keyboard map applies the fitted scale once')
+
+-- Use the settings entry point. At 50% the old anchor offsets temporarily
+-- put the map on the left workspace, until restore places it on Mainhand.
+do
+    local a, f, env, metrics = boot(1, {0, 0, 1440, 2560}, 1)
+    a.isForever, a.isRetail, a.tocVersion = true, false, 16001
+    metrics.gameLeft, metrics.gameRight, metrics.gameWidth = 1440, 4000, 2560
+    a.db.savedWorkspacePositions.WorldMapFrame = nil
+    a.db.workspaceMapScale = 'AUTO'
+    a.Canvas.IsFrameOnWorkspace = function(frame)
+        return a.WorkspaceRegions:ContainsFrame(metrics, frame, false)
+    end
+    local scaleModule = assert(loadfile('Core/MapScale.lua'))
+    setfenv(scaleModule, env)
+    scaleModule('Offhand', a)
+    f.x, f.y, f.scale = 1452, 1428, 1
+    assert(a.MapScale:Set(2.5) and f.scale > 2)
+    assert(a.MapScale:Set(.5) and a.db.mainMapScale == .5)
+    assert(f.scale == .5 and not a.Canvas.IsFrameOnWorkspace(f),
+        'unpinned Mainhand restore replaced 50% with the workspace fit')
+    assert(a.db.workspaceMapScale == 'AUTO' and not a.db.savedWorkspacePositions.WorldMapFrame
+        and not a.db.savedMainPositions.WorldMapFrame, 'scaling pinned the map or changed the other display')
+end
