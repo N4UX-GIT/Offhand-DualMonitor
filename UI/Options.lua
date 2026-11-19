@@ -2401,12 +2401,8 @@ function Options:CreateFloatingPanel()
             activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
             local layout = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus and Offhand.Mainhand:GetLayoutStatus()
             local name = layout and layout.configured and layout.generatedName
-            if type(name) == "string" and name:match("%S") then
-                hudLabel:SetText(L["PROFILE_CHARACTER_HUD"] .. "  " .. name)
-                hudLabel:Show()
-            else
-                hudLabel:Hide()
-            end
+            hudLabel:SetText(type(name) == "string" and name:match("%S")
+                and (L["PROFILE_CHARACTER_HUD"] .. "  " .. name) or "")
         
             -- Hide old buttons
             for _, btn in ipairs(profileButtons) do btn:Hide() end
