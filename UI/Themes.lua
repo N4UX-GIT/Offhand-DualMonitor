@@ -92,6 +92,13 @@ local COLOR_PALETTES = {
     CRIMSON      = { name = "Crimson Red",       r = 0.85, g = 0.22, b = 0.22, a = 1.0 },
 }
 
+local function TrimColor(settings, fallback)
+    local key = settings and settings.trimColor
+    local color = key == "CUSTOM" and settings.customTrimColor or COLOR_PALETTES[key]
+    if color then return color.r, color.g, color.b, color.a or 1 end
+    return fallback[1], fallback[2], fallback[3], fallback[4] or 1
+end
+
 -- Preset color options for the workspace background
 local CANVAS_PALETTES = {
     CLASSIC_STONE= { name = "Classic Stone",  r = 0.72, g = 0.72, b = 0.75, bg = "Interface\\DialogFrame\\UI-DialogBox-Background" },
@@ -221,7 +228,6 @@ function Themes:ApplyCanvasTheme(canvasFrame,regionID)
     local settings=self:GetRegionSettings(regionID)
     local currentThemeKey = settings.theme or "CLASSIC"
     local theme = self:GetThemeInfo(currentThemeKey)
-    local isClassic = (currentThemeKey == "CLASSIC")
     local isPureBlackTheme = (currentThemeKey == "PITCH_BLACK")
 
     local colorKey = settings.canvasColor or "CHARCOAL"
@@ -283,27 +289,8 @@ function Themes:ApplyCanvasTheme(canvasFrame,regionID)
         if canvasFrame.bgTexture.Show then canvasFrame.bgTexture:Show() end
     end
 
-    -- Resolve border trim color according to theme and trimColor setting
-    local br = theme.borderColor or { 1.0, 1.0, 1.0, 1.0 }
-    if isPureBlackTheme then
-        br = { 0.18, 0.18, 0.18, 1.0 }
-    elseif settings.trimColor then
-        if settings.trimColor == "CUSTOM" and settings.customTrimColor then
-            local c = settings.customTrimColor
-            br = { c.r, c.g, c.b, c.a or 1.0 }
-        elseif COLOR_PALETTES[settings.trimColor] then
-            if isClassic and settings.trimColor == "GOLD" then
-                -- Classic Blizzard gold on UI-DialogBox-Border is pre-rendered; keep untainted
-                br = { 1.0, 1.0, 1.0, 1.0 }
-            else
-                local c = COLOR_PALETTES[settings.trimColor]
-                br = { c.r, c.g, c.b, c.a or 1.0 }
-            end
-        end
-    end
-
     if canvasFrame.SetBackdropBorderColor then
-        canvasFrame:SetBackdropBorderColor(br[1], br[2], br[3], br[4] or 1.0)
+        canvasFrame:SetBackdropBorderColor(TrimColor(settings, theme.borderColor))
     end
 
     if (canvasFrame == Offhand.canvas or canvasFrame == _G["OffhandCanvasFrame"]
@@ -373,23 +360,7 @@ function Themes:ApplyBackdrop(frame, themeKey, customAlpha)
         frame:SetBackdropColor(bg[1], bg[2], bg[3], alpha)
     end
 
-    -- Window border color
-    local br = theme.borderColor
-    if Offhand.db and Offhand.db.trimColor then
-        if Offhand.db.trimColor == "CUSTOM" and Offhand.db.customTrimColor then
-            local c = Offhand.db.customTrimColor
-            br = { c.r, c.g, c.b, c.a or 1.0 }
-        elseif COLOR_PALETTES[Offhand.db.trimColor] then
-            if isClassic and Offhand.db.trimColor == "GOLD" then
-                -- Default Blizzard Gold on UI-DialogBox-Border is pre-rendered; keep untainted
-                br = { 1.0, 1.0, 1.0, 1.0 }
-            else
-                local c = COLOR_PALETTES[Offhand.db.trimColor]
-                br = { c.r, c.g, c.b, c.a }
-            end
-        end
-    end
-    frame:SetBackdropBorderColor(br[1], br[2], br[3], br[4] or 1.0)
+    frame:SetBackdropBorderColor(TrimColor(Offhand.db, theme.borderColor))
 end
 
 function Themes:CreateBayHeader(parent, titleText, customHeight)
@@ -433,40 +404,13 @@ function Themes:UpdateHeader(header, titleText)
 
     local themeKey = (Offhand.db and Offhand.db.theme) or "CLASSIC"
     local theme = self:GetThemeInfo(themeKey)
-    local isClassic = (themeKey == "CLASSIC")
-
     header:SetBackdropColor(theme.headerColor[1], theme.headerColor[2], theme.headerColor[3], 0.90)
-
-    local br = theme.borderColor
-    if Offhand.db and Offhand.db.trimColor then
-        if Offhand.db.trimColor == "CUSTOM" and Offhand.db.customTrimColor then
-            local c = Offhand.db.customTrimColor
-            br = { c.r, c.g, c.b, c.a or 1.0 }
-        elseif COLOR_PALETTES[Offhand.db.trimColor] then
-            if isClassic and Offhand.db.trimColor == "GOLD" then
-                br = { 0.85, 0.70, 0.20, 1.0 }
-            else
-                local c = COLOR_PALETTES[Offhand.db.trimColor]
-                br = { c.r, c.g, c.b, c.a or 1.0 }
-            end
-        end
-    end
-    header:SetBackdropBorderColor(br[1], br[2], br[3], br[4] or 1.0)
-
-    local textCol = theme.headerTextColor
-    if Offhand.db and Offhand.db.trimColor then
-        if Offhand.db.trimColor == "CUSTOM" and Offhand.db.customTrimColor then
-            local c = Offhand.db.customTrimColor
-            textCol = { c.r, c.g, c.b, 1.0 }
-        elseif COLOR_PALETTES[Offhand.db.trimColor] then
-            local c = COLOR_PALETTES[Offhand.db.trimColor]
-            textCol = { c.r, c.g, c.b, 1.0 }
-        end
-    end
+    header:SetBackdropBorderColor(TrimColor(Offhand.db, theme.borderColor))
 
     if header.title then
         if titleText then header.title:SetText(titleText) end
-        header.title:SetTextColor(textCol[1], textCol[2], textCol[3], textCol[4] or 1.0)
+        local r, g, b = TrimColor(Offhand.db, theme.headerTextColor)
+        header.title:SetTextColor(r, g, b, 1)
     end
     if Offhand.UIControls then Offhand.UIControls.StyleSurface(header, "header") end
 end

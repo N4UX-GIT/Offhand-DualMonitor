@@ -56,7 +56,9 @@ function Controls.StyleSurface(frame, kind)
             frame:SetBackdropColor(.075, .082, .105, 1)
         end
     end
-    if active and enabled then
+    if kind == "window" or kind == "header" then
+        frame:SetBackdropBorderColor(r, g, b, 1)
+    elseif active and enabled then
         local strength = frame.uiPrimary and 1 or .85
         if frame.uiPrimary then frame:SetBackdropBorderColor(1,.89,.52,1)
         else frame:SetBackdropBorderColor(r * strength, g * strength, b * strength, 1) end
