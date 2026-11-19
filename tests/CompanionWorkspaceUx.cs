@@ -40,6 +40,31 @@ namespace Offhand.Companion
         private static void Run(string[] args)
         {
             Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+            string freshPath = Path.Combine(args[0], "fresh-settings.ini");
+            var fresh = PreferenceFile.Read(freshPath);
+            Check(fresh.Count == 0 && WorkspaceEditorLayout.CurrentMode(fresh) == WorkspaceEditorLayout.Standard,
+                "A new installation does not start with standard layout");
+            var click = typeof(Button).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic);
+            using (var chooser = new CustomRegionModeDialog(fresh))
+            {
+                Check(chooser.AcceptButton == chooser.StandardButton && !chooser.EnableCustom.Checked && !chooser.SecondaryButton.Enabled,
+                    "Fresh setup defaults to a custom editor");
+                click.Invoke(chooser.SecondaryButton, new object[] { EventArgs.Empty });
+                Check(!chooser.Secondary && chooser.DialogResult != DialogResult.OK, "Custom editor bypassed explicit opt-in");
+                Render(chooser, Path.Combine(args[0], "layout-chooser-standard.png"));
+                click.Invoke(chooser.StandardButton, new object[] { EventArgs.Empty });
+                Check(chooser.UseStandard && !chooser.Secondary && chooser.DialogResult == DialogResult.OK,
+                    "Keeping standard layout selected a custom editor");
+            }
+            using (var chooser = new CustomRegionModeDialog(fresh))
+            {
+                chooser.EnableCustom.Checked = true;
+                Check(chooser.SecondaryButton.Enabled, "Explicit custom opt-in did not enable editors");
+                click.Invoke(chooser.SecondaryButton, new object[] { EventArgs.Empty });
+                Check(chooser.Secondary && !chooser.UseStandard && chooser.DialogResult == DialogResult.OK,
+                    "Deliberate custom selection did not open the requested editor");
+            }
+            Check(fresh.Count == 0 && !File.Exists(freshPath), "Choosing an editor mutated fresh preferences");
             var displays=new List<MonitorSelection.Display>{
                 new MonitorSelection.Display{Index=0,StableId="game",DeviceName="game",Primary=true,Bounds=new Rectangle(0,0,2560,1440)},
                 new MonitorSelection.Display{Index=1,StableId="left",DeviceName="left",Bounds=new Rectangle(-1440,-1114,1440,2560)},

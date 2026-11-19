@@ -2583,9 +2583,9 @@ function Options:CreateFloatingPanel()
     end)
 
     local helpCards = { helpOverview }
-    local helpTopics = { "SETUP", "COMPANION", "EDIT_MODE", "PANELS", "COLD_LAUNCH", "RECOVERY", "WELCOME" }
-    for _, topic in ipairs(helpTopics) do
-        local title = L["HELP_" .. topic .. "_TITLE"]
+    local helpTopics = { "SETUP", "COMPANION", "PANELS", "COLD_LAUNCH", "EDIT_MODE", "RECOVERY", "WELCOME" }
+    for index, topic in ipairs(helpTopics) do
+        local title = string.format("%d. %s", index, L["HELP_" .. topic .. "_TITLE"])
         local text = L["HELP_" .. topic .. "_BODY"]
         local card = CreateCard(tab5, title, 1)
         local contentTop = Controls.GetCardContentTop(card, 34)
