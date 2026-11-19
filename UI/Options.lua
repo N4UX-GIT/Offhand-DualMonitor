@@ -723,6 +723,16 @@ function Options:CreateFloatingPanel()
     laserCheck.Text:SetWidth(290)
     configFrame.laserCheck = laserCheck
 
+    do
+        local guide = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
+        guide:SetPoint("TOPLEFT", 330, -174)
+        guide:SetSize(280, 24)
+        guide:SetText(L["TOGGLE_MAINHAND_CENTRE_GUIDE"])
+        guide:SetScript("OnClick", function()
+            if not Offhand.CenterGuide:Toggle() then Offhand:Print(L["MSG_CENTER_GUIDE_REQUIRES_SPAN"]) end
+        end)
+    end
+
     local rawMouseCheck = CreateNativeCheckbox(card1_1, L["RAW_MOUSE_INPUT"],
         function() return Offhand.db and Offhand.db.rawMouseInput ~= false end,
         function(val)
