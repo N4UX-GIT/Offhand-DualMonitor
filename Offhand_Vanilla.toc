@@ -79,6 +79,7 @@ Core\WorkspaceChrome.lua
 Core\BagPersistence.lua
 Core\Recovery.lua
 Core\OpenMapRecovery.lua
+Core\ExpandedMap.lua
 Core\MapScale.lua
 Core\SetupPlacement.lua
 

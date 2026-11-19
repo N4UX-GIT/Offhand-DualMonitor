@@ -267,6 +267,7 @@ L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] = "Prêt à créer un HUD Mainhand personnal
 L["WIZARD_GAMEPAD_LAYOUT_BODY"] = "Offhand copie le préréglage manette Blizzard et centre le HUD sur Mainhand. Après la création, rechargez l’interface quand cela vous est demandé."
 L["WIZARD_GAMEPAD_FINISH"] = "Créer le HUD manette"
 L["BINDING_HEADER_OFFHAND"] = "Offhand"
+L["BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP"] = "Agrandir la carte ou revenir à la carte réduite sur Offhand"
 L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"] = "Ouvrir/fermer les paramètres d'Offhand"
 L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"] = "Basculer le focus entre le jeu et les fenêtres"
 L["GAMEPAD_FOCUS_CONTROL_TITLE"] = "Focus des fenêtres à la manette"

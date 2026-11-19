@@ -77,7 +77,7 @@ This source path explains the controlled live mismatch. It does not establish th
 | Themes and Studio opacity | Checkout has shared preset colors and opacity applied across Studio layers. Compare each label/preset and opacity endpoints in live custom-image and native canvas modes. |
 | XP bar / spoken frame | Capture the exact frame owner and geometry before changing placement. Validate all visible action bars and native Talking Head versus addon-owned speech separately. |
 | Map/bag keybind blocking | Define behavior per owner and input mode; inspect existing bindings, apply scoped reversible suppression, and test cleanup, Escape, combat transitions and competing addons on the exact client. |
-| Expanded/compact map shortcut | Add explicit presentation preference and shortcut behavior only after verifying native/OpenMap dispatch and reopen semantics. |
+| Expanded/compact map shortcut | The configurable shortcut passed the native and OpenMap close-to-compact checks on Forever 1.60.1.70959. The [current QA list](QA-TASK-LIST-20261119.md) records the build and interaction results. |
 | Professions bag anchoring | Reproduce the exact detached bag/root with combined bags open; choose anchor from the actual bag owner and workspace destination. Test BagSmith, ArkInventory and native bags independently. |
 | Companion onboarding/display setup | Checkout has four tutorial steps and a prominent Display Settings entry. Validate the Store-built UI at supported DPI scales, with physical Windows monitor arrangement guidance during setup. |
 | Website/centre line/reset guidance | Checkout includes Studio access, centre line control and fresh-profile guidance. Validate links and in-game discoverability. |

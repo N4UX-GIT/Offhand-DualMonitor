@@ -268,6 +268,7 @@ L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] = "Pronto a creare un HUD gamepad Mainhand p
 L["WIZARD_GAMEPAD_LAYOUT_BODY"] = "Offhand copia il preset gamepad Blizzard in un layout personalizzato e centra l'HUD su Mainhand. Il preset protetto integrato resta intatto. Dopo la creazione, ricarica quando richiesto per chiudere la transazione prima di continuare."
 L["WIZARD_GAMEPAD_FINISH"] = "Crea HUD controller"
 L["BINDING_HEADER_OFFHAND"] = "Offhand"
+L["BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP"] = "Alterna la mappa ingrandita e la mappa compatta su Offhand"
 L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"] = "Apri/chiudi le impostazioni di Offhand"
 L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"] = "Alterna il controllo tra gioco e finestre"
 L["GAMEPAD_FOCUS_CONTROL_TITLE"] = "Focus finestre con controller"

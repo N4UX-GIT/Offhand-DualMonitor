@@ -268,6 +268,7 @@ L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] = "Bereit zur Erstellung eines eigenen Mainh
 L["WIZARD_GAMEPAD_LAYOUT_BODY"] = "Offhand kopiert Blizzards Gamepad-Vorlage in ein eigenes Layout und zentriert dessen HUD auf Mainhand. Die geschützte integrierte Vorlage bleibt unverändert. Befolge anschließend die Aufforderung zum Neuladen, um den Bearbeitungsmodus-Vorgang vor dem Fortfahren abzuschließen."
 L["WIZARD_GAMEPAD_FINISH"] = "Controller-HUD erstellen"
 L["BINDING_HEADER_OFFHAND"] = "Offhand"
+L["BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP"] = "Große Karte umschalten (zurück zur kleinen Karte auf Offhand)"
 L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"] = "Offhand-Einstellungen öffnen/schließen"
 L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"] = "Zwischen Spiel- und Fensterfokus wechseln"
 L["GAMEPAD_FOCUS_CONTROL_TITLE"] = "Controller-Fensterfokus"

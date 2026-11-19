@@ -268,6 +268,7 @@ L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] = "Listo para crear un HUD Mainhand personal
 L["WIZARD_GAMEPAD_LAYOUT_BODY"] = "Offhand copia el preajuste de mando Blizzard a un diseño propio y centra el HUD en Mainhand. El preajuste protegido integrado no cambia. Después recarga según se indique para cerrar la transacción de edición antes de continuar."
 L["WIZARD_GAMEPAD_FINISH"] = "Crear HUD de mando"
 L["BINDING_HEADER_OFFHAND"] = "Offhand"
+L["BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP"] = "Alternar el mapa ampliado y el mapa compacto en Offhand"
 L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"] = "Abrir/cerrar los ajustes de Offhand"
 L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"] = "Alternar el enfoque entre juego y ventanas"
 L["GAMEPAD_FOCUS_CONTROL_TITLE"] = "Enfoque de ventanas con mando"

@@ -268,6 +268,7 @@ L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] = "Ready to create a custom Mainhand Gamepad
 L["WIZARD_GAMEPAD_LAYOUT_BODY"] = "Offhand will copy Blizzard's Gamepad preset into an Offhand-owned custom layout and center its HUD systems on Mainhand. The protected built-in preset is not modified. After creation, follow the reload instruction to clear the Edit Mode transaction before continuing."
 L["WIZARD_GAMEPAD_FINISH"] = "Create controller HUD layout"
 L["BINDING_HEADER_OFFHAND"] = "Offhand"
+L["BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP"] = "확장 지도와 Offhand의 작은 지도 전환"
 L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"] = "Toggle Offhand settings"
 L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"] = "Toggle gameplay and window focus"
 L["GAMEPAD_FOCUS_CONTROL_TITLE"] = "Controller window focus"
