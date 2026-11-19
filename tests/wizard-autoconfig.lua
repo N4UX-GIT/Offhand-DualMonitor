@@ -1938,6 +1938,7 @@ do
     assert(addon.SetupPlacement:GetStage()=="CONFIRM" and addon:GetPlacementCheckpoint()==checkpoint,
         "an unsuccessful span must not erase the fact that the UI actually reloaded")
     assert(onboardingFrame.placementPhase==1 and onboardingFrame.modeIllustration.kind=="POSITION"
+        and onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_WINDOWS_DISPLAY_PLACEMENT,1,true)
         and onboardingFrame.actionButton:GetText():find(addon.L.ONBOARD_SPAN_ACK,1,true)
         and onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_RELOAD_COMPLETE_PLACE,1,true)
         and not onboardingFrame.nextButton.enabled,

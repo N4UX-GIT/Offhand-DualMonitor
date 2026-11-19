@@ -608,8 +608,13 @@ function Onboarding:CreateFrame()
         local buttonKey = needsSpan and "ONBOARD_SPAN_ACK"
             or stage == "RELOAD" and "ONBOARD_RELOAD_UI" or "ONBOARD_CONFIRM_PLACEMENT"
         local text = string.format(L[key], "|cffffd100" .. L[buttonKey] .. "|r")
-        if needsSpan and method == "MANUAL" and Offhand.IsMacClient and Offhand:IsMacClient() then
-            text = L["ONBOARD_MAC_DISPLAY_PLACEMENT"] .. "\n\n" .. text
+        if needsSpan then
+            local mac = Offhand.IsMacClient and Offhand:IsMacClient()
+            if mac and method == "MANUAL" then
+                text = L["ONBOARD_MAC_DISPLAY_PLACEMENT"] .. "\n\n" .. text
+            elseif not mac then
+                text = L["ONBOARD_WINDOWS_DISPLAY_PLACEMENT"] .. "\n\n" .. text
+            end
         end
         if retryPlacement then text = L["ONBOARD_RELOAD_COMPLETE_PLACE"] .. "\n\n" .. text end
         if self.helpExpanded and method then text = text .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_4"] end
