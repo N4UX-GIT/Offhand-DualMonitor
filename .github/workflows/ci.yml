@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, addon/develop, companion/develop ]
+    branches: [ main, addon/develop, companion/develop, addon/forever/gamepad-reports-20261105 ]
   pull_request:
-    branches: [ main, addon/develop, companion/develop ]
+    branches: [ main, addon/develop, companion/develop, addon/forever/gamepad-reports-20261105 ]
 
 jobs:
   test:
