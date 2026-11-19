@@ -69,6 +69,10 @@ try {
         throw 'Portable archive contents differ from the frozen runtime.'
     }
 } finally { $portable.Dispose() }
+if ($HistoricalArtifactsOnly) {
+    Write-Output 'PASS: historical Companion receipt, executable and portable archive.'
+    return
+}
 $paths = @(& git -C $root ls-files Core UI Locales) + @('Bindings.xml', 'CHANGELOG.md', 'LICENSE', 'README.md',
     'Media/OffhandLogo512x512.blp', 'Media/OffhandLogo64x64.blp',
     'Offhand.toc', 'Offhand_Classic.toc', 'Offhand_Forever.toc', 'Offhand_Mainline.toc', 'Offhand_Vanilla.toc', 'Offhand_Wrath335a.toc')
@@ -90,8 +94,7 @@ if (([IO.File]::ReadAllText((Join-Path $root 'Core/ForeverState.lua')) -replace 
     throw 'Recovery bridge must be inert.'
 }
 if ($ValidateOnly) {
-    if ($HistoricalArtifactsOnly) { Write-Output 'PASS: historical Companion receipt/EXE/ZIP and add-on inventory; current runtime is not packaged.' }
-    else { Write-Output 'PASS: frozen Companion, source inputs, minimal ZIP and matching add-on inventory.' }
+    Write-Output 'PASS: frozen Companion, source inputs, minimal ZIP and matching add-on inventory.'
     return
 }
 if (@(& git -C $root status --porcelain).Count) { throw 'Commit the complete publication source before packaging.' }

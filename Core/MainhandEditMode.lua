@@ -1744,8 +1744,8 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
                 OffhandCharDB.mainhandWindowedManualLayout = nil
                 if Offhand.isForever then
                     if active then
-                        OffhandCharDB.foreverEditModeLayoutName = name
-                        OffhandCharDB.foreverEditModeLayoutID = targetID
+                        local nameKey, idKey = Offhand:GetForeverLayoutKeys(controllerLayout)
+                        OffhandCharDB[nameKey], OffhandCharDB[idKey] = name, targetID
                         OffhandCharDB.foreverEditModeLegacyRecovery = nil
                         OffhandCharDB.foreverEditModeRecovery = nil
                     end
@@ -2000,8 +2000,8 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     OffhandCharDB.mainhandWindowedManualLayout = nil
     if Offhand.isForever then
         if active then
-            OffhandCharDB.foreverEditModeLayoutName = generatedName
-            OffhandCharDB.foreverEditModeLayoutID = targetID
+            local nameKey, idKey = Offhand:GetForeverLayoutKeys(controllerLayout)
+            OffhandCharDB[nameKey], OffhandCharDB[idKey] = generatedName, targetID
             OffhandCharDB.foreverEditModeLegacyRecovery = nil
             OffhandCharDB.foreverEditModeRecovery = nil
         end
@@ -2121,13 +2121,14 @@ function Mainhand:GetEllesmereLayoutSource(geometryOnly, targetSizes)
     local name = LayoutName(active, "")
     if not source and not generated then
         local character = type(OffhandCharDB) == "table" and OffhandCharDB
+        local nameKey, idKey = Offhand:GetForeverLayoutKeys(controller)
         local setup = character and character.characterSetup
         local record = RegisteredSharedLayout(name, controller)
         if record then
             source = FindNamedLayout(data, presets, record.sourceName)
             if SharedLayoutRecord(name, controller, geometry) then generated = active end
-        elseif character and IsSharedLayoutName(name, controller) and character.foreverEditModeLayoutName == name
-            and tonumber(character.foreverEditModeLayoutID) == activeID
+        elseif character and IsSharedLayoutName(name, controller) and character[nameKey] == name
+            and tonumber(character[idKey]) == activeID
             and type(setup) == "table" and setup.geometrySignature == geometry
             and (setup.gamepad == true) == controller then
             -- Older Forever recovery recorded the active layout identity
@@ -2381,7 +2382,8 @@ function Mainhand:UseExistingEditModeLayout(expectedName)
     OffhandCharDB.hudSetupReminder, OffhandCharDB.hudSetupReminderDeclined = nil, nil
     OffhandCharDB.mainhandWindowedLayout, OffhandCharDB.mainhandWindowedManualLayout = nil, nil
     if Offhand.isForever then
-        OffhandCharDB.foreverEditModeLayoutName, OffhandCharDB.foreverEditModeLayoutID = name, context.id
+        local nameKey, idKey = Offhand:GetForeverLayoutKeys(context.controller)
+        OffhandCharDB[nameKey], OffhandCharDB[idKey] = name, context.id
         OffhandCharDB.foreverEditModeLegacyRecovery, OffhandCharDB.foreverEditModeRecovery = nil, nil
         if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
             Offhand.ForeverPersistence:SaveProfileSnapshot(true)

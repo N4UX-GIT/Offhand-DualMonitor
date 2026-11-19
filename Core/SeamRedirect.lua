@@ -890,8 +890,9 @@ function HUD:HookFrames()
             PrepareForeverEditModeState(layoutData, metrics)
         end
         local activeName = not forever and GetActiveEditModeLayoutName() or nil
+        local nameKey = forever and Offhand:GetForeverLayoutKeys(UsesNativeGamepadInterface())
         local targetName = forever
-            and (type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeLayoutName or nil)
+            and (type(OffhandCharDB) == "table" and OffhandCharDB[nameKey] or nil)
             or (type(OffhandCharDB) == "table" and OffhandCharDB.editModeLayoutName or nil)
         if not forever and (type(targetName) ~= "string" or not targetName:match("%S")) then
             -- Upgrade behavior: adopt the layout Blizzard already selected for

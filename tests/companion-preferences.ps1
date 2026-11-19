@@ -30,12 +30,12 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.5"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.5\.1"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.6"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.6\.1"\)') {
         throw 'Companion binary metadata must identify the exact release build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.5\.1" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.6\.1" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact release build.'
     }
     $candidateBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\scripts\New-CompanionReleaseCandidate.ps1') -Raw
@@ -86,9 +86,9 @@ try {
     if ($source -notmatch 'AddLog\("Addon verification: " \+ status\.Reason\)') {
         throw 'The Activity Log must retain the complete client-specific addon verification diagnostic.'
     }
-    if ($source -notmatch 'TableLayoutPanel configLayout' -or
-        $source -notmatch 'FlowLayoutPanel configLeft' -or
-        $source -notmatch 'FlowLayoutPanel configRight' -or
+    if ($source -notmatch 'configLayout = CreateDashboardGrid' -or
+        $source -notmatch 'configLeft = CreateDashboardColumn' -or
+        $source -notmatch 'configRight = CreateDashboardColumn' -or
         $source -match 'RegisterHotKey|UnregisterHotKey|WM_HOTKEY|0x0312') {
         throw 'Companion configuration must use separate measured layout columns without restoring global hotkeys.'
     }

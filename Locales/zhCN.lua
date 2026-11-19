@@ -1186,3 +1186,7 @@ L["PROFILE_CREATE_DEFAULTS"] = "从默认设置开始"
 L["PROFILE_CREATE_DEFAULTS_HELP"] = "创建并选择新配置。请为新配置启用并校准 Offhand，在暴雪编辑模式中选择 HUD 布局。"
 L["USER_MEDIA_STUDIO_LINK"] = "创建自定义背景"
 L["USER_MEDIA_STUDIO_LINK_TEXT"] = "将此地址复制到浏览器，在 Offhand Background Studio 中创建自定义背景。"
+
+L["HELP_EDIT_MODE_BODY"] = "If the wizard already created your Mainhand HUD layout, keep it. Use Blizzard Edit Mode for personal adjustments, then save.\n\nCreate or rebuild only when needed, outside combat with Edit Mode closed. Back up first: rebuilding can replace edits in the generated layout. Reload when prompted. On Forever, Use Current Edit Mode Layout designates a saved custom layout. Replacement HUD addons keep ownership of their frames."
+
+L["HELP_WELCOME_BODY"] = "The first-time guide places the window. The separate calibration wizard confirms Mainhand, seam, UI size and any offered HUD setup. Keep the same placement method throughout.\n\nClosing a guide pauses progress. Resume with /offhand guide; use /offhand wizard to return to calibration. After completion, arrange panels and check a normal relaunch. Optional customization comes afterward."

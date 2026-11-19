@@ -409,6 +409,7 @@ SetUIPanelAttribute = function(frame, name, value)
 end
 
 -- Load Offhand core scripts
+assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
@@ -416,6 +417,20 @@ assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 local seamChunk = loadfile("Core/SeamRedirect.lua")
 assert(seamChunk, "Core/SeamRedirect.lua must compile cleanly")
 seamChunk("Offhand", addon)
+
+do
+    local target = makeMockFrame("IntegrationAnchor", 10, 10)
+    target.scale = 2
+    assert(addon.API.SecureAnchorToMainhand(target, "BOTTOMRIGHT", -10, 8))
+    local point, parent, origin, x, y = target:GetPoint(1)
+    assert(point == "BOTTOMRIGHT" and parent == UIParent and origin == "BOTTOMLEFT"
+        and x == (metrics.gameRight - 10) / 2 and y == (metrics.gameBottom + 8) / 2)
+    assert(not addon.API.SecureAnchorToMainhand(target, "INVALID"))
+    combatLocked = true
+    assert(not addon.API.SecureAnchorToMainhand(target))
+    combatLocked = false
+    assert(target:GetPoint(1) == point)
+end
 
 local panelMotionChunk = loadfile("Core/PanelMotion.lua")
 assert(panelMotionChunk, "Core/PanelMotion.lua must compile cleanly")
@@ -1865,6 +1880,10 @@ do
     addon.HUD:UpdateForeverRecoveryLayout(metrics)
     flushTimers()
     local pending = OffhandCharDB.foreverEditModeRecovery
+    assert(OffhandCharDB.foreverEditModeLayoutNameGamepad == gamepadLayout.layoutName
+        and OffhandCharDB.foreverEditModeLayoutIDGamepad == 6
+        and OffhandCharDB.foreverEditModeLayoutName == nil,
+        "legacy Gamepad selection must migrate out of the keyboard preference")
     assert(recoveryPrompt == "fallback" and pending and pending.fallbackLayoutID == 3
         and pending.fallbackLayoutName == "Gamepad" and selectedLayout == nil,
         "missing-display recovery must offer Gamepad and wait for the player")

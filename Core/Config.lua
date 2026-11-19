@@ -971,6 +971,7 @@ function Offhand:EnsureCharacterIdentity()
         }
         for _, key in ipairs({"mainhandLayout", "mainhandLayoutsByMode", "editModeLayoutName", "mainhandWindowedLayout",
             "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
+            "foreverEditModeLayoutNameGamepad", "foreverEditModeLayoutIDGamepad",
             "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
             "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
             "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end

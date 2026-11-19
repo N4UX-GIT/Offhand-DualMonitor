@@ -52,6 +52,7 @@ OffhandCharDB = {}
 addon:InitializeConfig()
 addon.Mainhand = {GetRect = function() return {isSpanned = true} end,
     GetGeometrySignature = function() return geometry end}
+assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 addon.MainhandCompatibility = {IsNativeGamepadInterface = function() return gamepad end,
     IsControllerMode = function() return gamepad end}
 addon.MainhandGeometry = {}

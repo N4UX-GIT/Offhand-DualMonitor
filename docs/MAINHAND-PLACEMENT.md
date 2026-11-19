@@ -124,6 +124,8 @@ local ok, why = Offhand.API.AnchorToMainhand(myUnprotectedFrame,
 `screenWidth`, `screenHeight`, and `isSpanned`. When Offhand is disabled or not
 spanned, the region becomes the full UIParent rectangle.
 
+`Offhand.API.SecureAnchorToMainhand(frame, point, x, y)` places a caller-owned frame at the named Mainhand point during a confirmed span outside combat. Offsets use UIParent units. It returns true on success or false and a reason on failure. The calling addon can reapply the anchor when its layout changes.
+
 `AnchorToMainhand` refuses forbidden, protected, and combat-time writes.
 Third-party addons should normally use the geometry callback and reapply their
 own saved layout rather than asking Offhand to persist their frames.

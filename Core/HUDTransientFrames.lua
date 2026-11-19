@@ -765,6 +765,32 @@ function Transient.Install(HUD, services)
         return ok
     end
 
+    local mainhandPoints = {
+        TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true, CENTER = true,
+        RIGHT = true, BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true,
+    }
+    Offhand.API = Offhand.API or {}
+    -- Offsets use UIParent units. The caller owns the frame and any later re-anchoring.
+    function Offhand.API.SecureAnchorToMainhand(frame, point, x, y)
+        if InCombatLockdown() then return false, "combat" end
+        if not frame or not frame.GetEffectiveScale or not frame.SetPoint or not frame.ClearAllPoints then return false, "frame" end
+        if frame.IsForbidden and frame:IsForbidden() then return false, "forbidden" end
+        point, x, y = point or "CENTER", x or 0, y or 0
+        if not IsPlainValue(point) or not mainhandPoints[point] then return false, "point" end
+        if not OrdinaryNumber(x) or not OrdinaryNumber(y) then return false, "offset" end
+        local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        if not metrics or not metrics.isSpanned then return false, "span" end
+        local scale, parentScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+        if not OrdinaryNumber(scale) or scale <= 0 or not OrdinaryNumber(parentScale) or parentScale <= 0 then return false, "scale" end
+        local px = point:find("LEFT") and metrics.gameLeft or point:find("RIGHT") and metrics.gameRight
+            or (metrics.gameLeft + metrics.gameRight) / 2
+        local py = point:find("TOP") and metrics.gameTop or point:find("BOTTOM") and metrics.gameBottom
+            or (metrics.gameBottom + metrics.gameTop) / 2
+        local factor = parentScale / scale
+        if SecureScreenPoint(frame, point, (px + x) * factor, (py + y) * factor) then return true end
+        return false, "secure"
+    end
+
     local protectedMenuPoints = setmetatable({}, {__mode = "k"})
 
     -- Forever initially anchors the Escape menu to the full spanned UIParent, whose

@@ -1679,6 +1679,7 @@ gamepadPresetSystems[#gamepadPresetSystems + 1] = {
 }
 layoutData = { activeLayout = 1, layouts = {} }
 saved, activated, layoutAdded, saveCount = nil, nil, nil, 0
+OffhandCharDB.foreverEditModeLayoutName = "Keyboard HUD"
 OffhandCharDB.mainhandLayout = {
     controllerLayout = true,
     sourcePreset = true,
@@ -1704,7 +1705,8 @@ assert(OffhandCharDB.mainhandLayout.controllerLayout == true
         and OffhandCharDB.mainhandLayout.sourceID == 1
         and OffhandCharDB.mainhandLayout.presetApplied == nil,
     "the Gamepad custom layout retained stale keyboard-preset provenance")
-assert(layoutData.activeLayout == 4 and OffhandCharDB.foreverEditModeLayoutID == 4,
+assert(layoutData.activeLayout == 4 and OffhandCharDB.foreverEditModeLayoutIDGamepad == 4
+        and OffhandCharDB.foreverEditModeLayoutName == "Keyboard HUD",
     "the native Gamepad path did not record its selected custom layout")
 assert(saved.layouts[1].systems[1].anchorInfo.offsetY == -560
         and saved.layouts[1].systems[14].anchorInfo.offsetY == 0,

@@ -266,6 +266,7 @@ assert(StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].text
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 assert(loadfile("Core/ManualCanvas.lua"))("Offhand", addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
@@ -514,10 +515,11 @@ do
         SetActiveLayout = function(id) layout.activeLayout = id end,
     }
     C_Timer.After = function(_, fn) timers[#timers + 1] = fn end
+    local expectedHUD = "Saved Offhand"
     StaticPopup_Show = function(key, layoutName)
         visible[key] = true
         shown[#shown + 1] = key
-        if key == fallback then assert(layoutName == "Saved Offhand") end
+        if key == fallback then assert(layoutName == expectedHUD) end
     end
     StaticPopup_Hide = function(key) visible[key] = nil end
     local function Refresh()
@@ -596,8 +598,12 @@ do
 
     addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
     Enum = {EditModePresetLayouts = {Gamepad = 2}, InputDeviceInterfaceType = {Gamepad = 1}}
-    layout.layouts[1].interfaceStyle = 1
-    layout.activeLayout = 4
+    expectedHUD = "Controller HUD"
+    layout.layouts[2] = { layoutName = expectedHUD, interfaceStyle = 1 }
+    layout.activeLayout = 5
+    assert(addon.HUD:UseCurrentForeverEditModeLayout())
+    assert(OffhandCharDB.foreverEditModeLayoutName == "Saved Offhand"
+        and OffhandCharDB.foreverEditModeLayoutNameGamepad == "Controller HUD")
     metrics = missing
     Refresh()
     RunTimer()
@@ -612,9 +618,10 @@ do
     assert(visible[restore] and StaticPopupDialogs[restore].offhandAcceptBeforeHide)
     StaticPopup_Hide(restore)
     StaticPopupDialogs[restore].OnAccept()
-    assert(layout.activeLayout == 4, "the saved Gamepad HUD must be restored by the same hardware click path")
+    assert(layout.activeLayout == 5, "the saved Gamepad HUD must be restored by the same hardware click path")
     addon.Mainhand, Enum = oldMainhand, oldEnum
-    layout.layouts[1].interfaceStyle = nil
+    expectedHUD = "Saved Offhand"
+    layout.layouts[2] = nil
 
     OffhandDB.preferredGeometrySource = "MANUAL"
     layout.activeLayout = 4

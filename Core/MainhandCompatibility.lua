@@ -227,6 +227,12 @@ function Compatibility.IsNativeGamepadInterface()
     return ok and current == gamepad
 end
 
+function Offhand:GetForeverLayoutKeys(gamepad)
+    if gamepad == nil then gamepad = Compatibility.IsNativeGamepadInterface() end
+    if gamepad then return "foreverEditModeLayoutNameGamepad", "foreverEditModeLayoutIDGamepad" end
+    return "foreverEditModeLayoutName", "foreverEditModeLayoutID"
+end
+
 function Compatibility.IsControllerMode(presets)
     if _G.ConsolePort or Compatibility.IsNativeGamepadInterface() then return true end
     local gamepad = Enum and Enum.InputDeviceInterfaceType

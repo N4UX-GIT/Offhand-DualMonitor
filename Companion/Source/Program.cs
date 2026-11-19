@@ -8023,11 +8023,13 @@ namespace Offhand.Companion
             if (!IsDisposed && lblLayoutNotice.Text == CheckingStandardRespan) SetLayoutNotice(0, "");
         }
 
-        private void WatchStandardRespan(int processId, IntPtr handle, MonitorSelection.Plan plan,
+        private void WatchStandardRespan(WoWClientWindow client, MonitorSelection.Plan plan,
             IList<MonitorSelection.Display> displays, Size restoredClient, SpanRollback rollback)
         {
             // WoW can reapply its windowed size after SetWindowPos succeeds.
             // Keep the pre-span window and topology available until WoW settles.
+            int processId = client.Pid;
+            IntPtr handle = client.Handle;
             int generation = displaySelectionGeneration;
             var elapsed = Stopwatch.StartNew();
             standardRespanTimer = new Timer { Interval = 250 };
@@ -8038,7 +8040,7 @@ namespace Offhand.Companion
                 {
                     uint owner;
                     NativeMethods.GetWindowThreadProcessId(handle, out owner);
-                    if (IsDisposed || owner != processId
+                    if (IsDisposed || !client.SameWindow(clientSelection.Current) || owner != processId
                         || generation != displaySelectionGeneration || RemoteDesktop.Read() != RemoteDesktop.State.Local
                         || !spannedPids.Contains(processId))
                     {
@@ -8050,8 +8052,7 @@ namespace Offhand.Companion
                     bool reset = visible && StandardRespanCheck.MatchesReset(window, handle, plan.Bounds, restoredClient)
                         && SpanClipRegion.Matches(handle, plan, plan.Bounds);
                     if (!reset && elapsed.ElapsedMilliseconds < 6000) return;
-                    bool anyWoWProcess;
-                    using (Process process = GetWoWProcess(out anyWoWProcess, true))
+                    using (Process process = OpenLiveClient(client))
                     {
                         if (process == null || process.Id != processId || GetWoWWindowHandle(process) != handle
                             || !MonitorSelection.SameDisplays(displays, ReadDisplays()))
@@ -8429,7 +8430,7 @@ namespace Offhand.Companion
                 {
                     if (!layoutNoticeIsFailure || layoutNoticeProcessId != proc.Id)
                         SetLayoutNotice(proc.Id, CheckingStandardRespan);
-                    WatchStandardRespan(proc.Id, handle, plan, displays, oldClientSize, rollback);
+                    WatchStandardRespan(confirmedClient, plan, displays, oldClientSize, rollback);
                     rollback = null;
                 }
                 else

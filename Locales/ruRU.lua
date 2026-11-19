@@ -1186,3 +1186,7 @@ L["PROFILE_CREATE_DEFAULTS"] = "Начать с настроек по умолч
 L["PROFILE_CREATE_DEFAULTS_HELP"] = "Создаёт и выбирает новый профиль. Включите и настройте Offhand для этого профиля. Выберите макет HUD в режиме редактирования Blizzard."
 L["USER_MEDIA_STUDIO_LINK"] = "Создать свой фон"
 L["USER_MEDIA_STUDIO_LINK_TEXT"] = "Скопируйте адрес в браузер, чтобы создать свой фон в Offhand Background Studio."
+
+L["HELP_EDIT_MODE_BODY"] = "If the wizard already created your Mainhand HUD layout, keep it. Use Blizzard Edit Mode for personal adjustments, then save.\n\nCreate or rebuild only when needed, outside combat with Edit Mode closed. Back up first: rebuilding can replace edits in the generated layout. Reload when prompted. On Forever, Use Current Edit Mode Layout designates a saved custom layout. Replacement HUD addons keep ownership of their frames."
+
+L["HELP_WELCOME_BODY"] = "The first-time guide places the window. The separate calibration wizard confirms Mainhand, seam, UI size and any offered HUD setup. Keep the same placement method throughout.\n\nClosing a guide pauses progress. Resume with /offhand guide; use /offhand wizard to return to calibration. After completion, arrange panels and check a normal relaunch. Optional customization comes afterward."

@@ -262,8 +262,23 @@ function Recovery.Install(HUD)
         if not UsesForeverEditMode() or type(OffhandCharDB) ~= "table"
             or type(data) ~= "table" then return nil end
 
+        local nameKey, idKey = Offhand:GetForeverLayoutKeys(UsesNativeGamepadInterface())
         local changed = false
         local activeID = tonumber(data.activeLayout)
+        -- Earlier versions used the keyboard slots for both input styles.
+        -- Migrate only a named custom layout whose style Blizzard identifies.
+        local oldName = OffhandCharDB.foreverEditModeLayoutName
+        if oldName then
+            local oldID, oldLayout = ResolveForeverLayoutID(data, OffhandCharDB.foreverEditModeLayoutID, oldName)
+            if MatchesForeverRecoveryStyle(oldLayout, "Gamepad") then
+                if not OffhandCharDB.foreverEditModeLayoutNameGamepad then
+                    OffhandCharDB.foreverEditModeLayoutNameGamepad = oldLayout.layoutName
+                    OffhandCharDB.foreverEditModeLayoutIDGamepad = oldID
+                end
+                OffhandCharDB.foreverEditModeLayoutName, OffhandCharDB.foreverEditModeLayoutID = nil, nil
+                changed = true
+            end
+        end
         local legacy = OffhandCharDB.foreverEditModeLegacyRecovery
         if type(legacy) == "table" then
             local restoreID, restoreLayout = ResolveForeverLayoutID(
@@ -271,8 +286,8 @@ function Recovery.Install(HUD)
             local fallbackID = tonumber(legacy.fallbackLayoutID) or FOREVER_MODERN_LAYOUT_ID
             if restoreID and restoreLayout
                 and (activeID == restoreID or activeID == fallbackID) then
-                OffhandCharDB.foreverEditModeLayoutName = restoreLayout.layoutName
-                OffhandCharDB.foreverEditModeLayoutID = restoreID
+                local legacyNameKey, legacyIDKey = Offhand:GetForeverLayoutKeys(MatchesForeverRecoveryStyle(restoreLayout, "Gamepad"))
+                OffhandCharDB[legacyNameKey], OffhandCharDB[legacyIDKey] = restoreLayout.layoutName, restoreID
                 OffhandCharDB.foreverEditModeRecovery = {
                     restoreLayoutID = restoreID,
                     restoreLayoutName = restoreLayout.layoutName,
@@ -285,22 +300,23 @@ function Recovery.Install(HUD)
             changed = true
         end
 
-        local preferredName = OffhandCharDB.foreverEditModeLayoutName
+        local preferredName = OffhandCharDB[nameKey]
         local preferredID, preferredLayout = ResolveForeverLayoutID(
-            data, OffhandCharDB.foreverEditModeLayoutID, preferredName)
+            data, OffhandCharDB[idKey], preferredName)
         if preferredLayout then
-            if preferredName ~= preferredLayout.layoutName or preferredID ~= OffhandCharDB.foreverEditModeLayoutID then
-                OffhandCharDB.foreverEditModeLayoutName = preferredLayout.layoutName
-                OffhandCharDB.foreverEditModeLayoutID = preferredID
+            if preferredName ~= preferredLayout.layoutName or preferredID ~= OffhandCharDB[idKey] then
+                OffhandCharDB[nameKey] = preferredLayout.layoutName
+                OffhandCharDB[idKey] = preferredID
                 changed = true
             end
         elseif not preferredName and metrics and metrics.companionTopology and metrics.isSpanned then
             -- Safe upgrade path: a healthy exact span with an active custom layout
             -- is unambiguous. Built-in Modern/Classic layouts are never adopted.
             local activeLayout = GetForeverLayoutByID(data, activeID)
-            if activeLayout and type(activeLayout.layoutName) == "string" then
-                OffhandCharDB.foreverEditModeLayoutName = activeLayout.layoutName
-                OffhandCharDB.foreverEditModeLayoutID = activeID
+            if MatchesForeverRecoveryStyle(activeLayout, UsesNativeGamepadInterface() and "Gamepad" or "Modern")
+                and type(activeLayout.layoutName) == "string" then
+                OffhandCharDB[nameKey] = activeLayout.layoutName
+                OffhandCharDB[idKey] = activeID
                 preferredID, preferredLayout = activeID, activeLayout
                 changed = true
             end
@@ -315,11 +331,12 @@ function Recovery.Install(HUD)
         local character = type(OffhandCharDB) == "table" and OffhandCharDB or nil
         local activeID = data and tonumber(data.activeLayout) or nil
         local activeLayout = data and GetForeverLayoutByID(data, activeID) or nil
-        local preferredName = character and character.foreverEditModeLayoutName or nil
+        local nameKey, idKey = Offhand:GetForeverLayoutKeys(UsesNativeGamepadInterface())
+        local preferredName = character and character[nameKey] or nil
         local preferredID, preferredLayout
         if data then
             preferredID, preferredLayout = ResolveForeverLayoutID(
-                data, character and character.foreverEditModeLayoutID, preferredName)
+                data, character and character[idKey], preferredName)
         end
         return {
             preferredName = preferredName,
@@ -343,8 +360,9 @@ function Recovery.Install(HUD)
         local layout = GetForeverLayoutByID(data, activeID)
         if not layout or type(layout.layoutName) ~= "string" then return false, "builtin" end
 
-        OffhandCharDB.foreverEditModeLayoutName = layout.layoutName
-        OffhandCharDB.foreverEditModeLayoutID = activeID
+        local nameKey, idKey = Offhand:GetForeverLayoutKeys(UsesNativeGamepadInterface())
+        OffhandCharDB[nameKey] = layout.layoutName
+        OffhandCharDB[idKey] = activeID
         local generated = OffhandCharDB.mainhandLayout
         if type(generated) == "table"
             and EditModeLayoutNamesMatch(generated.generatedName, layout.layoutName) then
@@ -444,8 +462,9 @@ function Recovery.Install(HUD)
         local active = GetForeverLayoutByID(data, activeID)
         local activeName = active and active.layoutName
         local preferredID, preferredLayout = PrepareForeverEditModeState(data, metrics)
+        local nameKey = Offhand:GetForeverLayoutKeys(UsesNativeGamepadInterface())
         local preferredName = preferredLayout and preferredLayout.layoutName
-            or (type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeLayoutName or nil)
+            or (type(OffhandCharDB) == "table" and OffhandCharDB[nameKey] or nil)
         local recovery = type(OffhandCharDB) == "table" and OffhandCharDB.foreverEditModeRecovery or nil
         if type(recovery) == "table" and tonumber(recovery.fallbackLayoutID) ~= fallbackID then
             OffhandCharDB.foreverEditModeRecovery = nil
