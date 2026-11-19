@@ -759,8 +759,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Error en la distribución del mapa: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Perfiles"
-L["PROFILES_CURRENT_LABEL"] = "Perfil activo:"
-L["PROFILES_LIST_TITLE"] = "Perfiles guardados"
+L["PROFILE_CHARACTER_HUD"] = "HUD guardado para este personaje"
+L["PROFILES_CURRENT_LABEL"] = "Seleccionado para este personaje"
+L["PROFILES_LIST_TITLE"] = "Perfiles de Offhand de la cuenta"
 L["PROFILES_BTN_CREATE"] = "Crear"
 L["PROFILES_BTN_LOAD"] = "Cargar"
 L["PROFILES_BTN_COPY"] = "Copiar de"

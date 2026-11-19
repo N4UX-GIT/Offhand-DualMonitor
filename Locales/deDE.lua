@@ -759,8 +759,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Fehler im Karten-Layout: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Profile"
-L["PROFILES_CURRENT_LABEL"] = "Aktives Profil:"
-L["PROFILES_LIST_TITLE"] = "Gespeicherte Profile"
+L["PROFILE_CHARACTER_HUD"] = "Gespeichertes HUD dieses Charakters"
+L["PROFILES_CURRENT_LABEL"] = "Für diesen Charakter ausgewählt"
+L["PROFILES_LIST_TITLE"] = "Accountweite Offhand-Profile"
 L["PROFILES_BTN_CREATE"] = "Erstellen"
 L["PROFILES_BTN_LOAD"] = "Laden"
 L["PROFILES_BTN_COPY"] = "Kopieren von"

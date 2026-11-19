@@ -761,8 +761,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "지도 레이아웃 오류: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "프로필"
-L["PROFILES_CURRENT_LABEL"] = "활성 프로필:"
-L["PROFILES_LIST_TITLE"] = "저장된 프로필"
+L["PROFILE_CHARACTER_HUD"] = "이 캐릭터에 저장된 HUD"
+L["PROFILES_CURRENT_LABEL"] = "이 캐릭터에서 선택한 프로필"
+L["PROFILES_LIST_TITLE"] = "계정 공용 오프핸드 프로필"
 L["PROFILES_BTN_CREATE"] = "만들기"
 L["PROFILES_BTN_LOAD"] = "불러오기"
 L["PROFILES_BTN_COPY"] = "복사하기"

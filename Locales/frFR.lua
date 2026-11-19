@@ -760,8 +760,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Erreur de disposition de la carte : %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Profils"
-L["PROFILES_CURRENT_LABEL"] = "Profil actif :"
-L["PROFILES_LIST_TITLE"] = "Profils enregistrés"
+L["PROFILE_CHARACTER_HUD"] = "ATH enregistré pour ce personnage"
+L["PROFILES_CURRENT_LABEL"] = "Profil choisi pour ce personnage"
+L["PROFILES_LIST_TITLE"] = "Profils Offhand du compte"
 L["PROFILES_BTN_CREATE"] = "Créer"
 L["PROFILES_BTN_LOAD"] = "Charger"
 L["PROFILES_BTN_COPY"] = "Copier depuis"

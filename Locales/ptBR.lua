@@ -761,8 +761,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Erro no layout do mapa: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Perfis"
-L["PROFILES_CURRENT_LABEL"] = "Perfil ativo:"
-L["PROFILES_LIST_TITLE"] = "Perfis salvos"
+L["PROFILE_CHARACTER_HUD"] = "HUD salvo para este personagem"
+L["PROFILES_CURRENT_LABEL"] = "Perfil selecionado para este personagem"
+L["PROFILES_LIST_TITLE"] = "Perfis do Offhand da conta"
 L["PROFILES_BTN_CREATE"] = "Criar"
 L["PROFILES_BTN_LOAD"] = "Carregar"
 L["PROFILES_BTN_COPY"] = "Copiar de"

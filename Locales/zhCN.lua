@@ -761,8 +761,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "地图布局错误：%s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "配置"
-L["PROFILES_CURRENT_LABEL"] = "当前配置："
-L["PROFILES_LIST_TITLE"] = "已存配置"
+L["PROFILE_CHARACTER_HUD"] = "此角色保存的 HUD 布局"
+L["PROFILES_CURRENT_LABEL"] = "此角色所选配置"
+L["PROFILES_LIST_TITLE"] = "账号共享的 Offhand 配置"
 L["PROFILES_BTN_CREATE"] = "创建"
 L["PROFILES_BTN_LOAD"] = "加载"
 L["PROFILES_BTN_COPY"] = "复制自"

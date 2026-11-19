@@ -2866,6 +2866,16 @@ assert(addon:SetOnboardingSetupMethod(previewMethod))
 -- without changing the profile storage/mutation implementation.
 do
     local controls = assert(optPanel.profileControls)
+    local getLayoutStatus = addon.Mainhand.GetLayoutStatus
+    addon.Mainhand.GetLayoutStatus = function() return {configured=true, generatedName="Raid HUD", generatedID=12} end
+    addon.Options:UpdateProfileList()
+    assert(controls.hudLabel:IsShown() and controls.hudLabel:GetText():find("Raid HUD", 1, true),
+        "Profiles must show this character's saved HUD name")
+    addon.Mainhand.GetLayoutStatus = function() return {configured=true, generatedName=12, generatedID=12} end
+    addon.Options:UpdateProfileList()
+    assert(not controls.hudLabel:IsShown(), "a native layout ID must never become a HUD label")
+    addon.Mainhand.GetLayoutStatus = getLayoutStatus
+    addon.Options:UpdateProfileList()
     local originalGet, originalCreate = addon.GetProfiles, addon.CreateProfile
     local originalCharacterDB = OffhandCharDB
     OffhandCharDB = OffhandCharDB or {}

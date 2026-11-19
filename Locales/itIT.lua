@@ -761,8 +761,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Errore disposizione mappa: %s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "Profili"
-L["PROFILES_CURRENT_LABEL"] = "Profilo attivo:"
-L["PROFILES_LIST_TITLE"] = "Profili salvati"
+L["PROFILE_CHARACTER_HUD"] = "Interfaccia salvata per questo personaggio"
+L["PROFILES_CURRENT_LABEL"] = "Profilo selezionato per questo personaggio"
+L["PROFILES_LIST_TITLE"] = "Profili Offhand dell’account"
 L["PROFILES_BTN_CREATE"] = "Crea"
 L["PROFILES_BTN_LOAD"] = "Carica"
 L["PROFILES_BTN_COPY"] = "Copia da"

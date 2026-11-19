@@ -2310,11 +2310,15 @@ function Options:CreateFloatingPanel()
         activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
         activeProfileLabel:SetWidth(630)
         if activeProfileLabel.SetWordWrap then activeProfileLabel:SetWordWrap(false) end
-        activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
+        local hudLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        hudLabel:SetPoint("TOPLEFT", 16, -48)
+        hudLabel:SetWidth(630)
+        hudLabel:SetJustifyH("LEFT")
+        if hudLabel.SetWordWrap then hudLabel:SetWordWrap(false) end
 
         local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
-        profileScroll:SetPoint("TOPLEFT", 16, -56)
-        profileScroll:SetSize(280, 220)
+        profileScroll:SetPoint("TOPLEFT", 16, -74)
+        profileScroll:SetSize(280, 202)
         Controls.EnableWheelScroll(profileScroll)
     
         local profileScrollBG = CreateFrame("Frame", nil, profileScroll, BackdropTemplate())
@@ -2367,7 +2371,7 @@ function Options:CreateFloatingPanel()
         createBtn:SetPoint("LEFT", createEditBox, "RIGHT", 4, 0)
         createBtn:SetText(L["PROFILES_BTN_CREATE"])
         configFrame.profileControls = {
-            rows = profileButtons, scroll = profileScroll, input = createEditBox,
+            rows = profileButtons, scroll = profileScroll, input = createEditBox, hudLabel = hudLabel,
             create = createBtn, load = loadBtn, copy = copyBtn, delete = deleteBtn,
         }
 
@@ -2380,6 +2384,14 @@ function Options:CreateFloatingPanel()
         function Options:UpdateProfileList()
             local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
             activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
+            local layout = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus and Offhand.Mainhand:GetLayoutStatus()
+            local name = layout and layout.configured and layout.generatedName
+            if type(name) == "string" and name:match("%S") then
+                hudLabel:SetText(L["PROFILE_CHARACTER_HUD"] .. "  " .. name)
+                hudLabel:Show()
+            else
+                hudLabel:Hide()
+            end
         
             -- Hide old buttons
             for _, btn in ipairs(profileButtons) do btn:Hide() end
@@ -2426,7 +2438,7 @@ function Options:CreateFloatingPanel()
                 yOffset = yOffset - profileRowHeight
             end
         
-            profileScrollContent:SetHeight(math.max(220, #profiles * profileRowHeight + 8))
+            profileScrollContent:SetHeight(math.max(profileScroll:GetHeight(), #profiles * profileRowHeight + 8))
             Controls.SetScrollOffset(profileScroll,
                 profileScroll.GetVerticalScroll and profileScroll:GetVerticalScroll() or 0)
             loadBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))

@@ -761,8 +761,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Ошибка расположения карты: %
 
 -- Profile Management
 L["TAB_PROFILES"] = "Профили"
-L["PROFILES_CURRENT_LABEL"] = "Активный профиль:"
-L["PROFILES_LIST_TITLE"] = "Сохраненные профили"
+L["PROFILE_CHARACTER_HUD"] = "Сохранённый интерфейс персонажа"
+L["PROFILES_CURRENT_LABEL"] = "Профиль этого персонажа"
+L["PROFILES_LIST_TITLE"] = "Профили Offhand учётной записи"
 L["PROFILES_BTN_CREATE"] = "Создать"
 L["PROFILES_BTN_LOAD"] = "Загрузить"
 L["PROFILES_BTN_COPY"] = "Копировать из"

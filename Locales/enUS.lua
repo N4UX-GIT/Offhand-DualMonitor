@@ -918,8 +918,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Map layout error: %s"
 -- Profile Management
 -- ============================================================================
 L["TAB_PROFILES"] = "Profiles"
-L["PROFILES_CURRENT_LABEL"] = "Active Profile:"
-L["PROFILES_LIST_TITLE"] = "Saved Profiles"
+L["PROFILE_CHARACTER_HUD"] = "Saved HUD for this character"
+L["PROFILES_CURRENT_LABEL"] = "Selected for this character"
+L["PROFILES_LIST_TITLE"] = "Account-wide Offhand profiles"
 L["PROFILES_BTN_CREATE"] = "Create"
 L["PROFILES_BTN_LOAD"] = "Load"
 L["PROFILES_BTN_COPY"] = "Copy From"

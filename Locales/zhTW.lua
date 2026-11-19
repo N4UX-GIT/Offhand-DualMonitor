@@ -761,8 +761,9 @@ L["MSG_MAP_LAYOUT_ERROR"] = "地圖配置錯誤：%s"
 
 -- Profile Management
 L["TAB_PROFILES"] = "設定檔"
-L["PROFILES_CURRENT_LABEL"] = "目前設定檔："
-L["PROFILES_LIST_TITLE"] = "已存設定檔"
+L["PROFILE_CHARACTER_HUD"] = "此角色儲存的 HUD 配置"
+L["PROFILES_CURRENT_LABEL"] = "此角色選用的設定檔"
+L["PROFILES_LIST_TITLE"] = "帳號共用的 Offhand 設定檔"
 L["PROFILES_BTN_CREATE"] = "建立"
 L["PROFILES_BTN_LOAD"] = "載入"
 L["PROFILES_BTN_COPY"] = "複製自"
