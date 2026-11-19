@@ -164,6 +164,7 @@ local reviewedOpenMapVersions = {
     ["v0.8.7"] = true,
     ["v0.8.8"] = true,
     ["v0.8.9"] = true,
+    ["v0.8.10"] = true,
 }
 
 function Compatibility.GetOpenMapWorldMapModule()

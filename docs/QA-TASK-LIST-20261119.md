@@ -21,7 +21,7 @@ The installed addon, generated files, Offhand account/character settings, native
 
 | Request | Current evidence and remaining work |
 | --- | --- |
-| Easier first map scaling and finer slider sensitivity | The working checkout has direct map settings, Auto Fit and fine adjustments. Try a first-run portrait layout and a short workspace. Check pointer drag, keyboard increments, bounds and reopen with native maps and OpenMap. |
+| Easier first map scaling and finer slider sensitivity | The working checkout has direct map settings, Auto Fit and fine adjustments. OpenMap 0.8.10 was installed on the QA client. Its reviewed window-scale setter, anchor format and movement opacity contract allow the same guarded integration as 0.8.9. ClassicUI Forever and MoveAny ownership still take precedence. Try a first-run portrait layout and a short workspace. Check pointer drag, keyboard increments, bounds and reopen with native maps and OpenMap. |
 | Theme labels and Studio opacity | Paired preset swatches and Studio-layer opacity are in the working checkout. Compare the label and rendered colour for each preset and check both opacity endpoints with a custom image and a built-in background. |
 | XP bar under action bars | Beta 36 fits the generated XP and reputation anchors and preserves custom positions. The merged regression checks cover existing layouts and other visible bars. Capture the reported character’s actual XP owner and action bars if overlap persists. |
 | Spoken addon placement | Identify the addon, frame and action that opens it. Capture the position with the native Talking Head and with Spoken enabled before choosing an owner-specific placement fix. |

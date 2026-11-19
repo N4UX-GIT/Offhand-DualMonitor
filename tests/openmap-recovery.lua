@@ -127,7 +127,7 @@ local workspace, refreshes = false, 0
 addon.Canvas = {IsFrameOnWorkspace=function(frame) return frame==map and workspace end}
 module.enabled = true
 module.RefreshExtras = function() refreshes=refreshes+1 end
-for _, version in ipairs({"v0.8.8", "v0.8.9"}) do
+for _, version in ipairs({"v0.8.8", "v0.8.9", "v0.8.10"}) do
     OpenMap.version = version
     assert(recovery:Run(true), "reviewed OpenMap version cannot move to Offhand: "..version)
     map:SetPoint("CENTER",UIParent,"CENTER",0,0)
@@ -144,7 +144,7 @@ for _, version in ipairs({"v0.8.8", "v0.8.9"}) do
     assert(db.moveFade==.5 and refreshes==before+1,
         "leaving Offhand must restore the owner's fade: "..version)
 end
-OpenMap.version = "v0.8.10"
+OpenMap.version = "v0.8.11"
 Refuses("unavailable")
 workspace = true
 mapAdapter.UpdateMovementFade(map, true)

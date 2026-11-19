@@ -84,10 +84,13 @@ assert(scale:Set(1.2) and ownerDB.windowScale==1.2)
 OpenMap.version="v0.8.7"
 assert(scale:Set("AUTO") and ownerDB.windowScale==1.6,
     "Mainhand auto fit did not use the current owner's side and range")
+OpenMap.version="v0.8.10"
+assert(scale:Set(1.25) and ownerDB.windowScale==1.25 and map:GetScale()==1.25)
+owner="ClassicUIForever"; Refuses(); owner="OpenMap"
 ownerDB.mapFpsCap = 24
 GetCVar = function(name) assert(name == "maxFPS"); return "24" end
 local diagnostics = addon.CanvasCompatibility.GetDiagnostics(false)
-assert(diagnostics:find("OpenMap=v0.8.7 | MapFPSCap=24 | maxFPS=24 | OpenMapWindow=saved", 1, true))
+assert(diagnostics:find("OpenMap=v0.8.10 | MapFPSCap=24 | maxFPS=24 | OpenMapWindow=saved", 1, true))
 assert(not addon.CanvasCompatibility.GetDiagnostics(true):find("MapFPSCap=", 1, true),
     "map performance settings belong in detailed diagnostics")
 print("PASS: map settings route by active side/owner, fit and enforce version, fullscreen, combat and ownership guards")
