@@ -1000,6 +1000,32 @@ local function HasSavedProfiles(account)
     return true
 end
 
+local function IsCurrentRecoveryCharacter(character)
+    local guid = UnitGUID and UnitGUID("player")
+    if type(guid) ~= "string" or guid == "" or type(character) ~= "table" then return false end
+    local owner = character.characterGUID
+    if not owner and type(character.mainhandLayout) == "table" then
+        owner = character.mainhandLayout.ownerGUID
+    end
+    return owner == guid
+end
+
+local function BridgeRecoveryCharacter()
+    local payload = _G.OffhandForeverCharacterRecovery
+    if payload ~= nil then
+        if type(payload) ~= "table" or payload.schema ~= 1 or type(payload.characters) ~= "table" then
+            return nil
+        end
+        for _, character in ipairs(payload.characters) do
+            if IsCurrentRecoveryCharacter(character) then return character end
+        end
+        return nil
+    end
+    -- Older Store Companions assign one last-played character globally. Never
+    -- let account recovery authorize borrowing that character's preferences.
+    if IsCurrentRecoveryCharacter(OffhandCharDB) then return OffhandCharDB end
+end
+
 function Offhand:InitializeConfig()
     -- ForeverState.lua loads before this module. A fresh bridge can recover
     -- missing or older SavedVariables, but a strictly newer disk revision
@@ -1020,10 +1046,25 @@ function Offhand:InitializeConfig()
     local useForeverBridge = freshForeverBridge and not staleForeverBridge
     if hasDiskCapture and not useForeverBridge then
         if type(diskState.account) == "table" then OffhandDB = diskState.account end
-        if type(diskState.character) == "table" or staleForeverBridge then
+        if type(diskState.character) == "table" or staleForeverBridge or bridgeVersion ~= "" then
             OffhandCharDB = diskState.character
         end
     end
+
+    local bridgeCharacter = "not-used"
+    if useForeverBridge then
+        local character = BridgeRecoveryCharacter()
+        if character then
+            OffhandCharDB = character
+            bridgeCharacter = "used"
+        else
+            OffhandCharDB = hasDiskCapture and diskState.character or nil
+            bridgeCharacter = "unmatched"
+        end
+    end
+    -- Keep the selected record, not every other character's HUD backups, alive
+    -- for the session. Reloads use disk/session state after version consumption.
+    if Offhand.isForever then _G.OffhandForeverCharacterRecovery = nil end
 
     if type(OffhandDB) ~= "table" then OffhandDB = {} end
     if type(OffhandCharDB) ~= "table" then OffhandCharDB = {} end
@@ -1087,6 +1128,7 @@ function Offhand:InitializeConfig()
             sessionFallback = profileSnapshotState,
             diskRevision = diskRevision,
             activeRevision = tonumber(OffhandDB.foreverPersistenceRevision),
+            bridgeCharacter = bridgeCharacter,
         }
     end
 
