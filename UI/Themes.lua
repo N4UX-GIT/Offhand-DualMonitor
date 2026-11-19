@@ -103,6 +103,21 @@ local CANVAS_PALETTES = {
     PURE_BLACK   = { name = "Pitch Black",    r = 0.00, g = 0.00, b = 0.00, bg = "Interface\\Buttons\\WHITE8X8" },
 }
 
+local THEME_PRESETS = {
+    CLASSIC = { "GOLD", "CLASSIC_STONE" },
+    BLIZZARD_SLATE = { "SILVER", "CHARCOAL" },
+    OBSIDIAN = { "SILVER", "CHARCOAL" },
+    PITCH_BLACK = { "SILVER", "PURE_BLACK" },
+    GNOMISH_TINKER = { "TINKER_BRASS", "TINKER_SLATE" },
+}
+
+function Themes:SetThemePreset(settings, themeKey)
+    local preset = THEME_PRESETS[themeKey]
+    if not settings or not preset then return end
+    settings.theme = themeKey
+    settings.trimColor, settings.canvasColor = preset[1], preset[2]
+end
+
 function Themes:GetThemeList()
     return { "CLASSIC", "BLIZZARD_SLATE", "GNOMISH_TINKER", "OBSIDIAN", "PITCH_BLACK" }
 end
@@ -153,10 +168,7 @@ function Themes:SetRegionTheme(regionID,themeKey)
     else
         local settings=type(Offhand.db.workspaceRegionThemes[regionID])=="table"
             and Offhand.db.workspaceRegionThemes[regionID] or {}
-        settings.theme=themeKey
-        local presets={CLASSIC={"GOLD","CLASSIC_STONE"},BLIZZARD_SLATE={"SILVER","CHARCOAL"},
-            OBSIDIAN={"SILVER","CHARCOAL"},PITCH_BLACK={"SILVER","PURE_BLACK"},GNOMISH_TINKER={"TINKER_BRASS","TINKER_SLATE"}}
-        settings.trimColor,settings.canvasColor=unpack(presets[themeKey])
+        self:SetThemePreset(settings, themeKey)
         Offhand.db.workspaceRegionThemes[regionID]=settings
     end
     self:ApplyCanvasTheme()
@@ -218,9 +230,9 @@ function Themes:ApplyCanvasTheme(canvasFrame,regionID)
 
     local r, g, b
     local bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark"
-    local isPureBlackBg = (colorKey == "PURE_BLACK") or isPureBlackTheme
+    local isPureBlackBg = colorKey == "PURE_BLACK"
 
-    if not isPureBlackTheme and colorKey == "CUSTOM" and settings.customCanvasColor then
+    if colorKey == "CUSTOM" and settings.customCanvasColor then
         local c = settings.customCanvasColor
         r, g, b = c.r or 0.22, c.g or 0.42, c.b or 0.64
     elseif isPureBlackBg then

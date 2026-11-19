@@ -550,6 +550,12 @@ do
     local copy = StaticPopupDialogs[fallback].text
     assert(copy:find("Span WoW Now", 1, true) and copy:find("/reload", 1, true),
         "the combined prompt must explain how to reapply the Companion span")
+    local reloadBefore = copy:find("/reload", 1, true)
+    local span = copy:find("Span WoW Now", 1, true)
+    assert(copy:find("If WoW shrank after spanning", 1, true)
+        and reloadBefore < span
+        and copy:find("only when the layout is new, changed or not loaded", span, true),
+        "a shrunken span needs reload before retrying; a subsequent reload depends on the loaded layout")
     StaticPopup_Hide(fallback)
     StaticPopupDialogs[fallback].OnAccept()
     RunTimer()
@@ -624,6 +630,68 @@ do
     OffhandDB, OffhandCharDB, C_EditMode = oldAccount, oldCharacter, oldEditMode
     addon.isForever, addon.Viewport.GetMetrics, C_Timer.After = oldForever, oldGetMetrics, oldAfter
     StaticPopup_Show, StaticPopup_Hide = originalCompanionStaticPopupShow, oldHide
+end
+
+do
+    local previousReload, previousGamepad = ReloadUI, addon.IsGamepadUIEnabled
+    local previousCombat, previousForever = InCombatLockdown, addon.isForever
+    local calls = 0
+    addon.isForever = true
+    addon.IsGamepadUIEnabled = function() return false end
+    InCombatLockdown = function() return false end
+    ReloadUI = function()
+        assert(addon._gamepadSafePopup:IsShown(), "the popup must still be shown when the click calls ReloadUI")
+        calls = calls + 1
+    end
+    addon:ShowForeverLayoutRecoveryPrompt("fallback", "Saved Offhand", "Modern", {manualCanvasState = "EXACT_REQUIRED"})
+    local popup = addon._gamepadSafePopup
+    assert(popup and popup.alternate:IsShown() and popup.alternate:GetText() == addon.L.ONBOARD_RELOAD_UI
+        and popup.accept:IsShown() and popup.cancel:IsShown(), "reload and both HUD choices must be available")
+    assert(popup.definition.text:find("click " .. addon.L.ONBOARD_RELOAD_UI, 1, true)
+        and not popup.definition.text:find("/reload", 1, true),
+        "the prompt should name its Reload UI button when that action is available")
+    assert(popup.definition.text:find("only when the layout is new, changed or not loaded", 1, true)
+        and popup.definition.text:find("without another reload or calibration", 1, true),
+        "recovery must distinguish loading a new layout from reusing the loaded layout")
+    popup.alternate.scripts.OnClick()
+    assert(calls == 1 and not popup:IsShown(), "the hardware click should request one reload and close the popup")
+    InCombatLockdown = function() return true end
+    addon:ShowForeverLayoutRecoveryPrompt("fallback", "Saved Offhand", "Modern", {manualCanvasState = "EXACT_REQUIRED"})
+    assert(not StaticPopupDialogs.OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT.button3
+        and StaticPopupDialogs.OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT.text:find("/reload", 1, true),
+        "combat recovery must keep the manual reload instructions")
+    ReloadUI, addon.IsGamepadUIEnabled = previousReload, previousGamepad
+    InCombatLockdown, addon.isForever = previousCombat, previousForever
+end
+
+do
+    local oldReload, oldStyle, oldCombat = ReloadUI, addon.IsGamepadUIEnabled, InCombatLockdown
+    local reloads = 0
+    addon.IsGamepadUIEnabled = function() return false end
+    InCombatLockdown = function() return false end
+    ReloadUI = function()
+        assert(addon._gamepadSafePopup:IsShown(), "reload must run before its clicked popup is hidden")
+        reloads = reloads + 1
+    end
+    for _, keys in ipairs({
+        {"OFFHAND_COMPANION_HANDOFF_NOTICE", "POPUP_COMPANION_HANDOFF_TEXT"},
+        {"OFFHAND_COMPANION_TOPOLOGY_WARNING", "POPUP_COMPANION_TOPOLOGY_TEXT"},
+    }) do
+        addon:PrepareCompanionLayoutReload(keys[1], keys[2])
+        addon:ShowPopup(keys[1])
+        local popup = addon._gamepadSafePopup
+        assert(popup.alternate:IsShown() and popup.alternate:GetText() == addon.L.ONBOARD_RELOAD_UI)
+        assert(popup.definition.text:find("new, changed or not loaded", 1, true)
+            and not popup.definition.text:find("/reload", 1, true))
+        popup.alternate.scripts.OnClick()
+    end
+    assert(reloads == 2)
+    InCombatLockdown = function() return true end
+    addon:PrepareCompanionLayoutReload("OFFHAND_COMPANION_HANDOFF_NOTICE", "POPUP_COMPANION_HANDOFF_TEXT")
+    local definition = StaticPopupDialogs.OFFHAND_COMPANION_HANDOFF_NOTICE
+    assert(not definition.button3 and not definition.OnAlt and definition.text:find("/reload", 1, true),
+        "combat must remove the automatic reload action and retain manual guidance")
+    ReloadUI, addon.IsGamepadUIEnabled, InCombatLockdown = oldReload, oldStyle, oldCombat
 end
 
 -- Either welcome action must acknowledge the first-run guide without claiming
@@ -2898,9 +2966,10 @@ do
         "removing a selected profile must clear its stale action state")
     assert(controls.scroll:GetVerticalScroll() == 0 and not controls.rows[2]:IsShown(),
         "shrinking the list must clamp scrolling and hide obsolete rows")
-    local creations = 0
-    addon.CreateProfile = function(_, name)
+    local creations, freshProfile = 0, nil
+    addon.CreateProfile = function(_, name, fromDefaults)
         creations = creations + 1
+        freshProfile = fromDefaults
         profileNames[#profileNames + 1] = name
         OffhandCharDB.activeProfile = name
         return true
@@ -2915,10 +2984,14 @@ do
     for i = 1, 20 do profileNames[#profileNames + 1] = string.format("Profile %02d", i) end
     controls.input:SetText("  Keyboard profile  ")
     controls.input.scripts.OnEnterPressed(controls.input)
-    assert(creations == 1 and profileNames[#profileNames] == "Keyboard profile"
+    assert(creations == 1 and freshProfile == false and profileNames[#profileNames] == "Keyboard profile"
         and controls.input:GetText() == "", "Enter must use the same trimmed creation path as the button")
     assert(controls.rows[#profileNames].selected and controls.scroll:GetVerticalScroll() > 0,
         "newly created profiles must be selected and revealed even in a long list")
+    controls.input:SetText("Clean profile")
+    controls.fresh.scripts.OnClick()
+    assert(creations == 2 and freshProfile and OffhandCharDB.activeProfile == "Clean profile",
+        "Start from defaults must select the fresh profile creation path")
     addon.GetProfiles, addon.CreateProfile = originalGet, originalCreate
     OffhandCharDB.activeProfile = originalActive
     OffhandCharDB = originalCharacterDB

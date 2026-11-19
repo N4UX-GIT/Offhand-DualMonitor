@@ -26,7 +26,7 @@ local defaultSettings = {
     canvasAlpha = 0.95,             -- Alpha of the secondary monitor background
     userMediaEnabled = false,       -- Optional Offhand_UserMedia background, explicitly enabled by the player
     userMediaFitMode = "PACKAGE",  -- "PACKAGE", "FILL", "FIT", or "STRETCH"
-    workspaceMapScale = "AUTO",     -- "AUTO" (fits deck width) or number (0.50 to 1.50)
+    workspaceMapScale = "AUTO",     -- Fits the workspace unless an explicit scale is selected
     mainMapScale = 1.0,             -- Map scale when placed on the main gaming monitor
     showMinimapIcon = true,
     rawMouseInput = true,           -- Prevent hidden cursor exhaustion during camera look across shaped spans
@@ -899,7 +899,7 @@ function Offhand:GetOnboardingSetupMethod()
 end
 
 -- Character SavedVariables plus Forever's established CVar fallback. This
--- checkpoint contains only workflow/mode/canvas dimensions, never frame data.
+-- checkpoint contains workflow, canvas and Companion rectangle identity.
 function Offhand:GetPlacementCheckpoint()
     local value
     if type(OffhandCharDB) == "table" then value = OffhandCharDB.placementCheckpoint end
@@ -1226,13 +1226,13 @@ function Offhand:SetProfile(name)
     Offhand:Print(L["MSG_PROFILE_LOADED"]:format(name))
 end
 
-function Offhand:CreateProfile(name)
+function Offhand:CreateProfile(name, fromDefaults)
     local L = Offhand.L or setmetatable({}, { __index = function(t, k) return k end })
     if not name or strtrim(name) == "" then return false, L["PROFILES_WARN_EMPTY_NAME"] end
     name = strtrim(name)
     if OffhandDB.profiles[name] then return false, L["PROFILES_WARN_EXISTS"] end
     
-    OffhandDB.profiles[name] = CopyDefaults(Offhand.db, {})
+    OffhandDB.profiles[name] = CopyDefaults(fromDefaults and defaultSettings or Offhand.db, {})
     self:SetProfile(name)
     Offhand:Print(L["MSG_PROFILE_CREATED"]:format(name))
     return true

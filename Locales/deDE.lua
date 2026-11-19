@@ -100,7 +100,7 @@ L["SETUP_FIRST_PANEL"] = "Öffne nach der Kalibrierung und einem eventuell angef
 L["SETUP_REVIEW_HUD"] = "Prüfe nach der Einrichtung und einem eventuell nötigen Neuladen, ob Aktionsleisten, Einheitenfenster und Minikarte auf Mainhand liegen. Verschiebe Elemente an der Bildschirmkante im Blizzard-Bearbeitungsmodus oder im Editor deines HUD-Addons und speichere."
 L["WORKSPACE_READY_TITLE"] = "Offhand-Arbeitsbereich bereit"
 L["WORKSPACE_READY_HINT"] = "Ziehe deine Fenster hierher"
-L["WORKSPACE_READY_BODY"] = "Der Arbeitsbereich ist anfangs leer, damit du ihn selbst einrichten kannst. Öffne die Weltkarte und ziehe ihre Titelleiste in den Offhand-Arbeitsbereich. Andere unterstützte Fenster lassen sich genauso verschieben."
+L["WORKSPACE_READY_BODY"] = "Öffne die Weltkarte und ziehe ihre Titelleiste in den Offhand-Arbeitsbereich. Passe ihre Größe in den Karteneinstellungen automatisch an. Ziehe andere unterstützte Fenster genauso an ihren Platz."
 L["WORKSPACE_READY_EDIT_MODE"] = "Öffne für Blizzard-HUD-Elemente den Bearbeitungsmodus im Spielmenü. Ziehe die gewünschten Elemente an ihren Platz und speichere das Layout."
 L["WORKSPACE_READY_ADDON"] = "Wenn ein Addon ein Fenster verwaltet, entsperre es dort oder nutze den Layoutmodus des Addons. Sperre es anschließend wieder."
 -- Display identification (English fallback until translated).
@@ -1109,7 +1109,7 @@ L["WIZARD_COMPANION_CHANGE"] = "Ändere die Bildschirme in Companion, spanne WoW
 
 L["WIZARD_COMPANION_ACTION"] = "Companion-Anordnung verwenden"
 
-L["WIZARD_COMPANION_SEAM"] = "Prüfe die rote Linie am Rand des Spielbereichs. Passe die vertikale Position nur bei Bedarf an."
+L["WIZARD_COMPANION_SEAM"] = "Prüfe die rote Linie am Rand der Spielfläche. Öffne bei einem Versatz die Windows-Einstellungen unter System > Anzeige. Wähle Identifizieren, ziehe die Anzeigen passend zu deinem Schreibtisch und wähle Anwenden. Spanne WoW erneut im Companion und gib /reload in WoW ein."
 
 L["WIZARD_HUD_SHORT_BODY"] = "Erstelle eine Kopie deines Blizzard-HUDs für Mainhand. Das Original bleibt erhalten.\n\nVerlasse den Kampf und schließe den Bearbeitungsmodus. Klicke dann unten und lade die UI neu, wenn du dazu aufgefordert wirst.\n\nWenn der Chat nach dem Bearbeitungsmodus verrutscht, deaktiviere das Einrasten an Elementen, positioniere den Chat neu und speichere das Layout."
 
@@ -1176,3 +1176,10 @@ L["SETTINGS_HELP_THEMES"] = "Wähle ein Design für die Offhand-Oberfläche und 
 L["SETTINGS_HELP_PROFILES"] = "Erstelle benannte Sätze von Offhand-Einstellungen. Wähle ein Profil und lade es für diesen Charakter. Mit In aktuelles kopieren übernimmst du die gewählten Einstellungen in das aktive Profil."
 L["SETTINGS_HELP_POPUPS"] = "Verschiebt unterstützte Dialoge vom Bildschirmübergang in einen sichtbaren Bildschirmbereich."
 L["SETTINGS_HELP_LAYOUT_SOURCE"] = "Wähle bei einem Companion-Layout die Bildschirme und Mainhand in Companion, klicke auf Span WoW Now und gib in WoW /reload ein."
+
+L["PROFILE_RESET_SHARED_CONFIRM"] = "Offhand-Einstellungen in „%s“ für alle Charaktere zurücksetzen, die dieses Profil verwenden? Blizzard-Layouts werden separat verwaltet. Dies lässt sich nicht rückgängig machen."
+L["PROFILE_CREATE_COPY"] = "Aktuelle Einstellungen kopieren"
+L["PROFILE_CREATE_DEFAULTS"] = "Mit Standardwerten beginnen"
+L["PROFILE_CREATE_DEFAULTS_HELP"] = "Erstellt und aktiviert ein neues Profil. Aktiviere und kalibriere Offhand dafür. Wähle das HUD-Layout im Blizzard-Bearbeitungsmodus."
+L["USER_MEDIA_STUDIO_LINK"] = "Eigenen Hintergrund erstellen"
+L["USER_MEDIA_STUDIO_LINK_TEXT"] = "Kopiere diese Adresse in deinen Browser, um im Offhand Background Studio einen eigenen Hintergrund zu erstellen."

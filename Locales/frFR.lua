@@ -99,7 +99,7 @@ L["SETUP_FIRST_PANEL"] = "Après le calibrage et tout rechargement demandé, ouv
 L["SETUP_REVIEW_HUD"] = "Après la configuration et le rechargement éventuel, vérifiez que les barres d’action, les cadres d’unité et la minicarte sont sur Mainhand. Déplacez les éléments encore près de la séparation dans le mode Édition de Blizzard ou dans l’éditeur de votre addon HUD, puis enregistrez."
 L["WORKSPACE_READY_TITLE"] = "Espace de travail Offhand prêt"
 L["WORKSPACE_READY_HINT"] = "Faites glisser vos fenêtres ici"
-L["WORKSPACE_READY_BODY"] = "L’espace de travail démarre vide pour vous laisser l’organiser. Ouvrez la carte du monde et faites glisser sa barre de titre dans l’espace Offhand. Déplacez les autres fenêtres prises en charge de la même façon."
+L["WORKSPACE_READY_BODY"] = "Ouvrez la carte du monde et faites glisser sa barre de titre vers l’espace Offhand. Utilisez l’ajustement automatique dans les réglages de la carte. Placez les autres fenêtres compatibles de la même façon."
 L["WORKSPACE_READY_EDIT_MODE"] = "Pour les éléments de l’interface Blizzard, ouvrez le mode Édition depuis le menu du jeu. Déplacez les éléments souhaités et enregistrez votre disposition."
 L["WORKSPACE_READY_ADDON"] = "Si un addon gère un élément, utilisez son mode de disposition ou déverrouillez l’élément dans cet addon. Verrouillez-le à nouveau ensuite."
 -- Display identification (English fallback until translated).
@@ -1109,7 +1109,7 @@ L["WIZARD_COMPANION_CHANGE"] = "Pour changer d’écran, utilisez Companion, ét
 
 L["WIZARD_COMPANION_ACTION"] = "Utiliser la disposition Companion"
 
-L["WIZARD_COMPANION_SEAM"] = "Vérifiez la ligne rouge au bord de la zone de jeu. Ajustez la position verticale uniquement si nécessaire."
+L["WIZARD_COMPANION_SEAM"] = "Vérifiez la ligne rouge au bord de la zone de jeu. Si les écrans sont décalés, ouvrez Paramètres Windows > Système > Affichage. Cliquez sur Identifier, faites glisser les écrans selon leur position réelle et appliquez. Étendez de nouveau WoW avec Companion, puis saisissez /reload dans WoW."
 
 L["WIZARD_HUD_SHORT_BODY"] = "Créez une copie de votre ATH Blizzard pour Mainhand. Votre disposition d’origine est conservée.\n\nQuittez le combat et fermez le mode Édition, puis cliquez ci-dessous. Rechargez l’interface lorsque cela vous est demandé.\n\nSi la fenêtre de discussion se décale après le mode Édition, désactivez l’alignement sur les éléments, repositionnez-la, puis enregistrez la disposition."
 
@@ -1176,3 +1176,10 @@ L["SETTINGS_HELP_THEMES"] = "Choisissez un thème pour l’interface et l’arri
 L["SETTINGS_HELP_PROFILES"] = "Créez des ensembles de réglages Offhand nommés. Sélectionnez un profil et chargez-le pour ce personnage. Copier dans le profil actuel y copie les réglages sélectionnés."
 L["SETTINGS_HELP_POPUPS"] = "Éloigne les fenêtres contextuelles prises en charge de la jonction des écrans pour les afficher dans une zone visible."
 L["SETTINGS_HELP_LAYOUT_SOURCE"] = "Si Companion gère la disposition, choisissez-y les écrans et Mainhand, cliquez sur Span WoW Now, puis saisissez /reload dans WoW."
+
+L["PROFILE_RESET_SHARED_CONFIRM"] = "Réinitialiser les réglages Offhand de « %s » pour tous les personnages qui utilisent ce profil ? Les dispositions de Blizzard se gèrent séparément. Cette action est irréversible."
+L["PROFILE_CREATE_COPY"] = "Copier les réglages actuels"
+L["PROFILE_CREATE_DEFAULTS"] = "Partir des valeurs par défaut"
+L["PROFILE_CREATE_DEFAULTS_HELP"] = "Crée et sélectionne un nouveau profil. Activez et calibrez Offhand pour ce profil. Choisissez la disposition de l’interface dans le mode Édition de Blizzard."
+L["USER_MEDIA_STUDIO_LINK"] = "Créer un arrière-plan personnalisé"
+L["USER_MEDIA_STUDIO_LINK_TEXT"] = "Copiez cette adresse dans votre navigateur pour créer un arrière-plan personnalisé dans Offhand Background Studio."

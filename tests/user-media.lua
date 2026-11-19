@@ -71,6 +71,14 @@ assert(math.abs(fill[2] - (150 / 256)) < 0.0001, "Fill crop must end at the focu
 assert(fill[3] == 0 and math.abs(fill[4] - (100 / 128)) < 0.0001, "Fill must exclude padded TGA pixels")
 assert(canvas.userMediaTexture.alpha == 0.8, "Package opacity must apply")
 assert(canvas.userMediaDimTexture.color[4] == 0.2, "Package darkening must apply")
+local opacitySettings = {userMediaEnabled = true, canvasAlpha = .5}
+assert(addon.UserMedia:ApplyToCanvas(canvas, opacitySettings))
+assert(canvas.bgTexture.color[4] == .5 and canvas.userMediaTexture.alpha == .4
+    and canvas.userMediaDimTexture.color[4] == .1, "Canvas opacity must affect all Studio background layers")
+opacitySettings.canvasAlpha = 0
+assert(addon.UserMedia:ApplyToCanvas(canvas, opacitySettings))
+assert(canvas.bgTexture.color[4] == 0 and canvas.userMediaTexture.alpha == 0
+    and canvas.userMediaDimTexture.color[4] == 0, "Canvas opacity zero must make Studio media transparent")
 
 addon.UserMedia:SetFitMode("FIT")
 addon.UserMedia:ApplyToCanvas(canvas)

@@ -650,14 +650,27 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
 
     -- Update the captured bounds used by typing, stepping and custom dragging,
     -- as well as the native thumb. Synchronizing owners must not call setVal.
-    slider.SetRange = function(self, lower, upper)
+    slider.SetRange = function(self, lower, upper, increment)
         if type(lower) ~= "number" or type(upper) ~= "number" or lower ~= lower or upper ~= upper
             or lower <= -math.huge or upper >= math.huge or lower >= upper then return false end
-        if lower == minVal and upper == maxVal then return true end
+        increment = increment or step
+        if type(increment) ~= "number" or increment ~= increment
+            or increment <= 0 or increment > upper - lower then return false end
+        if lower == minVal and upper == maxVal and increment == step then return true end
         Controls.EndSliderInteraction(self)
         minVal, maxVal = lower, upper
         self._isRefreshing = true
         self:SetMinMaxValues(minVal, maxVal)
+        if step ~= increment then
+            step = increment
+            self:SetValueStep(step)
+            if Offhand.SetTooltip then
+                Offhand:SetTooltip(btnPlus, L["SLIDER_STEP_UP_TIP_TITLE"],
+                    string.format(L["SLIDER_STEP_UP_TIP_DESC_FMT"], FormatValue(step)))
+                Offhand:SetTooltip(btnMinus, L["SLIDER_STEP_DOWN_TIP_TITLE"],
+                    string.format(L["SLIDER_STEP_DOWN_TIP_DESC_FMT"], FormatValue(step)))
+            end
+        end
         self:SetValue(getVal())
         if editBox.ClearFocus then editBox:ClearFocus() end
         self._isRefreshing = nil

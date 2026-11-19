@@ -100,7 +100,7 @@ L["SETUP_FIRST_PANEL"] = "After calibration and any requested reload, open the W
 L["SETUP_REVIEW_HUD"] = "설정을 마치고 필요한 경우 UI를 재시작한 뒤, 행동 단축바와 유닛 프레임, 미니맵이 Mainhand에 있는지 확인하세요. 화면 경계에 남은 요소는 블리자드 편집 모드 또는 HUD 애드온 편집기에서 옮긴 뒤 저장하세요."
 L["WORKSPACE_READY_TITLE"] = "Offhand 작업 공간 준비 완료"
 L["WORKSPACE_READY_HINT"] = "창을 여기로 끌어오세요"
-L["WORKSPACE_READY_BODY"] = "작업 공간은 원하는 대로 배치할 수 있도록 처음에 비어 있습니다. 세계 지도를 열고 제목 표시줄을 Offhand 작업 공간으로 끌어오세요. 지원되는 다른 창도 같은 방식으로 이동할 수 있습니다."
+L["WORKSPACE_READY_BODY"] = "세계 지도를 열고 제목 표시줄을 Offhand 작업 공간으로 끌어 놓으세요. 지도 설정에서 자동 맞춤으로 크기를 조절할 수 있습니다. 지원되는 다른 창도 같은 방식으로 배치하세요."
 L["WORKSPACE_READY_EDIT_MODE"] = "블리자드 HUD 요소는 게임 메뉴에서 편집 모드를 열어 이동한 뒤 배치를 저장하세요."
 L["WORKSPACE_READY_ADDON"] = "애드온이 관리하는 창은 해당 애드온에서 잠금을 해제하거나 배치 모드를 사용해 이동한 뒤 다시 잠그세요."
 -- Display identification (English fallback until translated).
@@ -1110,7 +1110,7 @@ L["WIZARD_COMPANION_CHANGE"] = "화면을 변경하려면 Companion에서 설정
 
 L["WIZARD_COMPANION_ACTION"] = "Companion 배치 사용"
 
-L["WIZARD_COMPANION_SEAM"] = "게임 영역 가장자리의 빨간 선을 확인하세요. 필요한 경우에만 세로 위치를 조절하세요."
+L["WIZARD_COMPANION_SEAM"] = "게임 영역 가장자리의 빨간 선을 확인하세요. 화면 배치가 어긋나면 Windows 설정 > 시스템 > 디스플레이에서 식별을 선택합니다. 화면을 실제 위치에 맞게 끌어 놓고 적용하세요. Companion에서 WoW 창을 다시 확장한 후 게임에서 /reload를 입력하세요."
 
 L["WIZARD_HUD_SHORT_BODY"] = "Mainhand용 Blizzard HUD 복사본을 만듭니다. 원래 배치는 유지됩니다.\n\n전투를 종료하고 편집 모드를 닫은 뒤 아래 버튼을 누르세요. 안내가 나오면 UI를 다시 불러오세요.\n\n편집 모드를 종료한 뒤 대화창이 이동하면 요소에 맞추기를 끄고 대화창 위치를 다시 조정한 다음 배치를 저장하세요."
 
@@ -1177,3 +1177,10 @@ L["SETTINGS_HELP_THEMES"] = "Offhand 인터페이스와 배경에 사용할 테�
 L["SETTINGS_HELP_PROFILES"] = "이름을 지정해 Offhand 설정을 저장합니다. 프로필을 선택하고 불러오면 이 캐릭터에 적용됩니다. 현재 프로필에 복사하면 선택한 설정이 활성 프로필에 복사됩니다."
 L["SETTINGS_HELP_POPUPS"] = "지원되는 팝업을 화면 경계에서 벗어나 보이는 화면 영역에 표시합니다."
 L["SETTINGS_HELP_LAYOUT_SOURCE"] = "Companion이 화면 배치를 관리하는 경우 Companion에서 화면과 Mainhand를 선택하고 Span WoW Now를 클릭한 뒤 WoW에서 /reload를 입력하세요."
+
+L["PROFILE_RESET_SHARED_CONFIRM"] = "이 프로필을 쓰는 모든 캐릭터의 '%s' Offhand 설정을 초기화할까요? 블리자드 편집 모드 레이아웃은 별도로 관리합니다. 되돌릴 수 없습니다."
+L["PROFILE_CREATE_COPY"] = "현재 설정 복사"
+L["PROFILE_CREATE_DEFAULTS"] = "기본 설정으로 시작"
+L["PROFILE_CREATE_DEFAULTS_HELP"] = "새 프로필을 만들어 선택합니다. 새 프로필에서 Offhand를 활성화하고 보정하세요. HUD 레이아웃은 블리자드 편집 모드에서 선택하세요."
+L["USER_MEDIA_STUDIO_LINK"] = "사용자 지정 배경 만들기"
+L["USER_MEDIA_STUDIO_LINK_TEXT"] = "이 주소를 브라우저에 복사해 Offhand Background Studio에서 사용자 지정 배경을 만드세요."

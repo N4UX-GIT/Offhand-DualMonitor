@@ -100,7 +100,7 @@ L["SETUP_FIRST_PANEL"] = "After calibration and any requested reload, open the W
 L["SETUP_REVIEW_HUD"] = "Após a configuração e a recarga solicitada, confira se as barras de ação, os quadros de unidade e o minimapa estão no Mainhand. Mova os elementos que ainda estiverem perto da divisão no Modo de Edição da Blizzard ou no editor do seu addon de HUD e salve."
 L["WORKSPACE_READY_TITLE"] = "Área de trabalho do Offhand pronta"
 L["WORKSPACE_READY_HINT"] = "Arraste suas janelas para cá"
-L["WORKSPACE_READY_BODY"] = "A área de trabalho começa vazia para você organizá-la. Abra o mapa-múndi e arraste a barra de título para a área do Offhand. Mova outras janelas compatíveis da mesma forma."
+L["WORKSPACE_READY_BODY"] = "Abra o mapa-múndi e arraste a barra de título para a área do Offhand. Use o ajuste automático nas opções do mapa. Posicione as outras janelas compatíveis da mesma forma."
 L["WORKSPACE_READY_EDIT_MODE"] = "Para elementos da interface da Blizzard, abra o Modo de Edição no menu do jogo. Arraste os elementos e salve o layout."
 L["WORKSPACE_READY_ADDON"] = "Se um addon gerencia um elemento, desbloqueie-o no addon ou use o modo de layout para movê-lo. Bloqueie-o novamente ao terminar."
 -- Display identification (English fallback until translated).
@@ -1110,7 +1110,7 @@ L["WIZARD_COMPANION_CHANGE"] = "Para mudar as telas, use o Companion, expanda o 
 
 L["WIZARD_COMPANION_ACTION"] = "Usar organização do Companion"
 
-L["WIZARD_COMPANION_SEAM"] = "Confira a linha vermelha na borda da área de jogo. Ajuste a posição vertical apenas se necessário."
+L["WIZARD_COMPANION_SEAM"] = "Confira a linha vermelha na borda da área de jogo. Se as telas estiverem desalinhadas, abra Configurações do Windows > Sistema > Tela. Escolha Identificar, arraste as telas conforme a posição física e selecione Aplicar. Estenda o WoW novamente com o Companion e digite /reload no jogo."
 
 L["WIZARD_HUD_SHORT_BODY"] = "Crie uma cópia do seu HUD da Blizzard para o Mainhand. A organização original será mantida.\n\nSaia de combate e feche o Modo de Edição. Clique no botão abaixo e recarregue quando solicitado.\n\nSe o bate-papo mudar de posição ao sair do Modo de Edição, desative o ajuste aos elementos, reposicione o bate-papo e salve a organização."
 
@@ -1177,3 +1177,10 @@ L["SETTINGS_HELP_THEMES"] = "Escolha um tema para a interface e o fundo do Offha
 L["SETTINGS_HELP_PROFILES"] = "Crie conjuntos de configurações do Offhand com um nome. Selecione e carregue um perfil para usá-lo com este personagem. Copiar para o atual copia as configurações selecionadas para o perfil ativo."
 L["SETTINGS_HELP_POPUPS"] = "Afasta os diálogos compatíveis da divisão entre as telas para abri-los em uma área visível."
 L["SETTINGS_HELP_LAYOUT_SOURCE"] = "Se o Companion gerencia o layout, escolha nele as telas e a Mainhand, clique em Span WoW Now e digite /reload no WoW."
+
+L["PROFILE_RESET_SHARED_CONFIRM"] = "Redefinir as configurações de Offhand em «%s» para todos os personagens que usam este perfil? Os layouts da Blizzard são gerenciados separadamente. Esta ação é irreversível."
+L["PROFILE_CREATE_COPY"] = "Copiar configurações atuais"
+L["PROFILE_CREATE_DEFAULTS"] = "Começar com os padrões"
+L["PROFILE_CREATE_DEFAULTS_HELP"] = "Cria e seleciona um novo perfil. Ative e calibre o Offhand para esse perfil. Escolha o layout no Modo de Edição da Blizzard."
+L["USER_MEDIA_STUDIO_LINK"] = "Criar um fundo personalizado"
+L["USER_MEDIA_STUDIO_LINK_TEXT"] = "Copie este endereço no navegador para criar um fundo personalizado no Offhand Background Studio."

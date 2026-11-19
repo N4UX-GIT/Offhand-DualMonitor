@@ -100,7 +100,7 @@ L["SETUP_FIRST_PANEL"] = "After calibration and any requested reload, open the W
 L["SETUP_REVIEW_HUD"] = "完成設定並依提示重新載入後，確認快捷列、單位框架和小地圖都在主螢幕。使用暴雪編輯模式或 HUD 插件的編輯器移開仍靠近螢幕接縫的元件，然後儲存。"
 L["WORKSPACE_READY_TITLE"] = "Offhand 工作區已就緒"
 L["WORKSPACE_READY_HINT"] = "將視窗拖到這裡"
-L["WORKSPACE_READY_BODY"] = "工作區初始為空白，方便你自行安排。開啟世界地圖，按住標題列將它拖入 Offhand 工作區。其他受支援的視窗也可以用相同方式移動。"
+L["WORKSPACE_READY_BODY"] = "打開世界地圖，將標題列拖到 Offhand 工作區。在地圖設定中使用自動調整大小。其他支援的視窗也能用同樣方式放置。"
 L["WORKSPACE_READY_EDIT_MODE"] = "若要移動暴雪介面元素，請從遊戲選單開啟編輯模式。拖曳所需的元素，然後儲存配置。"
 L["WORKSPACE_READY_ADDON"] = "如果視窗由插件管理，請在該插件中解鎖視窗或使用其配置模式。移動後重新鎖定。"
 -- Display identification (English fallback until translated).
@@ -1110,7 +1110,7 @@ L["WIZARD_COMPANION_CHANGE"] = "如需變更顯示器，請在 Companion 中設�
 
 L["WIZARD_COMPANION_ACTION"] = "使用 Companion 配置"
 
-L["WIZARD_COMPANION_SEAM"] = "檢查遊戲區邊緣的紅線。僅在需要時調整垂直位置。"
+L["WIZARD_COMPANION_SEAM"] = "檢查遊戲區域邊緣的紅線。如果螢幕位置有偏差，請開啟 Windows 設定 > 系統 > 顯示器，選擇「識別」，依實際位置拖曳螢幕並套用。用 Companion 重新跨螢幕配置後，在 WoW 輸入 /reload。"
 
 L["WIZARD_HUD_SHORT_BODY"] = "為 Mainhand 建立一份暴雪介面配置副本。原配置會保留。\n\n請脫離戰鬥並關閉編輯模式，再點擊下方按鈕。依提示重新載入介面。\n\n若退出編輯模式後聊天視窗移位，請關閉對齊元素，重新放置聊天視窗，然後儲存配置。"
 
@@ -1177,3 +1177,10 @@ L["SETTINGS_HELP_THEMES"] = "為 Offhand 介面和背景選擇主題。使用各
 L["SETTINGS_HELP_PROFILES"] = "為 Offhand 設定建立具名設定檔。選取並載入設定檔即可用於目前角色。複製到目前設定檔會將所選設定複製到使用中的設定檔。"
 L["SETTINGS_HELP_POPUPS"] = "將受支援的彈出視窗移離螢幕接縫，使其在可見的螢幕區域內開啟。"
 L["SETTINGS_HELP_LAYOUT_SOURCE"] = "若由 Companion 管理配置，請在 Companion 中選擇螢幕和 Mainhand，點擊 Span WoW Now，然後在 WoW 輸入 /reload。"
+
+L["PROFILE_RESET_SHARED_CONFIRM"] = "要為使用「%s」設定檔的所有角色重設 Offhand 設定嗎？暴雪編輯模式版面會個別管理。這項操作無法復原。"
+L["PROFILE_CREATE_COPY"] = "複製目前設定"
+L["PROFILE_CREATE_DEFAULTS"] = "從預設值開始"
+L["PROFILE_CREATE_DEFAULTS_HELP"] = "建立並選取新的設定檔。請為此設定檔啟用並校準 Offhand，再到暴雪編輯模式選擇 HUD 版面。"
+L["USER_MEDIA_STUDIO_LINK"] = "建立自訂背景"
+L["USER_MEDIA_STUDIO_LINK_TEXT"] = "將此網址複製到瀏覽器，在 Offhand Background Studio 建立自訂背景。"

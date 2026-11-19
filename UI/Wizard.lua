@@ -66,6 +66,10 @@ function Wizard:ShowPendingWorkspaceReady()
     StaticPopupDialogs.OFFHAND_WORKSPACE_READY = {
         text = "|cffffd100%s|r\n\n%s",
         button1 = L.POPUP_BTN_GOT_IT,
+        button3 = Offhand.Options and L.MAP_SETTINGS or nil,
+        OnAlt = function()
+            if Offhand.Options and Offhand.Options.ShowMapSettings then Offhand.Options:ShowMapSettings() end
+        end,
         timeout = 0, whileDead = true, hideOnEscape = true,
     }
     if not Offhand:ShowPopup("OFFHAND_WORKSPACE_READY", L.WORKSPACE_READY_TITLE, body) then return false end
