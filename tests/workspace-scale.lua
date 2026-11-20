@@ -200,6 +200,20 @@ a.db.savedWorkspacePositions.CollectionsJournal={x=100,y=1258}
 restore(journal)
 near(journal.y*journal.scale,1085);near((journal.y-journal.h)*journal.scale,652)
 S:Apply(journal,false,m);near(journal.scale,1)
+for name, size in pairs({ProfessionsFrame={673,594},PlayerSpellsFrame={577,720}}) do
+    local book=frame(name,size[1]);book.h=size[2]
+    a.db.savedWorkspacePositions[name]={x=90,y=652+book.h}
+    restore(book)
+    book:SetScale(1);flush()
+    restore(book)
+    near(book.y*book.scale,1085)
+    near((book.y-book.h)*book.scale,652)
+    assert((book.y+3)*book.scale<=m.workspaceTop,'close button clipped on restore')
+    S:Apply(book,false,m);near(book.scale,1)
+    restore(book)
+    book:SetScale(.55);flush();restore(book)
+    near(book.scale,.55) -- Keep a distinct scale chosen by another window mover.
+end
 local social=frame('SocialUIFrame',410);social.h=675
 local character=frame('CharacterFrame',631);character.h=484
 CharacterFrameModeTabs=frame('CharacterFrameModeTabs',64)

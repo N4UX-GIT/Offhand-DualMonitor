@@ -213,9 +213,12 @@ function Scale:ApplySingle(f,m,multiplier,owner,fit)
     local current=Number(Read(f,"GetScale"));if not current then return false end
     local state=self.state[f]
     if state and not Near(current,state.applied) then
-        -- Native bag reopen resets are recognizable. Other writers own their
-        -- final scale, rather than becoming a baseline to multiply repeatedly.
-        if not (Name(f) or ""):match("^ContainerFrame") or not Near(current,state.native) then
+        -- Bags and Forever's books return to their native scale on reopen.
+        -- Reapply their saved fit while respecting other explicit scale writes.
+        local name=Name(f) or ""
+        local restoresNative=name:match("^ContainerFrame") or (fit and Offhand.isForever
+            and (name=="ProfessionsFrame" or name=="PlayerSpellsFrame"))
+        if not restoresNative or not Near(current,state.native) then
             self.state[f]=nil;self.released[f]=true;return true
         end
     end
@@ -233,7 +236,8 @@ function Scale:ApplySingle(f,m,multiplier,owner,fit)
     return true
 end
 
-local excluded={WorldMapFrame=true,CharacterFrame=true,PlayerSpellsFrame=true}
+local excluded={WorldMapFrame=true,CharacterFrame=true}
+local fitForeverPanel={CollectionsJournal=true,SocialUIFrame=true,ProfessionsFrame=true,PlayerSpellsFrame=true}
 function Scale:Apply(f,onWorkspace,m)
     if Combat() then return false end
     local name=Name(f)
@@ -242,11 +246,16 @@ function Scale:Apply(f,onWorkspace,m)
         return true
     end
     if not name or excluded[name] then return true end
+    -- Retail owns its spellbook fit separately. Custom regions retain their
+    -- native-size fallback when the book does not fit.
+    if name=="PlayerSpellsFrame" and (not Offhand.isForever or (m and m.workspaceRegions)) then
+        return self:Release(f)
+    end
     if name:match("^ChatFrame%d+$") then return self:ApplyChat(f,onWorkspace,m) end
     local multiplier=onWorkspace and m and m.isSpanned and Offhand.db and Offhand.db.enabled
         and self:GetMultiplier(m) or 1
-    if onWorkspace and Offhand.isForever and m and m.isSpanned and not m.workspaceRegions
-        and (name=="CollectionsJournal" or name=="SocialUIFrame") then
+    if onWorkspace and Offhand.isForever and fitForeverPanel[name] and Offhand.db and Offhand.db.enabled
+        and m and m.isSpanned and not m.workspaceRegions then
         return self:ApplySingle(f,m,multiplier,nil,true)
     end
     if Near(multiplier,1) then return self:Release(f) end
