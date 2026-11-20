@@ -1511,6 +1511,14 @@ do
         "clearing the target must return Escape to its ordinary binding")
     selected, panel = true, CharacterFrame
     panel:Show()
+    local priorProfession = ProfessionsFrame
+    local priorPosition = addon.db.savedWorkspacePositions.ProfessionsFrame
+    ProfessionsFrame = makePanel("ProfessionsFrame", true, metrics.workspaceLeft + 20, 400, 180, 240)
+    addon.db.savedWorkspacePositions.ProfessionsFrame = {x=20, y=400}
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
+        "a visible crafting session must retain its native Escape handler with the backpack open")
+    ProfessionsFrame = priorProfession
+    addon.db.savedWorkspacePositions.ProfessionsFrame = priorPosition
     local closes = 0
     CloseWindows = function()
         closes = closes + 1

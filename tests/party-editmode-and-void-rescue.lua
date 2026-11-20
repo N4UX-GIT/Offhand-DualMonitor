@@ -4015,8 +4015,45 @@ assert(not optedInProfessions:IsShown()
         and not addon.db.openWorkspacePanels.ProfessionsBookFrame,
     "an unpaired native Professions close must remain closed instead of auto-reopening")
 
-experimentalProfessionsMovement = false
-addon.Canvas:DisableExperimentalForeverProfessionsMovement()
+-- The dedicated crafting Escape handler runs before the generic panel-close
+-- transaction. Closing and re-showing the frame would end the recipe session.
+do
+    local previousFrame, previousMixin, previousStack = ProfessionsFrame, ProfessionsMixin, debugstack
+    local closed = 0
+    local function nativeClose() closed = closed + 1 end
+    local source = "Blizzard_Professions/Blizzard_ProfessionsRegistration.lua"
+    debugstack = function() return source end
+    ProfessionsMixin = { CheckConfirmClose = nativeClose }
+    local craft = makeMockFrame("ProfessionsFrame", 700, 800)
+    ProfessionsFrame = craft
+    craft.CheckConfirmClose = nativeClose
+    craft.CraftingPage = makeMockFrame("CraftingPage", 200, 200)
+    craft.CraftingPage:Show()
+    craft:Show()
+    craft:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 180, 1500)
+    addon.db.savedWorkspacePositions.ProfessionsFrame = {x=180, y=1500}
+    addon.Canvas:QueueExperimentalForeverProfessionsMovement(craft)
+    GameMenuFrame:Hide()
+    craft:CheckConfirmClose()
+    assert(closed == 0 and GameMenuFrame:IsShown(), "crafting Escape must open the menu without closing the session")
+    GameMenuFrame:Hide()
+    source = "CloseButton"
+    craft:CheckConfirmClose()
+    assert(closed == 1 and not GameMenuFrame:IsShown(), "explicit crafting close must reach Blizzard")
+    source = "Blizzard_Professions/Blizzard_ProfessionsRegistration.lua"
+    craft.CraftingPage:Hide()
+    craft:CheckConfirmClose()
+    assert(closed == 2, "other tabs must retain their native close confirmations")
+    craft.CraftingPage:Show()
+    craft:ClearAllPoints()
+    craft:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 2400, 1000)
+    craft:CheckConfirmClose()
+    assert(closed == 3 and not GameMenuFrame:IsShown(), "a stale saved anchor must not intercept Mainhand Escape")
+    experimentalProfessionsMovement = false
+    addon.Canvas:DisableExperimentalForeverProfessionsMovement()
+    assert(craft.CheckConfirmClose == nativeClose, "disabling movement must release the native method")
+    ProfessionsFrame, ProfessionsMixin, debugstack = previousFrame, previousMixin, previousStack
+end
 assert(not addon.db.savedWorkspacePositions.ProfessionsBookFrame,
     "disabling experimental Professions movement must clear its saved position")
 assert(not optedInProfessions._OffhandExperimentalProfessionsGrip:IsShown()

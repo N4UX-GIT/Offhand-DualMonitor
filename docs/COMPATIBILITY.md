@@ -85,6 +85,10 @@ was rerun with OneForAll disabled.
 Actual NPC and inspection results:
 [November 18 QA](FOREVER-BAG-ESCAPE-QA-20261118.md).
 
+For the crafting Escape handler, expanded Spellbook, and isolated Bagnon,
+BetterBags, Bagnaros and Baganator checks on build 71037, see the
+[November 21 Forever QA](FOREVER-CRAFTING-BAG-ESCAPE-QA-20261121.md).
+
 ## Preserve the baseline when changing compatibility
 
 - Add a regression case for the reported failure and a control for the behavior

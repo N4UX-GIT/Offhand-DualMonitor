@@ -122,6 +122,12 @@ function Adapter.Install(Canvas, services)
             local popup = _G["StaticPopup" .. index]
             if popup and popup:IsShown() then return false end
         end
+        -- Let the dedicated crafting handler protect an anchored recipe
+        -- session. CloseWindows would bypass it and end the tradeskill.
+        if db.savedWorkspacePositions and db.savedWorkspacePositions.ProfessionsFrame
+            and ProfessionsFrame and ProfessionsFrame:IsShown() and IsFrameOnWorkspace(ProfessionsFrame) then
+            return false
+        end
         for _, name in ipairs({"GameMenuFrame", "LootFrame", "SpellFlyout", "DropDownList1", "DropDownList2"}) do
             local panel = _G[name]
             if panel and panel:IsShown() then return false end

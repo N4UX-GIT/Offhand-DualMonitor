@@ -765,6 +765,25 @@ tick()
 assert(UISpecialFrames[2] == "ARKINV_Frame1", "ArkInventory must regain Escape registration on Mainhand")
 
 ARKINV_Frame1:Hide()
+do
+    local previousQuery = C_AddOns.IsAddOnLoaded
+    C_AddOns.IsAddOnLoaded = function(name) return name == "Bagnaros" or previousQuery(name) end
+    local frame = setmetatable({shown=true, x=100, scripts={}}, {__index=bag})
+    function frame:GetName() return "BagnarosInventoryFrame" end
+    BagnarosInventoryFrame = frame
+    frame.controller = {kind="inventory", main=frame}
+    UISpecialFrames = {"BagnarosBankFrame", "BagnarosInventoryFrame"}
+    tick()
+    assert(#UISpecialFrames == 1 and UISpecialFrames[1] == "BagnarosBankFrame",
+        "only Bagnaros' verified Offhand inventory leaves the native close list")
+    frame.x = 2000
+    tick()
+    assert(UISpecialFrames[2] == "BagnarosInventoryFrame", "Mainhand restores Bagnaros' native close")
+    frame.x, frame.controller.main = 100, nil
+    tick()
+    assert(#UISpecialFrames == 2, "a name match alone cannot claim the Bagnaros frame")
+    BagnarosInventoryFrame, C_AddOns.IsAddOnLoaded = nil, previousQuery
+end
 local nextName = "BetterBagsNextBackpack"
 local nextBag = setmetatable({shown=true,x=100,scripts={}}, {__index=bag})
 function nextBag:GetName() return nextName end
@@ -801,8 +820,27 @@ assert(not other.shown and targetSelected and nextBag.shown and cleanups == 1,
 ToggleGameMenu(); flush()
 assert(not targetSelected and nextBag.shown and cleanups == 2,
     "Escape must clear the target and retain BetterBags while letting its other cleanup run")
+do
+    local previousPanel, previousStack = PlayerSpellsFrame, debugstack
+    PlayerSpellsFrame = {Show=function() end, IsShown=function() return true end,
+        GetName=function() return "PlayerSpellsFrame" end}
+    debugstack = function() return "Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua: in function 'ShowUIPanel'" end
+    vendor:CloseSpecialWindows()
+    ShowUIPanel(PlayerSpellsFrame)
+    flush()
+    assert(nextBag.shown and not vendor.backpackShouldClose,
+        "opening the PlayerSpells center panel must cancel only its queued BetterBags close")
+    addon.db.independentWorkspacePanels = false
+    vendor:CloseSpecialWindows()
+    ShowUIPanel(PlayerSpellsFrame)
+    flush()
+    assert(not nextBag.shown, "turning independent windows off must leave the native panel close intact")
+    addon.db.independentWorkspacePanels = true
+    nextBag:Show()
+    PlayerSpellsFrame, debugstack = previousPanel, previousStack
+end
 vendor:CloseSpecialWindows(); flush()
-assert(not nextBag.shown and cleanups == 3,
+assert(not nextBag.shown and cleanups == 5,
     "a close outside the Escape transaction must still close BetterBags")
 nextBag:Show()
 nextBag.x = 2000

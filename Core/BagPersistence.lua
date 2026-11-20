@@ -224,6 +224,17 @@ local function RefreshArkInventoryEscape()
     UpdateBagEscapeRegistration(frame, "ARKINV_Frame1", owned)
 end
 
+local function RefreshBagnarosEscape()
+    local frame = _G.BagnarosInventoryFrame
+    if not frame or not IsAddOnLoadedCompat("Bagnaros") then return end
+    local controller = frame.controller
+    -- Bagnaros registers its main inventory in UISpecialFrames and rebuilds
+    -- it from the open native bags. A native close can hide and immediately
+    -- reopen it during an expanded Spellbook or Game Menu transition.
+    UpdateBagEscapeRegistration(frame, "BagnarosInventoryFrame", controller
+        and controller.kind == "inventory" and controller.main == frame)
+end
+
 local function RefreshBetterBagsEscape()
     if InCombatLockdown() then return end
     local vendor = Bags.betterBags
@@ -239,9 +250,13 @@ local function RefreshBetterBagsEscape()
             if interactingFrame or not frame or not Bags.escapeRegistrations[frame]
                 or not frame:IsVisible() or vendor.backpackShouldClose ~= true
                 or (backpack.IsClosing and backpack:IsClosing()) then return end
-            -- BetterBags queues the backpack close for the next frame. Only
-            -- a completed Escape transaction can cancel this request.
-            local request = { frame = frame }
+            -- BetterBags queues its close for the next frame. Opening or
+            -- expanding PlayerSpells also runs CloseSpecialWindows while
+            -- Blizzard is assigning the center panel.
+            local stack = debugstack and debugstack(2, 24, 0) or ""
+            local request = { frame = frame, fromPanelShow =
+                stack:find("Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua", 1, true)
+                and stack:find("in function 'ShowUIPanel'", 1, true) }
             Bags.betterBagsEscapeRequest = request
             C_Timer.After(0, function()
                 if Bags.betterBagsEscapeRequest == request then Bags.betterBagsEscapeRequest = nil end
@@ -265,7 +280,7 @@ local function RefreshBetterBagsEscape()
     end
 end
 
-local function FinishBetterBagsEscape()
+local function PreserveBetterBagsBackpack()
     local request = Bags.betterBagsEscapeRequest
     Bags.betterBagsEscapeRequest = nil
     if not request or Bags.paused or InCombatLockdown() or InputReserved() or not TrackEnabled()
@@ -760,6 +775,7 @@ function Bags:Capture()
     end
     if Offhand.isForever then
         RefreshArkInventoryEscape()
+        RefreshBagnarosEscape()
         RefreshBetterBagsEscape()
         RefreshBagSmithEscape()
         RefreshElvUIEscape()
@@ -1035,7 +1051,7 @@ function Bags:InstallEscapeHooks()
                 Bags.betterBagsEscapeRequest = nil
                 return
             end
-            FinishBetterBagsEscape()
+            PreserveBetterBagsBackpack()
             local ellesmere = Bags.ellesmereEscapePending
             Bags.ellesmereEscapePending = nil
             if ellesmere then
@@ -1073,6 +1089,11 @@ function Bags:InstallEscapeHooks()
     if ShowUIPanel and not self.showUIPanelHooked then
         self.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(panel)
+            local request = Bags.betterBagsEscapeRequest
+            if request and request.fromPanelShow and Offhand.db and Offhand.db.independentWorkspacePanels ~= false
+                and panel and panel == _G.PlayerSpellsFrame and panel:IsShown() then
+                PreserveBetterBagsBackpack()
+            end
             if IsPreservingPanel(panel) then Bags:BeginPanelTransition(panel) end
         end)
     end
