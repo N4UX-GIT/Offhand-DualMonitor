@@ -147,8 +147,8 @@ function Placement.InstallSingleScreen(Canvas, services)
                 and not IsForeverProfessionsPanel(_G[name], name) then
                 local frame = _G[name]
                 local addonEscape = Offhand.CanvasAddonEscape
-                local donGameplay = addonEscape and addonEscape:IsDonGameplayFrame(frame, name)
-                if frame and not donGameplay and frame.IsShown and frame:IsShown() and frame.Hide then
+                local vendorGameplay = addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)
+                if frame and not vendorGameplay and frame.IsShown and frame:IsShown() and frame.Hide then
                     pcall(frame.Hide, frame)
                 end
             end
@@ -279,9 +279,11 @@ function Placement.InstallMainhand(Canvas, services)
         local name = frame.GetName and frame:GetName()
         local recoverRestedXP = recoveryAction and not name and frame == GetRestedXPGuideFrame()
         local addonEscape = Offhand.CanvasAddonEscape
-        local donGameplay = addonEscape and addonEscape:IsDonGameplayFrame(frame, name)
-        if donGameplay then
-            if not recoveryAction or (self.CanManagePanelsFromAddon and not self.CanManagePanelsFromAddon()) then
+        local vendorGameplay = addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)
+        if vendorGameplay then
+            if not recoveryAction or (frame.IsForbidden and frame:IsForbidden())
+                or (frame.IsProtected and frame:IsProtected())
+                or (self.CanManagePanelsFromAddon and not self.CanManagePanelsFromAddon()) then
                 return false
             end
             anchorOnly = true
@@ -289,7 +291,7 @@ function Placement.InstallMainhand(Canvas, services)
         if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name) then return false end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
         if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
-        if recoveryAction and name and not donGameplay and services.RemodalizePanel
+        if recoveryAction and name and not vendorGameplay and services.RemodalizePanel
             and not (frame.IsForbidden and frame:IsForbidden())
             and not IsForeverEditModeFrame(frame, name) then
             -- A workspace menu may have been detached from UIPanelWindows.
@@ -298,7 +300,7 @@ function Placement.InstallMainhand(Canvas, services)
             services.RemodalizePanel(frame)
         end
         local recoverySafePanel = recoveryAction and name and (
-            donGameplay or IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
+            vendorGameplay or IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
                 or IsForeverSocialPositionRoot(frame, name)
         )
         if not (name or recoverRestedXP) or (nonMovableSystemPanels and nonMovableSystemPanels[name])
@@ -540,7 +542,7 @@ function Placement.InstallMainhand(Canvas, services)
                 -- RestedXP saves its own anchor on logout/reload. Don's guide
                 -- and arrow also keep their own anchors and drag handlers.
                 local addonEscape = Offhand.CanvasAddonEscape
-                if placed and name and not (addonEscape and addonEscape:IsDonGameplayFrame(frame, name)) then
+                if placed and name and not (addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)) then
                     Offhand.db.savedWorkspacePositions[name] = nil
                     Offhand.db.openWorkspacePanels[name] = nil
                     if Offhand.db.baganatorWorkspacePanels then

@@ -9,6 +9,8 @@ local MAX_SPECIAL, MAX_ROOTS = 256, 64
 local openerHooks = setmetatable({}, {__mode="k"})
 local donGameplayAddons = {LeveldonPanel = "Leveldon", DonMapArrow = "DonMap"}
 
+-- Also used during profile migration, when the guide may not be loaded.
+Adapter.restedXPFrames = {RXPFrame = true, RXPItemFrame = true}
 local function Loaded(name)
     local query = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
     return type(query) == "function" and query(name) and true or false
@@ -41,8 +43,12 @@ local function IsDonGameplayRoot(frame, name, addon)
         and frame.icon and frame.shadow and frame.glow
 end
 
-function Adapter:IsDonGameplayFrame(frame, name)
-    if not Offhand.isForever or (issecretvalue and issecretvalue(name)) then return false end
+function Adapter:IsVendorGameplayFrame(frame, name)
+    if issecretvalue and issecretvalue(name) then return false end
+    if self.restedXPFrames[name] or (frame and (frame == _G.RXPFrame or frame == _G.RXPItemFrame)) then
+        return true
+    end
+    if not Offhand.isForever then return false end
     local addon = donGameplayAddons[name]
     if not addon or not frame or _G[name] ~= frame then return false end
     local ok, owned = pcall(IsDonGameplayRoot, frame, name, addon)
@@ -55,7 +61,7 @@ local function RetireDonGameplayOwnership(db)
     local openChanged = false
     for name in pairs(donGameplayAddons) do
         if ((main and main[name]) or (workspace and workspace[name]) or (open and open[name]))
-            and Adapter:IsDonGameplayFrame(_G[name], name) then
+            and Adapter:IsVendorGameplayFrame(_G[name], name) then
             if main then main[name] = nil end
             if workspace and workspace[name] then
                 workspace[name] = nil

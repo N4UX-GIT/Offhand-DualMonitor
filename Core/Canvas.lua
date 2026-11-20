@@ -297,7 +297,7 @@ local function GetPanelController(frame, suppliedName)
         return "forever-social-community"
     end
     local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return "addon-owned" end
+    if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return "addon-owned" end
     return "generic"
 end
 
@@ -345,7 +345,7 @@ end
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
     local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return true end
+    if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
     local hudCompatibility = Offhand.HUDCompatibility
     if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
     if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
@@ -375,7 +375,7 @@ end
 
 local function CanAutoOpenSavedPanel(frame, name)
     local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return false end
+    if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return false end
     return IsPersistentPanelLoadCandidate(name) and PanelRegistry.CanAutoOpen(frame, name)
 end
 
@@ -457,7 +457,7 @@ local function RegisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
     if not CanManagePanelsFromAddon() then return end
     local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsDonGameplayFrame(_G[name], name) then return end
+    if addonEscape and addonEscape:IsVendorGameplayFrame(_G[name], name) then return end
     for _, n in ipairs(UISpecialFrames) do
         if n == name then return end
     end
@@ -467,6 +467,8 @@ end
 local function UnregisterSpecialFrame(name)
     if not name or not UISpecialFrames then return end
     if not CanManagePanelsFromAddon() then return end
+    local addonEscape = Offhand.CanvasAddonEscape
+    if addonEscape and addonEscape:IsVendorGameplayFrame(_G[name], name) then return end
     for i = #UISpecialFrames, 1, -1 do
         if UISpecialFrames[i] == name then
             table.remove(UISpecialFrames, i)

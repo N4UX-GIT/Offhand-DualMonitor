@@ -32,6 +32,7 @@ local function NewAddon(isForever, accountDB, characterDB, recoveryVersion, disk
     _G.OffhandForeverStateBridgeVersion = recoveryVersion
     _G.OffhandForeverCharacterRecovery = characterRecovery
     assert(loadfile("Core/Config.lua"))("Offhand", addon)
+    assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", addon)
     addon:InitializeConfig()
     return addon
 end
@@ -667,3 +668,22 @@ UnitGUID = originalUnitGUID
 currentCharacterName = "Tester"
 OffhandForeverCharacterRecovery = nil
 print("PASS: character-scoped fresh, stale, consumed, legacy and recreated-character bridge recovery")
+
+cvars = {
+    offhandForeverPositionIndex = "RXPFrame,JournalFrame,RXPItemFrame",
+    offhandForeverPosition_RXPFrame = "W|10|20|200|100",
+    offhandForeverOpenPanels = "V1|RXPFrame,RXPItemFrame,JournalFrame",
+}
+local legacyGuide = {
+    savedMainPositions = {RXPFrame = {x = 2320.595, y = 611.072}},
+    savedWorkspacePositions = {RXPItemFrame = {x = 8, y = 12}, JournalFrame = {x = 1}},
+    openWorkspacePanels = {RXPFrame = true, JournalFrame = true},
+}
+local repaired = NewAddon(true, {profiles = {Default = {}, Other = legacyGuide}})
+assert(not legacyGuide.savedMainPositions.RXPFrame and not legacyGuide.savedWorkspacePositions.RXPItemFrame)
+assert(not legacyGuide.openWorkspacePanels.RXPFrame and legacyGuide.openWorkspacePanels.JournalFrame)
+assert(legacyGuide.savedWorkspacePositions.JournalFrame.x == 1)
+repaired.ForeverPersistence:RestorePositions()
+repaired.ForeverPersistence:RestoreOpenPanels()
+assert(not repaired.db.savedWorkspacePositions.RXPFrame and not repaired.db.openWorkspacePanels.RXPItemFrame)
+print("PASS: inactive RestedXP records retire and Forever session fallback cannot reseed them")

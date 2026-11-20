@@ -220,7 +220,7 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     end
     if not IsOrdinaryPopupValue(name) then return true end
     local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return true end
+    if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
     if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
     if type(name) == "string" and linkedChatPopupRoots[name] then return true end
     -- Titan's full-width bars derive their size from two anchors. Popup

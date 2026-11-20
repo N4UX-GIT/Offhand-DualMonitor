@@ -525,7 +525,9 @@ function ForeverPersistence:RestoreProfileSnapshot(accountDB, characterDB)
 end
 
 local function IsSafeFrameName(name)
+    local adapter = Offhand.CanvasAddonEscape
     return type(name) == "string" and name ~= "" and name:match("^[%w_]+$") ~= nil
+        and not (adapter and adapter.restedXPFrames[name])
 end
 
 local function PositionCVar(name)
@@ -1133,8 +1135,16 @@ function Offhand:InitializeConfig()
         }
     end
 
-        -- Scrub any rogue hijacked Focused frames so native placement takes back control
+    -- Earlier Gather passes recorded guide coordinates in the active profile.
+    -- Scrub inactive profiles as well, after selecting the disk or bridge snapshot.
     for profileName, profileData in pairs(OffhandDB.profiles) do
+        if Offhand.CanvasAddonEscape then
+            for name in pairs(Offhand.CanvasAddonEscape.restedXPFrames) do
+                if type(profileData.savedWorkspacePositions) == "table" then profileData.savedWorkspacePositions[name] = nil end
+                if type(profileData.savedMainPositions) == "table" then profileData.savedMainPositions[name] = nil end
+                if type(profileData.openWorkspacePanels) == "table" then profileData.openWorkspacePanels[name] = nil end
+            end
+        end
         if type(profileData.savedWorkspacePositions) == "table" then
             profileData.savedWorkspacePositions["FocusedRosterFrame"] = nil
         end

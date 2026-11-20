@@ -14,10 +14,10 @@ local function HasNativeBaganatorEscape(frame, name)
         and bags.IsBaganatorBackpackRoot(frame, name)
 end
 
-local function IsDonGameplayFrame(frame, name)
+local function IsVendorGameplayFrame(frame, name)
     local addonEscape = Offhand.CanvasAddonEscape
-    return addonEscape and addonEscape.IsDonGameplayFrame
-        and addonEscape:IsDonGameplayFrame(frame, name)
+    return addonEscape and addonEscape.IsVendorGameplayFrame
+        and addonEscape:IsVendorGameplayFrame(frame, name)
 end
 
 -- Observe outside the protected frame tree: native toggles and skinned close
@@ -193,7 +193,7 @@ function Persistence.InstallDrag(Canvas, services)
     OnPanelDragStop = function(frame, alreadyStopped)
         if not frame then return end
         if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
-        if IsDonGameplayFrame(frame) then return end
+        if IsVendorGameplayFrame(frame) then return end
         -- End a gesture we started before any policy early return. A native
         -- panel can change protection/ownership during the gesture; skipping
         -- StopMoving in that case leaves it following the cursor indefinitely.
@@ -629,7 +629,7 @@ function Persistence.InstallRestore(Canvas, services)
         if IsWorldMapMaximized(frame) then return end
         if not Offhand.db or not Offhand.db.enabled then return end
         local name = frame:GetName()
-        if not name or IsDonGameplayFrame(frame, name) then return end
+        if not name or IsVendorGameplayFrame(frame, name) then return end
         if frame._OffhandDragging then return end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return end
         if ShouldYieldWorldMapToMoveAny(name) then return end

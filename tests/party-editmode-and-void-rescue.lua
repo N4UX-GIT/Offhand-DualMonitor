@@ -2926,6 +2926,7 @@ do
     local oldAdapter, oldAddOns, oldSpecial = addon.CanvasAddonEscape, C_AddOns, UISpecialFrames
     local oldRecovery = addon.Recovery
     local oldGuide, oldArrow, oldMerchant = LeveldonPanel, DonMapArrow, MerchantFrame
+    local oldRXP, oldItem = RXPFrame, RXPItemFrame
     assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", addon)
     assert(loadfile("Core/Recovery.lua"))("Offhand", addon)
     C_AddOns = {IsAddOnLoaded = function(name) return name == "Leveldon" or name == "DonMap" end}
@@ -2940,6 +2941,8 @@ do
     DonMapArrow.GetObjectType = function() return "Button" end
     DonMapArrow.icon, DonMapArrow.shadow, DonMapArrow.glow = {}, {}, {}
     MerchantFrame = makeMockFrame("MerchantFrame", 600, 700)
+    RXPFrame = makeMockFrame("RXPFrame", 350, 430)
+    RXPItemFrame = makeMockFrame("RXPItemFrame", 80, 80)
     local function Place(frame, x, y)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
@@ -2958,7 +2961,12 @@ do
     addon.db.openWorkspacePanels.DonMapArrow = true
     Place(LeveldonPanel, 250, 1700)
     Place(DonMapArrow, 1820, 1150)
+    Place(RXPFrame, 200, 1700)
+    addon.db.savedMainPositions.RXPFrame = {x = 2320.595, y = 611.072}
     ShowUIPanel(MerchantFrame)
+    assert(RXPFrame:GetLeft() == 200 and RXPFrame:GetTop() == 1700,
+        "NPC peer repair must ignore even an unmigrated RestedXP position")
+    addon.db.savedMainPositions.RXPFrame = nil
     assert(LeveldonPanel:GetLeft() == 250 and DonMapArrow:GetLeft() == 1820,
         "merchant panel repair must yield to both vendor-native anchors before migration")
     assert(#UISpecialFrames == 0, "peer repair must not register either vendor gameplay frame for Escape")
@@ -2977,7 +2985,7 @@ do
         "automatic popup rescue must preserve the vendor's centered and void positions")
     UIParent.children, addon.db.seamRedirect = oldChildren, oldSeamRedirect
 
-    for _, frame in ipairs({LeveldonPanel, DonMapArrow}) do
+    for _, frame in ipairs({LeveldonPanel, DonMapArrow, RXPFrame, RXPItemFrame}) do
         Place(frame, 1820, 1970)
         local ok, _, moved = addon.Canvas:GatherSafeUIToMainhand(true, frame)
         assert(ok and moved == 1 and frame:GetTop() <= metrics.gameTop,
@@ -3010,6 +3018,7 @@ do
     addon.CanvasAddonEscape, C_AddOns, UISpecialFrames = oldAdapter, oldAddOns, oldSpecial
     addon.Recovery = oldRecovery
     LeveldonPanel, DonMapArrow, MerchantFrame = oldGuide, oldArrow, oldMerchant
+    RXPFrame, RXPItemFrame = oldRXP, oldItem
     print("PASS: native Don gameplay placement and visibility survive merchant, Escape and Gather")
 end
 
