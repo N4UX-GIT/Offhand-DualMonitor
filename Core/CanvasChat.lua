@@ -3,6 +3,95 @@ local _, Offhand = ...
 local Chat = {}
 Offhand.CanvasChat = Chat
 
+-- Keep the native dock and its edit box together. Forever saves this anchor
+-- against the whole window, which can include space below a shorter monitor.
+local adjustment, editManager, watchedFrame, pending, writing
+function Chat.IsForeverPrimary(frame)
+    return Offhand.isForever and frame and frame == ChatFrame1
+        and Offhand.HUDCompatibility.IsForeverEditModeFrame(frame, "ChatFrame1")
+end
+
+local function SetAnchor(frame, anchor)
+    writing = true
+    frame:ClearAllPoints()
+    frame:SetPoint(unpack(anchor))
+    writing = false
+end
+
+local function RefreshAfterNativeLayout()
+    if writing or pending or Offhand._loggingOut then return end
+    pending = true
+    C_Timer.After(0, function()
+        pending = false
+        if not Offhand._loggingOut and Offhand.Viewport then
+            Chat.UpdateMainhandBounds(Offhand.Viewport:GetMetrics())
+        end
+    end)
+end
+
+local function AxisShift(low, high, first, last)
+    if low >= first - 0.1 and high <= last + 0.1 then return 0 end
+    -- Retain the native lower-left margin where there is room. For a dock
+    -- larger than the display keep the input and left edge reachable.
+    return math.max(first - low, math.min(first, last - high))
+end
+
+function Chat.UpdateMainhandBounds(metrics)
+    local frame, db = ChatFrame1, Offhand.db
+    if not db or not Chat.IsForeverPrimary(frame) or InCombatLockdown()
+        or frame:IsForbidden() or MOVING_CHATFRAME == frame then return end
+    if frame:IsProtected() and not frame:CanChangeProtectedState() then return end
+    local manager = EditModeManagerFrame
+    if manager and manager ~= editManager then
+        editManager = manager
+        manager:HookScript("OnShow", function() Chat.UpdateMainhandBounds(nil) end)
+        manager:HookScript("OnHide", RefreshAfterNativeLayout)
+    end
+    if watchedFrame ~= frame then
+        watchedFrame = frame
+        hooksecurefunc(frame, "SetPoint", RefreshAfterNativeLayout)
+    end
+    if frame:GetNumPoints() ~= 1 then adjustment = nil; return end
+    local point, relative, relPoint, x, y = frame:GetPoint(1)
+    if adjustment then
+        local a = adjustment.applied
+        if point ~= a[1] or relative ~= a[2] or relPoint ~= a[3]
+            or math.abs(x - a[4]) > 0.1 or math.abs(y - a[5]) > 0.1 then
+            adjustment = nil
+        end
+    end
+    if relative ~= UIParent then return end
+    if Offhand.HUDCompatibility.HasCustomChatAddon() then adjustment = nil; return end
+    if not (metrics and metrics.isSpanned and db.enabled and db.dockChat ~= false
+        and db.chatPosition == "GAME" and not (db.savedWorkspacePositions or {}).ChatFrame1)
+        or (manager and manager:IsShown()) or frame.isInEditMode then
+        if adjustment then SetAnchor(frame, adjustment.original); adjustment = nil end
+        return
+    end
+    local regions = Offhand.WorkspaceRegions
+    local left, top, width, height = regions:FrameRect(frame)
+    if not left or width <= 0 or height <= 0 then return end
+    local right, bottom = left + width, top - height
+    for _, child in pairs({ChatFrame1EditBox, ChatFrame1Tab, frame.buttonFrame}) do
+        local cx, cy, cw, ch = regions:FrameRect(child)
+        if cx then
+            left, right = math.min(left, cx), math.max(right, cx + cw)
+            bottom, top = math.min(bottom, cy - ch), math.max(top, cy)
+        end
+    end
+    local ws = regions:ForFrame(metrics, frame)
+    if not adjustment and ws and left >= ws.workspaceLeft and right <= ws.workspaceRight
+        and bottom >= ws.workspaceBottom and top <= ws.workspaceTop then return end
+    local dx = AxisShift(left, right, metrics.gameLeft, metrics.gameRight)
+    local dy = AxisShift(bottom, top, metrics.gameBottom, metrics.gameTop)
+    if math.abs(dx) < 0.1 and math.abs(dy) < 0.1 then return end
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    local nextAnchor = {point, relative, relPoint, x + dx * factor, y + dy * factor}
+    adjustment = {original = adjustment and adjustment.original or {point, relative, relPoint, x, y},
+        applied = nextAnchor}
+    SetAnchor(frame, nextAnchor)
+end
+
 function Chat.Install(Canvas)
     local function HasCustomChatAddon()
         if Offhand.HUDCompatibility and Offhand.HUDCompatibility.HasCustomChatAddon then

@@ -1498,7 +1498,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         if Offhand.db and Offhand.db.enabled and (not loginMetrics or loginMetrics.isSpanned) then
             -- Unclamp chat while Offhand is active so native tab dragging can
             -- cross monitor boundaries. Disabled profiles retain Blizzard state.
-            if ChatFrame1 and ChatFrame1.SetClampedToScreen then
+            if ChatFrame1 and ChatFrame1.SetClampedToScreen
+                and not (Offhand.CanvasChat and Offhand.CanvasChat.IsForeverPrimary(ChatFrame1)) then
                 ChatFrame1:SetClampedToScreen(false)
                 hooksecurefunc(ChatFrame1, "SetClampedToScreen", function(self, clamped)
                     if Offhand.db and Offhand.db.enabled and clamped then
@@ -1817,6 +1818,9 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
         end
         if Offhand.WorkspaceScale then Offhand.WorkspaceScale:Refresh() end
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        if Offhand.CanvasChat and Offhand.CanvasChat.UpdateMainhandBounds then
+            Offhand.CanvasChat.UpdateMainhandBounds(metrics)
+        end
         if Offhand.Mainhand and Offhand.Mainhand.UpdateWindowModeLayout then
             Offhand.Mainhand:UpdateWindowModeLayout(metrics)
         end

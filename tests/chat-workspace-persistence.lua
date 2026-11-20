@@ -995,3 +995,70 @@ do
     print("PASS: read-only chat provider, dock selection and transparency diagnostics")
 end
 
+
+-- Moonweaver's short Offhand ends above the native bottom-left chat input.
+do
+    assert(loadfile("Core/WorkspaceRegions.lua"))("Offhand", addon)
+    addon.isForever, addon.db.enabled, addon.db.dockChat = true, true, true
+    addon.db.chatPosition, addon.db.savedWorkspacePositions.ChatFrame1 = "GAME", nil
+    local span = {isSpanned=true, workspaceLeft=0, workspaceBottom=640,
+        workspaceRight=1097, workspaceTop=1097, gameLeft=1097, gameBottom=0,
+        gameRight=3048, gameTop=1097}
+    addon.Viewport.GetMetrics = function() return span end
+    ChatFrame1 = makeMockFrame("ChatFrame1", 609, 800)
+    local chat = ChatFrame1
+    chat.IsForbidden = function() return false end
+    chat.IsProtected = function() return false end
+    chat.OnEditModeEnter = function() end
+    chat.OnEditModeExit = function() end
+    ChatFrame1Tab = nil
+    ChatFrame1EditBox = makeMockFrame("ChatFrame1EditBox", 630, 32)
+    local box = ChatFrame1EditBox
+    box:SetPoint("BOTTOMLEFT", chat, "BOTTOMLEFT", -5, -34)
+    box.GetLeft = function() return chat:GetLeft() - 5 end
+    box.GetBottom = function() return chat:GetBottom() - 34 end
+    local function place(x,y)
+        chat:ClearAllPoints()
+        chat:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", x, y)
+    end
+    local function within()
+        return chat:GetLeft() >= span.gameLeft and chat:GetTop() <= span.gameTop
+            and box:GetLeft() >= span.gameLeft and box:GetBottom() >= span.gameBottom
+            and box:GetRight() <= span.gameRight
+    end
+    place(53,57)
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    assert(within() and chat:GetLeft() == 1150 and box:GetBottom() == 23)
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    assert(chat:GetLeft() == 1150 and chat:GetWidth() == 609 and chat:GetHeight() == 800)
+    assert(select(2,box:GetPoint()) == chat and not addon.db.savedWorkspacePositions.ChatFrame1)
+    addon.CanvasChat.UpdateMainhandBounds(nil)
+    assert(chat:GetLeft() == 53 and chat:GetBottom() == 57, "window restore must release the native offset")
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    place(1600,100)
+    addon.CanvasChat.UpdateMainhandBounds(nil)
+    assert(chat:GetLeft() == 1600, "a newer native anchor supersedes the temporary span correction")
+    chat.isInEditMode = true
+    place(40,20)
+    assert(chat:GetLeft() == 40)
+    chat.isInEditMode = false
+    addon.db.chatPosition = "DECK"
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    assert(chat:GetLeft() == 40)
+    addon.db.chatPosition = "GAME"
+    addon.db.savedWorkspacePositions.ChatFrame1 = {x=40,y=20}
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    assert(chat:GetLeft() == 40)
+    addon.db.savedWorkspacePositions.ChatFrame1 = nil
+    chat:SetSize(400,100)
+    place(40,730)
+    assert(chat:GetLeft() == 40, "a deliberate reachable workspace placement must survive")
+    C_AddOns = {IsAddOnLoaded = function(name) return name == "Chattynator" end}
+    place(40,20)
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    assert(chat:GetLeft() == 40)
+    C_AddOns = nil
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    assert(within(), "the attached input below the message area must also fit")
+    print("PASS: reversible Forever Mainhand chat and edit box placement")
+end

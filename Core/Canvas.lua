@@ -2581,6 +2581,7 @@ function Canvas:EnableFreeDragging()
     if not HasCustomChatAddon() and FCF_StopDragging and not Canvas._fcfHooked then
         Canvas._fcfHooked = true
         hooksecurefunc("FCF_StopDragging", function(chatFrame)
+            if Offhand.CanvasChat.IsForeverPrimary(chatFrame) then return end
             if chatFrame and Offhand.db and Offhand.db.enabled
                 and not HasCustomChatAddon() then
                 if chatFrame.SetClampedToScreen then
