@@ -303,4 +303,43 @@ assert(reviewText == string.format(addon.L.PROFILE_REUSE_HUD_CONFIRM, "Offhand (
 accept()
 assert(selections == 2 and saves == 0 and refreshes == 1 and OffhandCharDB.activeProfile == profile
     and OffhandCharDB.mainhandLayout.generatedName == "Offhand (2)", "reuse preserves the settings profile and native layouts")
-print("PASS: character choices, reuse-only selection, profile isolation, GUID recreation, persistence and input deferral")
+-- A legacy personal record can lack a per-mode copy. Choosing account must
+-- keep that personal HUD available even after the native row order changes.
+Enum = {EditModeLayoutType = {Account = 1, Character = 2}}
+local personal = "Offhand Main - Third"
+OffhandCharDB.mainhandLayout = {generatedName = personal, geometrySignature = geometry}
+OffhandCharDB.mainhandLayoutsByMode = nil
+data.layouts[1].layoutType = 1
+data.layouts[2] = {layoutName = personal, layoutType = 2}
+data.layouts[3] = {layoutName = "Offhand", layoutType = 2}
+data.activeLayout = 5
+local items = {}
+MenuUtil = {CreateContextMenu = function(_, build)
+    items = {}
+    build(nil, {CreateRadio = function(_, label, checked, select, item)
+        items[label] = {active = checked(item), select = function() select(item) end}
+    end})
+end}
+local personalLabel = string.format(addon.L.PROFILE_HUD_PERSONAL, personal)
+local sharedLabel = string.format(addon.L.PROFILE_HUD_SHARED, "Offhand (2)")
+check:ReviewExisting()
+assert(items[personalLabel].active and not items[sharedLabel].active)
+assert(not items[string.format(addon.L.PROFILE_HUD_SHARED, "Offhand")], "a character row cannot masquerade as account")
+items[sharedLabel].select()
+assert(data.activeLayout == 5)
+accept()
+assert(data.activeLayout == 4 and OffhandCharDB.mainhandLayoutsByMode.standard.generatedName == personal)
+check = LoadCheck()
+assert(addon.Mainhand:GetCharacterSetupLayoutStatus().ready)
+check:ReviewExisting()
+assert(items[sharedLabel].active and not items[personalLabel].active)
+items[personalLabel].select()
+data.layouts[2], data.layouts[3] = data.layouts[3], data.layouts[2]
+accept()
+assert(data.activeLayout == 6 and OffhandCharDB.mainhandLayout.generatedName == personal)
+check:ReviewExisting()
+items[sharedLabel].select()
+OffhandDB.sharedMainhandLayouts["Offhand (2)"].ownershipSignature = "changed"
+accept()
+assert(data.activeLayout == 6 and OffhandCharDB.activeProfile == profile and saves == 0)
+print("PASS: character choices, named personal/account selection, profile isolation, persistence and input deferral")

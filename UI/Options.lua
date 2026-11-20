@@ -2388,7 +2388,7 @@ function Options:CreateFloatingPanel()
         reuseHUD:SetSize(284, 26)
         reuseHUD:SetPoint("TOPLEFT", resetBtn, "BOTTOMLEFT", 0, -8)
         reuseHUD:SetText(L["PROFILE_REUSE_HUD"])
-        reuseHUD:SetScript("OnClick", function() Offhand.CharacterSetup:ReviewExisting() end)
+        reuseHUD:SetScript("OnClick", function(button) Offhand.CharacterSetup:ReviewExisting(button) end)
         if not (Offhand.HasBlizzardEditMode and Offhand:HasBlizzardEditMode() and Offhand.CharacterSetup) then
             reuseHUD:Hide()
         end
