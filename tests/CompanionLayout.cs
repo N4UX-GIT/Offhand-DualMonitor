@@ -568,6 +568,11 @@ namespace Offhand.Companion
             form.EndDashboardTutorial(true);
             if(CompanionForm.TutorialNeeded(settings)) throw new Exception("Skipping/finishing must suppress the next automatic tour.");
             form.SelectDashboardPage(true);
+            var storeInfo = One<Label>(form, label => label.AccessibleName == "Store update check status");
+            if (storeInfo.Visible) throw new Exception("Standalone dashboard shows Store status behind the workspace heading.");
+            var picker = One<ComboBox>(form, combo => combo.AccessibleName == "WoW client");
+            if (!picker.Parent.ClientRectangle.Contains(picker.Bounds))
+                throw new Exception("Client selector border is clipped at " + factor + "x: " + picker.Bounds);
             form.StartDashboardTutorial();
             if(!Descendants(form).OfType<Panel>().Any(panel=>panel.AccessibleName=="Companion tutorial"))
                 throw new Exception("Seen tutorial must remain replayable.");

@@ -6655,6 +6655,9 @@ namespace Offhand.Companion
             cmbWowClient = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill,
                 AccessibleName = "WoW client", Margin = Padding.Empty, MaxDropDownItems = 12 };
             CompanionUi.StyleCombo(cmbWowClient);
+            // The native dropdown can be taller than the row's preferred height.
+            row.MinimumSize = new Size(0, cmbWowClient.Height);
+            cmbWowClient.SizeChanged += (s, e) => row.MinimumSize = new Size(0, cmbWowClient.Height);
             cmbWowClient.Items.Add("Looking for WoW windows…");
             cmbWowClient.SelectedIndex = 0;
             cmbWowClient.SelectionChangeCommitted += (s, e) =>
@@ -6888,6 +6891,7 @@ namespace Offhand.Companion
                 section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
                 foreach (Control child in panel.Controls)
                     if (child == lblStatusSummary) child.Visible = !expanded;
+                    else if (child == lblStoreUpdateInfo) child.Visible = expanded && isStorePackage;
                     else if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
                 LayoutDashboardCards();
             }
