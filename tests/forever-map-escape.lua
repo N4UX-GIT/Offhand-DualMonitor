@@ -216,6 +216,64 @@ local function AssertStableMapControls(state)
 end
 AssertStableMapControls("stationary windowed")
 do
+    local function attachment(visible)
+        local f = {insets={0,0,0,0}, clamped=false, writes=0, visible=visible}
+        function f:IsForbidden() return false end
+        function f:IsProtected() return false end
+        function f:IsVisible() return self.visible end
+        local edge = {GetHeight=function() return 4000 end, GetEffectiveScale=function() return .8 end}
+        function f:GetPoint(i)
+            if i == 1 then return "TOPLEFT", edge, "TOPRIGHT", 2, 0 end
+            return "BOTTOMLEFT", edge, "BOTTOMRIGHT", 2, self.bottomY or 0
+        end
+        function f:SetPoint(_, _, _, _, y) self.bottomY = y end
+        function f:GetFrameStrata() return self.strata or "MEDIUM" end
+        function f:SetFrameStrata(strata) self.strata = strata end
+        function f:GetLeft() return 300 end
+        function f:GetParent() return WorldMapFrame end
+        function f:GetEffectiveScale() return .8 end
+        function f:GetClampRectInsets() return unpack(self.insets) end
+        function f:SetClampRectInsets(...) self.insets={...}; self.writes=self.writes+1 end
+        function f:IsClampedToScreen() return self.clamped end
+        function f:SetClampedToScreen(value) self.clamped=value end
+        return f
+    end
+    local panel, tab = attachment(true), attachment(false)
+    local stage = attachment(true)
+    stage.strata, stage.level = "HIGH", 1
+    function stage:GetFrameLevel() return self.level end
+    function stage:SetFrameLevel(level) self.level = level end
+    function panel:GetFrameLevel() return 11 end
+    panel.stage = stage
+    SpokenPlacesPanel, SpokenPlacesPanelToggle = panel, tab
+    function WorldMapFrame:IsForbidden() return false end
+    function WorldMapFrame:GetRight() return self.left + self.width end
+    local function tick() createdHandles[1].scripts.OnUpdate(nil, .1) end
+    tick()
+    assert(panel.clamped and panel.insets[2] == 3200 and not tab.clamped)
+    assert(stage.strata == "DIALOG" and stage.level == 12, "keep the independent model visible")
+    tick()
+    assert(panel.writes == 1 and panel.bottomY == 800 and panel.strata == "DIALOG",
+        "keep a stable clamp and readable Places panel on a short workspace")
+    panel.visible, tab.visible = false, true
+    tick()
+    assert(not panel.clamped and panel.insets[2] == 0 and tab.clamped
+        and panel.bottomY == 0 and panel.strata == "MEDIUM")
+    assert(stage.strata == "HIGH" and stage.level == 1, "restore the provider's model layer")
+    local left = WorldMapFrame.left
+    WorldMapFrame.left = 2200
+    tick()
+    assert(not tab.clamped and tab.insets[2] == 0, "Mainhand should release the reopen tab")
+    WorldMapFrame.left = left
+    tick()
+    tab.insets[2] = 18
+    tick()
+    tab.visible = false
+    tick()
+    assert(tab.insets[2] == 18, "leave a subsequent provider clamp intact")
+    SpokenPlacesPanel, SpokenPlacesPanelToggle = nil, nil
+end
+do
     local left = WorldMapFrame.left
     local handle = createdHandles[1]
     local x = handle.point[4]

@@ -167,6 +167,112 @@ function Adapter.UpdateMovementFade(map, spanned)
     end
 end
 
+-- Spoken Places attaches its panel and reopen tab to the map's right edge.
+-- Constrain the visible attachment without replacing those anchors or saving
+-- a different collapsed state in the provider's profile.
+local placesClamps = {}
+
+local function PlacesOverlay(frame, active, state, key)
+    if not frame then return end
+    local strata = frame:GetFrameStrata()
+    if active then
+        if strata == "LOW" or strata == "MEDIUM" or strata == "HIGH" or strata == "BACKGROUND" then
+            state[key] = strata
+            frame:SetFrameStrata("DIALOG")
+        end
+    elseif state[key] then
+        if key == "stageStrata" and state.stageLevel then
+            if frame:GetFrameLevel() == state.appliedStageLevel then frame:SetFrameLevel(state.stageLevel) end
+            state.stageLevel, state.appliedStageLevel = nil, nil
+        end
+        if strata == "DIALOG" then frame:SetFrameStrata(state[key]) end
+        state[key] = nil
+    end
+end
+
+-- The provider stretches the panel between two points on the same map edge.
+-- A map can be taller than its monitor before the player pins or fits it.
+local function FitPlacesHeight(frame, metrics, state, factor)
+    if frame ~= _G.SpokenPlacesPanel then return end
+    local point, edge, relative, x, y = frame:GetPoint(2)
+    if point ~= "BOTTOMLEFT" or relative ~= "BOTTOMRIGHT" or not edge then
+        state.heightAnchor = nil
+        return
+    end
+    local bottom = state.heightAnchor
+    if bottom and (edge ~= bottom.edge or x ~= bottom.x or math.abs(y-bottom.applied) > .01) then
+        state.heightAnchor, bottom = nil, nil
+    end
+    local originalY = bottom and bottom.y or y
+    local desired = originalY
+    if metrics then
+        local topPoint, topEdge, topRelative, _, topY = frame:GetPoint(1)
+        if topPoint == "TOPLEFT" and topEdge == edge and topRelative == "TOPRIGHT" then
+            local height = edge:GetHeight() * edge:GetEffectiveScale() / frame:GetEffectiveScale()
+            desired = math.max(originalY, height + topY - metrics.workspaceHeight * factor)
+        end
+    end
+    if math.abs(y-desired) > .01 then frame:SetPoint(point, edge, relative, x, desired) end
+    if desired > originalY + .01 then
+        if not bottom or bottom.applied ~= desired then
+            state.heightAnchor = {edge=edge, x=x, y=originalY, applied=desired}
+        end
+    else
+        state.heightAnchor = nil
+    end
+end
+local function UpdatePlacesClamp(frame, map, metrics)
+    if not frame or frame:IsForbidden() or frame:IsProtected() then return end
+    local state = placesClamps[frame]
+    local active = metrics and frame:IsVisible() and frame:GetParent() == map
+    if not active and not state then return end
+
+    local left, right, top, bottom = frame:GetClampRectInsets()
+    if state and (left ~= state.left or right ~= state.right
+        or top ~= state.top or bottom ~= state.bottom or not frame:IsClampedToScreen()) then
+        -- Another owner changed the clamp. Yield until the map leaves Offhand.
+        state.superseded = true
+    end
+    if not active then
+        placesClamps[frame] = nil
+        PlacesOverlay(frame, false, state, "strata")
+        PlacesOverlay(frame.stage, false, state, "stageStrata")
+        FitPlacesHeight(frame, nil, state)
+        if state and not state.superseded then
+            frame:SetClampRectInsets(unpack(state.original))
+            frame:SetClampedToScreen(state.wasClamped)
+        end
+        return
+    end
+    if state and state.superseded then return end
+    state = state or {original = {left, right, top, bottom}, wasClamped = frame:IsClampedToScreen()}
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    FitPlacesHeight(frame, metrics, state, factor)
+    local l = math.min(state.original[1], -metrics.workspaceLeft * factor)
+    local r = math.max(state.original[2], (UIParent:GetWidth() - metrics.workspaceRight) * factor)
+    local t = math.max(state.original[3], (UIParent:GetHeight() - metrics.workspaceTop) * factor)
+    local b = math.min(state.original[4], -metrics.workspaceBottom * factor)
+    if math.abs(l-left) > .01 or math.abs(r-right) > .01
+        or math.abs(t-top) > .01 or math.abs(b-bottom) > .01 then
+        frame:SetClampRectInsets(l, r, t, b)
+    end
+    if not frame:IsClampedToScreen() then frame:SetClampedToScreen(true) end
+    local mapRight, panelLeft = map:GetRight(), frame:GetLeft()
+    local overlap = mapRight and panelLeft and mapRight * map:GetEffectiveScale()
+        > panelLeft * frame:GetEffectiveScale() + .5
+    PlacesOverlay(frame, overlap, state, "strata")
+    PlacesOverlay(frame.stage, overlap, state, "stageStrata")
+    -- Keep the provider's separately drawn model above its parchment.
+    if overlap and frame.stage and state.stageStrata and frame.stage:GetFrameLevel() <= frame:GetFrameLevel() then
+        state.stageLevel = state.stageLevel or frame.stage:GetFrameLevel()
+        state.appliedStageLevel = frame:GetFrameLevel() + 1
+        frame.stage:SetFrameLevel(state.appliedStageLevel)
+    end
+    -- Read back the client's native floating-point values for ownership checks.
+    state.left, state.right, state.top, state.bottom = frame:GetClampRectInsets()
+    placesClamps[frame] = state
+end
+
 function Adapter.GetDragHandleBounds(map, factor)
     local left, top = map:GetLeft(), map:GetTop()
     if not left or not top then return end
@@ -598,7 +704,21 @@ function Adapter.Install(Canvas, services)
 
             UpdateMapWiseLayout(map, state, mapShown, maximized)
 
-            if NativeGamepadOwnsMap() then
+            local gamepadOwned = NativeGamepadOwnsMap()
+            if _G.SpokenPlacesPanel and not InCombatLockdown() then
+                local metrics
+                if mapShown and not maximized and not gamepadOwned and not map:IsForbidden()
+                    and Canvas.IsFrameOnWorkspace(map) then
+                    metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
+                    if metrics and metrics.isSpanned and Offhand.WorkspaceRegions then
+                        metrics = Offhand.WorkspaceRegions:ForFrame(metrics, map)
+                    end
+                end
+                local workspace = metrics and metrics.isSpanned and metrics
+                UpdatePlacesClamp(_G.SpokenPlacesPanel, map, workspace)
+                UpdatePlacesClamp(_G.SpokenPlacesPanelToggle, map, workspace)
+            end
+            if gamepadOwned then
                 SetPanelDragging(map, false)
                 -- Keep the invisible observer running so keyboard mode can
                 -- resume without a reload. Its hit area remains off screen.
