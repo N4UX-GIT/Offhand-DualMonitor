@@ -8,6 +8,8 @@
 
 ## Environment and evidence boundaries
 
+On 20 November, the original saved files explained the two different results in the [Profiles review test](QA-TASK-LIST-20261119.md#reviewing-a-saved-hud-from-profiles-on-20-november). Naux's character file retained the native name `Offhand Main - Noggaholic` and ID 6. Both the Mainhand layout record and the per-input-mode records were absent before testing. Moonweaver had the matching character identity and display signature in the standard HUD record for layout 5. The account's shared Mainhand registry had zero entries. These observations explain which layouts Offhand could offer that day. The files do not establish when Naux's record went missing.
+
 - Forever executable 1.60.1.70959; installed Offhand 2.1.5 Beta 36.
 - Store Companion package 2.1.801.0; executable 2.1.8.2; UI reports 2.1.8.
 - Latest user-selected pair: Moonweaver Noggaholic and Noggaholic Naux.
