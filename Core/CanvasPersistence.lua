@@ -176,7 +176,7 @@ function Persistence.InstallDrag(Canvas, services)
     local RemodalizePanel = services.RemodalizePanel
     local IsFrameOnWorkspace = services.IsFrameOnWorkspace
     local OnPanelDragStop
-    OnPanelDragStop = function(frame)
+    OnPanelDragStop = function(frame, alreadyStopped)
         if not frame then return end
         if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
         if IsDonGameplayFrame(frame) then return end
@@ -217,7 +217,7 @@ function Persistence.InstallDrag(Canvas, services)
             return
         end
         if dragName and dragName:match("^ChatFrame%d+$") then SetPanelDragging(frame, true) end
-        if frame.StopMovingOrSizing then
+        if alreadyStopped ~= true and frame.StopMovingOrSizing then
             pcall(function() frame:StopMovingOrSizing() end)
         end
         local name = frame.GetName and frame:GetName()

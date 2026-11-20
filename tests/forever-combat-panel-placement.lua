@@ -183,3 +183,62 @@ canvas:ReleaseCombatPanelClamps()
 assert(spellbook.clamped and spellbook.insets[1] == -500 and defaultRepairs == 1,
     "release ownership if an external controller has changed the bounds")
 print("PASS: native Mainhand offsets, collision-free Social placement and protected combat bounds")
+
+-- OneForAll moves the book by its body. Resizing subsequently re-shows the
+-- panel and asks both addons to restore their saved positions.
+assert(loadfile("Core/CanvasPanelMotion.lua"))("Offhand", addon)
+local callbacks, timers, drops = {}, {}, 0
+hooksecurefunc = function(_, method, fn) callbacks[method] = fn end
+C_Timer = {After=function(_, fn) table.insert(timers, fn) end}
+function spellbook:HookScript(event, fn) callbacks[event] = fn end
+function spellbook:IsShown() return true end
+function spellbook:StartMoving() end
+function spellbook:StopMovingOrSizing() end
+addon.CanvasCompatibility.IsForeverProfessionsPanel = function() return false end
+local function unused() error("unexpected motion service") end
+local hooks = addon.CanvasPanelMotion.Install(canvas, {
+    RestoreSavedPositionAfterShow=unused, RestoreWorkspacePosition=function()
+        local p = addon.db.savedWorkspacePositions.PlayerSpellsFrame or addon.db.savedMainPositions.PlayerSpellsFrame
+        spellbook.x, spellbook.y = p.x, p.y
+    end,
+    IsUnsafeForPanelMutation=unused, CanManagePanelsFromAddon=function() return true end,
+    OnPanelDragStop=function(f, alreadyStopped)
+        assert(f == spellbook and alreadyStopped == true)
+        drops = drops + 1
+        addon.db.savedWorkspacePositions.PlayerSpellsFrame = nil
+        addon.db.savedMainPositions.PlayerSpellsFrame = {x=f.x, y=f.y}
+    end,
+    HookPanelCloseButton=unused,
+})
+hooks.HookKnownPanelAnchorResets(spellbook, "PlayerSpellsFrame")
+local saved = {x=87, y=1085}
+addon.db.savedWorkspacePositions.PlayerSpellsFrame = saved
+addon.db.savedMainPositions.PlayerSpellsFrame = nil
+spellbook.x, spellbook.y = saved.x, saved.y
+callbacks.StartMoving()
+callbacks.StopMovingOrSizing()
+assert(drops == 0, "clicking the parchment must not save a new position")
+callbacks.StartMoving()
+spellbook.x, spellbook.y = 1363, 806
+callbacks.SetPoint(spellbook)
+assert(#timers == 0, "anchor repairs must wait while the external mover owns the drag")
+callbacks.StopMovingOrSizing()
+callbacks.StopMovingOrSizing()
+assert(drops == 1, "only the completed movement should transfer placement")
+local function resize(width, anchorFirst)
+    spellbook.width = width
+    spellbook.x, spellbook.y = 1113, 980 -- native panel slot during re-show
+    if anchorFirst then callbacks.SetPoint(spellbook) end
+    callbacks.OnSizeChanged(spellbook)
+    if not anchorFirst then callbacks.SetPoint(spellbook) end
+    assert(#timers == 1)
+    table.remove(timers)()
+    assert(spellbook.x == 1363 and spellbook.y == 806, "restore the most recent Mainhand drop")
+end
+resize(1154, true)
+resize(577, false)
+callbacks.StartMoving()
+callbacks.OnHide()
+spellbook.x = 1500
+callbacks.StopMovingOrSizing()
+assert(drops == 1, "hiding the book cancels an unfinished move")
