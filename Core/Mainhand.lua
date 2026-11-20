@@ -114,6 +114,55 @@ function Mainhand:GatherSafeUI()
 end
 
 
+-- Forever docks its party tools to UIParent again on every fold/unfold,
+-- including through gamepad bindings. Clip the folded body at the game edge
+-- just as the physical screen clips it in an ordinary single-window layout.
+local partyDockClip, hookedManager
+local function UpdatePartyDock()
+    local frame = _G.CompactRaidFrameManager
+    if not Offhand.isForever or not frame or not hooksecurefunc then return end
+    if frame.IsForbidden and frame:IsForbidden() then return end
+    if hookedManager ~= frame then
+        hookedManager = frame
+        hooksecurefunc(frame, "SetPoint", function(_, _, relative)
+            if relative ~= partyDockClip then UpdatePartyDock() end
+        end)
+    end
+
+    local parent = frame:GetParent()
+    if parent ~= UIParent and parent ~= partyDockClip then return end
+    local locked = InCombatLockdown and InCombatLockdown()
+    if locked and (parent ~= partyDockClip or frame:IsProtected()) then return end
+
+    local point, relative, corner, x, y = frame:GetPoint(1)
+    local native = frame:GetNumPoints() == 1 and point == "TOPLEFT" and corner == point
+        and (relative == UIParent or relative == partyDockClip)
+        and (math.abs(x) < 0.1 or math.abs(x + 200) < 0.1) and math.abs(y + 140) < 0.1
+    local rect = Mainhand:GetRect()
+    if not native or not rect.isSpanned then
+        if not locked and partyDockClip and parent == partyDockClip then
+            frame:SetParent(UIParent)
+            if relative == partyDockClip then frame:SetPoint(point, UIParent, corner, x, y) end
+        end
+        return
+    end
+
+    if not partyDockClip then
+        partyDockClip = CreateFrame("Frame", nil, UIParent)
+        -- Edit Mode's party and raid selection overlays can intercept both arrows.
+        partyDockClip:SetFrameStrata("DIALOG")
+        partyDockClip:EnableMouse(false)
+        partyDockClip:SetAllPoints(Mainhand:CreateAnchor())
+        partyDockClip:SetClipsChildren(true)
+    end
+    if parent ~= partyDockClip then frame:SetParent(partyDockClip) end
+    if relative ~= partyDockClip then frame:SetPoint(point, partyDockClip, corner, x, y) end
+end
+
+if Offhand.API and Offhand.API.RegisterGeometryCallback then
+    Offhand.API.RegisterGeometryCallback("partyDock", UpdatePartyDock)
+end
+
 local events = CreateFrame and CreateFrame("Frame") or nil
 if events then
     for _, event in ipairs({ "ADDON_LOADED", "PLAYER_LOGIN", "PLAYER_ENTERING_WORLD", "DISPLAY_SIZE_CHANGED",
@@ -122,6 +171,10 @@ if events then
     end
     events:SetScript("OnEvent", function(_, event, arg1)
         Mainhand:Update(event)
+        if event == "PLAYER_ENTERING_WORLD" or event == "PLAYER_REGEN_ENABLED"
+            or (event == "ADDON_LOADED" and arg1 == "Blizzard_CompactRaidFrames") then
+            UpdatePartyDock()
+        end
         if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
             Mainhand:EnableForeverGamepadMainMenuAdapter()
         end
