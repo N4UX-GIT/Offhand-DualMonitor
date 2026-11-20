@@ -667,6 +667,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
         or popupKey == "OFFHAND_CONFIRM_WINDOWED_MODE"
         or popupKey == "OFFHAND_CONFIRM_PLACEMENT"
+        or popupKey == "OFFHAND_CONFIRM_PROFILE"
         or popupKey == "OFFHAND_CONFIRM_MANUAL_LAYOUT"
         or popupKey == "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
         or popupKey == "OFFHAND_WIZARD_SKIP_MAINHAND_LAYOUT"

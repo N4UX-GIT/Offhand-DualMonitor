@@ -2687,12 +2687,11 @@ addon.Viewport.GetMetrics = getMetrics
 -- A profile mutation must be deferred until the confirmation is accepted.
 StaticPopupDialogs = {}
 ACCEPT, CANCEL = "Accept", "Cancel"
-local pending
-StaticPopup_Show = function(key, text, _, callback) pending = {key=key, callback=callback} end
 local mutations = 0
 addon.Options:Confirm("Replace profile?", function() mutations = mutations + 1 end)
 assert(mutations == 0, "Opening a confirmation must not modify a profile")
-StaticPopupDialogs[pending.key].OnAccept(nil, pending.callback)
+assert(addon._gamepadSafePopup.popupKey == "OFFHAND_CONFIRM_PROFILE")
+addon._gamepadSafePopup.accept.scripts.OnClick()
 assert(mutations == 1, "Accept must run the deferred profile operation once")
 
 -- ============================================================================
