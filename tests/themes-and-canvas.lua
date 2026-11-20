@@ -51,6 +51,7 @@ local function makeMockFrame(name, w, h)
         borderColor = nil,
     }
     table.insert(frames, f)
+    function f:GetName() return self.name end
     function f:SetSize(width, height) self.w = width; self.h = height end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
@@ -254,6 +255,16 @@ assert(pt.x == 14 and pt.y == -14, "BayHeader TOPLEFT must be indented (14, -14)
 -- 3. Test Options Panel and Themed Slider Thumbs
 local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Options floating panel must be created")
+for _, themeKey in ipairs(addon.Themes:GetThemeList()) do
+    addon.Themes:SetThemePreset(addon.db, themeKey)
+    addon.Options:UpdateCardThemes()
+    local theme = addon.Themes:GetThemeInfo(themeKey)
+    assert(configFrame.backdrop.edgeFile == theme.edgeFile and configFrame.backdrop.edgeSize == theme.edgeSize,
+        themeKey .. " must apply its border artwork to the settings window after controls refresh")
+    local trim = pals[addon.db.trimColor]
+    local border = configFrame.borderColor
+    assert(border.r == trim.r and border.g == trim.g and border.b == trim.b)
+end
 assert(addon.WorkspaceOptions.controls.sizing,"Workspace settings omitted region sizing")
 assert(configFrame:GetHeight() == 732, "Options floating panel height must be 732px")
 local workspace = addon.WorkspaceOptions.controls

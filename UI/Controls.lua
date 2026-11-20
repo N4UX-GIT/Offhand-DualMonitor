@@ -31,7 +31,15 @@ function Controls.StyleSurface(frame, kind)
         or not frame.SetBackdropBorderColor then return end
     kind = kind or "card"
     styledFrames[frame] = kind
-    frame:SetBackdrop(FLAT_BACKDROP)
+    if kind == "window" and frame.GetName and frame:GetName() == "OffhandFloatingConfigFrame" and Offhand.Themes then
+        local theme = Offhand.Themes:GetThemeInfo(Offhand.db and Offhand.db.theme or "CLASSIC")
+        frame:SetBackdrop({
+            bgFile = FLAT_BACKDROP.bgFile, edgeFile = theme.edgeFile,
+            edgeSize = theme.edgeSize, insets = theme.insets,
+        })
+    else
+        frame:SetBackdrop(FLAT_BACKDROP)
+    end
     local black = Offhand.db and Offhand.db.theme == "PITCH_BLACK"
     local shade = black and 0 or (kind == "window" and 0.035 or 0.065)
     if kind == "input" then shade = black and 0 or 0.025 end
