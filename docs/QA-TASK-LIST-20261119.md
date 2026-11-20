@@ -175,6 +175,8 @@ On the standalone Companion, expanding the Advanced card exposed the Store updat
 
 BugSack gained zero occurrences from session 674 through final exit in 678, with checkpoints after setup, combat, the dashboard replay and exit. One post-combat screenshot failed to save and a later harness command lost foreground focus. The combat measurements above came from the character’s saved trace. The later input was excluded from panel acceptance. The original 98 addon files, 79 settings files and portable Companion preferences were verified after cleanup, and the previously running Store Companion was relaunched.
 
+The Social-first reopen check was repeated on Moonweaver with the corrected Companion executable. Window-targeted O and C keys opened the panels. A temporary observer recorded their bounds directly in the client. With Social alone its left edge was x = 530.24. Opening Character moved Social to x = 641.97, leaving 8.000 UI units beyond Character’s tab edge at x = 633.97. Both panels stayed within y = 652.00–1085.14 on the 1440 × 600 workspace. BugSack gained zero occurrences from session 678 through logout in 679. Cleanup removed the observer, restored the original install, settings and window, and restarted the Store Companion. The earlier combat trace remains the evidence for the player-driven fight.
+
 ## Original session
 
 The subsequent unpinned-map, Mainhand keybind and canvas appearance runs added zero BugGrabber error occurrences from session 543 through 555, including final logout. The original window rectangle, installed media, portable preferences and 158 backed-up files were verified after cleanup. The temporary diagnostic addon was removed from the client.
