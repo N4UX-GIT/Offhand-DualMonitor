@@ -2383,6 +2383,15 @@ function Options:CreateFloatingPanel()
         resetBtn:SetSize(160, 26)
         resetBtn:SetPoint("TOPLEFT", deleteBtn, "BOTTOMLEFT", 0, -24)
         resetBtn:SetText(L["PROFILES_BTN_RESET"])
+
+        local reuseHUD = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        reuseHUD:SetSize(284, 26)
+        reuseHUD:SetPoint("TOPLEFT", resetBtn, "BOTTOMLEFT", 0, -8)
+        reuseHUD:SetText(L["PROFILE_REUSE_HUD"])
+        reuseHUD:SetScript("OnClick", function() Offhand.CharacterSetup:ReviewExisting() end)
+        if not (Offhand.HasBlizzardEditMode and Offhand:HasBlizzardEditMode() and Offhand.CharacterSetup) then
+            reuseHUD:Hide()
+        end
     
         local createEditBox = CreateFrame("EditBox", nil, card4_1, "InputBoxTemplate")
         createEditBox:SetSize(200, 26)
@@ -2405,7 +2414,7 @@ function Options:CreateFloatingPanel()
             Offhand:SetTooltip(freshBtn, L["PROFILE_CREATE_DEFAULTS"], L["PROFILE_CREATE_DEFAULTS_HELP"])
         end
         configFrame.profileControls = {
-            rows = profileButtons, scroll = profileScroll, input = createEditBox, hudLabel = hudLabel,
+            rows = profileButtons, scroll = profileScroll, input = createEditBox, hudLabel = hudLabel, reuseHUD = reuseHUD,
             create = createBtn, fresh = freshBtn, load = loadBtn, copy = copyBtn, delete = deleteBtn,
         }
 
@@ -2416,6 +2425,7 @@ function Options:CreateFloatingPanel()
         autoSaveNote:SetText(L["SETTINGS_AUTOSAVE"])
 
         function Options:UpdateProfileList()
+            reuseHUD:SetEnabled(Offhand.db and Offhand.db.enabled == true)
             local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
             activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
             local layout = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus and Offhand.Mainhand:GetLayoutStatus()

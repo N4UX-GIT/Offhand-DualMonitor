@@ -2329,12 +2329,12 @@ function Mainhand:GetCharacterSetupLayoutStatus()
     }
 end
 
-function Mainhand:UseExistingEditModeLayout(expectedName)
+function Mainhand:UseExistingEditModeLayout(expectedName, requireCurrentOwnership)
     local context, reason = CharacterSetupLayoutContext(self)
     if not context then return false, reason end
     local name = LayoutName(context.candidate)
     if expectedName and expectedName ~= name then return false, "missing" end
-    if context.ellesmereReview and not expectedName then return false, "review" end
+    if context.ellesmereReview and (not expectedName or requireCurrentOwnership) then return false, "review" end
     -- Capture rollback provenance before SetActiveLayout can change live data.
     local source, sourceID, _, preset = ResolveActiveLayout(context.data, context.presets)
     local active = context.active

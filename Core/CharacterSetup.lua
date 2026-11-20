@@ -107,7 +107,24 @@ function Setup:Hide()
     self.offeredContext = nil
 end
 
-function Setup:UseExisting()
+function Setup:ReviewExisting()
+    local status = Offhand.Mainhand:GetCharacterSetupLayoutStatus()
+    if status.reason == "combat" or status.reason == "open" or status.reason == "input" then
+        Offhand:Print(Offhand.L.CHARACTER_SETUP_RETRY)
+        return
+    end
+    if status.ellesmereReview then return self:Show("CHARACTER_SETUP_ELLESMERE") end
+    if not status.available then
+        return self:Show(status.reason == "span" and "CHARACTER_SETUP_WAITING_FOR_SPAN"
+            or status.reason == "ownership" and "CHARACTER_SETUP_REFRESH" or "CHARACTER_SETUP_NO_LAYOUT")
+    end
+    local name = status.name
+    Offhand.Options:Confirm(string.format(Offhand.L.PROFILE_REUSE_HUD_CONFIRM, name), function()
+        if self:UseExisting(name) then Offhand.Options:UpdateProfileList() end
+    end)
+end
+
+function Setup:UseExisting(expectedName)
     if not Offhand.db or not Offhand.db.enabled
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
         return false
@@ -115,7 +132,7 @@ function Setup:UseExisting()
     local mainhand = Offhand.Mainhand
     local ok, layoutName, moved, changed
     if mainhand and mainhand.UseExistingEditModeLayout then
-        ok, layoutName, moved, changed = mainhand:UseExistingEditModeLayout()
+        ok, layoutName, moved, changed = mainhand:UseExistingEditModeLayout(expectedName, true)
     end
     if not ok then
         local blocked = layoutName == "combat" or layoutName == "open" or layoutName == "input"

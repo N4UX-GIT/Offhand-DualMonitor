@@ -2941,6 +2941,13 @@ assert(addon:SetOnboardingSetupMethod(previewMethod))
 -- without changing the profile storage/mutation implementation.
 do
     local controls = assert(optPanel.profileControls)
+    do
+        local originalSetup, reviews = addon.CharacterSetup, 0
+        addon.CharacterSetup = {ReviewExisting=function() reviews = reviews + 1 end}
+        controls.reuseHUD.scripts.OnClick()
+        assert(reviews == 1 and controls.reuseHUD:GetText() == addon.L.PROFILE_REUSE_HUD)
+        addon.CharacterSetup = originalSetup
+    end
     local getLayoutStatus = addon.Mainhand.GetLayoutStatus
     addon.Mainhand.GetLayoutStatus = function() return {configured=true, generatedName="Raid HUD", generatedID=12} end
     addon.Options:UpdateProfileList()

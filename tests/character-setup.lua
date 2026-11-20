@@ -267,6 +267,7 @@ OffhandDB.onboarding.setupComplete = true
 OffhandCharDB.hudSetupReminder = nil
 OffhandCharDB.mainhandLayoutDeferred = nil
 addon.EllesmereLayout = {IsAvailable = function() return true end, ShowPreview = function() end}
+local getSetupLayoutStatus = addon.Mainhand.GetCharacterSetupLayoutStatus
 addon.Mainhand.GetCharacterSetupLayoutStatus = function()
     return {available = true, ellesmereReview = true}
 end
@@ -278,4 +279,28 @@ assert(check:Refresh() and currentStatus == addon.L.CHARACTER_SETUP_ELLESMERE
 Click("OnAccept")
 assert(reviewRequested and saves == 0 and selections == 1 and reloads == 1,
     "review must open the EllesmereUI wizard step without changing the native layout")
+addon.Mainhand.GetCharacterSetupLayoutStatus = getSetupLayoutStatus
+gamepad, combat, reserved, spanned, geometry = false, false, false, true, "span-A"
+OffhandDB.sharedMainhandLayouts = {Offhand = {version=1, client="forever", geometrySignature=geometry,
+    ownershipSignature="", sourceName="Modern", sourceID=1, sourcePreset=true}}
+data.activeLayout, data.layouts = 1, {{layoutName="Offhand", systems={}}}
+local accept, reviewText, refreshes = nil, nil, 0
+addon.Options = {
+    Confirm=function(_, message, callback) reviewText, accept = message, callback end,
+    UpdateProfileList=function() refreshes = refreshes + 1 end,
+}
+local profile = OffhandCharDB.activeProfile
+check:ReviewExisting()
+assert(reviewText == string.format(addon.L.PROFILE_REUSE_HUD_CONFIRM, "Offhand")
+    and selections == 1 and saves == 0, "review must name the layout without activating it")
+data.layouts[1].layoutName = "Offhand (2)"
+OffhandDB.sharedMainhandLayouts["Offhand (2)"] = OffhandDB.sharedMainhandLayouts.Offhand
+accept()
+assert(selections == 1 and refreshes == 0 and currentStatus == addon.L.CHARACTER_SETUP_NO_LAYOUT,
+    "a replacement candidate cannot be activated by an old confirmation")
+check:ReviewExisting()
+assert(reviewText == string.format(addon.L.PROFILE_REUSE_HUD_CONFIRM, "Offhand (2)"))
+accept()
+assert(selections == 2 and saves == 0 and refreshes == 1 and OffhandCharDB.activeProfile == profile
+    and OffhandCharDB.mainhandLayout.generatedName == "Offhand (2)", "reuse preserves the settings profile and native layouts")
 print("PASS: character choices, reuse-only selection, profile isolation, GUID recreation, persistence and input deferral")

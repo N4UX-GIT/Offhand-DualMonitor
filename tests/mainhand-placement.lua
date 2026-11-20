@@ -2580,6 +2580,8 @@ do
         "enabling EllesmereUI alone should offer review of the active character layout")
     local accepted, refusal = addon.Mainhand:UseExistingEditModeLayout()
     assert(not accepted and refusal == "review", "review should be explicit")
+    accepted, refusal = addon.Mainhand:UseExistingEditModeLayout("Offhand Main - Tester", true)
+    assert(not accepted and refusal == "review", "a named Profiles confirmation cannot approve new EllesmereUI ownership")
     local confirmed, confirmedName, _, selectionChanged =
         addon.Mainhand:UseExistingEditModeLayout("Offhand Main - Tester")
     assert(confirmed and confirmedName == "Offhand Main - Tester" and not selectionChanged
