@@ -188,3 +188,31 @@ assert(S:SetSetting(ma,'a',.7))
 assert(deferred.scale==1 and immediate==0 and type(regenerated)=='function','Player combat bypassed deferral or recursed through the queue')
 playerCombat=false;regenerated();near(deferred.scale,.7)
 print('PASS: opt-in per-region sizing, drag/restore fitting, guarded reopen, ownership, combat, chat, presets and restoration')
+
+-- A short schema-1 workspace must retain reachable titles and the tab strip
+-- when two independently saved windows open together.
+a.isForever=true
+m.workspaceRegions=nil
+m.workspaceLeft,m.workspaceRight,m.workspaceWidth=0,1097,1097
+m.workspaceBottom,m.workspaceTop,m.workspaceHeight=640,1097,457
+local journal=frame('CollectionsJournal',703);journal.h=606
+a.db.savedWorkspacePositions.CollectionsJournal={x=100,y=1258}
+restore(journal)
+near(journal.y*journal.scale,1085);near((journal.y-journal.h)*journal.scale,652)
+S:Apply(journal,false,m);near(journal.scale,1)
+local social=frame('SocialUIFrame',410);social.h=675
+local character=frame('CharacterFrame',631);character.h=484
+CharacterFrameModeTabs=frame('CharacterFrameModeTabs',64)
+CreateFrame=function() return {RegisterEvent=function() end,SetScript=function() end} end
+assert(loadfile('Core/WorkspaceBehavior.lua'))('Offhand',a)
+a.db.savedWorkspacePositions.CharacterFrame={x=91,y=1136}
+a.db.savedWorkspacePositions.SocialUIFrame={x=530,y=1327}
+character.hidden=true;restore(social);character.hidden=false;restore(character)
+local function separate()
+    near(character.y*character.scale,1085);near(social.y*social.scale,1085)
+    assert((character.x+character.w+64)*character.scale+7.99 <= social.x*social.scale)
+end
+separate()
+social.hidden=true;restore(character);social.hidden=false;restore(social);separate()
+near(a.db.savedWorkspacePositions.CharacterFrame.x,91)
+near(a.db.savedWorkspacePositions.SocialUIFrame.x,530)

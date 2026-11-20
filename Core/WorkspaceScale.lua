@@ -190,7 +190,21 @@ function Scale:Release(f,preserveAnchor)
     if not write(self,f,state.native) then return false end
     self.state[f]=nil;return true
 end
-function Scale:ApplySingle(f,m,multiplier,owner)
+-- Preserve the requested size on roomy displays. The available rectangle is
+-- in UIParent units, while SetScale takes a local multiplier.
+function Scale:LimitToWorkspace(f,m,desired)
+    if not m or not m.isSpanned or m.workspaceRegions then return desired end
+    local width,height=Number(Read(f,"GetWidth")),Number(Read(f,"GetHeight"))
+    local effective,own=Number(Read(f,"GetEffectiveScale")),Number(Read(f,"GetScale"))
+    local parent=Number(Read(UIParent,"GetEffectiveScale"))
+    if not width or not height or not effective or not own or not parent
+        or not m.workspaceWidth or m.workspaceWidth<=24 or not m.workspaceHeight or m.workspaceHeight<=24 then return desired end
+    local factor=effective/own/parent
+    width=width+Offhand.CanvasPersistence.SideTabWidth(f)
+    return math.min(desired,(m.workspaceWidth-24)/(width*factor),(m.workspaceHeight-24)/(height*factor))
+end
+
+function Scale:ApplySingle(f,m,multiplier,owner,fit)
     if not self:Allowed(f) then
         if self.state[f] then self.state[f]=nil;self.released[f]=true end
         return true
@@ -207,8 +221,9 @@ function Scale:ApplySingle(f,m,multiplier,owner)
     end
     local native=state and state.native or current
     local desired=native*multiplier
+    if fit then desired=self:LimitToWorkspace(f,m,desired) end
     if not Near(current,desired) and not self:Write(f,desired) then return false end
-    if Near(multiplier,1) then self.state[f]=nil
+    if Near(desired,native) then self.state[f]=nil
     else
         self.state[f]={native=native,applied=desired,owner=owner or f,db=Offhand.db}
         -- Forever's bag controller already observes reopen/reset geometry.
@@ -222,10 +237,18 @@ local excluded={WorldMapFrame=true,CharacterFrame=true,PlayerSpellsFrame=true}
 function Scale:Apply(f,onWorkspace,m)
     if Combat() then return false end
     local name=Name(f)
+    if Offhand.isForever and name=="CharacterFrame" and Offhand.WorkspaceBehavior then
+        Offhand.WorkspaceBehavior:RefreshCharacterScale(m,onWorkspace)
+        return true
+    end
     if not name or excluded[name] then return true end
     if name:match("^ChatFrame%d+$") then return self:ApplyChat(f,onWorkspace,m) end
     local multiplier=onWorkspace and m and m.isSpanned and Offhand.db and Offhand.db.enabled
         and self:GetMultiplier(m) or 1
+    if onWorkspace and Offhand.isForever and m and m.isSpanned and not m.workspaceRegions
+        and (name=="CollectionsJournal" or name=="SocialUIFrame") then
+        return self:ApplySingle(f,m,multiplier,nil,true)
+    end
     if Near(multiplier,1) then return self:Release(f) end
     return self:ApplySingle(f,m,multiplier)
 end

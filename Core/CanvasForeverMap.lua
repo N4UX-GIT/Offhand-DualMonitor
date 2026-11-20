@@ -273,6 +273,42 @@ local function UpdatePlacesClamp(frame, map, metrics)
     placesClamps[frame] = state
 end
 
+-- The windowed quest list stretches between the map's two right corners.
+-- Raise only its lower attachment when the scroll area runs below Offhand.
+-- Leave the map provider's chosen scale, window size and position alone.
+local questFoot
+local function FitQuestList(map, metrics)
+    local list = map.QuestLog
+    if not list or list ~= _G.QuestMapFrame or list:IsForbidden() or list:IsProtected()
+        or list:GetNumPoints() ~= 2 then questFoot = nil; return end
+    local topPoint, topFrame, topRelative = list:GetPoint(1)
+    local point, relative, corner, x, y = list:GetPoint(2)
+    if topPoint ~= "TOPRIGHT" or topFrame ~= map or topRelative ~= "TOPRIGHT"
+        or point ~= "BOTTOMRIGHT" or relative ~= map or corner ~= "BOTTOMRIGHT" then
+        questFoot = nil
+        return
+    end
+    if questFoot and (questFoot.frame ~= list or math.abs(y - questFoot.applied) > .01) then questFoot = nil end
+    local original = questFoot and questFoot.original or y
+    local desired = original
+    if metrics and list:IsVisible() then
+        local factor = list:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        local bottom, top = map:GetBottom(), list:GetTop()
+        if factor > 0 and bottom and top and top * factor > metrics.workspaceBottom + 24 then
+            local mapBottom = bottom * map:GetEffectiveScale() / UIParent:GetEffectiveScale()
+            desired = math.max(original, (metrics.workspaceBottom + 3 - mapBottom) / factor)
+        end
+    end
+    if math.abs(y - desired) > .01 then list:SetPoint(point, relative, corner, x, desired) end
+    if desired > original + .01 then
+        if not questFoot or math.abs(questFoot.applied - desired) > .01 then
+            questFoot = {frame = list, original = original, applied = desired}
+        end
+    else
+        questFoot = nil
+    end
+end
+
 function Adapter.GetDragHandleBounds(map, factor)
     local left, top = map:GetLeft(), map:GetTop()
     if not left or not top then return end
@@ -722,7 +758,7 @@ function Adapter.Install(Canvas, services)
             UpdateMapWiseLayout(map, state, mapShown, maximized)
 
             local gamepadOwned = NativeGamepadOwnsMap()
-            if _G.SpokenPlacesPanel and not InCombatLockdown() then
+            if (_G.SpokenPlacesPanel or map.QuestLog) and not InCombatLockdown() then
                 local metrics
                 if mapShown and not maximized and not gamepadOwned and not map:IsForbidden()
                     and Canvas.IsFrameOnWorkspace(map) then
@@ -732,6 +768,7 @@ function Adapter.Install(Canvas, services)
                     end
                 end
                 local workspace = metrics and metrics.isSpanned and metrics
+                FitQuestList(map, workspace)
                 UpdatePlacesClamp(_G.SpokenPlacesPanel, map, workspace)
                 UpdatePlacesClamp(_G.SpokenPlacesPanelToggle, map, workspace)
             end

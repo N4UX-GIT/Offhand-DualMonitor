@@ -150,6 +150,20 @@ function Persistence.PreservedFitFallback(frame,metrics,position)
     workspaceFitFallbacks[frame]=nil
 end
 
+function Persistence.SideTabWidth(frame)
+    if not Offhand.isForever then return 0 end
+    local width
+    if frame == _G.CharacterFrame then
+        local tabs = _G.CharacterFrameModeTabs
+        if tabs and tabs:IsShown() then width = tabs:GetWidth() end
+    elseif frame == _G.SocialUIFrame then
+        -- Forever's four Social buttons are anonymous, 55 units wide and
+        -- anchored just outside the right edge of the native root.
+        width = 55
+    end
+    return width or 0
+end
+
 function Persistence.InstallDrag(Canvas, services)
     local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
     local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
@@ -312,6 +326,7 @@ function Persistence.InstallDrag(Canvas, services)
                 frameWidth=(frame:GetWidth() or 0)*scaleFactor
                 frameHeight=(frame:GetHeight() or 0)*scaleFactor
             end
+            frameWidth = frameWidth + Persistence.SideTabWidth(frame) * scaleFactor
             if not Persistence.FitsWorkspace(destination,frameWidth,frameHeight) then
                 local previous=Offhand.db.savedWorkspacePositions[name]
                 Offhand.db.savedMainPositions[name]=previousMainPosition
@@ -538,6 +553,37 @@ function Persistence.InstallDrag(Canvas, services)
     return OnPanelDragStop
 end
 
+-- Character and Social can each have a valid solo position on the same
+-- workspace. Use the peer's rendered rectangle while both are open, keeping
+-- their saved solo positions intact.
+local function AvoidWorkspacePeer(frame, m, x, y, width, height)
+    local peer
+    if Offhand.isForever and frame == _G.CharacterFrame then peer = _G.SocialUIFrame
+    elseif Offhand.isForever and frame == _G.SocialUIFrame then peer = _G.CharacterFrame end
+    if not peer or not Offhand.WorkspaceRegions or (peer.IsForbidden and peer:IsForbidden())
+        or not peer:IsShown() or peer._OffhandDragging
+        or not Offhand.db.savedWorkspacePositions[peer:GetName()] then return x, y end
+    local px, py, pw, ph = Offhand.WorkspaceRegions:FrameRect(peer)
+    if not px then return x, y end
+    pw = pw + Persistence.SideTabWidth(peer) * peer:GetEffectiveScale() / UIParent:GetEffectiveScale()
+    if px >= m.workspaceRight or px + pw <= m.workspaceLeft
+        or py <= m.workspaceBottom or py - ph >= m.workspaceTop
+        or x >= px + pw or x + width <= px or y <= py - ph or y - height >= py then return x, y end
+
+    local left, right = m.workspaceLeft + 12, m.workspaceRight - 12
+    local before, after = px - width - 8, px + pw + 8
+    if before >= left and (after + width > right or x < px) then return before, y end
+    if after + width <= right then return after, y end
+    if py - ph - 8 - height >= m.workspaceBottom + 12 then return x, py - ph - 8 end
+    if py + 8 + height <= m.workspaceTop - 12 then return x, py + 8 + height end
+    -- Neither side of the current peer is wide enough. If a row fits, place
+    -- this panel at its edge and let the peer resolve against it once.
+    if width + pw + 8 <= right - left then
+        return x < px and left or right - width, y, peer
+    end
+    return x, y
+end
+
 local function HasReachableNativeBaganatorAnchor(frame, name, metrics)
     local bags = Offhand.BagPersistence
     if not bags or not bags.IsBaganatorBackpackRoot
@@ -575,6 +621,7 @@ function Persistence.InstallRestore(Canvas, services)
     local IsRetailChatEditModeActive = services.IsRetailChatEditModeActive
     local RemodalizePanel = services.RemodalizePanel
     local RestoreWorkspacePosition
+    local arrangingPeer
     RestoreWorkspacePosition = function(selfOrFrame, maybeFrame)
         local frame = (selfOrFrame == Canvas and maybeFrame) or maybeFrame or selfOrFrame
         if frame and Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
@@ -636,7 +683,7 @@ function Persistence.InstallRestore(Canvas, services)
 
             local frameScale = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
             local parentScale = (UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
-            local frameWidth = (frame:GetWidth() or 0) * frameScale / parentScale
+            local frameWidth = ((frame:GetWidth() or 0) + Persistence.SideTabWidth(frame)) * frameScale / parentScale
             local frameHeight = (frame:GetHeight() or 0) * frameScale / parentScale
             if not Persistence.FitsWorkspace(m,frameWidth,frameHeight) then
                 Persistence.FitPlayerSpellsToWorkspace(frame,m,false)
@@ -651,6 +698,8 @@ function Persistence.InstallRestore(Canvas, services)
                 m, wPos, frameWidth, frameHeight,
                 string.match(name, "^ChatFrame") ~= nil, fallbackHeight
             )
+            local peer
+            clampedX, clampedY, peer = AvoidWorkspacePeer(frame, m, clampedX, clampedY, frameWidth, frameHeight)
 
             local factor = parentScale / frameScale
             if frame.SetClampedToScreen then
@@ -658,6 +707,11 @@ function Persistence.InstallRestore(Canvas, services)
             end
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            if peer and not arrangingPeer then
+                arrangingPeer = true
+                RestoreWorkspacePosition(peer)
+                arrangingPeer = nil
+            end
             if Offhand.WorkspaceRegions then
                 Offhand.WorkspaceRegions:RememberRestoredPosition(frame,m,wPos)
             end

@@ -274,6 +274,29 @@ do
     SpokenPlacesPanel, SpokenPlacesPanelToggle = nil, nil
 end
 do
+    local originalBottom = metrics.workspaceBottom
+    metrics.workspaceBottom = WorldMapFrame.bottom * WorldMapFrame:GetEffectiveScale() + 80
+    local list = {offset=3, visible=true, writes=0}
+    function list:IsForbidden() return false end
+    function list:IsProtected() return false end
+    function list:IsVisible() return self.visible end
+    function list:GetNumPoints() return 2 end
+    function list:GetTop() return WorldMapFrame:GetTop()-25 end
+    function list:GetEffectiveScale() return 1 end
+    function list:GetPoint(i)
+        if i==1 then return "TOPRIGHT", WorldMapFrame, "TOPRIGHT", -3, -25 end
+        return "BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -3, self.offset
+    end
+    function list:SetPoint(_,_,_,_,y) self.offset=y; self.writes=self.writes+1 end
+    QuestMapFrame, WorldMapFrame.QuestLog = list, list
+    local function tick() createdHandles[1].scripts.OnUpdate(nil,.1) end
+    tick(); tick()
+    assert(math.abs(list.offset-83)<.001 and list.writes==1, "fit the quest list without rewriting its settled anchor")
+    list.visible=false; tick()
+    assert(list.offset==3, "folding restores the provider's original bottom offset")
+    QuestMapFrame, WorldMapFrame.QuestLog, metrics.workspaceBottom = nil, nil, originalBottom
+end
+do
     local left = WorldMapFrame.left
     local handle = createdHandles[1]
     local x = handle.point[4]

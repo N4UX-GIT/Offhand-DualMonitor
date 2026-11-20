@@ -122,7 +122,7 @@ function Behavior:SetCharacterScale(value)
     return true
 end
 
-function Behavior:RefreshCharacterScale()
+function Behavior:RefreshCharacterScale(metrics, onWorkspace)
     local frame = _G.CharacterFrame
     if not frame or not frame.GetScale or not frame.SetScale or InCombat() then return false end
     local state = self.characterState[frame]
@@ -132,9 +132,11 @@ function Behavior:RefreshCharacterScale()
     end
 
     local db = Offhand.db
-    local owned = db and db.enabled and IsSpanned()
-        and type(db.savedWorkspacePositions) == "table"
-        and db.savedWorkspacePositions.CharacterFrame ~= nil
+    if onWorkspace == nil then
+        onWorkspace = db and db.savedWorkspacePositions and db.savedWorkspacePositions.CharacterFrame ~= nil
+    end
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
+    local owned = db and db.enabled and metrics and metrics.isSpanned and onWorkspace
         and not IsAddonLoadedCompat("ClassicUIForever")
     local multiplier = self:GetCharacterScale()
 
@@ -145,6 +147,9 @@ function Behavior:RefreshCharacterScale()
             state.nativeScale = current
         end
         local desired = state.nativeScale * multiplier
+        if Offhand.isForever and Offhand.WorkspaceScale then
+            desired = Offhand.WorkspaceScale:LimitToWorkspace(frame,metrics,desired)
+        end
         if math.abs(current - desired) > 0.001 then frame:SetScale(desired) end
         state.appliedScale = desired
         return true
