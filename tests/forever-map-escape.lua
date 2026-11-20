@@ -324,6 +324,27 @@ assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == 
         and WorldMapFrame._OffhandEvictingPanelSlot == nil,
     "Forever World Map drag and panel-slot state must remain addon-owned")
 
+-- The first Mainhand-to-workspace drop after reload can receive a later
+-- native TOPLEFT anchor even though the saved workspace coordinates are valid.
+do
+    local handle = createdHandles[1]
+    local drop = assert(addon.db.savedWorkspacePositions.WorldMapFrame)
+    local function putTitleAboveWorkspace()
+        WorldMapFrame.bottom = metrics.workspaceTop / WorldMapFrame.scale + 100 - WorldMapFrame.height
+    end
+    handle.scripts.OnUpdate(nil, .016) -- the drop is initially correct
+    putTitleAboveWorkspace()
+    handle.scripts.OnUpdate(nil, .016)
+    assert(math.abs(WorldMapFrame:GetTop() * WorldMapFrame.scale - drop.y) < .01,
+        "a post-release native anchor must not strand the title until the next reopen")
+    handle.scripts.OnUpdate(nil, .11) -- finish the release check
+    putTitleAboveWorkspace()
+    handle.scripts.OnUpdate(nil, .11)
+    assert(WorldMapFrame:GetTop() * WorldMapFrame.scale > metrics.workspaceTop,
+        "a completed drag must not permanently lock the map to its saved position")
+    addon.Canvas.RestoreWorkspacePosition(WorldMapFrame)
+end
+
 local function isSpecial(name)
     for _, value in ipairs(UISpecialFrames) do
         if value == name then return true end

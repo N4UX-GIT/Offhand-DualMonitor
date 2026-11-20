@@ -691,6 +691,7 @@ function Adapter.Install(Canvas, services)
             returnVisible = visible
         end
 
+        local pendingWorkspaceDrop
         local function UpdateHandle(_, elapsed)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
@@ -699,6 +700,22 @@ function Adapter.Install(Canvas, services)
             if not mapShown then state.mapWiseOpened, state.mapWiseLayout, state.mapWisePlacement = nil, nil, nil end
             QueueForeverWorldMapSettlement(map, state, mapShown and true or false)
             elapsedSinceUpdate = elapsedSinceUpdate + (tonumber(elapsed) or 0)
+            if pendingWorkspaceDrop then
+                -- A native panel layout can land after the first frame following
+                -- mouse-up. Watch only through the next normal handle update.
+                local positions = mapShown and Offhand.db.savedWorkspacePositions
+                if not positions or positions.WorldMapFrame ~= pendingWorkspaceDrop or maximized
+                    or NativeGamepadOwnsMap() or Compatibility.GetWorldMapExternalOwner()
+                    or state.mapWisePositionGuard then
+                    pendingWorkspaceDrop = nil
+                elseif not InCombatLockdown() then
+                    local placement = GetPanelPhysicalPlacement(map)
+                    if placement and not PlacementMatchesPosition(placement, pendingWorkspaceDrop) then
+                        RestoreWorkspacePosition(map)
+                    end
+                    if elapsedSinceUpdate >= 0.10 then pendingWorkspaceDrop = nil end
+                end
+            end
             if elapsedSinceUpdate < 0.10 and not state.mapWiseLayout then return end
             elapsedSinceUpdate = 0
 
@@ -798,6 +815,7 @@ function Adapter.Install(Canvas, services)
         if handle.SetScript then
             handle:SetScript("OnUpdate", UpdateHandle)
             handle:SetScript("OnDragStart", function()
+                pendingWorkspaceDrop = nil
                 if NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
                     or (map.IsMaximized and map:IsMaximized())
                     or not Offhand.db or not Offhand.db.enabled then return end
@@ -814,8 +832,12 @@ function Adapter.Install(Canvas, services)
                     SetPanelDragging(map, false)
                     return
                 end
+                local wasDragging = FrameState.IsDragging(map)
                 OnPanelDragStop(map)
                 UpdateHandle(nil, 1)
+                if wasDragging and Offhand.db and Offhand.db.savedWorkspacePositions then
+                    pendingWorkspaceDrop = Offhand.db.savedWorkspacePositions.WorldMapFrame
+                end
             end)
         end
         if handle.Show then handle:Show() end
