@@ -90,4 +90,30 @@ spanned=true;controller=true;module:Refresh();assert(not overrides.F8)
 controller=false;module:Refresh();assert(overrides.F8)
 addon.db={enabled=true};module:Refresh()
 assert(not overrides.F8 and overrides.B=="CLICK OtherAddon:Open","profile switch releases only Offhand overrides")
-print("PASS: normal map and inventory keys, explicit close, workspace ownership, rebinding and combat cleanup")
+
+-- In Forever the first binding addresses bag 4, while the fourth addresses bag 1.
+local detached={}
+local combinedIDs={}
+ContainerFrameSettingsManager={IsUsingCombinedBags=function(_,id) return combinedIDs[id] end}
+function ContainerFrameUtil_GetShownFrameForID(id) return detached[id] end
+local slotKeys={"F6","F7","F8","F9","F12"}
+local slotActions={"TOGGLEBAG1","TOGGLEBAG2","TOGGLEBAG3","TOGGLEBAG4","TOGGLEREAGENTBAG1"}
+for i,action in ipairs(slotActions) do keys[action]={slotKeys[i]};native[slotKeys[i]]=action end
+addon.db.keepBagToggleOpen=true
+ContainerFrameCombinedBags.shown=true
+bag.shown=true -- Another inventory on Offhand must not mask an unrelated individual key.
+local ids={4,3,2,1,5}
+for i,id in ipairs(ids) do
+    detached[id]=ContainerFrameCombinedBags;module:Refresh()
+    assert(not overrides[slotKeys[i]],"a stale combined frame must not mask a separate slot")
+    detached[id]=root(id);detached[id].shown=true
+    module:Refresh()
+    for j,key in ipairs(slotKeys) do assert((overrides[key]~=nil)==(i==j),"wrong separate bag binding") end
+    detached[id].workspace=false;module:Refresh();assert(not overrides[slotKeys[i]])
+    detached[id]=nil;combinedIDs[id]=true
+    module:Refresh();assert(overrides[slotKeys[i]],"combined owner on Offhand")
+    ContainerFrameCombinedBags.workspace=false;module:Refresh();assert(not overrides[slotKeys[i]])
+    ContainerFrameCombinedBags.workspace=true;combinedIDs[id]=nil
+    module:Refresh();assert(not overrides[slotKeys[i]],"closed separate bag must open normally")
+end
+print("PASS: map, backpack and individual bag keys, window ownership, rebinding and combat cleanup")

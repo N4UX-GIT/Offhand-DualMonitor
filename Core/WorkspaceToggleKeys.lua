@@ -9,9 +9,11 @@ local assignments, verdicts = {}, {}
 local spanned
 local locations = setmetatable({}, {__mode = "k"})
 local click = "CLICK OffhandWorkspaceToggleKey:LeftButton"
-local inventoryActions = {"TOGGLEBACKPACK", "OPENALLBAGS", "BETTERBAGS_TOGGLEBAGS", "BAGNON_TOGGLE", "ARKINV_TOGGLE_BAG"}
-local inventoryAction = {}
-for _, action in ipairs(inventoryActions) do inventoryAction[action] = true end
+local inventoryAction = {TOGGLEBACKPACK=true, OPENALLBAGS=true, BETTERBAGS_TOGGLEBAGS=true,
+    BAGNON_TOGGLE=true, ARKINV_TOGGLE_BAG=true}
+-- Forever's numbered bindings count from the outermost bag toward the backpack.
+local bagIDByAction = {TOGGLEBAG1=4, TOGGLEBAG2=3, TOGGLEBAG3=2, TOGGLEBAG4=1, TOGGLEREAGENTBAG1=5}
+for action in pairs(bagIDByAction) do inventoryAction[action] = true end
 
 local function Visible(frame)
     return frame and frame.IsVisible and (not frame.IsForbidden or not frame:IsForbidden()) and frame:IsVisible()
@@ -36,6 +38,14 @@ local function OnWorkspace(frame)
 end
 
 local function InventoryOnWorkspace(action)
+    local id = bagIDByAction[action]
+    if id then
+        local manager = _G.ContainerFrameSettingsManager
+        if not manager or not manager.IsUsingCombinedBags then return false end
+        if manager:IsUsingCombinedBags(id) then return OnWorkspace(_G.ContainerFrameCombinedBags) end
+        local frame = ContainerFrameUtil_GetShownFrameForID and ContainerFrameUtil_GetShownFrameForID(id)
+        return frame ~= _G.ContainerFrameCombinedBags and OnWorkspace(frame)
+    end
     local bags = Offhand.BagPersistence
     local better = bags and bags.betterBags
     if not better and action == "BETTERBAGS_TOGGLEBAGS" and LibStub then
@@ -146,7 +156,7 @@ function Keys:Refresh()
     for key in pairs(assignments) do assignments[key] = nil end
     if active then
         if db.keepMapToggleOpen then ReadKeys("TOGGLEWORLDMAP") end
-        if db.keepBagToggleOpen then for _, action in ipairs(inventoryActions) do ReadKeys(action) end end
+        if db.keepBagToggleOpen then for action in pairs(inventoryAction) do ReadKeys(action) end end
     end
     observer:SetScript("OnUpdate", active and Poll or nil)
     elapsed = 0
