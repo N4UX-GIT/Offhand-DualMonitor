@@ -233,3 +233,17 @@ at x = 713.4 and Social began at x = 721.3. Their positions held at combat
 exit and at the subsequent UI reload. BugSack's occurrence count was unchanged
 from session 786 through 787, with no blocked or forbidden addon actions in
 the combat trace.
+
+In session 788, the expanded Spellbook opened outside combat with P, then
+stayed hidden when the player pressed P in combat. BugSack gained one
+`ADDON_ACTION_BLOCKED` occurrence attributed to `*** ForceTaint_Strong ***`.
+The native `TOGGLESPELLBOOK` binding called `ToggleSpellBookFrame`, then
+`TrySetTab`, which attempted `PlayerSpellsFrame:SetAttributeNoHandler()`
+through `SetUIPanelAttribute` before showing the window. The trace also
+recorded blocked-action events without their arguments, so it cannot identify
+the source of each event. The Forever 71037 knowledge query supplied no
+build-specific attribution. [Forever Spellbook tab selection](https://github.com/Gethe/wow-ui-source/blob/bebcb6bf309cf41b41bd74f8ca651e6a105b2676/Interface/AddOns/Blizzard_PlayerSpells/Blizzard_PlayerSpellsFrame.lua#L211-L226)
+
+Shift+P opened Collections during the same fight. The journal measured
+502.5 × 433.1 UI units at left 99.8, top 445.1 on Offhand. Those bounds
+held through combat exit and the subsequent reload checkpoint.
