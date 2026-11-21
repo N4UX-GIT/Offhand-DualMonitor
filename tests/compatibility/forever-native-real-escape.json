@@ -3,7 +3,7 @@
   "hash_mode": "utf8-lf",
   "id": "forever-native-bag-real-escape-20261121",
   "client": "Forever 1.60.1.71037",
-  "scope": "Native separate backpack on Offhand; real NPC gossip and another player inspected through native unit menu; mixed-height layout",
+  "scope": "Native separate backpack on Offhand; real NPC gossip and another player inspected through native /inspect; mixed-height layout",
   "recorded_at": "2026-11-21",
   "cases": [
     "NPC conversation closes on first Escape while bag stays on Offhand; second Escape clears target",
@@ -26,19 +26,19 @@
     "Core/CanvasAddonEscape.lua": "eff78212f8ee5802389f297726b506dbe8f80eac0cf22b07c34286ab880de25f",
     "Core/CanvasForeverBags.lua": "9e113bbd083201701a2c8a093aecaa7bee7aa5432dd6c675fca3692d0b6a84d7",
     "Core/HUDCompatibility.lua": "8c95ecb839a8229e801f7cd845a47c2cc5dd886df43fa6d45ae8830848aeba18",
-    "Core/Canvas.lua": "b52cd1a5807c8817d4ad13d6aedcb866bc18d2267716ba0d6030e27a07aaaee7",
+    "Core/Canvas.lua": "8ed1f56f54e7d2a166a27b0c289188d2aad412e07b4929622ad068181ab179cc",
     "Core/CanvasBackpackState.lua": "30321d368b952e31d4c9cca00409a3bc2ca7642ca0c0e6532bcb67586c48520c",
     "Core/CanvasCompatibility.lua": "77ba4d750bafb6de54fcb092e918bf755fc240a6618eebddcb453a812e4528da",
-    "Core/CanvasPanelLifecycle.lua": "6ad6866c877f4cef40a970298a5ee5b8cbbd6219c0f01aa8d0c599555b8fe787",
-    "Core/CanvasPanelPlacement.lua": "4fa1a1af61ba881a0ef811a630c95ceda96aadd851aae1ee19649231f5db6460",
+    "Core/CanvasPanelLifecycle.lua": "d851e1bf27ec8beacccf6d6149e58b98fdef84cce31c9d87c11a35fa4d75a29a",
+    "Core/CanvasPanelPlacement.lua": "b1795c8bcf56581afdba80dc208dedaa1594fcb2081bd96866d21a740f37aa84",
     "Core/CanvasPanelRegistry.lua": "f0ff38788dbe9a7afa0fe56bc857954cb1fe21e9112f66c26547ddccadca7948",
-    "Core/CanvasPersistence.lua": "795702df5067f821a1d3400139fca8be65aaafb42260f07f8913b3a8fa025ac0",
+    "Core/CanvasPersistence.lua": "f50c773f4375e93e48a1e36e87a52b2410a5f73359346e58e355c54ac6acd360",
     "Core/WorkspaceBehavior.lua": "c362bcef96b2ba646595a6539c7c93b4dbe6ac042c7776362d4db9d1324ebe61",
     "Core/MenuPlacement.lua": "873c2e0b94bf6b6c4384a10839d1670244b3a35008280d960a77c2a647b675a4",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
     "Core/Init.lua": "95f6dc239774a46966478afde8416b282a2d26be70c46589ff997db401e6f79e"
   },
   "integration_note": "Fingerprints of the tested install matched the packaged commit. Later integration changes require retesting.",
-  "source_commit": "b46c4b156eca0a5f39d21cab4703518ce3cd5422",
-  "package_sha256": "db2a22de6c9d0d5b58ffb807d36ddc2679e563cf0e0b60a6c28078a67d699ee7"
+  "source_commit": "43b419ebf09e8768a3f17cc3bc537e222d9222b8",
+  "package_sha256": "77b23897aa3ae6b5d2d85791d441d9163f5b429ee3ef814a6c10ef9a662a6eef"
 }

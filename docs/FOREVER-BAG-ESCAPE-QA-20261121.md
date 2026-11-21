@@ -185,3 +185,35 @@ in that order at the same timestamp, with both panel bounds unchanged.
 BugSack recorded zero new occurrences. Forever was closed and the temporary
 recorder was returned to its inert state. The combat placement result is from
 session 784 and the corrected client-exit result is from session 785.
+
+### Final interaction pass on 43b419e
+
+The installed addon matched the packaged candidate and the running portable
+Companion 2.1.9-beta.1 matched the test binary (SHA-256
+`24547fb66b0b6c2e7aaf8457593f15fc901e286e7fdcfccf7cc78189e5bc62e2`).
+On Moonweaver, B opened the separate native backpack on the 1440 × 600
+Offhand workspace. With keep-open enabled, a second B left it visible.
+Temporarily disabling keep-open let B close the backpack and reopen it at
+the identical bounds (789.94, 140.14, 967.94, 445.14 UIParent units).
+The current BugSack session had zero occurrences at each checkpoint. The
+original keep-open setting was restored with the backpack open.
+
+With the separate backpack open, Moonweaver interacted with a friendly NPC.
+The first Escape closed gossip and kept the NPC selected. The second Escape
+cleared the target. The game menu stayed closed and the backpack stayed at
+the same bounds across both presses. BugSack showed zero occurrences before
+the first Escape and after each press.
+
+In the same run, native `/inspect` opened a selected player's equipment on
+Mainhand. The server returned `INSPECT_READY`, and the recorder identified
+`InspectFrame` in the native left panel slot. The first Escape closed Inspect
+with the player still selected. The second cleared the target.
+
+For the early-show regression, the QA helper requested the same player's
+equipment and showed Inspect on Offhand before `INSPECT_READY`. With Inspect
+visible, all five native slots were empty and `UISpecialFrames` did not contain
+`InspectFrame`. Both Escapes behaved as in native Inspect. The backpack bounds
+were identical at all checkpoints, the game menu stayed closed, and the
+original Inspect positions were restored. BugSack session 786 recorded zero
+new occurrences for the interaction run. The trace contained no blocked or
+forbidden addon-action events.
