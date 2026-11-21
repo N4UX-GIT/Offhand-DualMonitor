@@ -137,3 +137,28 @@ The agreed Forever behavior is to leave the native map closed after login
 and reload, including when its old open marker is present. M opens it at
 the saved geometry. Addon-owned restore and late panel registration should
 both respect that rule. Other clients retain their existing reopen behavior.
+
+Packaged `d5bf3e3` passed 140 Lua suites and ten compatibility checker tests.
+The installed runtime matched the clean candidate. With Companion
+2.1.9-beta.1 applying the 1440 × 600 workspace, Moonweaver left the compact
+map open during reload. The read-only QA recorder measured the map at left
+12.0, top 445.1, width 839.5 and height 433.1 in UIParent units just before
+reload. The map stayed closed after reload and the first native M opened it
+in the same visible rectangle. BugSack's counter did not increase in session
+781. This verifies reload and first open. The combat close requires its own
+BugSack check.
+
+The native M combat close passed in session 782. The map closed 4.295
+seconds after combat entry at its saved scale of 0.811. BugSack recorded
+zero new occurrences. The native taint file still ended at the prior failed
+fight and supplied no independent trace for this run.
+
+Social opened at its fitted height of 433.1 UI units. Character measured
+338 × 424 before C and opened at 631 × 484 at scale 1, placing its top at
+496.0 on a workspace ending at 457.1. The Character root and side tabs
+covered Social. One second after combat exit both panels measured 433.1
+units tall at top 445.1 and no longer overlapped. The pinned Forever source
+shows that the first open refreshes Character to its native width and height.
+The follow-up applies that size when fitting hidden Character and includes
+Character's tabs when resolving a collision for Social during combat.
+[Forever CharacterFrameMixin:UpdateSize](https://github.com/Gethe/wow-ui-source/blob/bebcb6bf309cf41b41bd74f8ca651e6a105b2676/Interface/AddOns/Blizzard_UIPanels_Game/Camelot/CharacterFrame.lua#L248-L251)

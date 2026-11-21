@@ -150,6 +150,18 @@ function Persistence.PreservedFitFallback(frame,metrics,position)
     workspaceFitFallbacks[frame]=nil
 end
 
+function Persistence.CharacterOpenSize(frame, width, height)
+    -- Forever's hidden XML template is smaller than the paper doll. The
+    -- native first open calls CharacterFrameMixin:UpdateSize even in combat.
+    if Offhand.isForever and frame == _G.CharacterFrame and frame.IsShown and not frame:IsShown() then
+        local collapsed = frame.IsRightPaneCollapsed and frame:IsRightPaneCollapsed()
+        local openWidth = collapsed and CHARACTER_FRAME_COLLAPSED_WIDTH or CHARACTER_FRAME_WIDTH
+        width = math.max(width, tonumber(openWidth) or width)
+        height = math.max(height, tonumber(CHARACTER_FRAME_HEIGHT) or height)
+    end
+    return width, height
+end
+
 function Persistence.SideTabWidth(frame)
     if not Offhand.isForever then return 0 end
     local width
@@ -556,7 +568,7 @@ end
 -- Character and Social can each have a valid solo position on the same
 -- workspace. Use the peer's rendered rectangle while both are open, keeping
 -- their saved solo positions intact.
-local function AvoidWorkspacePeer(frame, m, x, y, width, height)
+function Persistence.AvoidWorkspacePeer(frame, m, x, y, width, height)
     local peer
     if Offhand.isForever and frame == _G.CharacterFrame then peer = _G.SocialUIFrame
     elseif Offhand.isForever and frame == _G.SocialUIFrame then peer = _G.CharacterFrame end
@@ -699,7 +711,7 @@ function Persistence.InstallRestore(Canvas, services)
                 string.match(name, "^ChatFrame") ~= nil, fallbackHeight
             )
             local peer
-            clampedX, clampedY, peer = AvoidWorkspacePeer(frame, m, clampedX, clampedY, frameWidth, frameHeight)
+            clampedX, clampedY, peer = Persistence.AvoidWorkspacePeer(frame, m, clampedX, clampedY, frameWidth, frameHeight)
 
             local factor = parentScale / frameScale
             if frame.SetClampedToScreen then

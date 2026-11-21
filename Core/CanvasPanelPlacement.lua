@@ -811,6 +811,7 @@ function Placement.Install(Canvas, services)
             if not IsPublicNumber(uiScale) or uiScale <= 0 or not IsPublicNumber(frameScale) or frameScale <= 0
                 or not IsPublicNumber(frameWidth) or frameWidth <= 0
                 or not IsPublicNumber(frameHeight) or frameHeight <= 0 then return end
+            frameWidth, frameHeight = Offhand.CanvasPersistence.CharacterOpenSize(frame, frameWidth, frameHeight)
             local factor = frameScale / uiScale
             local width, height = frameWidth * factor, frameHeight * factor
             local left, right, bottom, top = metrics.gameLeft, metrics.gameRight, metrics.gameBottom, metrics.gameTop
@@ -963,6 +964,11 @@ function Placement.Install(Canvas, services)
             end
             if workspace and not oversizedSocial then
                 x, y = ResolveCombatWorkspaceAnchor(metrics, frame, position, placement.width, placement.height)
+                if x and y and frame == _G.SocialUIFrame then
+                    local persistence = Offhand.CanvasPersistence
+                    local width = placement.width + persistence.SideTabWidth(frame) * placement.factor
+                    x, y = persistence.AvoidWorkspacePeer(frame, metrics, x, y, width, placement.height)
+                end
             else
                 local left, right = metrics.gameLeft + 12, metrics.gameRight - 12
                 local bottom, top = metrics.gameBottom + 12, metrics.gameTop - 12

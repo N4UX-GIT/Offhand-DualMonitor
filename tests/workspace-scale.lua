@@ -237,3 +237,15 @@ social.hidden=false
 social:SetScale(.55);flush();restore(social);near(social.scale,.55)
 near(a.db.savedWorkspacePositions.CharacterFrame.x,91)
 near(a.db.savedWorkspacePositions.SocialUIFrame.x,530)
+
+-- On a cold Forever login the hidden template reports 338 x 424 until C.
+character.hidden=true
+character.w,character.h=338,424
+CHARACTER_FRAME_WIDTH,CHARACTER_FRAME_HEIGHT=631,484
+character:SetScale(1)
+S:Refresh()
+near(character.scale,433/484)
+assert(not character:IsShown(),"anticipating the open size must leave Character hidden")
+character.hidden=false
+character.w,character.h=631,484
+near(character.h*character.scale,433)

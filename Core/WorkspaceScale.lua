@@ -200,6 +200,7 @@ function Scale:LimitToWorkspace(f,m,desired)
     if not width or not height or not effective or not own or not parent
         or not m.workspaceWidth or m.workspaceWidth<=24 or not m.workspaceHeight or m.workspaceHeight<=24 then return desired end
     local factor=effective/own/parent
+    width,height=Offhand.CanvasPersistence.CharacterOpenSize(f,width,height)
     width=width+Offhand.CanvasPersistence.SideTabWidth(f)
     return math.min(desired,(m.workspaceWidth-24)/(width*factor),(m.workspaceHeight-24)/(height*factor))
 end

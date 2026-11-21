@@ -137,6 +137,18 @@ assert(character.x == 46 and character.y == 1510 and character.moves == 1,
 character.x, character.protected = 1113, true
 canvas:RepairCombatWorkspaceSlots()
 assert(character.x == 1113 and character.moves == 1, "never write a protected slot's anchor during combat")
+-- A fitted Character root can still cover Social and its tabs at their solo anchors.
+assert(loadfile("Core/WorkspaceRegions.lua"))("Offhand", addon)
+metrics.workspaceTop = 457
+character.x, character.y, character.width, character.height = 91, 445, 565, 433
+CharacterFrameModeTabs = {IsShown=function() return true end, GetWidth=function() return 57 end}
+social.x, social.y, social.width, social.height = 530, 445, 263, 433
+addon.db.savedWorkspacePositions.SocialUIFrame = {x=530,y=445}
+canvas:RepairShownSocialCommunityPanels()
+assert(social.x == 721 and social.y == 445 and character.moves == 1,
+    "place Social beside Character's tab strip without moving the protected peer")
+assert(addon.db.savedWorkspacePositions.SocialUIFrame.x == 530, "keep the saved solo anchor")
+metrics.workspaceTop = 1950
 character.protected = false
 MerchantFrame = character
 function character:GetName() return "MerchantFrame" end
