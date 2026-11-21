@@ -11,6 +11,20 @@ communication, and rollback workflow, use
 
 ## Publisher setup
 
+The next Store candidate is **2.1.8**, EXE **2.1.8.1**, package **2.1.800.0**.
+See the [2.1.8 submission handoff](STORE-SUBMISSION-2.1.8.md) for the exact
+package, listing copy, certification notes and account checks.
+
+The historical **2.1.6** update has EXE **2.1.6.1** and Store package
+**2.1.600.0**. Use `scripts/New-Companion216Candidate.ps1` and the exact frozen
+candidate path/hash with the package builder. See
+[the 2.1.6 preparation record](../../docs/COMPANION-2.1.6-STORE-PREPARATION-20261110.md).
+It was submitted on 2026-11-10 as public Submission 7, ID
+`1152921505702364011`, and is in certification with automatic publication after
+approval. See [the submission receipt](../../docs/evidence/companion-216-public-submission.json).
+The historical commands below are retained as examples; do not rebuild the tested
+2.1.6 payload or replace the published 2.1.5 assets.
+
 1. Create a free individual developer account from
    <https://storedeveloper.microsoft.com/>.
 2. Reserve **Offhand Companion** in Partner Center.
