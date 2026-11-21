@@ -57,9 +57,9 @@
                 <p class="deck-intro-text">Choose one alternative: FancyZones or manual placement. Follow only your selected section, then confirm the placement in WoW. Neither method requires Companion.</p>
                 <p class="deck-intro-text">Before spanning, save a copy of your Blizzard Edit Mode layout and back up your UI addon profiles. The changed UI canvas can require repositioning custom interfaces.</p>
                 <p class="deck-intro-text">Offhand validates the resulting game canvas. It does not connect to PowerToys or inspect another application.</p>
-                <p class="deck-intro-text"><a href="companion.html">Want the recommended Companion method instead?</a></p>
+                <p class="deck-intro-text"><a href="#macos">Setting up on a Mac?</a> · <a href="companion.html">See the Companion method for Windows</a></p>
             </div>
-            <nav class="page-jump-nav" aria-label="Window setup guide sections"><span>On this page</span><a href="#choose-method">Choose method</a><a href="#fancyzones">FancyZones</a><a href="#manual">Manual placement</a><a href="#remember">Confirm placement</a><a href="#relaunch">Relaunch check</a></nav>
+            <nav class="page-jump-nav" aria-label="Window setup guide sections"><span>On this page</span><a href="#choose-method">Choose method</a><a href="#macos">macOS</a><a href="#fancyzones">FancyZones</a><a href="#manual">Manual placement</a><a href="#remember">Confirm placement</a><a href="#relaunch">Relaunch check</a></nav>
         </section>
 
         <section class="content-section" id="choose-method" aria-labelledby="choose-method-title">
@@ -149,6 +149,16 @@
                     <strong>The reported canvas can be smaller than the displays.</strong> FancyZones lays out zones in the Windows work area, which normally excludes the taskbar, then sizes the complete desktop window including its borders. WoW reports the render area inside that frame. A <code>4000×2560</code> physical display union can therefore legitimately appear in Offhand as approximately <code>3998×2480</code>. Keep WoW in standard <strong>Windowed</strong> mode, remove any FancyZones space around the zone, visually confirm the seam, then follow the <a href="#remember">confirmation step</a>. Offhand stores the detected render canvas and does not require it to equal the monitors’ combined outer rectangle.
                 </div>
             </div></details>
+        </section>
+
+        <section class="content-section" id="macos" aria-labelledby="macos-title">
+            <div class="section-header"><h2 class="section-title guide-section-title" id="macos-title">Set up Offhand on a Mac</h2><p class="section-subtitle">Use the addon with manual placement today. A native Mac Companion is in active development and has no public release or release date.</p></div>
+            <ol class="workspace-steps">
+                <li><strong>Extend your desktop.</strong> In <a href="https://support.apple.com/guide/mac-help/mh40768/mac">System Settings → Displays</a>, use the second screen as an extended display and arrange it to match your desk. For a first test, place the screens side by side with a shared vertical area. On one ultrawide, choose the area you want WoW to occupy.</li>
+                <li><strong>Open the in-game guide.</strong> Enter the world with Offhand enabled, type <code>/offhand guide</code>, and choose <strong>Configure Manually</strong>. In WoW’s Graphics settings, use <strong>Windowed</strong> so you can move and resize the window.</li>
+                <li><strong>Resize and verify.</strong> Drag the WoW window across the intended area. Check that both parts are visible and clickable before following the <a href="#remember">placement checks</a> and starting calibration.</li>
+            </ol>
+            <details class="faq-card workspace-detail"><summary>WoW stays on one display or part of the window is hidden</summary><div class="faq-body"><p>Check that the displays are extended, the window has a title bar, and its edges can reach both screens. Check <strong>Displays have separate Spaces</strong> under <a href="https://support.apple.com/guide/mac-help/mchlp1119/mac">System Settings → Desktop &amp; Dock → Mission Control</a> if the second part disappears when you release the window. For a comparison, try turning it off and sign out and back in if macOS asks. This affects desktop Spaces and how features such as Stage Manager and Split View work on other displays. macOS and WoW may limit how a window spans a particular display arrangement. If either side stays hidden or cannot be clicked, return WoW to a usable window and leave placement unconfirmed.</p><p>If you report the result, include your macOS and WoW versions, display arrangement and scaled resolutions, the Spaces setting, and what you could see and click. If the span is usable, include <code>/offhand diag full</code>.</p></div></details>
         </section>
 
         <section class="content-section" id="manual">

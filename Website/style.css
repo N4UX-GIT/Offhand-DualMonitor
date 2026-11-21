@@ -1954,6 +1954,8 @@ kbd {
 }
 
 .policy-disclaimer p { margin: 10px 0 0; }
+.policy-disclaimer ul { margin: 12px 0; padding-inline-start: 1.4em; }
+.policy-disclaimer li + li { margin-top: 8px; }
 
 .background-promo-card {
     display: grid;

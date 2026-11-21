@@ -18,7 +18,7 @@
                     <summary>Menu <span aria-hidden="true">▾</span></summary>
                     <nav class="site-menu-panel" aria-label="Complete site navigation">
                         <div class="site-menu-group"><span class="site-menu-label">Pages</span><a href="index.html">Home</a><a href="demonstration.html">Demonstration</a><a href="index.html#setup">Start setup</a><a href="in-game-setup.html">Finish in WoW</a><a href="background-studio.html">Background Studio</a><a href="manual-spanning.html">Other methods</a></div>
-                        <div class="site-menu-group site-menu-sections"><span class="site-menu-label">On this page</span><a href="#install">Install</a><a href="#first-setup">First setup</a><a href="#everyday">After setup</a><a href="#controls">Optional controls</a><a href="#recovery">Recovery</a><a href="#security">Security and policy</a></div>
+                        <div class="site-menu-group site-menu-sections"><span class="site-menu-label">On this page</span><a href="#account-policy">Account risk</a><a href="#install">Install</a><a href="#first-setup">First setup</a><a href="#everyday">After setup</a><a href="#controls">Optional controls</a><a href="#recovery">Recovery</a><a href="#security">Download security</a></div>
                         <div class="site-menu-external"><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor" target="_blank" rel="noopener">GitHub <span aria-hidden="true">↗</span></a><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">CurseForge <span aria-hidden="true">↗</span></a><a href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer">Discord ↗</a></div>
                     </nav>
                 </details>
@@ -36,13 +36,27 @@
                 <p class="deck-intro-text">You are following the Companion method, recommended for Windows. Use Companion to place WoW, then finish calibration inside the game. You do not need FancyZones or the manual-placement guide.</p>
                 <p class="deck-intro-text">It positions the ordinary World of Warcraft desktop window. It does not control gameplay, send game input, inject code, or read game memory.</p>
                 <div class="hero-actions"><a href="#install" class="btn btn-wow-red btn-lg">Install Companion</a><a href="#first-setup" class="btn btn-wow-stone btn-lg">Already installed? Start setup</a></div>
-                <p class="deck-intro-text"><a href="index.html#setup">Choose a different setup method</a></p>
+                <p class="deck-intro-text"><a href="#account-policy">Read Blizzard rules and account risk before installing</a> · <a href="manual-spanning.html#macos">Setting up on a Mac?</a> · <a href="index.html#setup">See all placement methods</a></p>
             </div>
-            <nav class="page-jump-nav" aria-label="Companion guide sections"><span>On this page</span><a href="#install">Install</a><a href="#first-setup">First setup</a><a href="#everyday">After setup</a><a href="#controls">Optional controls</a><a href="#recovery">Recovery</a><a href="#security">Security and policy</a></nav>
+            <nav class="page-jump-nav" aria-label="Companion guide sections"><span>On this page</span><a href="#account-policy">Account risk</a><a href="#install">Install</a><a href="#first-setup">First setup</a><a href="#everyday">After setup</a><a href="#controls">Optional controls</a><a href="#recovery">Recovery</a><a href="#security">Download security</a></nav>
+        </section>
+
+        <section class="content-section" id="account-policy" aria-labelledby="account-policy-title">
+            <div class="policy-disclaimer">
+                <h2 id="account-policy-title">Blizzard rules, bans and account risk</h2>
+                <p><strong>We asked Blizzard to clarify how its rules apply to Offhand Companion and have yet to receive a reply.</strong></p>
+                <ul>
+                    <li><strong>Offhand addon alone.</strong> We expect zero additional account risk from normal use of the addon. It uses WoW’s in-game UI APIs to arrange the viewport and supported panels, and it works with manual window placement.</li>
+                    <li><strong>Optional Windows Companion.</strong> We expect zero additional account risk from its normal window placement based on our reading of Blizzard’s Terms of Service and EULA. Companion moves and resizes the desktop window through Windows APIs and shares the layout with the addon. It does not modify the game client, automate play, send gameplay input, inject code, or read game memory.</li>
+                </ul>
+                <p>To date, no one has provided the Offhand team with material evidence that a player was banned for using Companion.</p>
+                <p><strong>The choice is yours.</strong> These are the project’s assessments of normal use. Blizzard alone decides how to apply its rules, and we cannot guarantee the outcome for any account. If you prefer to play without a desktop utility, use <a href="manual-spanning.html#manual">manual placement</a> with the addon.</p>
+                <p><a href="https://www.blizzard.com/en-us/legal/08b946df-660a-40e4-a072-1fbde65173b1/blizzard-end-user-license-agreement">Blizzard EULA</a> · <a href="https://us.forums.blizzard.com/en/wow/t/prohibitions-on-third-party-software/2142972/1">Blizzard’s WoW statement on third-party software</a> · <a href="https://battle.net/support/">Blizzard Support for account actions</a></p>
+            </div>
         </section>
 
         <section class="content-section" id="install">
-            <div class="section-header"><h2 class="section-title guide-section-title">Choose the official build</h2><p class="section-subtitle">Microsoft Store is the recommended Windows installation. A portable download is available separately.</p></div>
+            <div class="section-header"><h2 class="section-title guide-section-title">Choose the official build</h2><p class="section-subtitle">Microsoft Store is the recommended Windows installation. A portable download is available separately. <a href="#account-policy">Review Blizzard rules and account risk before installing.</a></p></div>
             <div class="grid-3 companion-download-grid">
                 <article class="wow-card recommended-method download-card">
                     <h3 class="wow-card-title">Microsoft Store</h3>
@@ -137,12 +151,6 @@
             <div class="setup-split">
                 <article class="faq-card guide-panel"><h3>Companion behavior</h3><p>Companion identifies the visible WoW desktop window, changes its border and dimensions, and gives Offhand the selected display geometry. It does not request administrator access, install a service or driver, inject code, read WoW memory, automate gameplay, collect telemetry, or download and execute code.</p><p>Store installations use Microsoft Store for updates. Portable installations contact GitHub only when you select <strong>Check for Updates</strong>.</p></article>
                 <article class="faq-card guide-panel"><h3>Download reputation</h3><p>The Store package is Microsoft signed. The separate GitHub executable is unsigned, so browsers or scanners may show a reputation or heuristic warning. A clean scan does not prove safety, and a generic reputation warning is not the same as a named malware detection.</p><p><a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md">Review exact hashes, submissions, and build provenance</a>.</p></article>
-            </div>
-            <div class="policy-disclaimer">
-                <h3>Blizzard policy and anti-cheat disclaimer</h3>
-                <p>For this workflow, Offhand Companion and FancyZones perform a comparable desktop-window-management role. They resize or reposition an ordinary Windowed WoW window and are designed not to automate gameplay, send game input, inspect game memory, inject code, or modify game files.</p>
-                <p>This is not a guarantee of approval or account safety. Microsoft authorship, Microsoft Store availability, open-source code, security scans, and the absence of gameplay automation do not constitute Blizzard authorization. Blizzard alone interprets and enforces its agreements, and its published EULA states that the platform may monitor for unauthorized third-party programs. Use any desktop utility at your own discretion and stop using it if Blizzard guidance changes.</p>
-                <p><a href="https://www.blizzard.com/en-us/legal/bfbbb648-bcc6-4b78-a5c7-e2fe20c135df/blizzard-end-user-license-agreement" target="_blank" rel="noopener">Read Blizzard's current EULA</a> · <a href="https://www.blizzard.com/legal/cd5930c0-2784-420c-a23d-1e0d6ff8599b/anti-cheating-vereinbarung" target="_blank" rel="noopener">Read Blizzard's anti-cheating agreement</a></p>
             </div>
         </section>
     </main>
