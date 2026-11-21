@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "ptBR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novidades do Offhand v%s"
+L["WHATS_NEW_BETA37"] = "No Forever, as janelas de personagem e social cabem lado a lado em áreas de trabalho baixas. Após recarregar, o mapa fica fechado até você pressionar M."
 L["WHATS_NEW_BETA36"] = "• Corrigido um problema ao fechar a interface do Offhand que podia atrasar a tela de carregamento após /reload.\n• No Forever, Profissões e o Grimório abrem no Mainhand por padrão e permanecem lá quando usados juntos.\n• No Forever, as configurações salvas mais recentes têm prioridade sobre uma cópia de recuperação antiga do Companion."
 L["WHATS_NEW_BETA35"] = "• No Forever, o mapa-múndi permanece visível no Offhand enquanto você se move.\n• Mover OpenMap para Offhand."
 L["WHATS_NEW_BETA34"] = "• Use /offhand centerline para conferir o alinhamento da tela principal.\n• Configure o EllesmereUI em um perfil separado depois de exportar um backup.\n• Experimente o espaço de trabalho C em um quarto monitor com a versão beta portátil correspondente do Companion."

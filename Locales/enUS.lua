@@ -14,6 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA37"] = "On Forever, Character and Social fit side by side on short workspaces. The map stays closed after reload until you press M."
 L["WHATS_NEW_BETA36"] = "• Fixed an Offhand shutdown issue that could delay the loading screen after /reload.\n• On Forever, Professions and Spellbook open on Mainhand by default and stay there when used together.\n• On Forever, newer saved settings now take precedence over an older Companion recovery snapshot."
 L["WHATS_NEW_BETA35"] = "• The World Map stays visible on Offhand while you move on Forever.\n• Move OpenMap to Offhand."
 L["WHATS_NEW_BETA34"] = "• Use /offhand centerline to check Mainhand alignment.\n• Set up EllesmereUI in a separate profile after exporting a backup.\n• Try Workspace C on a fourth display with the paired portable Companion beta."

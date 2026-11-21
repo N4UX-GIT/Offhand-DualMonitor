@@ -28,6 +28,10 @@ try {
         if (!$blocked -or (Test-Path -LiteralPath (Join-Path $fixture 'must-not-exist'))) {
             throw 'Historical verification must not prepare packages.'
         }
+        $blocked = $false
+        try { & $script -ValidateOnly | Out-Null }
+        catch { $blocked = $_.Exception.Message -like 'Frozen Companion source changed:*' }
+        if (!$blocked) { throw 'Current source must not masquerade as the original 2.1.5 submission.' }
     }
     foreach ($sample in @('Offhand.exe', 'Offhand-Companion-v2.1.5.zip')) {
         Reset-Fixture

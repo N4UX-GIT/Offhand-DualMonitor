@@ -1,0 +1,88 @@
+# Offhand Beta 30 Discord follow-up
+
+The read-only refresh covered 41 bug reports, 18 of them archived, plus the forum template and support channel. It found no new messages since the tag review. One older forwarded original returned 404. The forum counts remain 29 Fixed and 12 Needs Info. The four support follow-ups below also belong in the investigation queue.
+
+| Priority | Report | Next check or change |
+| --- | --- | --- |
+| P0 | [Real loot rolls](https://discord.com/channels/1491522138371391691/1569437830227165386) | On Beta 30, use the default roll UI with spanning applied. Resolve one of two live rolls and check that the other stays visible and usable. On a failure, capture the client/build, roll frame visibility, combat state and `/offhand diag full` before reloading. The reporter's XLoot workaround leaves this check open. |
+| P1 | [Bag comparison tooltips overlap](https://discord.com/channels/1491522138371391691/1551335554787057694/1569930301923139657) | Port the native comparison group fix. Verify real two-ring comparisons in bags on both displays, with and without Forever Leveling BiS, on Forever 70888 or the current build. Check hide, restore and respan. |
+| P1 | [Portrait/4K HUD overlap](https://discord.com/channels/1491522138371391691/1551335554787057694/1569829613121577123) and [HUD before reload](https://discord.com/channels/1491522138371391691/1569461564438745109) | Port native generated HUD fitting. Compare the source and generated layouts immediately after creation and after reload. Check 3840×2160 Mainhand with 1440×2560 portrait workspace, stock HUD and EllesmereUI separately. Capture which frames still overlap and who owns them. |
+| P1 | [Combat panel clipping](https://discord.com/channels/1491522138371391691/1569436487232135190) | Identify the window mover and capture Character, Professions or Skills frame ownership and bounds before, during and after combat. Repeat with the competing mover disabled. |
+| P1 | [Character centering](https://discord.com/channels/1491522138371391691/1500958707918438442/1569910400445718712) and [Companion viewport offset](https://discord.com/channels/1491522138371391691/1569441970189770863) | Compare actual WorldFrame bounds with the planned Mainhand rectangle. For the black area at 150% Windows scaling, also capture the native window and render bounds, exact game build and Store Companion version. |
+| P1 | [Unreachable map title](https://discord.com/channels/1491522138371391691/1551335554787057694/1569829297919631392) and [stacked panels and controller](https://discord.com/channels/1491522138371391691/1567984437009055764) | Capture the active map owner, saved map scale and stacked display bounds. Test keyboard map placement and physical controller Back separately. Record the result of Restore Window while the title is unreachable. |
+| P2 | [Minimap hiding](https://discord.com/channels/1491522138371391691/1569183781720686775), [buff flashing](https://discord.com/channels/1491522138371391691/1568299430090903602) and [Zygor arrow](https://discord.com/channels/1491522138371391691/1568022210801565781) | Reproduce with the affected profiles and record the first frame whose visibility or anchors change. Test stock minimap and SexyMap separately. Identify the buff frame and Zygor version. Daylight map validation stays deferred. |
+| P2 | [Floating chat text](https://discord.com/channels/1491522138371391691/1558483840542974094) and [unit text and profession bags](https://discord.com/channels/1491522138371391691/1569545754253594744) | Collect the affected profile and exact trigger. Compare Blizzard chat and Better Forever Chat, and check the unit-frame text preference independently of Escape with a profession bag open. |
+| P2 | [GPU usage](https://discord.com/channels/1491522138371391691/1569436959632392235), [French setup span mismatch](https://discord.com/channels/1491522138371391691/1560316087269335082) and [Linux focus unspan](https://discord.com/channels/1491522138371391691/1557837307820904600) | Compare the same scene and FPS cap with spanning on and off. Collect display and addon diagnostics for the post-reload setup mismatch. Retest native Wayland on the reporter's runner. |
+
+## Candidate changes
+
+Branch `codex/discord-beta30-followup` starts at `origin/main` (`44e9746`), with the same runtime as published Beta 30. It carries forward the locally tested `PopupBounds.lua` and `MainhandEditMode.lua` bytes from the development checkout.
+
+- Modern comparison cards retain Blizzard's anchor order. The root reserves space for the group inside its display when it fits. Larger groups use native positioning. The full layout path releases owned tooltip bounds on return to one screen. The two-ring regression uses the reporter's 1920×1080 Mainhand at Y=237 and 1080×1920 portrait workspace proportions.
+- Native HUD creation fits measurable groups in the generated copy, including eligible stretched frames. It keeps custom positions already inside Mainhand and saves a snapshot before replacing generated data. The selected ordinary layout is the source for creation. The wizard and creation tooltip describe the copy and reload workflow.
+
+The runtime module hashes match the earlier scoped Forever 70862 test with spanning applied. That test observed adjacent native comparison cards and generated HUD placement surviving reload. The current integration adds an unspan cleanup call and models the Forever 70888 ring anchor chain in Lua. The exact reported bag items, replacement-addon combination, physical portrait/4K setup, live rolls and complete taint behavior still need native verification. [Previous native QA](D:/Tools/Code/Offhand/docs/HUD-TOOLTIP-NATIVE-QA-20261110.md) · [Forever 70888 comparison source](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_SharedXMLGame/Tooltip/TooltipComparisonManager.lua#L43-L132)
+
+All 127 Lua 5.1 suites pass, including 1,100 comparison assertions, 38 HUD-fitting assertions and the layout lifecycle check. All six manifests pass path, XML and Lua syntax validation.
+
+## Forever map recovery follow-up
+
+The reporter describes a visible World Map and Quest Log with the drag surface above the display. Their map owner and layout remain unknown. In a mixed-height Lua fixture, the native map body intersected Mainhand but the drag handle was entirely above it. The previous missing-only recovery skipped that map.
+
+Recover Missing UI and `/offhand gather` now use the existing Forever handle geometry for the map. Oversized maps retain their scale and place the handle inside Mainhand. The missing-only action checks the resulting position before retiring the previous saved placement. Controller ownership, a current drag, maximized maps, external ownership and combat still prevent the map move. The OpenMap-specific recovery remains available through its existing command.
+
+The shared knowledge search index was stale. The scoped change uses Offhand's existing independent drag surface and the Forever 70888 root definition. Native verification still needs an affected layout and the reporter's active map owner. [Forever map definition](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_WorldMap/Blizzard_WorldMap.xml#L65-L124)
+
+## Combat and viewport evidence
+
+The combat report describes Character, Professions and Skills moving partly beyond the left edge of the second display and returning after combat. The reporter uses a window mover. The client/build, mover name and first position writer remain unknown. Ordinary Offhand panel restores already defer during lockdown. There is insufficient evidence to change combat placement policy. [Combat report](https://discord.com/channels/1491522138371391691/1569436487232135190)
+
+`/offhand diag full` now reports visible Character, Skills, spellbook and professions roots with parent, effective scale, UIParent-space rectangle, first anchor and saved placement side. It reads only public values from known panels. Capture the same open panel before combat, during clipping and after combat, then repeat with the mover disabled. This can show whether the anchor, ancestor or effective scale changed. Identifying the writer may still require a controlled reproduction.
+
+Full reports also print actual and planned WorldFrame rectangles in bottom-origin physical pixels. The compact report includes these bounds when its viewport check fails. The diagnostic command leaves saved settings alone. Frame geometry and the observed 3D camera position remain separate evidence. The shared Forever search index was stale, so the combat accessor check used the upstream 70888 declaration and the existing Offhand panel source. [Blizzard anchor accessor declaration](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleScriptRegionResizingAPIDocumentation.lua#L49-L81)
+
+## Calibration completion guidance
+
+A newer support report shows an applied span with action bars on both sides. The player confirmed moving their HUD resolved it. The calibration completion message and its final HUD reload prompt now tell players to check their action bars, unit frames and minimap on Mainhand, then save any remaining adjustments in Blizzard Edit Mode or their HUD addon's editor. The message is translated in all supported locales. [Screenshots and player follow-up](https://discord.com/channels/1491522138371391691/1551335554787057694/1569943646185193523)
+
+All 127 Lua suites and six manifest checks pass. The diagnostic reads and completion guidance still need native UI confirmation.
+
+## Loot-roll follow-up
+
+The current support scan has no new default-UI roll retest. The production Lua fixture reproduced a separate placement defect with three live entries in the native row array and effective scales of 1, 1.5 and 0.5. The previous offset calculation could put the third row back over the second. The follow-up spaces consecutive row centers using their measured heights and native reserved space in UIParent units. It preserves the existing order, stack direction, row sizes and saved position. The fixture exercises both stack directions and retains sparse and equal-scale coverage.
+
+`/offhand diag full` now reports a count of pending rolls when the client exposes it, container visibility, and the state and readable bounds of each registered keyboard row. For the live retest, capture one report with two default rolls visible, resolve one, and capture another before reloading if a row disappears. The report can distinguish an active roll with no keyboard row, a hidden row, and a row outside Mainhand. The current check is simulated. The real roll lifecycle, combat behavior and the reported disappearance still need player verification. [Forever 70888 native roll container](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_UIPanels_Game/Mainline/GroupLootFrame.lua#L47-L148)
+
+## NPC quest windows during single-screen recovery
+
+The latest read-only refresh covered 42 threads, including the template and 19 archives. It added no messages since the calibration follow-up and returned one previously known 404 for a forwarded original. The escalation poll was empty.
+
+The existing report describes the NPC quest window failing to appear after moving it to Mainhand, disabling Offhand and restoring the native window. The Lua fixture reproduced a related case with a saved workspace position and a topology mismatch. Even after the native manager had placed an active quest or gossip panel on the visible screen, Offhand's generic recovery pass could hide it. Blizzard's quest frame closes the interaction when hidden. Recovery now leaves interaction-bound panels to the native panel manager, preserving their saved placement for the next span. Ordinary workspace panels still receive their existing recovery behavior. The reported Mainhand move and subsequent NPC interaction still need an in-game retest. [Discord report](https://discord.com/channels/1491522138371391691/1569621972415946834) · [Forever 70888 quest window closure](https://github.com/Gethe/wow-ui-source/blob/4cd0ab752a77164f654ccbca9d0c1fe8dafceebe/Interface/AddOns/Blizzard_UIPanels_Game/Mainline/QuestFrame.lua#L414-L431)
+
+## Keyboard World Map on a stacked workspace
+
+The keyboard follow-up describes the World Map expanding after it is dragged to an upper workspace. An offline test with a wide, short upper workspace reproduced two writes from the current keyboard configuration path. AUTO first applied scale 2.476 from the available width, then applied approximately 0.6105 after accounting for height and inherited scale. Reconfiguring an already fitted map repeated both writes. The candidate computes the fitted scale first and writes it only when it differs. It retains explicit smaller scales and the existing native Gamepad, combat, maximized and external-owner boundaries. [Keyboard report](https://discord.com/channels/1491522138371391691/1567984437009055764/1569068900920856770)
+
+The regression failed before the correction and passed afterward. All 127 Lua suites and six manifest checks passed. The local Forever 70862 client was at a disconnected screen. Live rendering on the reported stacked displays and physical controller Back remain open.
+
+## Redundant map layout during idle time
+
+The Forever map observer previously cleared and rebuilt the addon-owned drag handle's anchors every tenth of a second, even when the map was stationary or closed. A full map also reapplied the recovery button's anchors and visibility. The candidate leaves both controls alone on steady ticks. The fixture covers windowed, closed, full and Gamepad-owned map states, plus moving and reopening the map. The observer still notices visibility changes and the handle follows updated geometry. [GPU report](https://discord.com/channels/1491522138371391691/1569436959632392235)
+
+This reproduces repeated UI layout writes in Lua. The local Forever client was disconnected, so GPU utilization, frame time and native control behavior remain unmeasured. A matched spanned and unspanned capture still needs the same scene, graphics settings and FPS cap.
+
+## Forever 70888 live follow-up
+
+The user reconnected. The installed Microsoft Store Companion 2.1.6 wrote a 2560×1440 single-display span with Mainhand `(1280,0 1280×1440)` and the workspace `(0,0 1280×1440)`. Before reload, the running addon still showed the previous centered game region. After reload the world occupied the right half and the character was centered within it. This is a one-display result. The two-display portrait centering and 150% DPI black-area reports still need their original setups.
+
+Only `Core/CanvasForeverMap.lua` from `f669f4e` was overlaid on the existing mixed private Beta 28 and workspace QA installation. Its installed SHA-256 was `07897EAB4D2D2B02C9A3FAB5B504F44C65CAE0813B4E67398EF1B5AC5C629206`. The candidate opened the map on the left workspace and M closed it. The existing probe sampled local scale 1 shortly after opening and 1.4951 by the next reload. The latter matches the existing AUTO width calculation for this workspace. The sampling does not identify the first writer or prove that the drag caused the change. A vertical title drag and a maximize click did not visibly move or maximize the map on either the candidate or the restored module. The drag handle and full-map recovery button therefore still need native acceptance. The separate stacked-fit patch was not installed during this comparison.
+
+The five existing BugGrabber error messages, times and counters matched before and after. Companion restored the original window, the client closed normally, and all 27 backed-up files were restored and hash-verified. The test preserved the existing QA helper and captured its run data privately. Real loot rolls, physical controller Back, GPU utilization, combat behavior and Daylight remain open.
+
+## ForeverXPbar, EllesmereUI and left-edge comparison follow-up
+
+ForeverXPbar 0.8.7 owns the saved anchor for `ForeverXPBarMainFrame`. Offhand's automatic popup scan could reposition a centered bar during startup. The regression fails with the prior ownership check and passes with the exact root excluded. The fixture also checks a later anchor in a display gap. The reporter's saved anchor and a cold relog with spanning applied still need verification. [ForeverXPbar report](https://discord.com/channels/1491522138371391691/1570065702847651961)
+
+EllesmereUI 9.8.4 calculates **Center on Screen** from the full `UIParent` width. Its mover can target the Mainhand midpoint through Offhand's existing `Offhand.API.GetMainhandRect()` API. Separately, Offhand's transfer preview now names a fixed screen-edge anchor and explains how to adjust or remove it in Unlock Mode. Fit and Copy preserve the link. The reporter's exact CDM-to-Player configuration remains unverified. [Center on Screen report](https://discord.com/channels/1491522138371391691/1570014800640081980) · [Linked HUD retest](https://discord.com/channels/1491522138371391691/1551335554787057694/1569997236484702260)
+
+The current comparison-tooltip fix passed a new fixture with a bag item against the physical left edge of a spanned workspace and two comparison cards. Both native comparison directions fit in the fixture. The reporter's live bag and item setup still needs verification. [Left-edge comparison report](https://discord.com/channels/1491522138371391691/1551335554787057694/1570046596387835915)

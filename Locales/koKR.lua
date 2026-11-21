@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s의 새로운 기능"
+L["WHATS_NEW_BETA37"] = "Forever에서는 높이가 낮은 작업 공간에서도 캐릭터 창과 소셜 창이 나란히 표시됩니다. UI를 다시 불러온 후에는 M 키를 누를 때까지 지도가 닫혀 있습니다."
 L["WHATS_NEW_BETA36"] = "• Offhand UI가 종료될 때 /reload 후 로딩 화면이 늦게 표시될 수 있는 문제를 수정했습니다.\n• Forever에서는 전문 기술과 마법책이 기본적으로 Mainhand에서 열리며, 둘 다 열어도 그 위치를 유지합니다.\n• Forever에서는 Companion의 이전 복구 사본보다 최신 저장 설정이 우선 적용됩니다."
 L["WHATS_NEW_BETA35"] = "• Forever에서 세계 지도가 Offhand에 있으면 이동 중에도 표시됩니다.\n• OpenMap을 Offhand로 이동."
 L["WHATS_NEW_BETA34"] = "• /offhand centerline으로 주 화면의 정렬을 확인할 수 있습니다.\n• 백업을 내보낸 후 별도 프로필에서 EllesmereUI를 설정하세요.\n• 함께 제공되는 휴대용 Companion 베타로 네 번째 화면에서 작업 공간 C를 사용해 보세요."

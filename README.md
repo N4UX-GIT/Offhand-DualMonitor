@@ -12,14 +12,7 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-Current release: **Offhand add-on 2.1.5 Pre-Release Beta 28** with
-**Companion 2.1.5**. The add-on remains a public beta. Companion 2.1.5 is submitted
-to Microsoft Store certification with automatic publication after approval;
-Store availability can lag the portable GitHub release. The Store installs only
-Companion, so install the add-on separately.
-See [release preparation](docs/PUBLICATION-2.1.5-PREPARATION-20261109.md) and
-[installation guidance](docs/INSTALL-2.1.5.txt). Custom workspace/Flexible Layout,
-setup and map fixes are included, with native acceptance limits recorded there.
+Offhand Beta 37 pairs with Windows Companion 2.1.9-beta.1. See the [changelog](CHANGELOG.md) for changes and contributor credits.
 
 ---
 
@@ -121,15 +114,18 @@ Display choices are persisted by Windows device identity. If a saved display dis
 
 If a generated Companion topology no longer matches the current window, Offhand
 fails safe to the full current window and preserves the saved workspace layout.
-An absent topology is the normal packaged state for manual spanning, so Offhand
-uses the selected orientation, seam percentage, and aspect-ratio controls. After
-**Span WoW Now**, use `/reload` once if WoW was already open so the Companion's
-exact rectangles become active.
+Manual and FancyZones setups use their confirmed canvas and the selected
+orientation, seam percentage, and aspect ratio.
 
-Addon managers and manual source copies can replace the generated topology file
-with the packaged placeholder. While WoW remains exactly spanned, Companion
-Beta 19 and later automatically repairs that handoff without moving the window
-and records that one `/reload` is required in its activity log.
+An addon update can replace the generated Companion display snapshot. If
+Companion setup is selected, Offhand uses the full window while it waits for
+a matching snapshot and retains your calibration. Open Companion, check the
+selected displays and Mainhand, and click **Span WoW Now**. If WoW was already
+open, type `/reload` once afterward to load the snapshot.
+
+If Companion still recognizes the layout it applied to the running WoW window,
+it can repair the snapshot without moving WoW. When its activity log says it
+repaired the layout, type `/reload` once.
 
 ### Manual Setup (No Companion App)
 Manual spanning is supported on Retail, Classic, and Forever clients:
@@ -187,6 +183,7 @@ Offhand leaves the Edit Mode manager and protected HUD frames entirely under Bli
 | :--- | :--- |
 | /offhand or /oh | Opens the configuration dashboard. |
 | /offhand wizard | Launches the interactive setup wizard. |
+| /offhand whatsnew | Reopens the release highlights and Companion update links shown after an addon update. |
 | /offhand gather | Rescues any off-screen windows and pulls them back to your Mainhand Monitor. |
 | /offhand diag | Prints a support snapshot for versions, display geometry, persistence, Edit Mode, and map ownership. |
 | /offhand diag full | Prints the support report: topology, setup progress, persistence revisions, HUD fitting, and relevant chat anchors/snapping. Does not start a capture. |

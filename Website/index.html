@@ -10,7 +10,7 @@
     <meta property="og:title" content="Offhand | Dual-Wield Your Monitors">
     <meta property="og:description" content="Equip your Offhand. Dual wield your monitors. Lock 3D gameplay to your gaming display while turning your secondary screen into a persistent utility Offhand Monitor.">
     <meta property="og:image" content="assets/offhand-banner.png">
-    <link rel="stylesheet" href="style.css?v=20261108-comparison-panel">
+    <link rel="stylesheet" href="style.css?v=20261109-beta-preview">
 </head>
 <body class="home-page">
 
@@ -20,7 +20,7 @@
             <a class="brand" href="index.html" aria-label="Offhand home">
                 <img src="assets/offhand-icon.png" alt="Offhand Addon Icon" class="brand-medallion">
                 <div class="brand-text">
-                    <span class="brand-title">OFFHAND</span>
+                    <span class="brand-title">OFFHAND <span class="brand-beta">Beta</span></span>
                     <span class="brand-subtitle">Dual-Wield Your Monitors</span>
                 </div>
             </a>
@@ -73,6 +73,11 @@
 
                 <h1 class="hero-title">OFFHAND</h1>
                 <div class="hero-subtitle">Equip your Offhand. Dual wield your monitors.</div>
+                <aside class="beta-notice" aria-label="Pre-release status">
+                    <span class="beta-notice-label">Public beta <span aria-hidden="true">&middot;</span> Actively testing</span>
+                    <p>Offhand is in active development. Expect bugs and setup changes during testing.</p>
+                    <a href="https://discord.gg/J2P3SM6pAY" target="_blank" rel="noopener noreferrer">Get help or report an issue on Discord <span aria-hidden="true">↗</span></a>
+                </aside>
             </div>
         </div>
     </section>
@@ -118,7 +123,7 @@
                 </a>
             </div>
             <div class="hero-download-note" style="margin-top: 12px; font-size: 0.88rem; color: #8a92a6;">
-                On Windows, we recommend the <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" style="color: var(--rio-gold);">Microsoft Store Companion</a> for exact monitor geometry and borderless placement. <a href="manual-spanning.html" style="color: var(--rio-gold);">FancyZones and manual placement</a> remain available. A <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5/Offhand-Companion-v2.1.5.zip" target="_blank" rel="noopener" style="color: var(--rio-gold);">portable build</a> is also available for Linux/Wine.
+                On Windows, we recommend the <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" style="color: var(--rio-gold);">Microsoft Store Companion</a> for exact monitor geometry and borderless placement. <a href="manual-spanning.html" style="color: var(--rio-gold);">FancyZones and manual placement</a> remain available. A <a href="https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5/Offhand-Companion-v2.1.5.zip" target="_blank" rel="noopener" style="color: var(--rio-gold);">older portable build</a> is also available for Linux/Wine.
             </div>
 
             <div class="hero-stats-bar">
@@ -182,8 +187,8 @@
 
                     <div class="wow-card feature-card">
                         <div class="feature-shot">
-                            <svg viewBox="20 15 840 350" role="img" aria-label="The setup wizard detects the displays and offers one-click auto-configuration." focusable="false">
-                                <image href="assets/offhand-wizard-detection-20261101.png" width="878" height="600"/>
+                            <svg viewBox="15 10 750 380" role="img" aria-label="Calibration Detection page showing Use Companion layout." focusable="false">
+                                <image href="assets/offhand-wizard-detection-20261109.png" width="780" height="697"/>
                             </svg>
                         </div>
                         <h3 class="wow-card-title">Guided Auto-Configuration</h3>
@@ -217,11 +222,7 @@
                     </div>
 
                     <div class="wow-card feature-card">
-                        <div class="feature-shot">
-                            <svg viewBox="16 290 500 253" role="img" aria-label="Companion Configuration with display selection, Mainhand choice and workspace controls." focusable="false">
-                                <image href="assets/offhand-companion-dashboard-20261109.jpg" width="550" height="704"/>
-                            </svg>
-                        </div>
+                        <div class="feature-shot feature-shot-dashboard"><img src="assets/offhand-companion-setup.png" alt="Companion Setup tab with two displays selected, Mainhand set, and Span WoW Now above the display controls" width="550" height="614" loading="lazy" decoding="async"></div>
                         <h3 class="wow-card-title">Your Choice of Window Setup</h3>
                         <p class="wow-card-desc">
                             Choose one window-placement method: Companion (recommended for Windows), FancyZones, or manual placement. Follow only that method, then finish in WoW.
@@ -248,7 +249,7 @@
                 <div class="setup-stage"><span class="step-seal">1</span><div><h3>Install the Offhand addon</h3><p>Install Offhand with CurseForge or WowUp for the WoW client you play. The addon is required for every method below.</p><p><a href="https://www.curseforge.com/wow/addons/offhand" target="_blank" rel="noopener">Get the Offhand addon</a></p></div></div>
                 <div class="setup-stage"><span class="step-seal">2</span><div><h3>Choose one window-placement method</h3><p><strong>Use only one of these methods to get started.</strong> For most Windows users, choose Companion. You do not need to complete the other methods or install both Companion and PowerToys.</p></div></div>
                 <div class="grid-3 setup-method-grid" aria-label="Choose one window setup method">
-                    <article class="wow-card method-card recommended-method"><h3 class="wow-card-title">Companion</h3><p class="setup-choice-label">Recommended for Windows</p><p class="wow-card-desc">Start with standard layout, already selected for a new setup. Choose your full monitors on the dashboard; custom workspace editors are optional.</p><a href="companion.html" class="btn btn-wow-red">Use Companion</a></article>
+                    <article class="wow-card method-card recommended-method"><h3 class="wow-card-title">Companion</h3><p class="setup-choice-label">Recommended for Windows</p><p class="wow-card-desc">Start with standard layout, already selected for a new setup. Choose your full monitors on the Setup tab. Advanced has optional custom workspace editors.</p><a href="companion.html" class="btn btn-wow-red">Use Companion</a></article>
                     <article class="wow-card method-card"><h3 class="wow-card-title">FancyZones</h3><p class="setup-choice-label">Alternative using Microsoft PowerToys</p><p class="wow-card-desc">Use a saved PowerToys zone to position WoW. Choose this if you prefer FancyZones. Companion is not needed for this method.</p><a href="manual-spanning.html#fancyzones" class="btn btn-wow-stone">Use FancyZones</a></article>
                     <article class="wow-card method-card"><h3 class="wow-card-title">Manual placement</h3><p class="setup-choice-label">For Mac or setup without a desktop utility</p><p class="wow-card-desc">Drag and resize WoW yourself. You may need to repeat that placement after launching the game.</p><a href="manual-spanning.html#manual" class="btn btn-wow-stone">Set up manually</a></article>
                 </div>
@@ -264,7 +265,7 @@
                 <div class="wow-card companion-preview-card">
                     <div class="companion-preview-copy">
                         <h2 class="wow-card-title" id="companion-preview-title">Companion: start with standard layout</h2>
-                        <p class="wow-card-desc">The Microsoft Store Companion is the recommended Windows tool for positioning WoW. Standard layout is already selected for a new setup. Choose your screens on the dashboard, then finish calibration inside the game.</p>
+                        <p class="wow-card-desc">The Microsoft Store Companion is the recommended Windows tool for positioning WoW. Standard layout is already selected for a new setup. Choose your screens in Setup, then finish calibration inside WoW.</p>
                         <p class="wow-card-desc">Two full monitors need no custom editor. Explore <a href="custom-workspaces.html">custom workspaces</a> later if you need unequal widths, part of another monitor, or extra workspace areas.</p>
                         <div style="margin-top: 24px; display:flex; flex-wrap:wrap; gap:10px;">
                             <a href="https://apps.microsoft.com/detail/9PL4PW84Q90W" target="_blank" rel="noopener" class="btn btn-wow-red btn-sm">
@@ -276,7 +277,7 @@
                             </a>
                         </div>
                     </div>
-                    <figure class="companion-preview-figure"><div class="image-frame"><img src="assets/offhand-companion-dashboard-20261109.jpg" alt="Companion dashboard with prominent Span and Restore buttons, compact status, and expanded Configuration" width="550" height="704" loading="lazy" decoding="async"></div><figcaption>Companion dashboard layout. Choose your displays in Configuration, then apply the layout with Span WoW Now at the top.</figcaption></figure>
+                    <figure class="companion-preview-figure"><div class="image-frame"><img src="assets/offhand-companion-setup.png" alt="Companion Setup tab with two displays selected, Mainhand set, and Span WoW Now above the display controls" width="550" height="614" loading="lazy" decoding="async"></div><figcaption>Companion dashboard layout. Choose your displays in Setup, then apply the layout with Span WoW Now at the top.</figcaption></figure>
                 </div>
             </div>
         </section>
@@ -286,7 +287,7 @@
                 <div class="wow-card background-promo-card">
                     <div class="background-promo-copy">
                         <h2 class="wow-card-title" id="background-promo-title">Optional: make the canvas yours</h2>
-                        <p class="wow-card-desc">Choose a PNG, JPEG, or WebP image, preview fill and fit behavior, and download a ready-to-install <code>Offhand_UserMedia</code> package. After installation and a full client restart, enable it from Offhand's Themes page.</p>
+                        <p class="wow-card-desc">Choose a PNG, JPEG, or WebP image, preview fill and fit behavior, and download a ready-to-install <code>Offhand_UserMedia</code> package. After installation and a full client restart, enable it from Offhand's Appearance tab.</p>
                         <p class="wow-card-desc">The image is processed in your browser. It is not uploaded, retained, or sent to Offhand. The generated package contains a texture and declarative metadata, with no Lua or executable program code. It remains separate from the CurseForge-managed addon so normal updates cannot replace your background.</p>
                         <div class="hero-actions promo-actions"><a href="background-studio.html" class="btn btn-wow-red btn-lg">Open Background Studio</a></div>
                     </div>
@@ -359,7 +360,7 @@
                             <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </summary>
                         <div class="faq-body">
-                            <p>Yes. Offhand includes built-in support for packages created by the <a href="background-studio.html">Background Studio</a>. The studio converts PNG, JPEG, or WebP images locally in your browser and creates a separate, code-free <code>Offhand_UserMedia</code> addon folder. Your image is not uploaded. Install both folders side by side, then enable <strong>Use installed custom background</strong> from the in-game Themes tab. Keeping the media folder separate also prevents CurseForge updates from replacing your personal background.</p>
+                            <p>Yes. Offhand includes built-in support for packages created by the <a href="background-studio.html">Background Studio</a>. The studio converts PNG, JPEG, or WebP images locally in your browser and creates a separate, code-free <code>Offhand_UserMedia</code> addon folder. Your image is not uploaded. Install both folders side by side, then enable <strong>Use installed custom background</strong> from the in-game Appearance tab. Keeping the media folder separate also prevents CurseForge updates from replacing your personal background.</p>
                         </div>
                     </details>
 

@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "zhCN" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s 更新内容"
+L["WHATS_NEW_BETA37"] = "在 Forever 中，角色和社交窗口可在较矮的工作区内并排显示。重新加载界面后，地图会保持关闭，直到按下 M。"
 L["WHATS_NEW_BETA36"] = "• 修复了 Offhand 关闭界面时可能导致 /reload 后加载画面延迟出现的问题。\n• 在 Forever 中，专业技能和法术书默认在 Mainhand 打开，并且同时使用时也会留在原位。\n• 在 Forever 中，较新的已保存设置优先于 Companion 的旧恢复快照。"
 L["WHATS_NEW_BETA35"] = "• 在 Forever 中，世界地图位于 Offhand 时，移动也不会淡出。\n• 将 OpenMap 移到 Offhand."
 L["WHATS_NEW_BETA34"] = "• 使用 /offhand centerline 检查主视图的对齐情况。\n• 导出备份后，在单独的配置文件中设置 EllesmereUI。\n• 使用配套的便携版 Companion 测试版，在第四台显示器上试用工作区 C。"
