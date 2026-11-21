@@ -49,11 +49,11 @@ saved layout mode.
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
-* **Quiet Store Update Detection (2.1.5)**: Store installations check
-  availability through Windows Store services after startup, at most once daily.
+* **Quiet Store Update Detection**: Store installations check
+  availability through Windows Store services after startup, at most once every six hours.
   **Update available…** is a passive button, with no popup or automatic restart.
   Clicking it opens Microsoft Store, which handles installation. Portable
-  installations retain their manual GitHub check. Store 2.1.5 is in certification; full flight acceptance remains unverified.
+  installations retain their manual GitHub check.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Post-Span Render Resync**: After the exact borderless span is established,
   the Companion performs a one-pixel resize nudge and immediately restores the
@@ -145,7 +145,7 @@ In the 2.1.5 source, Store installations schedule a quiet availability check
 30 seconds after the dashboard first opens, then at most once per day, including
 while running in the tray. A package-local `StoreUpdateCheck.ini` stores only the
 build, last attempt time and result, separately from layout preferences. Failed
-checks also consume the daily allowance. Unavailable Store services never block
+checks also count toward the same six-hour interval. Unavailable Store services never block
 Span or Restore and are explained only in the update button tooltip. Cached
 availability survives restarts but expires after one day and does not carry over
 to a different build. Preview/diagnostic builds skip automatic checks.
