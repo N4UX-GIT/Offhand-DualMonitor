@@ -190,7 +190,22 @@ function Scale:Release(f,preserveAnchor)
     if not write(self,f,state.native) then return false end
     self.state[f]=nil;return true
 end
-function Scale:ApplySingle(f,m,multiplier,owner)
+-- Preserve the requested size on roomy displays. The available rectangle is
+-- in UIParent units, while SetScale takes a local multiplier.
+function Scale:LimitToWorkspace(f,m,desired)
+    if not m or not m.isSpanned or m.workspaceRegions then return desired end
+    local width,height=Number(Read(f,"GetWidth")),Number(Read(f,"GetHeight"))
+    local effective,own=Number(Read(f,"GetEffectiveScale")),Number(Read(f,"GetScale"))
+    local parent=Number(Read(UIParent,"GetEffectiveScale"))
+    if not width or not height or not effective or not own or not parent
+        or not m.workspaceWidth or m.workspaceWidth<=24 or not m.workspaceHeight or m.workspaceHeight<=24 then return desired end
+    local factor=effective/own/parent
+    width,height=Offhand.CanvasPersistence.CharacterOpenSize(f,width,height)
+    width=width+Offhand.CanvasPersistence.SideTabWidth(f)
+    return math.min(desired,(m.workspaceWidth-24)/(width*factor),(m.workspaceHeight-24)/(height*factor))
+end
+
+function Scale:ApplySingle(f,m,multiplier,owner,fit)
     if not self:Allowed(f) then
         if self.state[f] then self.state[f]=nil;self.released[f]=true end
         return true
@@ -199,16 +214,20 @@ function Scale:ApplySingle(f,m,multiplier,owner)
     local current=Number(Read(f,"GetScale"));if not current then return false end
     local state=self.state[f]
     if state and not Near(current,state.applied) then
-        -- Native bag reopen resets are recognizable. Other writers own their
-        -- final scale, rather than becoming a baseline to multiply repeatedly.
-        if not (Name(f) or ""):match("^ContainerFrame") or not Near(current,state.native) then
+        -- Bags and Forever's books return to their native scale on reopen.
+        -- Reapply their saved fit while respecting other explicit scale writes.
+        local name=Name(f) or ""
+        local restoresNative=name:match("^ContainerFrame") or (fit and Offhand.isForever
+            and (name=="ProfessionsFrame" or name=="PlayerSpellsFrame" or name=="SocialUIFrame"))
+        if not restoresNative or not Near(current,state.native) then
             self.state[f]=nil;self.released[f]=true;return true
         end
     end
     local native=state and state.native or current
     local desired=native*multiplier
+    if fit then desired=self:LimitToWorkspace(f,m,desired) end
     if not Near(current,desired) and not self:Write(f,desired) then return false end
-    if Near(multiplier,1) then self.state[f]=nil
+    if Near(desired,native) then self.state[f]=nil
     else
         self.state[f]={native=native,applied=desired,owner=owner or f,db=Offhand.db}
         -- Forever's bag controller already observes reopen/reset geometry.
@@ -218,14 +237,28 @@ function Scale:ApplySingle(f,m,multiplier,owner)
     return true
 end
 
-local excluded={WorldMapFrame=true,CharacterFrame=true,PlayerSpellsFrame=true}
+local excluded={WorldMapFrame=true,CharacterFrame=true}
+local fitForeverPanel={CollectionsJournal=true,SocialUIFrame=true,ProfessionsFrame=true,PlayerSpellsFrame=true}
 function Scale:Apply(f,onWorkspace,m)
     if Combat() then return false end
     local name=Name(f)
+    if Offhand.isForever and name=="CharacterFrame" and Offhand.WorkspaceBehavior then
+        Offhand.WorkspaceBehavior:RefreshCharacterScale(m,onWorkspace)
+        return true
+    end
     if not name or excluded[name] then return true end
+    -- Retail owns its spellbook fit separately. Custom regions retain their
+    -- native-size fallback when the book does not fit.
+    if name=="PlayerSpellsFrame" and (not Offhand.isForever or (m and m.workspaceRegions)) then
+        return self:Release(f)
+    end
     if name:match("^ChatFrame%d+$") then return self:ApplyChat(f,onWorkspace,m) end
     local multiplier=onWorkspace and m and m.isSpanned and Offhand.db and Offhand.db.enabled
         and self:GetMultiplier(m) or 1
+    if onWorkspace and Offhand.isForever and fitForeverPanel[name] and Offhand.db and Offhand.db.enabled
+        and m and m.isSpanned and not m.workspaceRegions then
+        return self:ApplySingle(f,m,multiplier,nil,true)
+    end
     if Near(multiplier,1) then return self:Release(f) end
     return self:ApplySingle(f,m,multiplier)
 end
@@ -398,6 +431,12 @@ function Scale:Refresh()
             if f and Read(f,"IsShown") then
                 if canvas.RestoreRegionScaledPanel then canvas:RestoreRegionScaledPanel(f)
                 else canvas:RestoreWorkspacePosition(f) end
+            elseif f and Offhand.isForever and not m.workspaceRegions and type(saved[name])=="table"
+                and not saved[name].autoRoute and (name=="CharacterFrame" or name=="SocialUIFrame")
+                and self:Allowed(f) then
+                -- These panels can first be shown in lockdown. Fit an already
+                -- loaded hidden root without showing it or moving its anchor.
+                self:Apply(f,true,m)
             end
         end
     end

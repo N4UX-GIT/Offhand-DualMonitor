@@ -11,6 +11,8 @@ UIParent = { GetEffectiveScale = function() return 0.7 end }
 local addon = {}
 assert(loadfile("Core/Init.lua"))("Offhand", addon)
 assert(loadfile("Core/ClientRuntime.lua"))("Offhand", addon)
+assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
 addon.db = { enabled = true, firstRunComplete = true }
 local lines, probes = {}, {}
 addon.Print = function(_, fmt, ...) lines[#lines + 1] = string.format(fmt, ...) end
@@ -25,6 +27,46 @@ local metrics = {
 local topology = { status = "READY", liveWidth = 3840, liveHeight = 1080,
     canvasWidth = 3900, canvasHeight = 1097 }
 local viewportMatches = true
+local getGraphics = addon.Viewport.GetGraphicsDiagnostics
+local graphicsReads, versionReads = 0, 0
+local forbiddenCalls = 0
+local function unexpectedCall()
+    forbiddenCalls = forbiddenCalls + 1
+    error("diagnostics attempted a write or an unrelated call")
+end
+local secret = "fixture-restricted-value"
+issecretvalue = function(value) return value == secret end
+local values = { vsync = "0", gxVSync = "1", maxFPS = "100", maxFPSBk = 30,
+    gxApi = "D3D12", RenderScale = "1", ResampleQuality = "3", ResampleSharpness = "0.2",
+    ffxAntiAliasingMode = "2", CMAA2Quality = "3", MSAAQuality = "0" }
+GetFramerate = function() graphicsReads = graphicsReads + 1; return 73.5 end
+GetCVar = function(name)
+    if name == "DynamicRenderScale" then error("unavailable on this client") end
+    return values[name]
+end
+C_CVar = {
+    GetCVar = function(name)
+        if name == "DynamicRenderScale" then return "0" end
+        if name == "ResampleAlwaysSharpen" then return secret end
+    end,
+    SetCVar = unexpectedCall,
+}
+SetCVar = C_CVar.SetCVar
+C_NamePlate = { GetNamePlates = unexpectedCall }
+local loadedMapAddons = {OpenMap = true}
+C_AddOns = {
+    IsAddOnLoaded = function(name) return loadedMapAddons[name] end,
+    GetAddOnMetadata = function(name, field)
+        versionReads = versionReads + 1
+        assert(field == "Version")
+        if name == "BlizzMove" then return "v3.8.6" end
+        if name == "Leatrix_Maps" then return " 1.2.3 " end
+        if name == "MoveAny" then error("metadata unavailable") end
+    end,
+    LoadAddOn = unexpectedCall,
+}
+OpenMap = {version = "v0.8.9", GetModule = unexpectedCall}
+MapWiseAPI = {version = "2.3.98"}
 addon.Viewport = {
     CaptureDiagnostics = function(_, remember)
         assert(remember == false, "support diagnostics must not persist a geometry snapshot")
@@ -33,6 +75,7 @@ addon.Viewport = {
     end,
     GetMetrics = function() error("do not recapture the same geometry") end,
     GetTopologyDiagnostics = function() return topology end,
+    GetGraphicsDiagnostics = getGraphics,
     GetWorldTextDiagnostics = probe("text", {worldTextScale = "1", worldTextScaleCVar = "WorldTextScale_v2",
         worldTextMethod = "CVAR", worldTextFineTune = 1, worldTextHeightRatio = 1,
         worldTextCompensationRatio = 1}),
@@ -64,11 +107,11 @@ addon.Mainhand = { GetEditModeDiagnostics = function(_, compact)
     return compact and "Active=7 | Geometry=current" or "Active=7 | GamepadPanels=details"
 end }
 addon.ManualCanvas = { GetDiagnostics = probe("manual", {}) }
-addon.CanvasCompatibility = {GetGuideAddonDiagnostics = probe("guides", {"Zygor probes: fixture"})}
+addon.CanvasCompatibility.GetGuideAddonDiagnostics = probe("guides", {"Zygor probes: fixture"})
 addon.modules.ChatBubbles = { GetDiagnostics = probe("bubbles", {}) }
 addon.Canvas = {
     -- The old caller discarded reports without the substring 'loaded'.
-    GetCompatibilityDiagnostics = function() return "WorldMapOwner=OpenMap" end,
+    GetCompatibilityDiagnostics = function(_, compact) return addon.CanvasCompatibility.GetDiagnostics(compact) end,
     GetPanelControllerDiagnostics = probe("panels", "idle"),
     GetPanelPlacementDiagnostics = probe("placement", {"CharacterFrame | parent=UIParent | rectUI=10/20/30/40"}),
     GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
@@ -83,17 +126,19 @@ local function run(command)
 end
 local compact = run("diag")
 assert(next(probes) == nil, "default diagnostics collected detailed feature probes")
+assert(graphicsReads == 0 and versionReads == 0, "compact diagnostics read graphics or addon versions")
 assert(#lines <= 12, "default support report grew beyond a compact snapshot")
 assert(compact:find("WorldMapOwner=OpenMap", 1, true), "OpenMap-only ownership was hidden")
 assert(compact:find("Forever persistence diagnostics:", 1, true), "persistence evidence lost")
 assert(compact:find("More detail: /offhand diag full", 1, true), "full report is undiscoverable")
 for _, absent in ipairs({"Topology diagnostics:", "Manual canvas", "Group frame", "Protected HUD",
-    "Dialogue UI", "User media", "diskRevision", "GamepadPanels"}) do
+    "Dialogue UI", "User media", "diskRevision", "GamepadPanels", "Graphics:", "Graphics AA settings:", "Map integrations:"}) do
     assert(not compact:find(absent, 1, true), "unnecessary default output: " .. absent)
 end
 addon.db.automaticSetupSuppressed = true
 addon.GetOnboardingResumeStep = function() return 4 end
 OffhandCharDB = {characterSetup = {version = 1, choice = "later", complete = true}}
+loadedMapAddons = {MapWise = true, Leatrix_Maps = true, MoveAny = true}
 local full = run("diag full")
 assert(not compact:find("Setup state:", 1, true)
         and full:find("Setup state: Account=complete | Guide=paused | Resume=4 | Character=later | Decision=saved", 1, true),
@@ -103,6 +148,14 @@ assert(probes.chat == 1 and full:find("SnapToElements=yes", 1, true)
     and full:find("ChatFrame1 anchors=fixture", 1, true), "full report lost active chat evidence")
 assert(full:find("diskRevision", 1, true) and full:find("Topology diagnostics: state=READY", 1, true)
     and full:find("Geometry: Physical=3840x1080", 1, true), "full report lost core evidence")
+assert(graphicsReads == 1 and full:find("Graphics: FPS=73.5 | VSync=0 | maxFPS=100 | maxFPSBk=30 | API=D3D12", 1, true)
+    and full:find("RenderScale=1 | DynamicRenderScale=0 | ResampleQuality=3 | ResampleAlwaysSharpen=unavailable | ResampleSharpness=0.2", 1, true)
+    and not full:find(secret, 1, true), "full diagnostics lost graphics values, fallback, or redaction")
+assert(full:find("Graphics AA settings: ffxAntiAliasingMode=2 | CMAA2Quality=3 | MSAAQuality=0 | MSAAAlphaTest=unavailable | OffhandAntiShimmer=off", 1, true),
+    "full diagnostics must report configured AA values and Offhand's resampling option")
+assert(versionReads == 2 and full:find("Map integrations: MapWise=2.3.98 | Leatrix_Maps=1.2.3 | MoveAny=unknown version", 1, true)
+    and full:find("WorldMapOwner=MoveAny", 1, true) and not full:find("OpenMap=v0.8.9", 1, true),
+    "full diagnostics missed loaded map integrations or reported a stale namespace")
 for _, name in ipairs({"tooltip", "interaction", "text", "loot", "pets", "groups", "protected", "manual", "bubbles", "panels", "dialogue", "guides", "bags"}) do
     assert(probes[name] == nil, "full report ran an unrelated probe: " .. name)
 end
@@ -110,8 +163,32 @@ for _, absent in ipairs({"GamepadPanels", "Cinematic skip-dialog", "User media",
     assert(not full:find(absent, 1, true), "full report retained irrelevant detail: " .. absent)
 end
 assert(captures == 0, "snapshot armed a tooltip capture")
+local previousFPS = GetFramerate
+GetFramerate = function() error("FPS unavailable") end
+values.vsync = nil
+values.ffxAntiAliasingMode = "0"
+addon.db.antiShimmer = true
+loadedMapAddons = {MapWise = true, OpenMap = true}
+local fallback = run("diag full")
+assert(fallback:find("Graphics: FPS=unavailable | VSync=1", 1, true)
+    and fallback:find("Map integrations: OpenMap=v0.8.9 | MapWise=2.3.98", 1, true),
+    "full diagnostics lost the legacy VSync fallback or OpenMap version")
+assert(fallback:find("ffxAntiAliasingMode=0", 1, true) and fallback:find("OffhandAntiShimmer=on", 1, true),
+    "full diagnostics must reflect current settings on each invocation")
+loadedMapAddons = {MapWise = true}
+local mapWiseOnly = run("diag full")
+assert(mapWiseOnly:find("WorldMapOwner=Offhand", 1, true) and mapWiseOnly:find("Map integrations: MapWise=2.3.98", 1, true),
+    "MapWise must be listed even when Offhand owns the native frame")
+loadedMapAddons = {BlizzMove = true}
+local blizzMove = run("diag full")
+assert(blizzMove:find("WorldMapOwner=Offhand", 1, true) and blizzMove:find("Map integrations: BlizzMove=v3.8.6", 1, true),
+    "BlizzMove must be reported without assigning it Offhand's placement ownership")
+loadedMapAddons = {}
+assert(run("diag full"):find("Map integrations: none detected", 1, true), "empty map integration state missing")
+GetFramerate = previousFPS
 local chat = run("diag chat")
 assert(chat:find("ChatFrame10 shown=no", 1, true), "focused chat report omitted inactive windows")
+assert(graphicsReads == 1 and versionReads == 3, "focused chat diagnostics sampled graphics or map integration versions")
 local tooltip = run("diag tooltip")
 assert(tooltip:find("Tooltip presentation: GameTooltip=hidden", 1, true) and captures == 0,
     "focused tooltip snapshot should be read-only")
@@ -164,4 +241,13 @@ addon.isForever = false
 local oldBags = probes.bags
 assert(not run('diag panels'):find('Native bag diagnostics:',1,true) and probes.bags == oldBags,
     'other clients must not collect Forever-only bag state')
-print("PASS: concise full support report, focused chat/tooltip/panels, raw debug and explicit capture")
+C_AddOns = nil
+IsAddOnLoaded = function(name) return name == "MapUtils", true end
+GetAddOnMetadata = function(name, field)
+    assert(name == "MapUtils" and field == "Version")
+    return "1.7.0"
+end
+assert(run("diag full"):find("Map integrations: MapUtils=1.7.0", 1, true),
+    "legacy clients must report loaded addon versions")
+assert(forbiddenCalls == 0, "diagnostics called a setter, loader, map module or nameplate enumeration")
+print("PASS: full graphics and map reports, compact and focused modes, raw debug and explicit capture")

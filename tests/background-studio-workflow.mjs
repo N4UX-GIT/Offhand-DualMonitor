@@ -6,7 +6,9 @@ import {offlineBackgroundStudio} from '../scripts/New-OfflineBackgroundStudio.mj
 import {inspectGeneratedZip,readMediaPackage,PACKAGE_FILES,encodeTga32,createMediaToc,buildStoredZip} from '../Website/background-studio-core.mjs';
 const html=offlineBackgroundStudio();
 const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
-assert.ok(html.includes(`script-src 'sha256-${createHash('sha256').update(script).digest('base64')}'`));
+const parsedScript = script.replace(/\r\n?/g, '\n');
+assert.ok(html.includes(`script-src 'sha256-${createHash('sha256').update(parsedScript).digest('base64')}'`),
+    'Offline Studio must authorize the script as parsed by an HTML browser');
 assert.ok(html.includes("connect-src 'none'"));
 assert.doesNotMatch(html,/<script[^>]+src=|@import|src="assets\//);
 class Element {

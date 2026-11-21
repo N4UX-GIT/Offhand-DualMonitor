@@ -251,12 +251,13 @@ function Motion.Install(Canvas, services)
         local isProfessions = IsForeverProfessionsPanel(frame, panelName) and IsExperimentalForeverProfessionsMovementEnabled()
         local isInteraction = Offhand.isRetail and Offhand.CanvasPanelRegistry
             and Offhand.CanvasPanelRegistry.RequiresNativePanelRegistration(panelName)
-        if isInteraction then
+        local isForeverSpellbook = Offhand.isForever and panelName == "PlayerSpellsFrame"
+        if isInteraction or isForeverSpellbook then
             if interactionAnchorState[frame] or not hooksecurefunc or not C_Timer or not C_Timer.After then return end
             local state = {}
             interactionAnchorState[frame] = state
             local function RepairAnchor()
-                if state.repairing or frame._OffhandDragging or InCombatLockdown() or not Offhand.db
+                if state.repairing or state.moveStartX or frame._OffhandDragging or InCombatLockdown() or not Offhand.db
                     or not Offhand.db.enabled or (frame.IsShown and not frame:IsShown()) then return end
                 local workspace = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[panelName]
                 local mainhand = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[panelName]
@@ -267,7 +268,7 @@ function Motion.Install(Canvas, services)
                 state.repairing = nil
             end
             local function QueueRepair()
-                if state.repairing or state.pending or frame._OffhandDragging
+                if state.repairing or state.pending or state.moveStartX or frame._OffhandDragging or InCombatLockdown()
                     or not Offhand.db or not Offhand.db.enabled then return end
                 local workspace = Offhand.db.savedWorkspacePositions
                     and Offhand.db.savedWorkspacePositions[panelName]
@@ -282,6 +283,34 @@ function Motion.Install(Canvas, services)
                 end)
             end
             hooksecurefunc(frame, "SetPoint", QueueRepair)
+            if isForeverSpellbook and frame.StartMoving and frame.StopMovingOrSizing then
+                -- A window mover can drag the book by its body, bypassing our
+                -- title grip. Resize hides and shows the book, so all placement
+                -- restores must already agree on the user's last drop.
+                hooksecurefunc(frame, "StartMoving", function()
+                    local db = Offhand.db
+                    if InCombatLockdown() or not db or not db.enabled or not CanManagePanelsFromAddon()
+                        or not frame:IsShown() then return end
+                    if not ((db.savedWorkspacePositions and db.savedWorkspacePositions[panelName])
+                        or (db.savedMainPositions and db.savedMainPositions[panelName])) then return end
+                    local metrics = Offhand.Viewport:GetMetrics()
+                    if not metrics or not metrics.isSpanned then return end
+                    state.moveStartX, state.moveStartY = frame:GetLeft(), frame:GetTop()
+                end)
+                hooksecurefunc(frame, "StopMovingOrSizing", function()
+                    local startX, startY = state.moveStartX, state.moveStartY
+                    state.moveStartX, state.moveStartY = nil, nil
+                    if not startX or not startY or IsPanelDragging(frame) or InCombatLockdown() or not Offhand.db
+                        or not Offhand.db.enabled or not CanManagePanelsFromAddon() or not frame:IsShown() then return end
+                    local x, y = frame:GetLeft(), frame:GetTop()
+                    if x and y and (math.abs(x - startX) > 1 or math.abs(y - startY) > 1) then
+                        OnPanelDragStop(frame, true)
+                    end
+                end)
+                frame:HookScript("OnHide", function()
+                    state.moveStartX, state.moveStartY = nil, nil
+                end)
+            end
             if panelName == "PlayerSpellsFrame" then
                 -- Tab and minimize changes resize the native root without always
                 -- changing its anchor. Fit after that transaction has settled.

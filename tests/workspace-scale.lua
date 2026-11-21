@@ -188,3 +188,64 @@ assert(S:SetSetting(ma,'a',.7))
 assert(deferred.scale==1 and immediate==0 and type(regenerated)=='function','Player combat bypassed deferral or recursed through the queue')
 playerCombat=false;regenerated();near(deferred.scale,.7)
 print('PASS: opt-in per-region sizing, drag/restore fitting, guarded reopen, ownership, combat, chat, presets and restoration')
+
+-- A short schema-1 workspace must retain reachable titles and the tab strip
+-- when two independently saved windows open together.
+a.isForever=true
+m.workspaceRegions=nil
+m.workspaceLeft,m.workspaceRight,m.workspaceWidth=0,1097,1097
+m.workspaceBottom,m.workspaceTop,m.workspaceHeight=640,1097,457
+local journal=frame('CollectionsJournal',703);journal.h=606
+a.db.savedWorkspacePositions.CollectionsJournal={x=100,y=1258}
+restore(journal)
+near(journal.y*journal.scale,1085);near((journal.y-journal.h)*journal.scale,652)
+S:Apply(journal,false,m);near(journal.scale,1)
+for name, size in pairs({ProfessionsFrame={673,594},PlayerSpellsFrame={577,720}}) do
+    local book=frame(name,size[1]);book.h=size[2]
+    a.db.savedWorkspacePositions[name]={x=90,y=652+book.h}
+    restore(book)
+    book:SetScale(1);flush()
+    restore(book)
+    near(book.y*book.scale,1085)
+    near((book.y-book.h)*book.scale,652)
+    assert((book.y+3)*book.scale<=m.workspaceTop,'close button clipped on restore')
+    S:Apply(book,false,m);near(book.scale,1)
+    restore(book)
+    book:SetScale(.55);flush();restore(book)
+    near(book.scale,.55) -- Keep a distinct scale chosen by another window mover.
+end
+local social=frame('SocialUIFrame',410);social.h=675
+local character=frame('CharacterFrame',631);character.h=484
+CharacterFrameModeTabs=frame('CharacterFrameModeTabs',64)
+CreateFrame=function() return {RegisterEvent=function() end,SetScript=function() end} end
+assert(loadfile('Core/WorkspaceBehavior.lua'))('Offhand',a)
+a.db.savedWorkspacePositions.CharacterFrame={x=91,y=1136}
+a.db.savedWorkspacePositions.SocialUIFrame={x=530,y=1327}
+character.hidden=true;restore(social);character.hidden=false;restore(character)
+local function separate()
+    near(character.y*character.scale,1085);near(social.y*social.scale,1085)
+    assert((character.x+character.w+64)*character.scale+7.99 <= social.x*social.scale)
+end
+separate()
+social.hidden=true;restore(character);social.hidden=false;restore(social);separate()
+social:SetScale(1);flush();restore(social);separate()
+social.hidden=true
+S:Apply(social,false,m);near(social.scale,1)
+S:Refresh();near(social.scale,433/675)
+assert(not social:IsShown(),"preparing Social must leave it closed")
+social.hidden=false
+social:SetScale(.55);flush();restore(social);near(social.scale,.55)
+near(a.db.savedWorkspacePositions.CharacterFrame.x,91)
+near(a.db.savedWorkspacePositions.SocialUIFrame.x,530)
+
+-- On a cold Forever login the hidden template reports 338 x 424 until C.
+character.hidden=true
+character.w,character.h=338,424
+CHARACTER_FRAME_WIDTH,CHARACTER_FRAME_HEIGHT=631,484
+character:SetScale(1)
+S:Refresh()
+near(character.scale,433/484)
+assert(not character:IsShown(),"anticipating the open size must leave Character hidden")
+character.hidden=false
+character.w,character.h=631,484
+near(character.h*character.scale,433)

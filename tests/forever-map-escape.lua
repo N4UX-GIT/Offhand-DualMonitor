@@ -216,6 +216,87 @@ local function AssertStableMapControls(state)
 end
 AssertStableMapControls("stationary windowed")
 do
+    local function attachment(visible)
+        local f = {insets={0,0,0,0}, clamped=false, writes=0, visible=visible}
+        function f:IsForbidden() return false end
+        function f:IsProtected() return false end
+        function f:IsVisible() return self.visible end
+        local edge = {GetHeight=function() return 4000 end, GetEffectiveScale=function() return .8 end}
+        function f:GetPoint(i)
+            if i == 1 then return "TOPLEFT", edge, "TOPRIGHT", 2, 0 end
+            return "BOTTOMLEFT", edge, "BOTTOMRIGHT", 2, self.bottomY or 0
+        end
+        function f:SetPoint(_, _, _, _, y) self.bottomY = y end
+        function f:GetFrameStrata() return self.strata or "MEDIUM" end
+        function f:SetFrameStrata(strata) self.strata = strata end
+        function f:GetLeft() return 300 end
+        function f:GetParent() return WorldMapFrame end
+        function f:GetEffectiveScale() return .8 end
+        function f:GetClampRectInsets() return unpack(self.insets) end
+        function f:SetClampRectInsets(...) self.insets={...}; self.writes=self.writes+1 end
+        function f:IsClampedToScreen() return self.clamped end
+        function f:SetClampedToScreen(value) self.clamped=value end
+        return f
+    end
+    local panel, tab = attachment(true), attachment(false)
+    local stage = attachment(true)
+    stage.strata, stage.level = "HIGH", 1
+    function stage:GetFrameLevel() return self.level end
+    function stage:SetFrameLevel(level) self.level = level end
+    function panel:GetFrameLevel() return 11 end
+    panel.stage = stage
+    SpokenPlacesPanel, SpokenPlacesPanelToggle = panel, tab
+    function WorldMapFrame:IsForbidden() return false end
+    function WorldMapFrame:GetRight() return self.left + self.width end
+    local function tick() createdHandles[1].scripts.OnUpdate(nil, .1) end
+    tick()
+    assert(panel.clamped and panel.insets[2] == 3200 and not tab.clamped)
+    assert(stage.strata == "DIALOG" and stage.level == 12, "keep the independent model visible")
+    tick()
+    assert(panel.writes == 1 and panel.bottomY == 800 and panel.strata == "DIALOG",
+        "keep a stable clamp and readable Places panel on a short workspace")
+    panel.visible, tab.visible = false, true
+    tick()
+    assert(not panel.clamped and panel.insets[2] == 0 and tab.clamped
+        and panel.bottomY == 0 and panel.strata == "MEDIUM")
+    assert(stage.strata == "HIGH" and stage.level == 1, "restore the provider's model layer")
+    local left = WorldMapFrame.left
+    WorldMapFrame.left = 2200
+    tick()
+    assert(not tab.clamped and tab.insets[2] == 0, "Mainhand should release the reopen tab")
+    WorldMapFrame.left = left
+    tick()
+    tab.insets[2] = 18
+    tick()
+    tab.visible = false
+    tick()
+    assert(tab.insets[2] == 18, "leave a subsequent provider clamp intact")
+    SpokenPlacesPanel, SpokenPlacesPanelToggle = nil, nil
+end
+do
+    local originalBottom = metrics.workspaceBottom
+    metrics.workspaceBottom = WorldMapFrame.bottom * WorldMapFrame:GetEffectiveScale() + 80
+    local list = {offset=3, visible=true, writes=0}
+    function list:IsForbidden() return false end
+    function list:IsProtected() return false end
+    function list:IsVisible() return self.visible end
+    function list:GetNumPoints() return 2 end
+    function list:GetTop() return WorldMapFrame:GetTop()-25 end
+    function list:GetEffectiveScale() return 1 end
+    function list:GetPoint(i)
+        if i==1 then return "TOPRIGHT", WorldMapFrame, "TOPRIGHT", -3, -25 end
+        return "BOTTOMRIGHT", WorldMapFrame, "BOTTOMRIGHT", -3, self.offset
+    end
+    function list:SetPoint(_,_,_,_,y) self.offset=y; self.writes=self.writes+1 end
+    QuestMapFrame, WorldMapFrame.QuestLog = list, list
+    local function tick() createdHandles[1].scripts.OnUpdate(nil,.1) end
+    tick(); tick()
+    assert(math.abs(list.offset-83)<.001 and list.writes==1, "fit the quest list without rewriting its settled anchor")
+    list.visible=false; tick()
+    assert(list.offset==3, "folding restores the provider's original bottom offset")
+    QuestMapFrame, WorldMapFrame.QuestLog, metrics.workspaceBottom = nil, nil, originalBottom
+end
+do
     local left = WorldMapFrame.left
     local handle = createdHandles[1]
     local x = handle.point[4]
@@ -265,6 +346,27 @@ assert(WorldMapFrame._OffhandMovable == nil and WorldMapFrame._OffhandHandle == 
         and WorldMapFrame._OffhandDragging == nil
         and WorldMapFrame._OffhandEvictingPanelSlot == nil,
     "Forever World Map drag and panel-slot state must remain addon-owned")
+
+-- The first Mainhand-to-workspace drop after reload can receive a later
+-- native TOPLEFT anchor even though the saved workspace coordinates are valid.
+do
+    local handle = createdHandles[1]
+    local drop = assert(addon.db.savedWorkspacePositions.WorldMapFrame)
+    local function putTitleAboveWorkspace()
+        WorldMapFrame.bottom = metrics.workspaceTop / WorldMapFrame.scale + 100 - WorldMapFrame.height
+    end
+    handle.scripts.OnUpdate(nil, .016) -- the drop is initially correct
+    putTitleAboveWorkspace()
+    handle.scripts.OnUpdate(nil, .016)
+    assert(math.abs(WorldMapFrame:GetTop() * WorldMapFrame.scale - drop.y) < .01,
+        "a post-release native anchor must not strand the title until the next reopen")
+    handle.scripts.OnUpdate(nil, .11) -- finish the release check
+    putTitleAboveWorkspace()
+    handle.scripts.OnUpdate(nil, .11)
+    assert(WorldMapFrame:GetTop() * WorldMapFrame.scale > metrics.workspaceTop,
+        "a completed drag must not permanently lock the map to its saved position")
+    addon.Canvas.RestoreWorkspacePosition(WorldMapFrame)
+end
 
 local function isSpecial(name)
     for _, value in ipairs(UISpecialFrames) do
@@ -454,17 +556,20 @@ WorldMapFrame:Hide()
 ToggleWorldMap = previousToggleWorldMap
 gamepadUI = false
 
--- Reload restoration must reopen the saved workspace map without replacing
--- Blizzard's protected scripts.
+-- Saved geometry survives reload, but only a player action should open the map.
 WorldMapFrame:Hide()
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(not createdHandles[1].mouseEnabled and createdHandles[1].point[4] == -100,
     "closing the map must park its handle outside the window")
 AssertStableMapControls("closed")
 addon.db.openWorkspacePanels.WorldMapFrame = true
+local savedMapPosition = addon.db.savedWorkspacePositions.WorldMapFrame
+local savedMapScale = WorldMapFrame:GetScale()
 addon.Canvas:RestorePersistentFrames()
-assert(WorldMapFrame:IsShown(),
-    "Forever reload restoration must reopen the saved World Map")
+assert(not WorldMapFrame:IsShown() and not addon.Canvas:QueuePersistentPanelRestore(WorldMapFrame, "WorldMapFrame"),
+    "neither reload nor a late panel registration may open the saved Forever map")
+assert(savedMapPosition and savedMapPosition == addon.db.savedWorkspacePositions.WorldMapFrame
+    and WorldMapFrame:GetScale() == savedMapScale, "restore must preserve the closed map's geometry")
 assert(WorldMapFrame.setScriptWrites == 0,
     "Reload restoration must not replace protected World Map scripts")
 
@@ -538,6 +643,27 @@ assert(GetUIPanel("left") ~= CharacterFrame and CharacterFrame:IsShown(),
     "A restored workspace CharacterFrame must detach from active UIPanel slots")
 assert(CharacterFrame:GetLeft() < metrics.workspaceRight,
     "A restored CharacterFrame must remain on the workspace")
+
+do
+    local previousTaxi, previousTimer, pending = TaxiFrame, C_Timer, {}
+    TaxiFrame = makePanel("TaxiFrame", false, 0, 0, 400, 400)
+    C_Timer = {After=function(_, callback) pending[#pending + 1] = callback end}
+    activePanels.left = CharacterFrame
+    CharacterFrame.left = 1800
+    mapTransactions.RepairAfterPanelHide(TaxiFrame)
+    assert(activePanels.left == CharacterFrame and #pending == 2, "taxi close must defer peer repair")
+    addon._openPanelsCapturedForTransition = true
+    for _, callback in ipairs(pending) do callback() end
+    assert(activePanels.left == CharacterFrame and CharacterFrame:IsShown(),
+        "a taxi close during exit must not evict or re-show the paper doll")
+    addon._openPanelsCapturedForTransition = false
+    pending = {}
+    mapTransactions.RepairAfterPanelHide(TaxiFrame)
+    for _, callback in ipairs(pending) do callback() end
+    assert(activePanels.left ~= CharacterFrame and CharacterFrame:IsShown(),
+        "an ordinary taxi close must still settle peers in the active world")
+    TaxiFrame, C_Timer = previousTaxi, previousTimer
+end
 
 activePanels.left = CharacterFrame
 CharacterFrame.left = 1800
@@ -1061,9 +1187,9 @@ createdHandles[1].scripts.OnUpdate(nil, 1)
 WorldMapFrame:Hide()
 addon.Canvas:RestorePersistentFrames()
 flushTimers()
-assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+assert(not WorldMapFrame:IsShown() and WorldMapFrame.left == 200
     and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
-    "Forever reload must reopen external maps without applying dormant Offhand geometry")
+    "Forever reload must leave an externally positioned map closed at its owner's geometry")
 assert(WorldMapFrame.hookScriptWrites == 0 and WorldMapFrame.setScriptWrites == 0,
     "external map observation must not add or replace protected map scripts")
 end
@@ -1358,4 +1484,138 @@ do
     UIParent.GetWidth, UIParent.GetHeight = oldUIWidth, oldUIHeight
     MapWiseAtlasDB, MapWiseAPI = nil, nil
 end
-print("PASS: Forever map persists through reload/Escape, settles scale, and preserves placement across MapWise layouts")
+do
+    local selected, reserved, combat = true, false, false
+    local panel, binding, owner
+    local baseBinding = "TOGGLEGAMEMENU"
+    RegisterGameMenuEscHandler = function() error("must retain Blizzard's secure Escape handler list") end
+    GetUIPanel = function() return panel end
+    UnitExists = function() return selected end
+    InCombatLockdown = function() return combat end
+    GetBindingAction = function() return binding or baseBinding end
+    SetOverrideBindingClick = function(frame, priority, key, name, button)
+        assert(priority and key == "ESCAPE" and name == frame:GetName() and button == "LeftButton")
+        owner, binding = frame, "CLICK " .. name .. ":" .. button
+    end
+    ClearOverrideBindings = function(frame) assert(frame == owner); binding = nil end
+    RegisterStateDriver = function(frame, state, condition)
+        assert(state == "combat" and condition == "[combat] combat; nocombat")
+        assert(frame.attributes["_onstate-combat"]:find("self:ClearBindings()",1,true))
+    end
+    CreateFrame = function(kind, name, parent, template)
+        assert(kind == "Button" and parent == UIParent
+            and (template == "SecureActionButtonTemplate,SecureHandlerStateTemplate"
+                or template == "SecureHandlerStateTemplate"))
+        return {
+            attributes={}, scripts={},
+            GetName=function() return name end,
+            SetAttribute=function(self,key,value) self.attributes[key]=value end,
+            SetScript=function(self,key,value) self.scripts[key]=value end,
+            RegisterForClicks=function(_,clicks) assert(clicks == "AnyUp") end,
+        }
+    end
+    addon.IsBlizzardInputReserved = function() return reserved end
+    addon.HasCustomBagAddon = function() return false end
+    addon.Mainhand, addon.IsGamepadUIEnabled = nil, nil
+    addon.Viewport.GetMetrics = function() return metrics end
+    addon.db.enabled, addon.db.persistentWorkspacePanels = true, true
+    UISpecialFrames = {}
+    GameMenuFrame.shown = false
+    ContainerFrame1:Hide()
+    ContainerFrameCombinedBags.left, ContainerFrameCombinedBags.bottom = metrics.workspaceLeft + 20, 400
+    function ContainerFrameCombinedBags:IsForbidden() return false end
+    function ContainerFrameCombinedBags:IsVisible() return self.shown end
+    ContainerFrameCombinedBags:Show()
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape() and binding,
+        "an Offhand native bag with a target must offer the secure target-clear action")
+    assert(owner.attributes.type == "target" and owner.attributes.unit == "none"
+        and owner.attributes.useOnKeyDown == false, "Blizzard's secure action must clear the target on key release")
+    selected = false
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
+        "clearing the target must return Escape to its ordinary binding")
+    selected, panel = true, CharacterFrame
+    panel:Show()
+    local priorProfession = ProfessionsFrame
+    local priorPosition = addon.db.savedWorkspacePositions.ProfessionsFrame
+    ProfessionsFrame = makePanel("ProfessionsFrame", true, metrics.workspaceLeft + 20, 400, 180, 240)
+    addon.db.savedWorkspacePositions.ProfessionsFrame = {x=20, y=400}
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
+        "a visible crafting session must retain its native Escape handler with the backpack open")
+    ProfessionsFrame = priorProfession
+    addon.db.savedWorkspacePositions.ProfessionsFrame = priorPosition
+    local closes = 0
+    CloseWindows = function()
+        closes = closes + 1
+        if panel then panel:Hide() end
+        for _, name in pairs(UISpecialFrames) do _G[name]:Hide() end
+    end
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagWindowEscape:LeftButton",
+        "Escape must dismiss a native panel before clearing the target")
+    owner.scripts.OnClick()
+    assert(closes == 1 and not panel:IsShown() and selected and ContainerFrameCombinedBags:IsShown(),
+        "native panel dismissal must keep the bag visible and retain the target")
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagTargetEscape:LeftButton",
+        "the next Escape must reach the secure target action")
+    panel = nil
+    UISpecialFrames = {"CharacterFrame"}
+    CharacterFrame:Show()
+    selected = false
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagWindowEscape:LeftButton",
+        "special windows must close without closing Offhand bags even without a target")
+    local windowOwner = owner
+    windowOwner.scripts.OnClick()
+    assert(closes == 2 and not CharacterFrame:IsShown() and ContainerFrameCombinedBags:IsShown(),
+        "special-window dismissal must not flash the native bag")
+    windowOwner.scripts.OnClick()
+    assert(closes == 2, "a stale window binding must not run another native close transaction")
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
+        "with no window or target, Escape must return to Blizzard")
+    -- Inspect may already be visible when INSPECT_READY calls ShowUIPanel.
+    -- Blizzard then skips slot registration and CloseWindows cannot find it.
+    local priorInspect = InspectFrame
+    InspectFrame = makePanel("InspectFrame", true, metrics.gameLeft + 20, 400, 240, 320)
+    function InspectFrame:IsForbidden() return false end
+    function InspectFrame:IsVisible() return self.shown end
+    selected = true
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape() and owner == windowOwner,
+        "visible slotless Inspect must have priority over target clearing")
+    windowOwner.scripts.OnClick()
+    assert(not InspectFrame:IsShown() and selected and ContainerFrameCombinedBags:IsVisible()
+        and closes == 2, "close just the detached inspection through its native dismissal")
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagTargetEscape:LeftButton",
+        "the target must remain reachable on the next Escape")
+    InspectFrame = priorInspect
+    selected = true
+    UISpecialFrames = {}
+    GetCurrentKeyBoardFocus = function() return true end
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "text input must retain Escape priority")
+    GetCurrentKeyBoardFocus = nil
+    CharacterFrame:Show()
+    panel = CharacterFrame
+    StaticPopup1 = makePanel("StaticPopup1", true, 1800, 400, 260, 520)
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "a popup must retain priority over panel dismissal")
+    StaticPopup1 = nil
+    combat = true
+    windowOwner.scripts.OnClick()
+    assert(closes == 2 and panel:IsShown(), "an outstanding window click must yield in combat")
+    combat, panel = false, nil
+    CharacterFrame:Hide()
+    reserved = true
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "reserved input must retain native handling")
+    reserved = false
+    baseBinding = "SCREENSHOT"
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "a custom Escape binding must be respected")
+    baseBinding = "TOGGLEGAMEMENU"
+    ContainerFrame2 = makePanel("ContainerFrame2", true, 1800, 400, 260, 520)
+    function ContainerFrame2:IsForbidden() return false end
+    function ContainerFrame2:IsVisible() return self.shown end
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "a Mainhand bag must retain native dismissal")
+    ContainerFrame2:Hide()
+    ContainerFrameCombinedBags.left = 1800
+    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "Mainhand must retain native Escape handling")
+end
+print("PASS: Forever map placement, Escape persistence, and native bag secure target binding")

@@ -12,11 +12,7 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-This source is **Offhand add-on 2.1.5 Pre-Release Beta 32**. Install the
-add-on separately from the [Windows Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W).
-Companion 2.1.7 adds Windows scaling estimates for per-workspace panel sizing.
-Manual sizing works with older compatible Companion versions. See the
-[changelog](CHANGELOG.md) for the add-on changes.
+Offhand Beta 37 pairs with Windows Companion 2.1.9-beta.1. See the [changelog](CHANGELOG.md) for changes and contributor credits.
 
 ---
 

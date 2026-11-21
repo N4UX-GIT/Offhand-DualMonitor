@@ -1744,8 +1744,8 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
                 OffhandCharDB.mainhandWindowedManualLayout = nil
                 if Offhand.isForever then
                     if active then
-                        OffhandCharDB.foreverEditModeLayoutName = name
-                        OffhandCharDB.foreverEditModeLayoutID = targetID
+                        local nameKey, idKey = Offhand:GetForeverLayoutKeys(controllerLayout)
+                        OffhandCharDB[nameKey], OffhandCharDB[idKey] = name, targetID
                         OffhandCharDB.foreverEditModeLegacyRecovery = nil
                         OffhandCharDB.foreverEditModeRecovery = nil
                     end
@@ -2000,8 +2000,8 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     OffhandCharDB.mainhandWindowedManualLayout = nil
     if Offhand.isForever then
         if active then
-            OffhandCharDB.foreverEditModeLayoutName = generatedName
-            OffhandCharDB.foreverEditModeLayoutID = targetID
+            local nameKey, idKey = Offhand:GetForeverLayoutKeys(controllerLayout)
+            OffhandCharDB[nameKey], OffhandCharDB[idKey] = generatedName, targetID
             OffhandCharDB.foreverEditModeLegacyRecovery = nil
             OffhandCharDB.foreverEditModeRecovery = nil
         end
@@ -2121,13 +2121,14 @@ function Mainhand:GetEllesmereLayoutSource(geometryOnly, targetSizes)
     local name = LayoutName(active, "")
     if not source and not generated then
         local character = type(OffhandCharDB) == "table" and OffhandCharDB
+        local nameKey, idKey = Offhand:GetForeverLayoutKeys(controller)
         local setup = character and character.characterSetup
         local record = RegisteredSharedLayout(name, controller)
         if record then
             source = FindNamedLayout(data, presets, record.sourceName)
             if SharedLayoutRecord(name, controller, geometry) then generated = active end
-        elseif character and IsSharedLayoutName(name, controller) and character.foreverEditModeLayoutName == name
-            and tonumber(character.foreverEditModeLayoutID) == activeID
+        elseif character and IsSharedLayoutName(name, controller) and character[nameKey] == name
+            and tonumber(character[idKey]) == activeID
             and type(setup) == "table" and setup.geometrySignature == geometry
             and (setup.gamepad == true) == controller then
             -- Older Forever recovery recorded the active layout identity
@@ -2273,7 +2274,7 @@ end
 
 -- Read-only discovery for character onboarding. Reuse must never fall through
 -- to layout generation, legacy promotion, transformation or SaveLayouts.
-local function CharacterSetupLayoutContext(mainhand)
+local function CharacterSetupLayoutContext(mainhand, expectedName, choices)
     if InCombatLockdown and InCombatLockdown() then return nil, "combat" end
     if not Offhand.db or not Offhand.db.enabled then return nil, "disabled" end
     if not mainhand:GetRect().isSpanned then return nil, "span" end
@@ -2287,53 +2288,76 @@ local function CharacterSetupLayoutContext(mainhand)
     local controller = ControllerMode(presets) and true or false
     if controller and not (Offhand.isForever and NativeGamepadInterface()) then return nil, "gamepad" end
     if type(OffhandCharDB) ~= "table" then return nil, "state" end
-    local record = CharacterModeRecord(controller)
-    local status = record and mainhand:GetLayoutStatus(nil, record)
-    local candidate, candidateIndex, shared, ownRecord, ellesmereReview, needsRefresh
-    if status and status.configured and status.currentGeometry then
-        local found, id, index, preset = FindNamedLayout(data, presets, record.generatedName)
-        if found and not preset then
-            local characterType = ForeverCharacterLayoutType()
-            ellesmereReview = status.ellesmereGainedOwnership and characterType and found.layoutType == characterType
-                and tonumber(data.activeLayout) == id
-            needsRefresh = not status.currentOwnership and not ellesmereReview
-            if ellesmereReview or (status.currentOwnership
-                and IsCurrentCharacterLayoutName(record.generatedName, controller, record.geometrySignature)) then
-                candidate, candidateIndex, ownRecord = found, index, record
-            end
+    local offset = Offhand.isForever and 3 or #presets
+    local preferred, selected, needsRefresh
+    local accountType = Enum and Enum.EditModeLayoutType and Enum.EditModeLayoutType.Account
+    local seen = {}
+    local function Add(row, index, record, shared, review)
+        local name = LayoutName(row)
+        if seen[name] then return end
+        seen[name] = true
+        local id = offset + index
+        local context = {
+            data = data, presets = presets, candidate = row, id = id,
+            controller = controller, ownRecord = record, shared = shared,
+            ellesmereReview = review, active = tonumber(data.activeLayout) == id,
+        }
+        preferred = preferred or context
+        if expectedName == name then selected = context end
+        if choices and not review then
+            choices[#choices + 1] = {name = name, shared = shared ~= nil, active = context.active}
         end
     end
-    if not candidate then
-        for index, row in ipairs(data.layouts) do
-            local metadata = SharedLayoutRecord(LayoutName(row, ""), controller)
-            if metadata then candidate, candidateIndex, shared = row, index, metadata; break end
+    local function AddRecord(record)
+        if type(record) ~= "table" or (record.controllerLayout == true) ~= controller then return end
+        local status = mainhand:GetLayoutStatus(nil, record)
+        if not status.configured or not status.currentGeometry then return end
+        local name = record.generatedName
+        local row, id, index, preset = FindNamedLayout(data, presets, name)
+        if not row or preset then return end
+        local characterType = ForeverCharacterLayoutType()
+        local review = status.ellesmereGainedOwnership and characterType and row.layoutType == characterType
+            and tonumber(data.activeLayout) == id
+        if not status.currentOwnership and not review then needsRefresh = true; return end
+        local shared = SharedLayoutRecord(name, controller, record.geometrySignature)
+        if shared and accountType and row.layoutType ~= accountType then return end
+        if review or shared or IsNamedForPlayer(name, UnitName and UnitName("player"), controller) then
+            Add(row, index, record, shared, review)
         end
     end
-    if not candidate then return nil, needsRefresh and "ownership" or "missing" end
-    local id = (Offhand.isForever and 3 or #presets) + candidateIndex
-    return {
-        data = data, presets = presets, candidate = candidate, id = id,
-        controller = controller, ownRecord = ownRecord, shared = shared,
-        ellesmereReview = ellesmereReview,
-        active = tonumber(data.activeLayout) == id,
-    }
+    -- The selected shared HUD and the personal HUD for this input mode can coexist.
+    AddRecord(OffhandCharDB.mainhandLayout)
+    local records = OffhandCharDB.mainhandLayoutsByMode
+    local personal = type(records) == "table" and records[LayoutModeKey(controller)]
+    if personal and personal ~= OffhandCharDB.mainhandLayout then AddRecord(personal) end
+    for index, row in ipairs(data.layouts) do
+        if not accountType or row.layoutType == accountType then
+            local shared = SharedLayoutRecord(LayoutName(row, ""), controller)
+            if shared then Add(row, index, nil, shared) end
+        end
+    end
+    if selected then return selected end
+    if expectedName then return nil, "missing" end
+    if preferred then return preferred end
+    return nil, needsRefresh and "ownership" or "missing"
 end
 
-function Mainhand:GetCharacterSetupLayoutStatus()
-    local context, reason = CharacterSetupLayoutContext(self)
+function Mainhand:GetCharacterSetupLayoutStatus(includeChoices)
+    local choices = includeChoices and {} or nil
+    local context, reason = CharacterSetupLayoutContext(self, nil, choices)
     if not context then return {ready = false, available = false, reason = reason} end
     return {
         ready = context.ownRecord ~= nil and context.active and not context.ellesmereReview,
         available = true, name = LayoutName(context.candidate), ellesmereReview = context.ellesmereReview,
+        choices = choices,
     }
 end
 
-function Mainhand:UseExistingEditModeLayout(expectedName)
-    local context, reason = CharacterSetupLayoutContext(self)
+function Mainhand:UseExistingEditModeLayout(expectedName, requireCurrentOwnership)
+    local context, reason = CharacterSetupLayoutContext(self, expectedName)
     if not context then return false, reason end
     local name = LayoutName(context.candidate)
-    if expectedName and expectedName ~= name then return false, "missing" end
-    if context.ellesmereReview and not expectedName then return false, "review" end
+    if context.ellesmereReview and (not expectedName or requireCurrentOwnership) then return false, "review" end
     -- Capture rollback provenance before SetActiveLayout can change live data.
     local source, sourceID, _, preset = ResolveActiveLayout(context.data, context.presets)
     local active = context.active
@@ -2372,16 +2396,19 @@ function Mainhand:UseExistingEditModeLayout(expectedName)
     end
     record.generatedID, record.activationPending = context.id, nil
     if context.ellesmereReview then record.ownershipSignature = LayoutOwnershipSignature() end
-    OffhandCharDB.mainhandLayout = record
-    local characterType = ForeverCharacterLayoutType()
-    if characterType and context.ownRecord and context.candidate.layoutType == characterType then
-        RememberCharacterLayout(context.controller, record)
+    local previous = OffhandCharDB.mainhandLayout
+    if context.shared and type(previous) == "table" and
+        IsNamedForPlayer(previous.generatedName, UnitName and UnitName("player"), previous.controllerLayout) then
+        RememberCharacterLayout(previous.controllerLayout, previous)
     end
+    OffhandCharDB.mainhandLayout = record
+    if context.ownRecord and not context.shared then RememberCharacterLayout(context.controller, record) end
     OffhandCharDB.mainhandLayoutDeferred = nil
     OffhandCharDB.hudSetupReminder, OffhandCharDB.hudSetupReminderDeclined = nil, nil
     OffhandCharDB.mainhandWindowedLayout, OffhandCharDB.mainhandWindowedManualLayout = nil, nil
     if Offhand.isForever then
-        OffhandCharDB.foreverEditModeLayoutName, OffhandCharDB.foreverEditModeLayoutID = name, context.id
+        local nameKey, idKey = Offhand:GetForeverLayoutKeys(context.controller)
+        OffhandCharDB[nameKey], OffhandCharDB[idKey] = name, context.id
         OffhandCharDB.foreverEditModeLegacyRecovery, OffhandCharDB.foreverEditModeRecovery = nil, nil
         if Offhand.ForeverPersistence and Offhand.ForeverPersistence.SaveProfileSnapshot then
             Offhand.ForeverPersistence:SaveProfileSnapshot(true)

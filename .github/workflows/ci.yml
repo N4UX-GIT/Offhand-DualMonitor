@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, addon/develop, companion/develop ]
+    branches: [ main, addon/develop, companion/develop, addon/forever/gamepad-reports-20261105 ]
   pull_request:
-    branches: [ main, addon/develop, companion/develop ]
+    branches: [ main, addon/develop, companion/develop, addon/forever/gamepad-reports-20261105 ]
 
 jobs:
   test:
@@ -18,9 +18,17 @@ jobs:
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
 
       - name: Install Lua
-        uses: leafo/gh-actions-lua@6919171ccf181b826f44b9bca76307b577217377 # v13.0.0
+        uses: leafo/gh-actions-lua@32909a2dea0a48c433aec79e7fcd31b4cd55800f # v13.1.0
         with:
           luaVersion: "5.1.5"
+
+      - name: Validate addon load paths and compatibility evidence
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_compatibility_check.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Compatibility checker tests failed.' }
+          python scripts/check-compatibility.py --skip-lua-tests --report dist/compatibility-check.json
+          if ($LASTEXITCODE -ne 0) { throw 'Addon compatibility checks failed.' }
 
       - name: Run Unit Tests
         shell: pwsh
@@ -42,11 +50,11 @@ jobs:
         shell: powershell
         run: |
           ./tests/companion-preferences.ps1
-          ./tests/companion-store-updates.ps1
           ./tests/companion-update-notices.ps1
+          ./tests/companion-store-updates.ps1
           ./tests/companion-store-persistence.ps1
 
-      - name: Verify frozen 2.1.3 publication assets and release scope
+      - name: Verify frozen publication assets and release scope
         shell: powershell
         run: |
           ./tests/publication-213.ps1 -HistoricalArtifactsOnly
@@ -76,6 +84,8 @@ jobs:
         run: |
           ./tests/companion-workspace-regions.ps1
           ./tests/companion-workspace-profiles.ps1
+          ./tests/companion-four-monitors.ps1
+          ./tests/companion-workspace-ux.ps1
           ./tests/companion-layout-document.ps1
           ./tests/companion-flexible-layouts.ps1
 
@@ -83,7 +93,6 @@ jobs:
         shell: powershell
         run: |
           ./tests/companion-third-monitor.ps1
-          ./tests/companion-four-monitors.ps1
           ./tests/companion-taskbar-presentation.ps1
 
       - name: Test production and experimental Companion recovery policies
@@ -107,6 +116,10 @@ jobs:
       - name: Build Companion release executable
         shell: cmd
         run: Companion\build.bat
+
+      - name: Verify Forever character recovery with the built Companion
+        shell: powershell
+        run: ./tests/companion-forever-recovery.ps1 -CompanionPath ./Companion/Offhand.exe
 
       - name: Validate unsigned Store package structure and executable parity
         shell: powershell

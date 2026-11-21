@@ -2,8 +2,46 @@
 
 Native Windows desktop companion application for the Offhand World of Warcraft add-on. See [Linux.md](Linux.md) for the current experimental Wine path and the native-Linux implementation boundary.
 
+## Choose one setup method
+
+Use only one window-placement method: Companion (recommended on Windows),
+FancyZones, or manual placement. These are alternatives. This document covers
+Companion; the other methods do not require it. Keep the same choice in
+`/offhand guide`, place the window, then return to that guide to reload, confirm
+placement and finish calibration. Custom workspaces, named plans, themes and
+backgrounds are optional after the standard setup works.
+
+## Dashboard and setup order
+
+Span WoW Now and Restore Window are at the top. Configuration contains display
+selection. System Status, Display Diagnostics and Activity Log are collapsed by
+default; use Show when you need their details. Installed addon files do not
+prove that Offhand is enabled for the active WoW client.
+
+Follow the five first-time steps in Help, finish calibration in the same in-game
+guide, arrange panels and verify a normal relaunch. Daily automation and custom
+areas come afterward. The tray menu contains Pause/Resume background monitoring.
+
+## Start with standard layout
+
+**Standard layout is already selected for a new setup.** For two full monitors,
+check both under **Span displays**, choose **Mainhand (game)** and click
+**Span WoW Now** at the placement step. No custom workspace editor is needed.
+The optional equal single-display split also belongs to standard layout.
+
+Custom workspaces are for an unequal split, a workspace covering only part of a
+second monitor, or additional workspace areas. In the layout chooser, keep
+standard unless you need one of these arrangements. Custom editors require the
+explicit **I want custom workspace areas (optional)** choice. The second-monitor
+custom option means a selected rectangle, not ordinary two-full-monitor setup.
+
+Saved custom layouts are restored on launch. To return to full monitors, open
+**Workspace layout (custom)…**, choose **Use standard display layout**, review
+**Span displays** and **Mainhand (game)**, then span again and reload the WoW UI.
+Named workspace plans remain saved. **Restore Window** alone does not change the
+saved layout mode.
+
 ## Features
-* **Post-update guidance (2.1.7 source, unpublished)**: Existing users see a one-time What's new notice, with conditional placement/calibration guidance if the game looks blurry, incorrectly sized or misaligned. Replay it from Help. Fresh installs receive the tutorial without an additional update popup; saved layouts are preserved.
 * **Optional Auto-Spanning**: Detects World of Warcraft launches and can span the game window borderlessly across your multi-monitor virtual desktop. This is disabled by default so a first launch cannot move WoW before the display selection is reviewed.
 * **Addon Verification**: Validates that the Offhand add-on is properly installed in your WoW client's `Interface\AddOns` folder.
   It recognizes every supported Offhand TOC and reports the common accidental
@@ -11,12 +49,11 @@ Native Windows desktop companion application for the Offhand World of Warcraft a
 * **Zero Console Flashing**: Compiled as a native Win32 subsystem application (`Offhand.exe`).
 * **System Tray Integration**: Minimizes silently to the Windows notification tray with quick-actions and live status tips.
 * **Built-in Guidance**: Hover dashboard controls for detailed tooltips, or use the `?` button (also available from the tray menu) for the complete setup, daily-use, Forever recovery, and troubleshooting guide.
-* **Quiet Store Update Detection (2.1.7 source, unpublished)**: Store installations check
+* **Quiet Store Update Detection**: Store installations check
   availability through Windows Store services after startup, at most once every six hours.
-  Advanced and the Store button tooltip show the last check in local time.
   **Update available…** is a passive button, with no popup or automatic restart.
   Clicking it opens Microsoft Store, which handles installation. Portable
-  installations retain their manual GitHub check. Published 2.1.5/2.1.6 builds retain their earlier daily cadence; this change is for the next version.
+  installations retain their manual GitHub check.
 * **DPI-Aware**: Full Per-Monitor V2 scaling ensures crisp fonts and accurate window positioning on mixed-resolution / mixed-scale setups.
 * **Post-Span Render Resync**: After the exact borderless span is established,
   the Companion performs a one-pixel resize nudge and immediately restores the
@@ -75,6 +112,18 @@ snapshot, and the optional Forever recovery bridge.
   * To compile yourself, run `build.bat`. It uses the native Windows C# compiler (`csc.exe`) built into Windows 10 & 11.
   * Official releases include SHA-256 checksums. GitHub Actions builds may also include a build-provenance attestation when the release notes explicitly say so. See the project `SECURITY.md` for verification guidance and the complete behavior disclosure.
   * The GitHub release attachment is the canonical executable. Compiler metadata can give a source-checkout or locally rebuilt `Offhand.exe` a different hash even when its source is identical. Release packaging reuses one build across the standalone download and both Companion-containing archives.
+
+## Choosing a running WoW client
+
+When several WoW clients are open on your desktop, use **WoW client** above **Span WoW Now** to select
+the window you want to extend. The list shows the window title, process name and PID. If the titles match,
+you can find the PID on the **Details** tab in Windows Task Manager. **Span WoW Now**, **Restore Window**
+and automatic spanning use that selection. Restore a spanned window before choosing another one.
+
+With a single running client, the Companion can select it automatically. If a client you explicitly chose
+closes, choose its replacement in the list. The selection applies to the running window. Clients using the
+same WoW installation still share the addon's generated `Core\CompanionTopology.lua` file.
+
 ## Settings and shortcuts
 
 The native companion stores settings in `%LOCALAPPDATA%\Offhand\OffhandConfig.ini`,
@@ -92,14 +141,13 @@ Use **Span WoW Now** for the initial setup after reviewing the selected displays
 Enabling auto-span is an explicit preference and is remembered on later launches;
 updating the Companion does not overwrite an existing saved choice.
 
-In the unpublished 2.1.7 source, Store installations schedule a quiet availability check
-30 seconds after the dashboard first opens, then at most once every six hours, including
+In the 2.1.5 source, Store installations schedule a quiet availability check
+30 seconds after the dashboard first opens, then at most once per day, including
 while running in the tray. A package-local `StoreUpdateCheck.ini` stores only the
 build, last attempt time and result, separately from layout preferences. Failed
-checks also wait six hours before retrying. Unavailable Store services never block
-Span or Restore. Advanced and the button tooltip show the result and last-check
-time, using Last attempted for failed or incomplete results. Cached
-availability survives restarts but expires after six hours and does not carry over
+checks also count toward the same six-hour interval. Unavailable Store services never block
+Span or Restore and are explained only in the update button tooltip. Cached
+availability survives restarts but expires after one day and does not carry over
 to a different build. Preview/diagnostic builds skip automatic checks.
 
 **Store Updates** becomes **Update available…** only when Microsoft reports an

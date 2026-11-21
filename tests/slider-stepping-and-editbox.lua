@@ -674,6 +674,9 @@ do
     assert(addon.db.workspaceMapScale==1, "same-value preset failed to leave AUTO mode")
     mapSlider:SetValue(1.25)
     assert(addon.db.workspaceMapScale==1.25 and map.scale==1.25)
+    mapSlider.btnPlus.scripts.OnClick()
+    assert(addon.db.workspaceMapScale==1.26 and map.scale==1.26, "Native map must step in 1% increments")
+    mapSlider.btnMinus.scripts.OnClick()
     assert(layoutAppliedCount==0, "map settings dispatched an unrelated full layout")
     -- Load-after-panel creation: the SAME slider adopts OpenMap's limits,
     -- saved value and actions. A read-only owner refresh must not change prefs.
@@ -709,7 +712,7 @@ do
     mapSlider.editBox:SetText("240%")
     mapSlider.editBox.hasFocus=true
     mapSlider.parent.scripts.OnEvent(mapSlider.parent,"ADDON_LOADED","OpenMap")
-    assert(mapSlider.maxVal==1.6 and mapSlider:GetValue()==1.4 and writes==0)
+    assert(mapSlider.maxVal==1.6 and mapSlider.step==.05 and mapSlider:GetValue()==1.4 and writes==0)
     assert(mapSlider.title:GetText():find("OpenMap",1,true) and mapSlider.uiEnabled)
     assert(addon.db.workspaceMapScale==1.25, "owner refresh overwrote native preference")
     local p200
@@ -724,11 +727,26 @@ do
     assert(ownerDB.windowScale==1.6 and mapSlider:GetValue()==1.6,
         "typed input used the old native range")
     cursorX=0
-    mapSlider.scripts.OnMouseDown(mapSlider,"LeftButton")
+    mapSlider.dragSurface.scripts.OnMouseDown(mapSlider.dragSurface,"LeftButton")
     cursorX=-300
     mapSlider.scripts.OnUpdate(mapSlider,.016)
     assert(ownerDB.windowScale==1.05, "drag used the previous native range")
-    mapSlider.scripts.OnMouseUp(mapSlider,"LeftButton")
+    cursorX=-270
+    mapSlider.dragSurface.scripts.OnMouseUp(mapSlider.dragSurface,"LeftButton")
+    assert(ownerDB.windowScale==1.1, "release must sample the last physical delta")
+    mapSlider.editBox.scripts.OnArrowPressed(mapSlider.editBox, "UP")
+    assert(ownerDB.windowScale==1.15 and mapSlider.editBox:GetText()=="115%")
+    mapSlider.editBox.scripts.OnArrowPressed(mapSlider.editBox, "DOWN")
+    assert(ownerDB.windowScale==1.1)
+    -- On the 4000px Forever span, a 60px drag delivered 18 cursor units.
+    local previousScale = UIParent.GetEffectiveScale
+    UIParent.GetEffectiveScale = function() return .3 end
+    cursorX=0
+    mapSlider.dragSurface.scripts.OnMouseDown(mapSlider.dragSurface,"LeftButton")
+    cursorX=18
+    mapSlider.dragSurface.scripts.OnMouseUp(mapSlider.dragSurface,"LeftButton")
+    UIParent.GetEffectiveScale = previousScale
+    assert(ownerDB.windowScale==1.2, "quick drag must use physical travel on a scaled workspace")
     local savedWrites=writes
     ownerDB.windowScale=.9
     mapSlider.parent.scripts.OnShow()
@@ -738,16 +756,16 @@ do
     mapSlider.parent.scripts.OnShow()
     assert(not mapSlider.title:GetText():find("OpenMap", 1, true),
         "a disabled OpenMap must lose its addon-specific settings label")
-    mapSlider.scripts.OnMouseDown(mapSlider,"LeftButton")
+    mapSlider.dragSurface.scripts.OnMouseDown(mapSlider.dragSurface,"LeftButton")
     addon.CanvasCompatibility.GetWorldMapExternalOwner=oldOwner
     C_AddOns, UnitGUID = oldAddOns, oldUnitGUID
     addon.isForever, addon.CanvasMapPresentation = oldForever, oldPresentation
     addon.IsGamepadUIEnabled=oldGamepad
     mapSlider.parent.scripts.OnShow()
-    assert(mapSlider.maxVal==2.5 and mapSlider:GetValue()==1.25 and p200.enabled,
+    assert(mapSlider.maxVal==2.5 and mapSlider.step==.01 and mapSlider:GetValue()==1.25 and p200.enabled,
         "slider failed to return to native settings after ownership changed")
     assert(not mapSlider._isCustomDrag, "owner change retained a stale drag")
-    mapSlider.scripts.OnMouseUp(mapSlider,"LeftButton")
+    mapSlider.dragSurface.scripts.OnMouseUp(mapSlider.dragSurface,"LeftButton")
     assert(writes==savedWrites and layoutAppliedCount==0 and addon.db.workspaceMapScale==1.25)
     mapSlider.editBox.ClearFocus=clearFocus
     OpenMap, OpenMapAPI, OpenMapDB = oldNamespace, oldAPI, oldDB

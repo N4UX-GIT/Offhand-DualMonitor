@@ -346,7 +346,7 @@ function Map.InstallConfiguration(Canvas, services)
         return true
     end
 
-    function Canvas:ConfigureWorldMap()
+    function Canvas:ConfigureWorldMap(destination)
         if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
         -- Canvas scale/fader/settlement belongs to keyboard workspace mode.
         -- The Gamepad adapter is the sole root-position writer in native UI.
@@ -453,7 +453,8 @@ function Map.InstallConfiguration(Canvas, services)
 
         -- If map is on the workspace, apply preferred or auto-fit scale
         local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]
-        local isWorkspaceMap = pos or (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map))
+        local isWorkspaceMap = destination ~= "MAINHAND" and (pos or
+            (not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions.WorldMapFrame) and IsFrameOnWorkspace(map)))
         Map.FitWindow(map, m, isWorkspaceMap)
 
         if isWorkspaceMap then

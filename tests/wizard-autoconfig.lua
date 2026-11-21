@@ -266,6 +266,7 @@ assert(StaticPopupDialogs["OFFHAND_COMPANION_VERSION_WARNING"].text
 assert(loadfile("Core/Config.lua"))("Offhand", addon)
 assert(loadfile("Core/ManualCanvas.lua"))("Offhand", addon)
 assert(loadfile("Core/Viewport.lua"))("Offhand", addon)
+assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
@@ -319,8 +320,8 @@ assert(not handoffNotice.hasEditBox and not topologyWarning.hasEditBox,
     "layout handoff notices must not imply that Companion needs downloading")
 assert(handoffNotice.text:find("versions may already be correct", 1, true),
     "missing-layout guidance must reassure users with matching versions")
-assert(handoffNotice.text:find("Span WoW Now", 1, true) and handoffNotice.text:find("/reload", 1, true),
-    "missing-layout guidance must give the explicit span and reload sequence")
+assert(handoffNotice.text:find("Span WoW Now", 1, true),
+    "missing-layout guidance must give the span action before placement review")
 assert(not handoffNotice.text:find("is required", 1, true),
     "missing-layout guidance must not report a version requirement")
 assert(versionWarning.hasEditBox,
@@ -514,10 +515,11 @@ do
         SetActiveLayout = function(id) layout.activeLayout = id end,
     }
     C_Timer.After = function(_, fn) timers[#timers + 1] = fn end
+    local expectedHUD = "Saved Offhand"
     StaticPopup_Show = function(key, layoutName)
         visible[key] = true
         shown[#shown + 1] = key
-        if key == fallback then assert(layoutName == "Saved Offhand") end
+        if key == fallback then assert(layoutName == expectedHUD) end
     end
     StaticPopup_Hide = function(key) visible[key] = nil end
     local function Refresh()
@@ -550,6 +552,12 @@ do
     local copy = StaticPopupDialogs[fallback].text
     assert(copy:find("Span WoW Now", 1, true) and copy:find("/reload", 1, true),
         "the combined prompt must explain how to reapply the Companion span")
+    local reloadBefore = copy:find("/reload", 1, true)
+    local span = copy:find("Span WoW Now", 1, true)
+    assert(copy:find("If WoW shrank after spanning", 1, true)
+        and reloadBefore < span
+        and copy:find("only when the layout is new, changed or not loaded", span, true),
+        "a shrunken span needs reload before retrying; a subsequent reload depends on the loaded layout")
     StaticPopup_Hide(fallback)
     StaticPopupDialogs[fallback].OnAccept()
     RunTimer()
@@ -590,8 +598,12 @@ do
 
     addon.Mainhand = {IsNativeGamepadInterface = function() return true end}
     Enum = {EditModePresetLayouts = {Gamepad = 2}, InputDeviceInterfaceType = {Gamepad = 1}}
-    layout.layouts[1].interfaceStyle = 1
-    layout.activeLayout = 4
+    expectedHUD = "Controller HUD"
+    layout.layouts[2] = { layoutName = expectedHUD, interfaceStyle = 1 }
+    layout.activeLayout = 5
+    assert(addon.HUD:UseCurrentForeverEditModeLayout())
+    assert(OffhandCharDB.foreverEditModeLayoutName == "Saved Offhand"
+        and OffhandCharDB.foreverEditModeLayoutNameGamepad == "Controller HUD")
     metrics = missing
     Refresh()
     RunTimer()
@@ -606,9 +618,10 @@ do
     assert(visible[restore] and StaticPopupDialogs[restore].offhandAcceptBeforeHide)
     StaticPopup_Hide(restore)
     StaticPopupDialogs[restore].OnAccept()
-    assert(layout.activeLayout == 4, "the saved Gamepad HUD must be restored by the same hardware click path")
+    assert(layout.activeLayout == 5, "the saved Gamepad HUD must be restored by the same hardware click path")
     addon.Mainhand, Enum = oldMainhand, oldEnum
-    layout.layouts[1].interfaceStyle = nil
+    expectedHUD = "Saved Offhand"
+    layout.layouts[2] = nil
 
     OffhandDB.preferredGeometrySource = "MANUAL"
     layout.activeLayout = 4
@@ -624,6 +637,68 @@ do
     OffhandDB, OffhandCharDB, C_EditMode = oldAccount, oldCharacter, oldEditMode
     addon.isForever, addon.Viewport.GetMetrics, C_Timer.After = oldForever, oldGetMetrics, oldAfter
     StaticPopup_Show, StaticPopup_Hide = originalCompanionStaticPopupShow, oldHide
+end
+
+do
+    local previousReload, previousGamepad = ReloadUI, addon.IsGamepadUIEnabled
+    local previousCombat, previousForever = InCombatLockdown, addon.isForever
+    local calls = 0
+    addon.isForever = true
+    addon.IsGamepadUIEnabled = function() return false end
+    InCombatLockdown = function() return false end
+    ReloadUI = function()
+        assert(addon._gamepadSafePopup:IsShown(), "the popup must still be shown when the click calls ReloadUI")
+        calls = calls + 1
+    end
+    addon:ShowForeverLayoutRecoveryPrompt("fallback", "Saved Offhand", "Modern", {manualCanvasState = "EXACT_REQUIRED"})
+    local popup = addon._gamepadSafePopup
+    assert(popup and popup.alternate:IsShown() and popup.alternate:GetText() == addon.L.ONBOARD_RELOAD_UI
+        and popup.accept:IsShown() and popup.cancel:IsShown(), "reload and both HUD choices must be available")
+    assert(popup.definition.text:find("click " .. addon.L.ONBOARD_RELOAD_UI, 1, true)
+        and not popup.definition.text:find("/reload", 1, true),
+        "the prompt should name its Reload UI button when that action is available")
+    assert(popup.definition.text:find("only when the layout is new, changed or not loaded", 1, true)
+        and popup.definition.text:find("without another reload or calibration", 1, true),
+        "recovery must distinguish loading a new layout from reusing the loaded layout")
+    popup.alternate.scripts.OnClick()
+    assert(calls == 1 and not popup:IsShown(), "the hardware click should request one reload and close the popup")
+    InCombatLockdown = function() return true end
+    addon:ShowForeverLayoutRecoveryPrompt("fallback", "Saved Offhand", "Modern", {manualCanvasState = "EXACT_REQUIRED"})
+    assert(not StaticPopupDialogs.OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT.button3
+        and StaticPopupDialogs.OFFHAND_FOREVER_SINGLE_SCREEN_LAYOUT.text:find("/reload", 1, true),
+        "combat recovery must keep the manual reload instructions")
+    ReloadUI, addon.IsGamepadUIEnabled = previousReload, previousGamepad
+    InCombatLockdown, addon.isForever = previousCombat, previousForever
+end
+
+do
+    local oldReload, oldStyle, oldCombat = ReloadUI, addon.IsGamepadUIEnabled, InCombatLockdown
+    local reloads = 0
+    addon.IsGamepadUIEnabled = function() return false end
+    InCombatLockdown = function() return false end
+    ReloadUI = function()
+        assert(addon._gamepadSafePopup:IsShown(), "reload must run before its clicked popup is hidden")
+        reloads = reloads + 1
+    end
+    for _, keys in ipairs({
+        {"OFFHAND_COMPANION_HANDOFF_NOTICE", "POPUP_COMPANION_HANDOFF_TEXT"},
+        {"OFFHAND_COMPANION_TOPOLOGY_WARNING", "POPUP_COMPANION_TOPOLOGY_TEXT"},
+    }) do
+        addon:PrepareCompanionLayoutReload(keys[1], keys[2])
+        addon:ShowPopup(keys[1])
+        local popup = addon._gamepadSafePopup
+        assert(popup.alternate:IsShown() and popup.alternate:GetText() == addon.L.ONBOARD_RELOAD_UI)
+        assert(popup.definition.text:find("new, changed or not loaded", 1, true)
+            and not popup.definition.text:find("/reload", 1, true))
+        popup.alternate.scripts.OnClick()
+    end
+    assert(reloads == 2)
+    InCombatLockdown = function() return true end
+    addon:PrepareCompanionLayoutReload("OFFHAND_COMPANION_HANDOFF_NOTICE", "POPUP_COMPANION_HANDOFF_TEXT")
+    local definition = StaticPopupDialogs.OFFHAND_COMPANION_HANDOFF_NOTICE
+    assert(not definition.button3 and not definition.OnAlt and definition.text:find("/reload", 1, true),
+        "combat must remove the automatic reload action and retain manual guidance")
+    ReloadUI, addon.IsGamepadUIEnabled, InCombatLockdown = oldReload, oldStyle, oldCombat
 end
 
 -- Either welcome action must acknowledge the first-run guide without claiming
@@ -1938,6 +2013,7 @@ do
     assert(addon.SetupPlacement:GetStage()=="CONFIRM" and addon:GetPlacementCheckpoint()==checkpoint,
         "an unsuccessful span must not erase the fact that the UI actually reloaded")
     assert(onboardingFrame.placementPhase==1 and onboardingFrame.modeIllustration.kind=="POSITION"
+        and onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_WINDOWS_DISPLAY_PLACEMENT,1,true)
         and onboardingFrame.actionButton:GetText():find(addon.L.ONBOARD_SPAN_ACK,1,true)
         and onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_RELOAD_COMPLETE_PLACE,1,true)
         and not onboardingFrame.nextButton.enabled,
@@ -2193,7 +2269,8 @@ for _, method in ipairs({"FANCYZONES", "COMPANION", "MANUAL"}) do
     for _, page in ipairs({3, 4}) do
         onboardingFrame:SetPage(page)
         local expectedBody = page == 3 and addon.L["ONBOARD_MODE_READY_BODY"]
-            or string.format(addon.L["ONBOARD_SPAN_" .. method], "|cffffd100" .. addon.L["ONBOARD_SPAN_ACK"] .. "|r")
+            or addon.L.ONBOARD_WINDOWS_DISPLAY_PLACEMENT .. "\n\n" ..
+                string.format(addon.L["ONBOARD_SPAN_" .. method], "|cffffd100" .. addon.L["ONBOARD_SPAN_ACK"] .. "|r")
         assert(onboardingFrame.pageBody:GetText() == expectedBody,
             "preparation must be one task and placement must describe only the selected method")
         onboardingFrame.helpButton.scripts.OnClick()
@@ -2610,12 +2687,11 @@ addon.Viewport.GetMetrics = getMetrics
 -- A profile mutation must be deferred until the confirmation is accepted.
 StaticPopupDialogs = {}
 ACCEPT, CANCEL = "Accept", "Cancel"
-local pending
-StaticPopup_Show = function(key, text, _, callback) pending = {key=key, callback=callback} end
 local mutations = 0
 addon.Options:Confirm("Replace profile?", function() mutations = mutations + 1 end)
 assert(mutations == 0, "Opening a confirmation must not modify a profile")
-StaticPopupDialogs[pending.key].OnAccept(nil, pending.callback)
+assert(addon._gamepadSafePopup.popupKey == "OFFHAND_CONFIRM_PROFILE")
+addon._gamepadSafePopup.accept.scripts.OnClick()
 assert(mutations == 1, "Accept must run the deferred profile operation once")
 
 -- ============================================================================
@@ -2864,6 +2940,23 @@ assert(addon:SetOnboardingSetupMethod(previewMethod))
 -- without changing the profile storage/mutation implementation.
 do
     local controls = assert(optPanel.profileControls)
+    do
+        local originalSetup, reviews = addon.CharacterSetup, 0
+        addon.CharacterSetup = {ReviewExisting=function() reviews = reviews + 1 end}
+        controls.reuseHUD.scripts.OnClick()
+        assert(reviews == 1 and controls.reuseHUD:GetText() == addon.L.PROFILE_REUSE_HUD)
+        addon.CharacterSetup = originalSetup
+    end
+    local getLayoutStatus = addon.Mainhand.GetLayoutStatus
+    addon.Mainhand.GetLayoutStatus = function() return {configured=true, generatedName="Raid HUD", generatedID=12} end
+    addon.Options:UpdateProfileList()
+    assert(controls.hudLabel:IsShown() and controls.hudLabel:GetText():find("Raid HUD", 1, true),
+        "Profiles must show this character's saved HUD name")
+    addon.Mainhand.GetLayoutStatus = function() return {configured=true, generatedName=12, generatedID=12} end
+    addon.Options:UpdateProfileList()
+    assert(controls.hudLabel:GetText() == "", "a native layout ID must never become a HUD label")
+    addon.Mainhand.GetLayoutStatus = getLayoutStatus
+    addon.Options:UpdateProfileList()
     local originalGet, originalCreate = addon.GetProfiles, addon.CreateProfile
     local originalCharacterDB = OffhandCharDB
     OffhandCharDB = OffhandCharDB or {}
@@ -2886,9 +2979,10 @@ do
         "removing a selected profile must clear its stale action state")
     assert(controls.scroll:GetVerticalScroll() == 0 and not controls.rows[2]:IsShown(),
         "shrinking the list must clamp scrolling and hide obsolete rows")
-    local creations = 0
-    addon.CreateProfile = function(_, name)
+    local creations, freshProfile = 0, nil
+    addon.CreateProfile = function(_, name, fromDefaults)
         creations = creations + 1
+        freshProfile = fromDefaults
         profileNames[#profileNames + 1] = name
         OffhandCharDB.activeProfile = name
         return true
@@ -2903,10 +2997,14 @@ do
     for i = 1, 20 do profileNames[#profileNames + 1] = string.format("Profile %02d", i) end
     controls.input:SetText("  Keyboard profile  ")
     controls.input.scripts.OnEnterPressed(controls.input)
-    assert(creations == 1 and profileNames[#profileNames] == "Keyboard profile"
+    assert(creations == 1 and freshProfile == false and profileNames[#profileNames] == "Keyboard profile"
         and controls.input:GetText() == "", "Enter must use the same trimmed creation path as the button")
     assert(controls.rows[#profileNames].selected and controls.scroll:GetVerticalScroll() > 0,
         "newly created profiles must be selected and revealed even in a long list")
+    controls.input:SetText("Clean profile")
+    controls.fresh.scripts.OnClick()
+    assert(creations == 2 and freshProfile and OffhandCharDB.activeProfile == "Clean profile",
+        "Start from defaults must select the fresh profile creation path")
     addon.GetProfiles, addon.CreateProfile = originalGet, originalCreate
     OffhandCharDB.activeProfile = originalActive
     OffhandCharDB = originalCharacterDB
@@ -2971,12 +3069,16 @@ do
     addon.Onboarding = {Open = function() guides = guides + 1 end}
     addon.Wizard = {Open = function() calibrations = calibrations + 1 end}
     for _, notice in ipairs({handoffNotice, topologyWarning, versionWarning}) do
-        assert(notice.button1 and notice.button2 and notice.button3,
-            "recovery warnings must offer guide, calibration and dismiss actions")
+        assert(notice.button1 and notice.button2,
+            "recovery warnings must retain guide and dismiss actions")
         notice.OnAccept()
+    end
+    for _, notice in ipairs({versionWarning}) do
+        assert(notice.button1 and notice.button2 and notice.button3,
+            "version warnings must retain their calibration action")
         notice.OnAlt()
     end
-    assert(guides == 3 and calibrations == 3, "warning actions must launch their named recovery flow")
+    assert(guides == 3 and calibrations == 1, "warning actions must launch their named recovery flow")
     addon.Onboarding, addon.Wizard = guideModule, wizardModule
 end
 

@@ -127,7 +127,7 @@ local workspace, refreshes = false, 0
 addon.Canvas = {IsFrameOnWorkspace=function(frame) return frame==map and workspace end}
 module.enabled = true
 module.RefreshExtras = function() refreshes=refreshes+1 end
-for _, version in ipairs({"v0.8.8", "v0.8.9"}) do
+for _, version in ipairs({"v0.8.8", "v0.8.9", "v0.8.10"}) do
     OpenMap.version = version
     assert(recovery:Run(true), "reviewed OpenMap version cannot move to Offhand: "..version)
     map:SetPoint("CENTER",UIParent,"CENTER",0,0)
@@ -144,9 +144,52 @@ for _, version in ipairs({"v0.8.8", "v0.8.9"}) do
     assert(db.moveFade==.5 and refreshes==before+1,
         "leaving Offhand must restore the owner's fade: "..version)
 end
-OpenMap.version = "v0.8.10"
+OpenMap.version = "v0.8.11"
 Refuses("unavailable")
 workspace = true
 mapAdapter.UpdateMovementFade(map, true)
 assert(db.moveFade==.5, "an unreviewed version must keep its movement fade")
+
+-- Native movement can be driven by another title surface, bypassing OpenMap's
+-- Save callback. The next vendor panel pass must retain the released point.
+local installedHooks = 0
+hooksecurefunc = function(frame, method, callback)
+    local original = frame[method]
+    frame[method] = function(self, ...)
+        original(self, ...)
+        callback(self, ...)
+    end
+    installedHooks = installedHooks + 1
+end
+function map:StartMoving() end
+function map:StopMovingOrSizing()
+    if self.drop then self.point = self.drop end
+end
+OpenMap.version = "v0.8.9"
+recovery:ObserveUserDrag(map)
+recovery:ObserveUserDrag(map)
+assert(installedHooks == 2, "drag observation must be installed once")
+OpenMapAPI.IsStitched = function() return false end
+IsMouseButtonDown = function() error("this script has no limited input access") end
+local function Drag(drop)
+    map:StartMoving()
+    map.drop = drop
+    map:StopMovingOrSizing()
+end
+local oldWrites = writes
+Drag({"LEFT", nil, "LEFT", 33, 312})
+assert(db.window[1]=="LEFT" and db.window[2]=="LEFT" and db.window[3]==33 and db.window[4]==312)
+assert(writes==oldWrites, "saving a drag must not reposition the native map")
+map:SetPoint("TOPLEFT",UIParent,"TOPLEFT",45,-50)
+assert(map.point[1]=="LEFT" and map.point[3]=="LEFT" and map.point[4]==33 and map.point[5]==312,
+    "an OpenMap reflow must keep the dropped anchor")
+local savedDrag = db.window
+map.drop = {"LEFT", nil, "LEFT", 200, 312}
+map:StopMovingOrSizing()
+assert(db.window == savedDrag, "a native stop without a drag must not save")
+owner = "MoveAny"
+Drag({"LEFT", nil, "LEFT", 250, 312})
+assert(db.window == savedDrag, "must yield to another map owner")
+assert(db.windowSize==oldSize and db.windowScale==oldScale, "saving a drag must preserve scale and size")
+
 print("PASS: OpenMap explicit recovery, ownership, scale/void geometry, guards, rollback and reporting")

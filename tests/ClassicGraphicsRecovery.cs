@@ -23,6 +23,27 @@ namespace Offhand.Companion {
             return p.Observe(o,"same-plan",Start.AddSeconds(seconds),true);
         }
         public static void Main() {
+            var snapback = Reset();
+            var restored = new Size(2114,1353);
+            Func<bool> matches = () => StandardRespanCheck.MatchesReset(snapback, Handle, Span, restored);
+            Check(!matches(), "a reset at a different location must not trigger a Standard re-span reminder");
+            snapback.Bounds = new Rectangle(Span.Location, restored);
+            snapback.Client = new Size(2100,1339);
+            Check(matches(),
+                "observed Forever reset retains the span origin and clip with restored outer dimensions");
+            snapback.Handle = new IntPtr(456);
+            Check(!matches(), "a replacement window cannot trigger the original reminder");
+            snapback.Handle = Handle;
+            snapback.Region = Rectangle.Empty;
+            Check(!matches(), "a normal window without span clipping must not trigger the reminder");
+            snapback.Region = new Rectangle(Point.Empty, Span.Size);
+            snapback.Usable = false;
+            Check(!matches(), "an unusable window must not trigger the reminder");
+            snapback.Usable = true;
+            snapback.Bounds = Span;
+            snapback.Client = Span.Size;
+            snapback.Style = 0x140B0000;
+            Check(!matches(), "a healthy borderless span must not trigger the reminder");
             Check(CompanionForm.GraphicsRecoveryEnabled,"test build gate must be enabled");
             string config = (string)typeof(CompanionForm).GetField("configPath",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).GetValue(null);

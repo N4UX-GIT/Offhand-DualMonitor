@@ -298,6 +298,7 @@ addon.MainhandGeometry = {
     end,
     Signature = function() return signature end,
 }
+assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 addon.MainhandCompatibility = {
     IsNativeGamepadInterface = function() return nativeGamepad end,
 }

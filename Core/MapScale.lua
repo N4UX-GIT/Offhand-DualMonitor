@@ -12,8 +12,8 @@ end
 local function Inspect()
     local db, map = Offhand.db, _G.WorldMapFrame
     local owner = Offhand.CanvasCompatibility.GetWorldMapExternalOwner()
-    local state = {available=false, owner=owner, min=.5, max=2.5, value=1}
-    if owner == "OpenMap" then state.max = 1.6 end
+    local state = {available=false, owner=owner, min=.5, max=2.5, step=.01, value=1}
+    if owner == "OpenMap" then state.max, state.step = 1.6, .05 end
     if not db or not db.enabled or not map or (map.IsForbidden and map:IsForbidden()) then return state end
     state.value = Number(map:GetScale()) or 1
     if (InCombatLockdown and InCombatLockdown())
@@ -27,6 +27,10 @@ local function Inspect()
         or (not (db.savedMainPositions and db.savedMainPositions.WorldMapFrame)
             and Offhand.Canvas.IsFrameOnWorkspace(map))
     state.key = state.workspace and "workspaceMapScale" or "mainMapScale"
+    if metrics and Offhand.WorkspaceRegions then
+        local saved = not owner and db.savedWorkspacePositions and db.savedWorkspacePositions.WorldMapFrame
+        metrics = Offhand.WorkspaceRegions:ForFrame(metrics, map, saved)
+    end
     if owner then
         state.workspace = Offhand.Canvas.IsFrameOnWorkspace(map)
         if owner ~= "OpenMap" or not Offhand.isForever then return state end
@@ -56,7 +60,24 @@ end
 
 function Scale:GetState()
     local ok, state = pcall(Inspect)
-    return ok and state or {available=false, min=.5, max=2.5, value=1}
+    return ok and state or {available=false, min=.5, max=2.5, step=.01, value=1}
+end
+
+function Scale:ObserveMapChanges(card, refresh)
+    if not (EventRegistry and EventRegistry.RegisterCallback and C_Timer and C_Timer.After) then return end
+    local pending = false
+    local function QueueRefresh()
+        if pending or not card:IsVisible() then return end
+        pending = true
+        -- Read the final map mode after Blizzard and the map provider have handled the event.
+        C_Timer.After(0, function()
+            pending = false
+            if card:IsVisible() then refresh() end
+        end)
+    end
+    for _, event in ipairs({"WorldMapOnShow", "WorldMapOnHide", "WorldMapMaximized", "WorldMapMinimized", "MapCanvas.MapSet"}) do
+        EventRegistry:RegisterCallback(event, QueueRefresh, card)
+    end
 end
 
 local function Fit(state)

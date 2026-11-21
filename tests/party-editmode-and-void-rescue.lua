@@ -409,6 +409,7 @@ SetUIPanelAttribute = function(frame, name, value)
 end
 
 -- Load Offhand core scripts
+assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDTransientPolicy.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
@@ -416,6 +417,20 @@ assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 local seamChunk = loadfile("Core/SeamRedirect.lua")
 assert(seamChunk, "Core/SeamRedirect.lua must compile cleanly")
 seamChunk("Offhand", addon)
+
+do
+    local target = makeMockFrame("IntegrationAnchor", 10, 10)
+    target.scale = 2
+    assert(addon.API.SecureAnchorToMainhand(target, "BOTTOMRIGHT", -10, 8))
+    local point, parent, origin, x, y = target:GetPoint(1)
+    assert(point == "BOTTOMRIGHT" and parent == UIParent and origin == "BOTTOMLEFT"
+        and x == (metrics.gameRight - 10) / 2 and y == (metrics.gameBottom + 8) / 2)
+    assert(not addon.API.SecureAnchorToMainhand(target, "INVALID"))
+    combatLocked = true
+    assert(not addon.API.SecureAnchorToMainhand(target))
+    combatLocked = false
+    assert(target:GetPoint(1) == point)
+end
 
 local panelMotionChunk = loadfile("Core/PanelMotion.lua")
 assert(panelMotionChunk, "Core/PanelMotion.lua must compile cleanly")
@@ -449,6 +464,53 @@ addon.HUD:HookFrames()
 -- TEST 1: Party Frame Default Positioning inside the 3D Game Viewport
 -- ============================================================================
 addon.HUD:AlignHUDFrames(metrics)
+
+do
+    local oldForever, oldSeam = addon.isForever, addon.db.seamRedirect
+    local oldApi, oldMainhand, oldErrors = addon.API, addon.mainhandFrame, UIErrorsFrame
+    local mainhand = makeMockFrame("TestErrorMainhand", metrics.gameWidth, metrics.gameHeight)
+    local errors = makeMockFrame("UIErrorsFrame", 512, 60)
+    addon.API = { GetMainhandFrame = function() return mainhand end }
+    addon.mainhandFrame = mainhand
+    addon.isForever, addon.db.seamRedirect = true, true
+    local layout = {}
+    for key, value in pairs(metrics) do layout[key] = value end
+    local function check(relative, y)
+        addon.HUD:AlignHUDFrames(layout)
+        local point, parent, origin, dx, dy = errors:GetPoint(1)
+        assert(point == "TOP" and parent == relative and origin == "TOP" and dx == 0 and dy == y,
+            "Forever error text must retain the native inset and follow the correct monitor")
+    end
+    errors:SetPoint("TOP", UIParent, "TOP", 0, -122)
+    check(mainhand, -122)
+    local writes = errors.setPointCalls
+    check(mainhand, -122)
+    assert(errors.setPointCalls == writes)
+    layout.isSpanned = false
+    check(UIParent, -122)
+    layout.isSpanned = true
+    layout.gameLeft, layout.gameRight, layout.gameTop = 0, 2084.5, 1097
+    errors:ClearAllPoints()
+    errors:SetScale(0.8)
+    errors:SetPoint("TOP", UIParent, "TOP", 0, -144)
+    check(mainhand, -144)
+    assert(errors:GetScale() == 0.8)
+    addon.db.seamRedirect = false
+    check(UIParent, -144)
+    addon.db.seamRedirect = true
+    errors:SetUserPlaced(true)
+    check(UIParent, -144)
+    errors:SetUserPlaced(false)
+    errors:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+    check(UIParent, -144)
+    assert(errors:GetNumPoints() == 2)
+    errors:ClearAllPoints()
+    errors:SetPoint("TOP", PlayerFrame, "TOP", 0, -82)
+    check(PlayerFrame, -82)
+    addon.isForever, addon.db.seamRedirect = oldForever, oldSeam
+    addon.API, addon.mainhandFrame, UIErrorsFrame = oldApi, oldMainhand, oldErrors
+    addon.HUD:AlignHUDFrames(metrics)
+end
 
 local function assertMainhandAnchor(frame, point, x, y, message)
     local anchor = frame.points[#frame.points]
@@ -1865,6 +1927,10 @@ do
     addon.HUD:UpdateForeverRecoveryLayout(metrics)
     flushTimers()
     local pending = OffhandCharDB.foreverEditModeRecovery
+    assert(OffhandCharDB.foreverEditModeLayoutNameGamepad == gamepadLayout.layoutName
+        and OffhandCharDB.foreverEditModeLayoutIDGamepad == 6
+        and OffhandCharDB.foreverEditModeLayoutName == nil,
+        "legacy Gamepad selection must migrate out of the keyboard preference")
     assert(recoveryPrompt == "fallback" and pending and pending.fallbackLayoutID == 3
         and pending.fallbackLayoutName == "Gamepad" and selectedLayout == nil,
         "missing-display recovery must offer Gamepad and wait for the player")
@@ -2907,6 +2973,7 @@ do
     local oldAdapter, oldAddOns, oldSpecial = addon.CanvasAddonEscape, C_AddOns, UISpecialFrames
     local oldRecovery = addon.Recovery
     local oldGuide, oldArrow, oldMerchant = LeveldonPanel, DonMapArrow, MerchantFrame
+    local oldRXP, oldItem = RXPFrame, RXPItemFrame
     assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", addon)
     assert(loadfile("Core/Recovery.lua"))("Offhand", addon)
     C_AddOns = {IsAddOnLoaded = function(name) return name == "Leveldon" or name == "DonMap" end}
@@ -2921,6 +2988,8 @@ do
     DonMapArrow.GetObjectType = function() return "Button" end
     DonMapArrow.icon, DonMapArrow.shadow, DonMapArrow.glow = {}, {}, {}
     MerchantFrame = makeMockFrame("MerchantFrame", 600, 700)
+    RXPFrame = makeMockFrame("RXPFrame", 350, 430)
+    RXPItemFrame = makeMockFrame("RXPItemFrame", 80, 80)
     local function Place(frame, x, y)
         frame:ClearAllPoints()
         frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, y)
@@ -2939,7 +3008,12 @@ do
     addon.db.openWorkspacePanels.DonMapArrow = true
     Place(LeveldonPanel, 250, 1700)
     Place(DonMapArrow, 1820, 1150)
+    Place(RXPFrame, 200, 1700)
+    addon.db.savedMainPositions.RXPFrame = {x = 2320.595, y = 611.072}
     ShowUIPanel(MerchantFrame)
+    assert(RXPFrame:GetLeft() == 200 and RXPFrame:GetTop() == 1700,
+        "NPC peer repair must ignore even an unmigrated RestedXP position")
+    addon.db.savedMainPositions.RXPFrame = nil
     assert(LeveldonPanel:GetLeft() == 250 and DonMapArrow:GetLeft() == 1820,
         "merchant panel repair must yield to both vendor-native anchors before migration")
     assert(#UISpecialFrames == 0, "peer repair must not register either vendor gameplay frame for Escape")
@@ -2958,7 +3032,7 @@ do
         "automatic popup rescue must preserve the vendor's centered and void positions")
     UIParent.children, addon.db.seamRedirect = oldChildren, oldSeamRedirect
 
-    for _, frame in ipairs({LeveldonPanel, DonMapArrow}) do
+    for _, frame in ipairs({LeveldonPanel, DonMapArrow, RXPFrame, RXPItemFrame}) do
         Place(frame, 1820, 1970)
         local ok, _, moved = addon.Canvas:GatherSafeUIToMainhand(true, frame)
         assert(ok and moved == 1 and frame:GetTop() <= metrics.gameTop,
@@ -2991,6 +3065,7 @@ do
     addon.CanvasAddonEscape, C_AddOns, UISpecialFrames = oldAdapter, oldAddOns, oldSpecial
     addon.Recovery = oldRecovery
     LeveldonPanel, DonMapArrow, MerchantFrame = oldGuide, oldArrow, oldMerchant
+    RXPFrame, RXPItemFrame = oldRXP, oldItem
     print("PASS: native Don gameplay placement and visibility survive merchant, Escape and Gather")
 end
 
@@ -3252,9 +3327,9 @@ print("PASS: login and delayed restoration reject input capture and stale child 
 end
 
 -- Spellbook, Macros, Collections, and similar panels do not exist at the first
--- reload restoration pass. Offhand must load only the Blizzard addon belonging
--- to an explicitly saved/open workspace panel, then use the normal delayed
--- panel restoration path after registration has settled.
+-- reload restoration pass. Offhand loads the corresponding Blizzard addon,
+-- then uses the normal delayed panel restoration path for explicitly open panels.
+-- Closed protected panels need their owner loaded before combat, without reopening.
 local loadedBlizzardAddons, requestedBlizzardAddons = {}, {}
 C_AddOns = {
     IsAddOnLoaded = function(name) return loadedBlizzardAddons[name] == true end,
@@ -3265,6 +3340,10 @@ C_AddOns = {
             MacroFrame = makeMockFrame("MacroFrame", 700, 800)
             MacroFrame:Hide()
             RegisterUIPanel(MacroFrame)
+        elseif name == "Blizzard_PlayerSpells" then
+            PlayerSpellsFrame = makeMockFrame("PlayerSpellsFrame", 577, 720)
+            PlayerSpellsFrame:Hide()
+            RegisterUIPanel(PlayerSpellsFrame)
         elseif name == "Blizzard_Professions" then
             ProfessionsFrame = makeMockFrame("ProfessionsFrame", 700, 800)
             ProfessionsFrame:Hide()
@@ -3286,6 +3365,26 @@ assert(requestedBlizzardAddons.Blizzard_MacroUI == 1,
     "reload restoration must request the saved MacroFrame's Blizzard addon exactly once")
 assert(MacroFrame and MacroFrame:IsShown() and addon.Canvas.IsFrameOnWorkspace(MacroFrame),
     "a saved/open MacroFrame must reopen on the workspace after its addon loads")
+
+do
+    local oldSpellbook, oldRegistration = PlayerSpellsFrame, UIPanelWindows.PlayerSpellsFrame
+    local oldPosition = addon.db.savedWorkspacePositions.PlayerSpellsFrame
+    local oldOpen = addon.db.openWorkspacePanels.PlayerSpellsFrame
+    PlayerSpellsFrame, UIPanelWindows.PlayerSpellsFrame = nil, nil
+    addon.db.savedWorkspacePositions.PlayerSpellsFrame = {x=210, y=1510}
+    addon.db.openWorkspacePanels.PlayerSpellsFrame = nil
+    addon.Canvas:RestorePersistentFrames()
+    addon.Canvas:RestorePersistentFrames()
+    flushTimers()
+    flushTimers()
+    assert(requestedBlizzardAddons.Blizzard_PlayerSpells == 1,
+        "prepare a deliberately closed protected Spellbook once")
+    assert(PlayerSpellsFrame and not PlayerSpellsFrame:IsShown(),
+        "prepare the native root without restoring visible state")
+    PlayerSpellsFrame, UIPanelWindows.PlayerSpellsFrame = oldSpellbook, oldRegistration
+    addon.db.savedWorkspacePositions.PlayerSpellsFrame = oldPosition
+    addon.db.openWorkspacePanels.PlayerSpellsFrame = oldOpen
+end
 
 -- New Blizzard modules are learned from UIPanels registered during their
 -- ADDON_LOADED turn, providing forward compatibility beyond the seed table.
@@ -3963,8 +4062,45 @@ assert(not optedInProfessions:IsShown()
         and not addon.db.openWorkspacePanels.ProfessionsBookFrame,
     "an unpaired native Professions close must remain closed instead of auto-reopening")
 
-experimentalProfessionsMovement = false
-addon.Canvas:DisableExperimentalForeverProfessionsMovement()
+-- The dedicated crafting Escape handler runs before the generic panel-close
+-- transaction. Closing and re-showing the frame would end the recipe session.
+do
+    local previousFrame, previousMixin, previousStack = ProfessionsFrame, ProfessionsMixin, debugstack
+    local closed = 0
+    local function nativeClose() closed = closed + 1 end
+    local source = "Blizzard_Professions/Blizzard_ProfessionsRegistration.lua"
+    debugstack = function() return source end
+    ProfessionsMixin = { CheckConfirmClose = nativeClose }
+    local craft = makeMockFrame("ProfessionsFrame", 700, 800)
+    ProfessionsFrame = craft
+    craft.CheckConfirmClose = nativeClose
+    craft.CraftingPage = makeMockFrame("CraftingPage", 200, 200)
+    craft.CraftingPage:Show()
+    craft:Show()
+    craft:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 180, 1500)
+    addon.db.savedWorkspacePositions.ProfessionsFrame = {x=180, y=1500}
+    addon.Canvas:QueueExperimentalForeverProfessionsMovement(craft)
+    GameMenuFrame:Hide()
+    craft:CheckConfirmClose()
+    assert(closed == 0 and GameMenuFrame:IsShown(), "crafting Escape must open the menu without closing the session")
+    GameMenuFrame:Hide()
+    source = "CloseButton"
+    craft:CheckConfirmClose()
+    assert(closed == 1 and not GameMenuFrame:IsShown(), "explicit crafting close must reach Blizzard")
+    source = "Blizzard_Professions/Blizzard_ProfessionsRegistration.lua"
+    craft.CraftingPage:Hide()
+    craft:CheckConfirmClose()
+    assert(closed == 2, "other tabs must retain their native close confirmations")
+    craft.CraftingPage:Show()
+    craft:ClearAllPoints()
+    craft:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 2400, 1000)
+    craft:CheckConfirmClose()
+    assert(closed == 3 and not GameMenuFrame:IsShown(), "a stale saved anchor must not intercept Mainhand Escape")
+    experimentalProfessionsMovement = false
+    addon.Canvas:DisableExperimentalForeverProfessionsMovement()
+    assert(craft.CheckConfirmClose == nativeClose, "disabling movement must release the native method")
+    ProfessionsFrame, ProfessionsMixin, debugstack = previousFrame, previousMixin, previousStack
+end
 assert(not addon.db.savedWorkspacePositions.ProfessionsBookFrame,
     "disabling experimental Professions movement must clear its saved position")
 assert(not optedInProfessions._OffhandExperimentalProfessionsGrip:IsShown()

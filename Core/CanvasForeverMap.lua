@@ -167,6 +167,148 @@ function Adapter.UpdateMovementFade(map, spanned)
     end
 end
 
+-- Spoken Places attaches its panel and reopen tab to the map's right edge.
+-- Constrain the visible attachment without replacing those anchors or saving
+-- a different collapsed state in the provider's profile.
+local placesClamps = {}
+
+local function PlacesOverlay(frame, active, state, key)
+    if not frame then return end
+    local strata = frame:GetFrameStrata()
+    if active then
+        if strata == "LOW" or strata == "MEDIUM" or strata == "HIGH" or strata == "BACKGROUND" then
+            state[key] = strata
+            frame:SetFrameStrata("DIALOG")
+        end
+    elseif state[key] then
+        if key == "stageStrata" and state.stageLevel then
+            if frame:GetFrameLevel() == state.appliedStageLevel then frame:SetFrameLevel(state.stageLevel) end
+            state.stageLevel, state.appliedStageLevel = nil, nil
+        end
+        if strata == "DIALOG" then frame:SetFrameStrata(state[key]) end
+        state[key] = nil
+    end
+end
+
+-- The provider stretches the panel between two points on the same map edge.
+-- A map can be taller than its monitor before the player pins or fits it.
+local function FitPlacesHeight(frame, metrics, state, factor)
+    if frame ~= _G.SpokenPlacesPanel then return end
+    local point, edge, relative, x, y = frame:GetPoint(2)
+    if point ~= "BOTTOMLEFT" or relative ~= "BOTTOMRIGHT" or not edge then
+        state.heightAnchor = nil
+        return
+    end
+    local bottom = state.heightAnchor
+    if bottom and (edge ~= bottom.edge or x ~= bottom.x or math.abs(y-bottom.applied) > .01) then
+        state.heightAnchor, bottom = nil, nil
+    end
+    local originalY = bottom and bottom.y or y
+    local desired = originalY
+    if metrics then
+        local topPoint, topEdge, topRelative, _, topY = frame:GetPoint(1)
+        if topPoint == "TOPLEFT" and topEdge == edge and topRelative == "TOPRIGHT" then
+            local height = edge:GetHeight() * edge:GetEffectiveScale() / frame:GetEffectiveScale()
+            desired = math.max(originalY, height + topY - metrics.workspaceHeight * factor)
+        end
+    end
+    if math.abs(y-desired) > .01 then frame:SetPoint(point, edge, relative, x, desired) end
+    if desired > originalY + .01 then
+        if not bottom or bottom.applied ~= desired then
+            state.heightAnchor = {edge=edge, x=x, y=originalY, applied=desired}
+        end
+    else
+        state.heightAnchor = nil
+    end
+end
+local function UpdatePlacesClamp(frame, map, metrics)
+    if not frame or frame:IsForbidden() or frame:IsProtected() then return end
+    local state = placesClamps[frame]
+    local active = metrics and frame:IsVisible() and frame:GetParent() == map
+    if not active and not state then return end
+
+    local left, right, top, bottom = frame:GetClampRectInsets()
+    if state and (left ~= state.left or right ~= state.right
+        or top ~= state.top or bottom ~= state.bottom or not frame:IsClampedToScreen()) then
+        -- Another owner changed the clamp. Yield until the map leaves Offhand.
+        state.superseded = true
+    end
+    if not active then
+        placesClamps[frame] = nil
+        PlacesOverlay(frame, false, state, "strata")
+        PlacesOverlay(frame.stage, false, state, "stageStrata")
+        FitPlacesHeight(frame, nil, state)
+        if state and not state.superseded then
+            frame:SetClampRectInsets(unpack(state.original))
+            frame:SetClampedToScreen(state.wasClamped)
+        end
+        return
+    end
+    if state and state.superseded then return end
+    state = state or {original = {left, right, top, bottom}, wasClamped = frame:IsClampedToScreen()}
+    local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+    FitPlacesHeight(frame, metrics, state, factor)
+    local l = math.min(state.original[1], -metrics.workspaceLeft * factor)
+    local r = math.max(state.original[2], (UIParent:GetWidth() - metrics.workspaceRight) * factor)
+    local t = math.max(state.original[3], (UIParent:GetHeight() - metrics.workspaceTop) * factor)
+    local b = math.min(state.original[4], -metrics.workspaceBottom * factor)
+    if math.abs(l-left) > .01 or math.abs(r-right) > .01
+        or math.abs(t-top) > .01 or math.abs(b-bottom) > .01 then
+        frame:SetClampRectInsets(l, r, t, b)
+    end
+    if not frame:IsClampedToScreen() then frame:SetClampedToScreen(true) end
+    local mapRight, panelLeft = map:GetRight(), frame:GetLeft()
+    local overlap = mapRight and panelLeft and mapRight * map:GetEffectiveScale()
+        > panelLeft * frame:GetEffectiveScale() + .5
+    PlacesOverlay(frame, overlap, state, "strata")
+    PlacesOverlay(frame.stage, overlap, state, "stageStrata")
+    -- Keep the provider's separately drawn model above its parchment.
+    if overlap and frame.stage and state.stageStrata and frame.stage:GetFrameLevel() <= frame:GetFrameLevel() then
+        state.stageLevel = state.stageLevel or frame.stage:GetFrameLevel()
+        state.appliedStageLevel = frame:GetFrameLevel() + 1
+        frame.stage:SetFrameLevel(state.appliedStageLevel)
+    end
+    -- Read back the client's native floating-point values for ownership checks.
+    state.left, state.right, state.top, state.bottom = frame:GetClampRectInsets()
+    placesClamps[frame] = state
+end
+
+-- The windowed quest list stretches between the map's two right corners.
+-- Raise only its lower attachment when the scroll area runs below Offhand.
+-- Leave the map provider's chosen scale, window size and position alone.
+local questFoot
+local function FitQuestList(map, metrics)
+    local list = map.QuestLog
+    if not list or list ~= _G.QuestMapFrame or list:IsForbidden() or list:IsProtected()
+        or list:GetNumPoints() ~= 2 then questFoot = nil; return end
+    local topPoint, topFrame, topRelative = list:GetPoint(1)
+    local point, relative, corner, x, y = list:GetPoint(2)
+    if topPoint ~= "TOPRIGHT" or topFrame ~= map or topRelative ~= "TOPRIGHT"
+        or point ~= "BOTTOMRIGHT" or relative ~= map or corner ~= "BOTTOMRIGHT" then
+        questFoot = nil
+        return
+    end
+    if questFoot and (questFoot.frame ~= list or math.abs(y - questFoot.applied) > .01) then questFoot = nil end
+    local original = questFoot and questFoot.original or y
+    local desired = original
+    if metrics and list:IsVisible() then
+        local factor = list:GetEffectiveScale() / UIParent:GetEffectiveScale()
+        local bottom, top = map:GetBottom(), list:GetTop()
+        if factor > 0 and bottom and top and top * factor > metrics.workspaceBottom + 24 then
+            local mapBottom = bottom * map:GetEffectiveScale() / UIParent:GetEffectiveScale()
+            desired = math.max(original, (metrics.workspaceBottom + 3 - mapBottom) / factor)
+        end
+    end
+    if math.abs(y - desired) > .01 then list:SetPoint(point, relative, corner, x, desired) end
+    if desired > original + .01 then
+        if not questFoot or math.abs(questFoot.applied - desired) > .01 then
+            questFoot = {frame = list, original = original, applied = desired}
+        end
+    else
+        questFoot = nil
+    end
+end
+
 function Adapter.GetDragHandleBounds(map, factor)
     local left, top = map:GetLeft(), map:GetTop()
     if not left or not top then return end
@@ -483,10 +625,30 @@ function Adapter.Install(Canvas, services)
         Canvas:RepairShownSocialCommunityPanels()
     end
 
+    local function RepairAfterPanelHide(closedFrame)
+        local function Repair()
+            if Offhand._loggingOut or Offhand._openPanelsCapturedForTransition then return end
+            RepairUIPanelTransaction(closedFrame, true)
+            Canvas:RepairDefaultForeverSlots()
+        end
+        -- Forever also dispatches TAXIMAP_CLOSED at exit. Let the transition
+        -- start before repairing peers or re-showing a native Character panel.
+        if not (Offhand.isForever and closedFrame and closedFrame == _G.TaxiFrame) then
+            Repair()
+        end
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, Repair)
+            C_Timer.After(0.10, Repair)
+        end
+    end
+
     local function AttachForeverWorldMapDragHandle(map)
         if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
         if ShouldYieldWorldMapToMoveAny(map) and not SupportsExternalWorldMapEscapeProtection(map) then return false end
         local state = GetForeverWorldMapState(map)
+        if Offhand.OpenMapRecovery and Compatibility.GetWorldMapExternalOwner() == "OpenMap" then
+            Offhand.OpenMapRecovery:ObserveUserDrag(map)
+        end
         if state.handle then return true end
 
         local handle = CreateFrame("Frame", nil, UIParent)
@@ -582,6 +744,7 @@ function Adapter.Install(Canvas, services)
             returnVisible = visible
         end
 
+        local pendingWorkspaceDrop
         local function UpdateHandle(_, elapsed)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
@@ -590,12 +753,43 @@ function Adapter.Install(Canvas, services)
             if not mapShown then state.mapWiseOpened, state.mapWiseLayout, state.mapWisePlacement = nil, nil, nil end
             QueueForeverWorldMapSettlement(map, state, mapShown and true or false)
             elapsedSinceUpdate = elapsedSinceUpdate + (tonumber(elapsed) or 0)
+            if pendingWorkspaceDrop then
+                -- A native panel layout can land after the first frame following
+                -- mouse-up. Watch only through the next normal handle update.
+                local positions = mapShown and Offhand.db.savedWorkspacePositions
+                if not positions or positions.WorldMapFrame ~= pendingWorkspaceDrop or maximized
+                    or NativeGamepadOwnsMap() or Compatibility.GetWorldMapExternalOwner()
+                    or state.mapWisePositionGuard then
+                    pendingWorkspaceDrop = nil
+                elseif not InCombatLockdown() then
+                    local placement = GetPanelPhysicalPlacement(map)
+                    if placement and not PlacementMatchesPosition(placement, pendingWorkspaceDrop) then
+                        RestoreWorkspacePosition(map)
+                    end
+                    if elapsedSinceUpdate >= 0.10 then pendingWorkspaceDrop = nil end
+                end
+            end
             if elapsedSinceUpdate < 0.10 and not state.mapWiseLayout then return end
             elapsedSinceUpdate = 0
 
             UpdateMapWiseLayout(map, state, mapShown, maximized)
 
-            if NativeGamepadOwnsMap() then
+            local gamepadOwned = NativeGamepadOwnsMap()
+            if (_G.SpokenPlacesPanel or map.QuestLog) and not InCombatLockdown() then
+                local metrics
+                if mapShown and not maximized and not gamepadOwned and not map:IsForbidden()
+                    and Canvas.IsFrameOnWorkspace(map) then
+                    metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
+                    if metrics and metrics.isSpanned and Offhand.WorkspaceRegions then
+                        metrics = Offhand.WorkspaceRegions:ForFrame(metrics, map)
+                    end
+                end
+                local workspace = metrics and metrics.isSpanned and metrics
+                FitQuestList(map, workspace)
+                UpdatePlacesClamp(_G.SpokenPlacesPanel, map, workspace)
+                UpdatePlacesClamp(_G.SpokenPlacesPanelToggle, map, workspace)
+            end
+            if gamepadOwned then
                 SetPanelDragging(map, false)
                 -- Keep the invisible observer running so keyboard mode can
                 -- resume without a reload. Its hit area remains off screen.
@@ -675,6 +869,7 @@ function Adapter.Install(Canvas, services)
         if handle.SetScript then
             handle:SetScript("OnUpdate", UpdateHandle)
             handle:SetScript("OnDragStart", function()
+                pendingWorkspaceDrop = nil
                 if NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
                     or (map.IsMaximized and map:IsMaximized())
                     or not Offhand.db or not Offhand.db.enabled then return end
@@ -691,8 +886,12 @@ function Adapter.Install(Canvas, services)
                     SetPanelDragging(map, false)
                     return
                 end
+                local wasDragging = FrameState.IsDragging(map)
                 OnPanelDragStop(map)
                 UpdateHandle(nil, 1)
+                if wasDragging and Offhand.db and Offhand.db.savedWorkspacePositions then
+                    pendingWorkspaceDrop = Offhand.db.savedWorkspacePositions.WorldMapFrame
+                end
             end)
         end
         if handle.Show then handle:Show() end
@@ -702,6 +901,7 @@ function Adapter.Install(Canvas, services)
 
     return {
         RepairUIPanelTransaction = RepairUIPanelTransaction,
+        RepairAfterPanelHide = RepairAfterPanelHide,
         AttachDragHandle = AttachForeverWorldMapDragHandle,
     }
 end

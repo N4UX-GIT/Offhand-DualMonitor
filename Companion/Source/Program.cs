@@ -1350,6 +1350,25 @@ namespace Offhand.Companion
             }
             finally { if (combined != IntPtr.Zero) NativeMethods.DeleteObject(combined); }
         }
+
+        internal static bool Matches(IntPtr window, MonitorSelection.Plan plan, Rectangle bounds)
+        {
+            IntPtr actual = NativeMethods.CreateRectRgn(0, 0, 0, 0);
+            if (actual == IntPtr.Zero) return false;
+            IntPtr expected = IntPtr.Zero;
+            try
+            {
+                if (NativeMethods.GetWindowRgn(window, actual) == 0) return false;
+                expected = Create(plan, bounds);
+                // RGN_XOR yields NULLREGION only when every pixel agrees.
+                return NativeMethods.CombineRgn(actual, actual, expected, 3) == 1;
+            }
+            finally
+            {
+                if (expected != IntPtr.Zero) NativeMethods.DeleteObject(expected);
+                NativeMethods.DeleteObject(actual);
+            }
+        }
     }
 
     // Physical-pixel selection model. Editing never changes a native game window.
@@ -1914,37 +1933,57 @@ namespace Offhand.Companion
         internal bool Multiple;
         internal bool Flexible;
         internal bool UseStandard;
-        internal readonly Button SingleButton, SecondaryButton, MultipleButton, FlexibleButton;
+        internal readonly Button StandardButton, SingleButton, SecondaryButton, MultipleButton, FlexibleButton;
+        internal readonly CheckBox EnableCustom = new CheckBox { Text = "I want custom workspace areas (optional)", AutoSize = true };
 
         internal CustomRegionModeDialog(IDictionary<string,string> settings)
         {
             string current = WorkspaceEditorLayout.CurrentMode(settings);
-            var layout = new WorkspaceEditorLayout(this, "Choose a custom workspace",
-                new Size(620, current == WorkspaceEditorLayout.Standard ? 484 : 620), new Size(470, 360), 100);
-            layout.Heading("Saved layout");
-            layout.Guide(current);
-            layout.Heading("Choose a layout to edit");
-            layout.Guide("Select an option below. The editor keeps your changes when you click Save plan.");
-            SingleButton = AddOption(layout, WorkspaceEditorLayout.Single, "Split one monitor into side-by-side, full-height game and workspace areas.");
-            SecondaryButton = AddOption(layout, WorkspaceEditorLayout.Secondary, "Keep one full monitor for the game and choose a workspace area on a second monitor.");
-            MultipleButton = AddOption(layout, WorkspaceEditorLayout.Multiple, "Keep one full monitor for the game and place up to three workspaces on separate monitors.");
-            FlexibleButton = AddOption(layout, WorkspaceEditorLayout.Flexible, "Place the game and one or two workspaces anywhere on a single monitor. " + WorkspaceEditorLayout.FlexibleAddon);
-            if (current != WorkspaceEditorLayout.Standard)
-            {
-                layout.Heading("Return to a standard layout");
-                var standard = AddOption(layout, "Use standard display layout", "Turn off custom workspaces and review the displays to use. Named workspace profiles stay saved.");
-                standard.Click += (s, e) => { UseStandard = true; DialogResult = DialogResult.OK; Close(); };
-            }
+            bool standardActive = current == WorkspaceEditorLayout.Standard;
+            var layout = new WorkspaceEditorLayout(this, "Standard layout or optional custom areas",
+                new Size(660, 740), new Size(470, 360), 100);
+            layout.Heading("Active layout: " + current);
+            layout.Guide(standardActive
+                ? "Standard layout is already selected. For normal two-monitor setup, use the full game monitor and full Offhand monitor. You do not need a custom workspace."
+                : "A saved custom workspace is active. It will be restored on launch until you choose standard layout. Your named plans remain saved.");
+            StandardButton = AddOption(layout, standardActive ? "Keep standard layout (recommended)" : "Use standard display layout",
+                "For two full monitors, choose Span displays and Mainhand on the dashboard. The equal single-display split is also a standard layout. No custom area editor is needed.");
+            StandardButton.Click += (s, e) => { UseStandard = true; DialogResult = DialogResult.OK; Close(); };
+            layout.Heading("Optional: custom workspace areas");
+            layout.Guide("Use a custom area only when you want an unequal split, only part of another monitor, or extra workspace regions. Two physical monitors alone do not require the two-monitor custom editor.");
+            EnableCustom.Checked = !standardActive;
+            EnableCustom.AccessibleDescription = "Enable only to intentionally edit custom areas. This does not change your saved layout.";
+            layout.AddWide(EnableCustom);
+            SingleButton = AddOption(layout, "Custom split on one monitor", "Choose unequal game/workspace widths or leave part of one screen for other desktop apps.");
+            SecondaryButton = AddOption(layout, "Custom area on a second monitor", "Use only a chosen rectangle on the second screen. For the whole second monitor, keep standard layout instead.");
+            MultipleButton = AddOption(layout, "Custom areas on separate monitors", "Use one full game monitor and up to three selected workspace regions on other monitors.");
+            FlexibleButton = AddOption(layout, "Flexible custom layout (prototype)", "Place game and workspace rectangles on one screen. " + WorkspaceEditorLayout.FlexibleAddon);
 
-            SingleButton.Click += (s, e) => { DialogResult = DialogResult.OK; Close(); };
-            SecondaryButton.Click += (s, e) => { Secondary = true; DialogResult = DialogResult.OK; Close(); };
-            MultipleButton.Click += (s, e) => { Multiple = true; DialogResult = DialogResult.OK; Close(); };
-            FlexibleButton.Click += (s, e) => { Flexible = true; DialogResult = DialogResult.OK; Close(); };
-            Button selected = current == WorkspaceEditorLayout.Flexible ? FlexibleButton
+            Button savedChoice = current == WorkspaceEditorLayout.Flexible ? FlexibleButton
                 : current == WorkspaceEditorLayout.Multiple ? MultipleButton
-                : current == WorkspaceEditorLayout.Secondary ? SecondaryButton : SingleButton;
-            layout.Finish(null, defaultChoice: selected);
-            ActiveControl = selected;
+                : current == WorkspaceEditorLayout.Secondary ? SecondaryButton
+                : current == WorkspaceEditorLayout.Single ? SingleButton : StandardButton;
+            Button[] customButtons = { SingleButton, SecondaryButton, MultipleButton, FlexibleButton };
+            Action updateChoices = () => {
+                foreach (Button button in customButtons) button.Enabled = EnableCustom.Checked;
+                AcceptButton = EnableCustom.Checked ? savedChoice : StandardButton;
+            };
+            EnableCustom.CheckedChanged += (s, e) => updateChoices();
+            foreach (Button button in customButtons)
+            {
+                Button target = button;
+                target.Click += (s, e) => {
+                    if (!EnableCustom.Checked) return;
+                    Secondary = target == SecondaryButton;
+                    Multiple = target == MultipleButton;
+                    Flexible = target == FlexibleButton;
+                    DialogResult = DialogResult.OK;
+                    Close();
+                };
+            }
+            layout.Finish(null, defaultChoice: savedChoice);
+            updateChoices();
+            ActiveControl = (Control)AcceptButton;
         }
 
         private static Button AddOption(WorkspaceEditorLayout layout, string title, string description)
@@ -2457,7 +2496,7 @@ namespace Offhand.Companion
         {
             var layout = new WorkspaceEditorLayout(this, "Two-monitor workspace", new Size(640, 695), new Size(500, 430), 40, 60);
             layout.Heading("1. Choose two monitors");
-            layout.Guide("The game uses a full monitor. Choose a rectangle on the second monitor for your Offhand panels.");
+            layout.Guide("Custom area only: this uses a chosen rectangle on the second monitor. For two whole monitors, cancel and keep standard layout on the dashboard.");
             layout.ExplainReplacement(settings, WorkspaceEditorLayout.Secondary);
             for (int i = 0; i < displays.Count; i++)
             {
@@ -2713,6 +2752,33 @@ namespace Offhand.Companion
         }
     }
 
+    internal static class SpanDpiRetry
+    {
+        internal static bool Matches(Rectangle requested, ClassicGraphicsRecovery.Observation actual,
+            uint beforeDpi, uint afterDpi)
+        {
+            if (beforeDpi == 0 || afterDpi <= beforeDpi || actual == null || !actual.Usable
+                || actual.Bounds.Location != requested.Location || actual.Client != actual.Bounds.Size
+                || actual.Region != new Rectangle(Point.Empty, requested.Size)
+                || (actual.Style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) != 0)
+                return false;
+            // Windows can round the suggested dimensions and cap width at its
+            // tracking limit. Require the height to match the measured DPI ratio
+            // and the width to grow without exceeding the scaled request.
+            double ratio = (double)afterDpi / beforeDpi;
+            return actual.Bounds.Width > requested.Width
+                && actual.Bounds.Width <= Math.Ceiling(requested.Width * ratio)
+                && Math.Abs(actual.Bounds.Height - requested.Height * ratio) <= 1;
+        }
+
+        internal static bool IsExact(Rectangle requested, ClassicGraphicsRecovery.Observation actual, int style)
+        {
+            return actual != null && actual.Usable && actual.Bounds == requested
+                && actual.Client == requested.Size && actual.Style == style
+                && actual.Region == new Rectangle(Point.Empty, requested.Size);
+        }
+    }
+
     // Pure decision logic for the captured graphics-reset signature.
     // A Companion-applied span establishes ownership; ordinary resizes do not.
     internal sealed class ClassicGraphicsRecovery
@@ -2835,6 +2901,20 @@ namespace Offhand.Companion
             InFlight = true;
             pending = null;
             return true;
+        }
+    }
+
+    internal static class StandardRespanCheck
+    {
+        internal static bool MatchesReset(ClassicGraphicsRecovery.Observation current, IntPtr handle,
+            Rectangle span, Size restoredClient)
+        {
+            return current != null && current.Usable && current.Handle == handle
+                && restoredClient.Width > 0 && restoredClient.Height > 0 && restoredClient != span.Size
+                && current.Bounds.Location == span.Location
+                && (current.Client == restoredClient || current.Bounds.Size == restoredClient)
+                && (current.Style & NativeMethods.WS_THICKFRAME) != 0
+                && current.Region == new Rectangle(Point.Empty, span.Size);
         }
     }
 
@@ -3375,8 +3455,8 @@ namespace Offhand.Companion
         }
     }
 
-    // One synchronous span operation owns this snapshot. Rollback failures are
-    // reported separately so the original operation failure remains visible.
+    // One span operation owns this snapshot through its window verification.
+    // Rollback failures are reported separately from the original failure.
     internal sealed class SpanRollback : IDisposable
     {
         internal readonly TopologySnapshot Topology;
@@ -3418,6 +3498,19 @@ namespace Offhand.Companion
             Topology.RecordWrite(bytes);
         }
         internal void Commit() { completed = true; }
+
+        internal bool IsRestoredNormalWindow()
+        {
+            NativeMethods.RECT actual;
+            uint currentPid;
+            int borders = NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
+            return NativeMethods.GetWindowThreadProcessId(handle, out currentPid) != 0 && currentPid == processId
+                && NativeMethods.GetWindowRect(handle, out actual)
+                && actual.Left == bounds.Left && actual.Top == bounds.Top
+                && actual.Width == bounds.Width && actual.Height == bounds.Height
+                && (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borders) == borders
+                && WindowRestore.IsUnclippedNormalWindow(handle);
+        }
 
         internal static bool SameBytes(byte[] left, byte[] right)
         {
@@ -3470,6 +3563,10 @@ namespace Offhand.Companion
 
         // The callback is used only by failure-injection tests of this exact path.
         internal static void Apply(IntPtr handle, Rectangle target, int style, Action<string> afterStage)
+        { Apply(handle, target, style, afterStage, null, null); }
+
+        internal static bool Apply(IntPtr handle, Rectangle target, int style, Action<string> afterStage,
+            Func<IntPtr, uint> readDpi, Func<bool> isCurrentWindow)
         {
             // Restore always requests normal placement, including when no
             // remembered pre-span style exists for an adopted/minimized window.
@@ -3482,6 +3579,7 @@ namespace Offhand.Companion
                     rollback.WindowChanged = true;
                     if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
                         NativeMethods.ShowWindow(handle, NativeMethods.SW_RESTORE);
+                    uint beforeDpi = readDpi == null ? 0 : readDpi(handle);
                     NativeMethods.SetLastError(0);
                     int previous = NativeMethods.SetWindowLong(handle, NativeMethods.GWL_STYLE, style);
                     int error = Marshal.GetLastWin32Error();
@@ -3497,15 +3595,40 @@ namespace Offhand.Companion
                     if (!NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y, target.Width, target.Height, flags))
                         throw new IOException("Windows rejected restoring the window bounds.");
                     if (afterStage != null) afterStage("bounds");
-                    NativeMethods.RECT actual;
                     int borderMask = NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME;
-                    if (!NativeMethods.GetWindowRect(handle, out actual)
-                        || actual.Left != target.X || actual.Top != target.Y
-                        || actual.Width != target.Width || actual.Height != target.Height
-                        || (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borderMask) != (style & borderMask))
-                        throw new IOException("WoW did not accept the restore. Select Windowed mode and retry.");
+                    Rectangle? actual = ReadBounds(handle);
+                    bool matchingBorders = (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borderMask)
+                        == (style & borderMask);
+                    bool retried = false;
+                    if (actual != target || !matchingBorders)
+                    {
+                        uint afterDpi = readDpi == null ? 0 : readDpi(handle);
+                        string diagnostics = readDpi == null ? "" : " Expected " + target
+                            + ". Observed " + (actual.HasValue ? actual.Value.ToString() : "unavailable")
+                            + ". Window DPI before/after " + beforeDpi + "/" + afterDpi + ".";
+                        if (matchingBorders && actual.HasValue && MatchesDpiShrink(target, actual.Value, beforeDpi, afterDpi)
+                            && isCurrentWindow != null && isCurrentWindow() && IsUnclippedNormalWindow(handle))
+                        {
+                            retried = true;
+                            bool resized = NativeMethods.SetWindowPos(handle, IntPtr.Zero, target.X, target.Y,
+                                target.Width, target.Height, flags);
+                            if (afterStage != null) afterStage("dpi-retry");
+                            Rectangle? afterRetry = ReadBounds(handle);
+                            uint retryDpi = readDpi(handle);
+                            if (!resized || afterRetry != target || retryDpi != afterDpi || !isCurrentWindow()
+                                || (NativeMethods.GetWindowLong(handle, NativeMethods.GWL_STYLE) & borderMask) != (style & borderMask)
+                                || !IsUnclippedNormalWindow(handle))
+                                throw new IOException("WoW did not accept the restore. Select Windowed mode and retry."
+                                    + diagnostics + " DPI retry observed "
+                                    + (afterRetry.HasValue ? afterRetry.Value.ToString() : "unavailable")
+                                    + ". Window DPI after retry " + retryDpi + ".");
+                        }
+                        else
+                            throw new IOException("WoW did not accept the restore. Select Windowed mode and retry." + diagnostics);
+                    }
                     if (afterStage != null) afterStage("verification");
                     rollback.Commit();
+                    return retried;
                 }
                 catch (Exception ex)
                 {
@@ -3514,6 +3637,36 @@ namespace Offhand.Companion
                     throw;
                 }
             }
+        }
+
+        private static Rectangle? ReadBounds(IntPtr handle)
+        {
+            NativeMethods.RECT bounds;
+            if (!NativeMethods.GetWindowRect(handle, out bounds)) return null;
+            return new Rectangle(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+        }
+
+        private static bool MatchesDpiShrink(Rectangle target, Rectangle actual, uint beforeDpi, uint afterDpi)
+        {
+            if (afterDpi == 0 || afterDpi >= beforeDpi || actual.Location != target.Location
+                || actual.Width >= target.Width || actual.Height >= target.Height) return false;
+            double ratio = (double)afterDpi / beforeDpi;
+            return Math.Abs(actual.Width - target.Width * ratio) <= 1
+                && Math.Abs(actual.Height - target.Height * ratio) <= 1;
+        }
+
+        internal static bool IsUnclippedNormalWindow(IntPtr handle)
+        {
+            if (NativeMethods.IsHungAppWindow(handle) || NativeMethods.IsIconic(handle) || NativeMethods.IsZoomed(handle))
+                return false;
+            IntPtr region = NativeMethods.CreateRectRgn(0, 0, 0, 0);
+            if (region == IntPtr.Zero) return false;
+            try
+            {
+                NativeMethods.SetLastError(0);
+                return NativeMethods.GetWindowRgn(handle, region) == 0 && Marshal.GetLastWin32Error() == 0;
+            }
+            finally { NativeMethods.DeleteObject(region); }
         }
     }
 
@@ -3733,6 +3886,76 @@ namespace Offhand.Companion
         }
     }
 
+    // A Windows PID and HWND may both be recycled. Never rebind a user's choice by title or by process name.
+    internal sealed class WoWClientWindow
+    {
+        internal readonly int Pid;
+        internal readonly long StartedUtcTicks;
+        internal readonly IntPtr Handle;
+        internal readonly string Title, ProcessName;
+
+        internal WoWClientWindow(int pid, long startedUtcTicks, IntPtr handle, string title, string processName)
+        {
+            Pid = pid;
+            StartedUtcTicks = startedUtcTicks;
+            Handle = handle;
+            Title = title ?? "";
+            ProcessName = processName;
+        }
+
+        internal bool SameWindow(WoWClientWindow other)
+        {
+            return other != null && other.Pid == Pid && other.StartedUtcTicks == StartedUtcTicks && other.Handle == Handle;
+        }
+
+        public override string ToString()
+        {
+            return "PID " + Pid + " · " + (Title.Length == 0 ? ProcessName : Title + " · " + ProcessName);
+        }
+    }
+
+    internal sealed class WoWClientSelection
+    {
+        internal WoWClientWindow Current { get; private set; }
+        private bool explicitChoice;
+        private bool waitForChoice;
+        private bool pinned;
+
+        internal void Select(WoWClientWindow choice)
+        {
+            Current = choice;
+            explicitChoice = true;
+            waitForChoice = choice == null;
+            pinned = false;
+        }
+
+        // Continue monitoring an already spanned window if another client is subsequently opened.
+        internal void Pin() { pinned = true; }
+
+        internal WoWClientWindow Resolve(IList<WoWClientWindow> choices, bool anyRecognizedProcess)
+        {
+            if (!anyRecognizedProcess && !explicitChoice)
+            {
+                Current = null;
+                waitForChoice = pinned = false;
+            }
+            if (Current != null)
+            {
+                foreach (var choice in choices)
+                {
+                    if (!Current.SameWindow(choice)) continue;
+                    if (!explicitChoice && !pinned && choices.Count > 1) break;
+                    return Current = choice;
+                }
+                Current = null;
+                waitForChoice = true;
+            }
+            if (choices.Count > 1) waitForChoice = true;
+            if (!waitForChoice && choices.Count == 1) Current = choices[0];
+            return Current;
+        }
+    }
+
     internal static class CompanionTiming
     {
         internal static double AutoSpanDelay(string processName, string wowDir, decimal configuredDelay)
@@ -3913,25 +4136,40 @@ namespace Offhand.Companion
             foreach (string path in all)
             {
                 if (!path.StartsWith(accountDirectory.FullName + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
-                if (path.Equals(accountPath, StringComparison.OrdinalIgnoreCase)) continue;
+                var savedVariables = Directory.GetParent(path);
+                var character = savedVariables == null ? null : savedVariables.Parent;
+                var realm = character == null ? null : character.Parent;
+                if (savedVariables == null || !savedVariables.Name.Equals("SavedVariables", StringComparison.OrdinalIgnoreCase)
+                    || realm == null || realm.Parent == null
+                    || !realm.Parent.FullName.Equals(accountDirectory.FullName, StringComparison.OrdinalIgnoreCase)) continue;
                 characterFiles.Add(path);
             }
-            string characterPath = NewestValid(characterFiles, "OffhandCharDB");
-            if (characterPath == null)
+            // Keep every character separate. The most recently played character
+            // is not necessarily the next character the player will enter.
+            characterFiles.Sort(StringComparer.OrdinalIgnoreCase);
+            var characters = new StringBuilder();
+            int characterCount = 0;
+            foreach (string characterPath in characterFiles)
             {
-                message = "Forever recovery skipped: no valid character Offhand.lua found for the newest account.";
-                return false;
+                string characterText;
+                try { characterText = ReadValidated(characterPath, "OffhandCharDB"); }
+                catch (IOException) { continue; }
+                catch (UnauthorizedAccessException) { continue; }
+                if (characterText == null) continue;
+                characters.Append("do\r\nlocal OffhandCharDB\r\n").Append(characterText)
+                    .Append("table.insert(OffhandForeverCharacterRecovery.characters, OffhandCharDB)\r\nend\r\n");
+                characterCount++;
             }
 
             string accountText = ReadValidated(accountPath, "OffhandDB");
-            string characterText = ReadValidated(characterPath, "OffhandCharDB");
-            if (accountText == null || characterText == null)
+            if (accountText == null)
             {
                 message = "Forever recovery skipped: SavedVariables changed while being read.";
                 return false;
             }
 
-            string version = Hash(accountText + "\n" + characterText);
+            string characterPayload = "OffhandForeverCharacterRecovery = { schema = 1, characters = {} }\r\n" + characters;
+            string version = Hash(accountText + "\n" + characterPayload);
             string generated =
                 "-- Generated by Offhand Companion from Forever SavedVariables while WoW was closed.\r\n" +
                 "local interfaceVersion = select(4, GetBuildInfo())\r\n" +
@@ -3943,7 +4181,14 @@ namespace Offhand.Companion
                 "if register then pcall(register, recoveryCVar, \"\") end\r\n" +
                 "local consumed = getter and tostring(getter(recoveryCVar) or \"\") == OffhandForeverStateBridgeVersion\r\n" +
                 "if not consumed then\r\n" +
-                accountText + characterText + "end\r\nend\r\n";
+                accountText + characterPayload +
+                // Older addons can still recover a positively identified record.
+                // If player identity is not yet available, leave disk data alone.
+                "local guid = UnitGUID and UnitGUID(\"player\")\r\n" +
+                "if type(guid) == \"string\" and guid ~= \"\" then\r\n" +
+                "for _, character in ipairs(OffhandForeverCharacterRecovery.characters) do\r\n" +
+                "if type(character) == \"table\" and character.characterGUID == guid then OffhandCharDB = character; break end\r\n" +
+                "end\r\nend\r\nend\r\nend\r\n";
             string target = Path.Combine(addonCore, "ForeverState.lua");
             try
             {
@@ -3966,7 +4211,7 @@ namespace Offhand.Companion
                     if (File.Exists(temporary)) File.Delete(temporary);
                 }
                 message = "Forever recovery snapshot updated from " +
-                    accountDirectory.Name + " / " + Directory.GetParent(Directory.GetParent(characterPath).FullName).Name + ".";
+                    accountDirectory.Name + " (" + characterCount + " character records).";
                 return true;
             }
             catch (IOException ex) { message = "Forever recovery cannot update addon state: " + ex.Message; return false; }
@@ -4071,6 +4316,18 @@ namespace Offhand.Companion
 
         [DllImport("user32.dll")]
         public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetDpiForWindow(IntPtr hWnd);
+
+        internal static uint ReadWindowDpi(IntPtr window)
+        {
+            try { return GetDpiForWindow(window); }
+            catch (EntryPointNotFoundException) { return 0; }
+        }
 
         [DllImport("user32.dll")]
         public static extern bool IsWindowVisible(IntPtr hWnd);
@@ -4445,7 +4702,7 @@ namespace Offhand.Companion
         internal const string LayoutApplyInstruction =
             "After changing Mainhand or layout, click Span WoW Now, then type /reload in WoW.";
         internal const string ReloadLayoutInstruction =
-            "Type /reload in WoW to load the selected layout. Until then, Offhand can still use the previous layout.";
+            "If this layout is new, changed or not loaded in WoW, type /reload once. Restore Window and Span WoW Now can reuse an already-loaded layout without another reload or calibration.";
 
         // Warcraft Dark Interface Palette (Black / Dark Grey / Burnished Gold)
         private readonly Color cBg = Color.FromArgb(12, 12, 14);                // Obsidian black canvas (#0c0c0e)
@@ -4466,6 +4723,8 @@ namespace Offhand.Companion
         private readonly Color cLogText = Color.FromArgb(195, 190, 175);        // Parchment log text (#c3beaf)
 
         // UI Controls
+        private ComboBox cmbWowClient;
+        private WoWClientWindow lastShownClient;
         private Label lblWowStatus;
         private Label lblAddonStatus;
         private Label lblDisplayInfo;
@@ -4476,9 +4735,10 @@ namespace Offhand.Companion
         private Label lblHeaderVersion;
         private Label lblHeaderTitle, lblHeaderTagline, lblHeaderSubtitle;
         private Panel layoutNotice;
-        private Label lblLayoutNotice;
+        private Label lblLayoutNotice, lblLayoutNoticeHeading;
         private Button btnDismissLayoutNotice;
         private int layoutNoticeProcessId;
+        private bool layoutNoticeIsFailure;
         private Panel advancedPanel;
         private Button btnUseStandardLayout;
         private Panel configurationPanel, diagnosticsPanel, activityPanel;
@@ -4500,9 +4760,8 @@ namespace Offhand.Companion
         {
             internal string Title, Body;
             internal Control Target;
-            internal bool Advanced;
-            internal TutorialStep(string title, string body, Control target, bool advanced = false)
-            { Title = title; Body = body; Target = target; Advanced = advanced; }
+            internal TutorialStep(string title, string body, Control target)
+            { Title = title; Body = body; Target = target; }
         }
         private sealed class TutorialOverlay : Panel
         {
@@ -4552,6 +4811,7 @@ namespace Offhand.Companion
         private readonly Dictionary<Panel, DashboardSection> dashboardSections = new Dictionary<Panel, DashboardSection>();
         private TableLayoutPanel dashboardStack;
         private Panel dashboardScroll;
+        private bool dashboardFitQueued;
         private TableLayoutPanel dashboardFooter;
         private Panel dashboardHeader;
         private bool layingOutDashboard;
@@ -4700,6 +4960,18 @@ namespace Offhand.Companion
                     IdentityDetail = identities[screens[i].DeviceName].Detail,
                     Bounds = screens[i].Bounds, WorkArea = screens[i].WorkingArea, Primary = screens[i].Primary });
             return result;
+        }
+
+        private List<MonitorSelection.Display> TryReadRestoreDisplays()
+        {
+            try { return ReadDisplays(); }
+            catch (Exception ex)
+            {
+                // Display enumeration is only needed to authorize a DPI retry.
+                // A normal restore still works when this snapshot is unavailable.
+                AddLog("Could not verify displays for a restore retry: " + ex.Message);
+                return null;
+            }
         }
 
         private static bool HasStableIdentitySettings()
@@ -4855,7 +5127,7 @@ namespace Offhand.Companion
                     if (dialog.LoadedPlan)
                     {
                         CustomRegionPreferences.Write(configPath, dialog.Settings, ReadDisplays);
-                        SetLayoutNotice(0, "");
+                        if (!layoutNoticeIsFailure) SetLayoutNotice(0, "");
                     }
                     else PreferenceFile.Write(configPath,dialog.Settings);
                     appSettings=dialog.Settings;
@@ -4886,6 +5158,9 @@ namespace Offhand.Companion
                     if (!useStandard && choice.ShowDialog(this) != DialogResult.OK) return;
                     if (useStandard || choice.UseStandard)
                     {
+                        // Keeping an already-standard layout is a no-op. Opening this
+                        // chooser must not rewrite preferences or monitor selection.
+                        if (WorkspaceEditorLayout.CurrentMode(appSettings) == WorkspaceEditorLayout.Standard) return;
                         confirmedDisplays = ReadDisplays();
                         proposed = CustomRegionPreferences.StandardLayout(appSettings, confirmedDisplays, out standardSelection);
                         if (!ConfirmStandardLayout(confirmedDisplays, standardSelection)) return;
@@ -4923,16 +5198,19 @@ namespace Offhand.Companion
                 UpdatePartialControls(); RefreshSelectedColorStatus();
                 if (standardSelection == null)
                 {
-                    SetLayoutNotice(0, "");
+                    if (!layoutNoticeIsFailure) SetLayoutNotice(0, "");
                     AddLog("Custom region plan saved. Click Span WoW Now, then type /reload in WoW.");
                 }
                 else
                 {
                     string next = StandardLayoutNextStep(standardSelection.Length);
                     AddLog("Standard layout saved. " + next);
-                    using (Process proc = GetWoWProcess())
-                        SetLayoutNotice(proc == null ? 0 : proc.Id,
-                            proc == null ? "" : "Standard layout saved. WoW still has its previous layout. " + next);
+                    if (!layoutNoticeIsFailure)
+                    {
+                        using (Process proc = GetWoWProcess())
+                            SetLayoutNotice(proc == null ? 0 : proc.Id,
+                                proc == null ? "" : "Standard layout saved. WoW still has its previous layout. " + next);
+                    }
                 }
             }
             catch (Exception ex) { AddLog("Workspace layout was not saved: " + ex.Message); MessageBox.Show(this, ex.Message, "Workspace layout", MessageBoxButtons.OK, MessageBoxIcon.Information); }
@@ -5149,6 +5427,8 @@ namespace Offhand.Companion
         private int spanTestGeneration;
 #endif
         private readonly HashSet<int> restoredPids = new HashSet<int>();
+        private Timer standardRespanTimer;
+        private SpanRollback pendingStandardRespan;
         private readonly HashSet<int> failedAutoSpanPids = new HashSet<int>();
         private sealed class AppliedTopology
         {
@@ -5167,7 +5447,10 @@ namespace Offhand.Companion
         private readonly Dictionary<int, ClassicGraphicsRecovery> classicRecovery = new Dictionary<int, ClassicGraphicsRecovery>();
         private readonly Dictionary<int, DateTime> retryAfter = new Dictionary<int, DateTime>();
         private readonly Dictionary<int, DateTime> launchTimes = new Dictionary<int, DateTime>();
+        private readonly WoWClientSelection clientSelection = new WoWClientSelection();
+        private List<WoWClientWindow> knownClients = new List<WoWClientWindow>();
         private readonly int currentSessionId;
+        private readonly int currentProcessId;
         private RemoteDesktop.State remoteState = RemoteDesktop.Read();
         private readonly RemoteDesktopWatcher remoteWatcher;
         private int remoteGeneration;
@@ -5310,7 +5593,11 @@ namespace Offhand.Companion
 
         public CompanionForm()
         {
-            using (Process current = Process.GetCurrentProcess()) currentSessionId = current.SessionId;
+            using (Process current = Process.GetCurrentProcess())
+            {
+                currentSessionId = current.SessionId;
+                currentProcessId = current.Id;
+            }
             LoadConfig();
 #if UI_PREVIEW
             appSettings["AutoSpan"] = "False";
@@ -5446,6 +5733,7 @@ namespace Offhand.Companion
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            QueueDashboardFit();
             if (IsHandleCreated && Visible && !startupIntroductionScheduled) {
                 startupIntroductionScheduled = true;
                 bool tutorial = TutorialNeeded(appSettings);
@@ -5526,8 +5814,9 @@ namespace Offhand.Companion
 
         private int DashboardRequiredClientHeight()
         {
-            return dashboardStack.GetPreferredSize(new Size(dashboardStack.Width, 0)).Height
-                + dashboardScroll.Padding.Vertical + dashboardFooter.Height;
+            return Math.Max(dashboardScroll.AutoScrollMinSize.Height,
+                dashboardStack.GetPreferredSize(new Size(dashboardStack.Width, 0)).Height + dashboardScroll.Padding.Vertical)
+                + dashboardFooter.Height;
         }
 
         internal void FitDashboardToWorkingArea(Rectangle workArea)
@@ -5542,6 +5831,30 @@ namespace Offhand.Companion
                 workArea.Top + (workArea.Height - fitted.Height) / 2, fitted.Width, fitted.Height);
             dashboardScroll.AutoScrollPosition = Point.Empty;
             PerformLayout();
+            LayoutDashboardCards();
+        }
+
+        private void QueueDashboardFit()
+        {
+            if (dashboardFitQueued || !IsHandleCreated || !Visible || WindowState != FormWindowState.Normal) return;
+            dashboardFitQueued = true;
+            BeginInvoke(new Action(() =>
+            {
+                dashboardFitQueued = false;
+                if (!IsDisposed && !Disposing && Visible && tutorialOverlay == null)
+                    GrowDashboardToWorkingArea(Screen.FromControl(this).WorkingArea);
+            }));
+        }
+
+        internal void GrowDashboardToWorkingArea(Rectangle workArea)
+        {
+            if (WindowState != FormWindowState.Normal) return;
+            LayoutDashboardCards();
+            int required = SizeFromClientSize(new Size(ClientSize.Width, DashboardRequiredClientHeight())).Height;
+            int fitted = Math.Min(required, workArea.Height);
+            if (fitted <= Height) return;
+            int top = Math.Max(workArea.Top, Math.Min(Top, workArea.Bottom - fitted));
+            SetBounds(Left, top, Width, fitted, BoundsSpecified.Y | BoundsSpecified.Height);
             LayoutDashboardCards();
         }
 
@@ -5829,6 +6142,13 @@ namespace Offhand.Companion
             btnIdentifyDisplays.Click += (sender, args) => ShowDisplayIdentifiers();
             configLeft.Controls.Add(btnIdentifyDisplays);
 
+            Button displaySettings = CreateButton("Windows Display Settings", 0, 0, 220, 30, cBtnBg, cText, cBorder);
+            displaySettings.Margin = new Padding(0, 6, 0, 0);
+            displaySettings.Font = btnIdentifyDisplays.Font;
+            displaySettings.Click += (sender, args) => OpenWindowsDisplaySettings(this);
+            configLeft.Controls.Add(displaySettings);
+            uiToolTips.SetToolTip(displaySettings, "Identify and rearrange your monitors in Windows, then span WoW again.");
+
             advancedPanel = CreateCardPanel(16, 510, 490, 170, "Advanced Options");
             this.Controls.Add(advancedPanel);
             lblStoreUpdateInfo = new Label { Text = CompanionDistribution.StoreUpdateDetails(StoreUpdateState.NotChecked, null),
@@ -5896,7 +6216,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
-                "Disabled by default. When enabled, Offhand spans each newly detected WoW window across the selected displays. Manual Span WoW Now remains available when disabled.");
+                "Automatically span the selected WoW client after the delay. When several clients are open, choose one in the WoW client list.");
             uiToolTips.SetToolTip(lblDelay,
                 "Wait time before automatically spanning a newly detected WoW window. Use 0 for immediate pre-login spanning.");
             uiToolTips.SetToolTip(numDelaySpan,
@@ -6018,7 +6338,7 @@ namespace Offhand.Companion
             btnSpanNow = CreateButton("Span WoW Now", 16, 522, 158, DashboardActionHeight, cBtnPrimaryBg, cGoldBright, cGold);
             btnSpanNow.Click += (s, e) => { InvokeSpanWindow(true); };
             this.Controls.Add(btnSpanNow);
-            uiToolTips.SetToolTip(btnSpanNow, "Move the WoW window to the selected display layout. Then type /reload in WoW to load the layout in Offhand.");
+            uiToolTips.SetToolTip(btnSpanNow, "Move the selected WoW client to this display layout. Then type /reload in that client to load the layout in Offhand.");
 
             Button btnRestoreNow = CreateButton("Restore Window", 182, 522, 158, DashboardActionHeight, cBtnBg, cText, cBorder);
             btnRestoreNow.FlatAppearance.BorderColor = cBorderDim;
@@ -6070,9 +6390,10 @@ namespace Offhand.Companion
             Button btnMinimize = CreateButton("Minimize to Tray", 16, 1000, 152, 30, cBtnBg, cMuted, cBorderDim);
             btnMinimize.Click += (s, e) =>
             {
-                this.ShowInTaskbar = false;
+                // Hiding removes the taskbar button without recreating the dashboard window.
                 this.Hide();
-                trayIcon.ShowBalloonTip(2000, "Offhand Running in Tray", "Monitoring in background. Double-click tray icon to restore.", ToolTipIcon.Info);
+                if (standardRespanTimer == null)
+                    trayIcon.ShowBalloonTip(2000, "Offhand Running in Tray", "Monitoring in background. Double-click tray icon to restore.", ToolTipIcon.Info);
             };
             this.Controls.Add(btnMinimize);
             uiToolTips.SetToolTip(btnMinimize, "Hide the dashboard while keeping the Companion and launch monitor running in the Windows notification tray.");
@@ -6096,14 +6417,15 @@ namespace Offhand.Companion
 
             this.FormClosing += (s, e) =>
             {
-                if (tutorialOverlay != null) EndDashboardTutorial(!isExplicitExit);
                 if (!isExplicitExit && e.CloseReason == CloseReason.UserClosing)
                 {
                     e.Cancel = true;
-                    this.ShowInTaskbar = false;
                     this.Hide();
-                    trayIcon.ShowBalloonTip(1500, "Offhand Minimized", "Running in System Tray. Right-click or double-click to control.", ToolTipIcon.Info);
+                    if (tutorialOverlay != null) EndDashboardTutorial(true);
+                    if (standardRespanTimer == null)
+                        trayIcon.ShowBalloonTip(1500, "Offhand Minimized", "Running in System Tray. Right-click or double-click to control.", ToolTipIcon.Info);
                 }
+                else if (tutorialOverlay != null) EndDashboardTutorial(!isExplicitExit);
             };
             this.ResumeLayout(false);
         }
@@ -6142,26 +6464,13 @@ namespace Offhand.Companion
 
         private List<TutorialStep> CreateTutorialSteps()
         {
-            Button restore = (Button)((TableLayoutPanel)btnSpanNow.Parent).GetControlFromPosition(1,0);
             return new List<TutorialStep> {
-                new TutorialStep("Welcome to Offhand Companion", "This tour introduces the controls without changing your settings or resizing WoW. Use Next and Back to explore, or Skip tour at any time. The header links open the website, Discord and CurseForge; the version line identifies this Companion and the detected addon files.", dashboardHeader),
-                new TutorialStep("Choose your displays", IsCustomSelection()
-                    ? "A custom layout is saved, so these standard controls are locked. Later in this tour, Advanced shows where to edit that layout or return to the standard display layout. Identify Displays shows monitor numbers on your desktop."
-                    : "For two monitors, check both screens under Span displays. Identify Displays briefly shows the screen numbers so you can match them to your desk. This tour does not change the checked screens.", clbMonitors.Parent),
-                new TutorialStep("Choose Mainhand", "Mainhand is the monitor for the 3D game view and combat UI. The other selected monitor becomes the Offhand workspace for maps, bags and supported panels. After changing the layout, use Span WoW Now and reload the WoW UI.", cmbMainhand),
-                new TutorialStep("One ultrawide monitor", "Use Single-display 32:9 split only for an equal game/workspace split on one 32:9 or 32:10 ultrawide. Check only that display and choose Game side. Leave this option off for the usual two-monitor setup. Advanced has custom layouts for other arrangements.", chkSingleSplit.Parent),
-                new TutorialStep("Apply the layout to WoW", "Enable the Offhand addon, log into a character, and use WoW's Windowed mode rather than Windowed (Fullscreen). Span WoW Now places the game window across your selected game and workspace areas. Then type /reload in WoW. This tour will not press Span for you.", btnSpanNow),
-                new TutorialStep("Return to a normal window", "Restore Window stops spanning and returns WoW to a normal, resizable window. It uses the previous size and position when remembered, otherwise a fitted default. Automatic spanning pauses for that WoW session until you use Span WoW Now again.", restore),
-                new TutorialStep("Check System Status", "The compact status reports WoW, addon-file detection and display-layout problems. Show opens the details and next steps. An installed addon file does not confirm that WoW has enabled it. The Companion cannot confirm that you completed the in-game setup.", lblStatusSummary.Parent),
-                new TutorialStep("Advanced is optional", "Setup covers ordinary display selection. Advanced contains custom workspace layouts, saved profiles, automatic spanning and troubleshooting. Switching tabs only changes what you see; it does not change the saved display plan.", advancedTab),
-                new TutorialStep("Custom workspace areas", "Workspace layout lets you choose custom areas. Save plan keeps your selection. To return to Standard, choose Use standard display layout. To apply a span, click Span WoW Now, then type /reload in WoW.", advancedPanel, true),
-                new TutorialStep("Reuse workspace profiles", "Workspace profiles saves and loads named Multiple workspaces plans. Loading a profile selects settings; it does not resize WoW. Save your changes, then use Span WoW Now and /reload to apply the chosen plan.", btnWorkspaceProfiles, true),
-                new TutorialStep("Automatic spanning", "Auto-span WoW on launch is optional and off by default. For a standard local display plan, its delay gives WoW time to open before the Companion applies the layout. Custom layouts require a manual Span. " + (GraphicsRecoveryTestBuild ? "Automatic spanning is disabled in this local preview." : "Enable it only after you have tested your layout manually."), chkAutoSpan.Parent, true),
-                new TutorialStep("Display troubleshooting", "Display Diagnostics describes detected color and Windows scaling modes. Expand it when troubleshooting. Copy Display Diagnostics provides a report you can share with support; Display Troubleshooting opens related Help guidance.", diagnosticsPanel, true),
-                new TutorialStep("Activity log", "Activity Log records detailed checks, file paths and errors. Expand it when something goes wrong. The log can help identify an addon installation or settings problem; it does not confirm that the addon is enabled in WoW.", activityPanel, true),
-                new TutorialStep("Updates", isStorePackage ? "Microsoft Store manages this installation. Companion quietly checks every six hours and changes this button when an update is found. Advanced and this button's tooltip show the last check time. Use the button to open the Store; downloads and installation stay under Store control." : "This portable build checks GitHub only when you press Check for Updates. It opens the official download when an update is available. Store installations use Microsoft Store instead.", btnCheckUpdates),
-                new TutorialStep("Tray and exit", "Minimize to Tray keeps Companion available. The title-bar X also minimizes to the tray. Exit Companion closes it and leaves the current WoW window in place. The tray menu offers background-monitoring controls; Restore Window remains available while Companion runs.", dashboardFooter),
-                new TutorialStep("Finish setup in WoW", "This Companion tour is not game calibration. In WoW, type /offhand guide and choose Companion. Follow Reload UI, Confirm placement and Start Calibration, then any Create Mainhand HUD Layout and reload prompts. You can replay this tour any time from Help > Start Companion tutorial.", dashboardHeader.Controls[dashboardHeader.Controls.Count-1])
+                new TutorialStep("Select and identify displays", IsCustomSelection()
+                    ? "A custom layout is active. Use Identify Displays to match the numbers to your desk. To change the selected displays, open Advanced > Workspace layout."
+                    : "Use Identify Displays to match the numbers to your desk. Check the screens you want WoW to span. For a single ultrawide, select it and use the split option on the right.", clbMonitors),
+                new TutorialStep("Choose Mainhand and check alignment", "Mainhand is where you play. If the display positions differ from your desk, open Windows Display Settings. Choose Identify, drag the numbered displays into place, and select Apply.", cmbMainhand),
+                new TutorialStep("Span WoW and reload", "Log into a character with Offhand enabled and select Windowed in WoW's Graphics settings. If several clients are open, select the window by title and PID. Click Span WoW Now, then return to the in-game guide and click Reload UI or type /reload.", btnSpanNow),
+                new TutorialStep("Finish setup in WoW", "Type /offhand guide, choose Companion, confirm placement, and finish calibration. Follow any prompts to create or select a Mainhand HUD layout. You can replay this tour from Help.", dashboardHeader)
             };
         }
 
@@ -6177,6 +6486,7 @@ namespace Offhand.Companion
             SuspendUiPolling();
             foreach (var section in dashboardSections.Values)
                 if (section.CanCollapse) SetDashboardSectionExpanded(section.Panel, false, false);
+            SelectDashboardPage(false);
             tutorialSteps = CreateTutorialSteps();
             tutorialIndex = 0;
             tutorialOverlay = new TutorialOverlay();
@@ -6246,7 +6556,6 @@ namespace Offhand.Companion
                 Controls.Remove(overlay);
                 dashboardScroll.Enabled = dashboardFooter.Enabled = true;
                 var step = tutorialSteps[tutorialIndex];
-                SelectDashboardPage(step.Advanced);
                 LayoutDashboardCards();
                 Rectangle target = TutorialBounds(step.Target);
                 if (dashboardScroll.Contains(step.Target) && (target.Top < dashboardScroll.Top || target.Bottom > dashboardScroll.Bottom)) {
@@ -6335,6 +6644,68 @@ namespace Offhand.Companion
             return row;
         }
 
+        private TableLayoutPanel CreateClientPicker()
+        {
+            var row = new TableLayoutPanel { ColumnCount = 2, RowCount = 1, AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = Padding.Empty, Padding = Padding.Empty, BackColor = cBg };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var label = new Label { Text = "WoW client", ForeColor = cText, AutoSize = true,
+                Anchor = AnchorStyles.Left, Margin = new Padding(0, 0, 10, 0) };
+            cmbWowClient = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill,
+                AccessibleName = "WoW client", Margin = Padding.Empty, MaxDropDownItems = 12 };
+            CompanionUi.StyleCombo(cmbWowClient);
+            // The native dropdown can be taller than the row's preferred height.
+            row.MinimumSize = new Size(0, cmbWowClient.Height);
+            cmbWowClient.SizeChanged += (s, e) => row.MinimumSize = new Size(0, cmbWowClient.Height);
+            cmbWowClient.Items.Add("Looking for WoW windows…");
+            cmbWowClient.SelectedIndex = 0;
+            cmbWowClient.SelectionChangeCommitted += (s, e) =>
+            {
+                var choice = cmbWowClient.SelectedItem as WoWClientWindow;
+                cmbWowClient.DroppedDown = false;
+                if (choice == null) lastShownClient = null;
+                SelectClient(choice);
+            };
+            uiToolTips.SetToolTip(cmbWowClient, "Select the running WoW window for Span and Restore. The PID identifies its process in Task Manager.");
+            row.Controls.Add(label, 0, 0);
+            row.Controls.Add(cmbWowClient, 1, 0);
+            return row;
+        }
+
+        private void RefreshClientPicker(List<WoWClientWindow> choices, WoWClientWindow selected)
+        {
+            // Keep rows stable under the pointer. SelectClient validates the committed window against a new scan.
+            if (cmbWowClient == null || cmbWowClient.DroppedDown) return;
+            if (selected != null) lastShownClient = selected;
+            bool lost = lastShownClient != null && !choices.Exists(window => window.SameWindow(lastShownClient));
+            string prompt = selected != null ? "No client selected"
+                : lost ? "PID " + lastShownClient.Pid + " closed · choose a client"
+                : choices.Count == 0 ? "Waiting for a WoW window…"
+                : "Choose a WoW client (" + choices.Count + " available)";
+            int selectedIndex = selected == null ? 0 : choices.FindIndex(w => w.SameWindow(selected)) + 1;
+            bool changed = cmbWowClient.Items.Count != choices.Count + 1 || !prompt.Equals(cmbWowClient.Items[0]);
+            for (int i = 0; !changed && i < choices.Count; ++i)
+            {
+                var displayed = cmbWowClient.Items[i + 1] as WoWClientWindow;
+                changed = displayed == null || !choices[i].SameWindow(displayed) || choices[i].ToString() != displayed.ToString();
+            }
+            if (changed)
+            {
+                cmbWowClient.BeginUpdate();
+                try
+                {
+                    cmbWowClient.Items.Clear();
+                    cmbWowClient.Items.Add(prompt);
+                    foreach (var choice in choices) cmbWowClient.Items.Add(choice);
+                    cmbWowClient.SelectedIndex = selectedIndex;
+                }
+                finally { cmbWowClient.EndUpdate(); }
+            }
+            else if (cmbWowClient.SelectedIndex != selectedIndex)
+                cmbWowClient.SelectedIndex = selectedIndex;
+        }
+
         private void ArrangeDashboard(Panel header, Panel status, Panel config, Panel advanced, Panel diagnostics, Panel log,
             Control[] actions, Control[] footer)
         {
@@ -6393,15 +6764,18 @@ namespace Offhand.Companion
             actions[0].Margin = new Padding(0,0,6,0);
             actions[1].Margin = new Padding(6,0,0,0);
             layoutNotice = new Panel { BackColor = cCard, Visible = false, AccessibleName = "Layout reminder" };
-            lblLayoutNotice = new Label { ForeColor = cGold, Font = new Font("Segoe UI", 9), UseMnemonic = false };
+            lblLayoutNoticeHeading = new Label { Text = "⚠  Span failed", AccessibleName = "Span failed",
+                ForeColor = cYellow, Font = new Font("Segoe UI", 9, FontStyle.Bold), Visible = false };
+            lblLayoutNotice = new Label { AccessibleName = "Layout notice instructions",
+                ForeColor = cGold, Font = new Font("Segoe UI", 9), UseMnemonic = false };
             btnDismissLayoutNotice = CreateButton("Dismiss", 0, 0, 72, 26, cBtnBg, cText, cBorderDim);
             btnDismissLayoutNotice.AccessibleName = "Dismiss layout reminder";
             btnDismissLayoutNotice.Click += (sender, args) => {
                 SetLayoutNotice(0, "");
                 btnSpanNow.Select();
             };
-            layoutNotice.Controls.AddRange(new Control[] { lblLayoutNotice, btnDismissLayoutNotice });
-            foreach (Control item in new Control[] { header, dashboardNavigation, actionRow, layoutNotice, status, config, advanced, diagnostics, log })
+            layoutNotice.Controls.AddRange(new Control[] { lblLayoutNoticeHeading, lblLayoutNotice, btnDismissLayoutNotice });
+            foreach (Control item in new Control[] { header, dashboardNavigation, CreateClientPicker(), actionRow, layoutNotice, status, config, advanced, diagnostics, log })
             {
                 item.Dock = DockStyle.Top;
                 item.Margin = new Padding(0, 0, 0, 10);
@@ -6442,6 +6816,7 @@ namespace Offhand.Companion
                 {
                     UpdateDashboardStatusSummary();
                     LayoutDashboardCards();
+                    QueueDashboardFit();
                 };
             lblDisplayInfo.ForeColorChanged += (s, e) => { UpdateDashboardStatusSummary(); };
             dashboardStack.Layout += (s, e) => { LayoutDashboardCards(); };
@@ -6468,14 +6843,7 @@ namespace Offhand.Companion
                 dashboardScroll.ResumeLayout(true);
             }
             LayoutDashboardCards();
-        }
-
-        internal void SetLayoutNotice(int processId, string message)
-        {
-            layoutNoticeProcessId = processId;
-            lblLayoutNotice.Text = message;
-            layoutNotice.Visible = processId != 0;
-            LayoutDashboardCards();
+            QueueDashboardFit();
         }
 
         private void UpdateDashboardNavigation()
@@ -6493,7 +6861,20 @@ namespace Offhand.Companion
                     ? "Workspace layouts, profiles, automatic spanning, diagnostics and activity log. " + (custom ? "Custom layout saved." : "")
                     : "Display selection and setup guidance. Switching tabs does not change your saved layout.");
             }
+        }
+
+        internal void SetLayoutNotice(int processId, string message, bool spanFailed = false)
+        {
+            layoutNoticeProcessId = processId;
+            layoutNoticeIsFailure = processId != 0 && spanFailed;
+            layoutNotice.AccessibleName = layoutNoticeIsFailure ? "Span failure warning" : "Layout reminder";
+            lblLayoutNoticeHeading.Visible = layoutNoticeIsFailure;
+            lblLayoutNotice.ForeColor = layoutNoticeIsFailure ? cText : cGold;
+            btnDismissLayoutNotice.AccessibleName = layoutNoticeIsFailure ? "Dismiss span failure warning" : "Dismiss layout reminder";
+            lblLayoutNotice.Text = message;
+            layoutNotice.Visible = processId != 0;
             LayoutDashboardCards();
+            QueueDashboardFit();
         }
 
         internal void SetDashboardSectionExpanded(Panel panel, bool expanded, bool persist)
@@ -6510,6 +6891,7 @@ namespace Offhand.Companion
                 section.Toggle.AccessibleName = (expanded ? "Collapse " : "Expand ") + section.Heading.Text.Trim();
                 foreach (Control child in panel.Controls)
                     if (child == lblStatusSummary) child.Visible = !expanded;
+                    else if (child == lblStoreUpdateInfo) child.Visible = expanded && isStorePackage;
                     else if (child != section.Heading && child != section.Toggle) child.Visible = expanded;
                 LayoutDashboardCards();
             }
@@ -6522,6 +6904,7 @@ namespace Offhand.Companion
             {
                 appSettings[section.Key] = (!expanded).ToString();
                 SaveConfig();
+                if (expanded) QueueDashboardFit();
             }
         }
 
@@ -6640,8 +7023,16 @@ namespace Offhand.Companion
                     int textWidth = Math.Max(1, layoutNotice.Width - 2 * inset - padding - btnDismissLayoutNotice.Width);
                     int textHeight = TextRenderer.MeasureText(lblLayoutNotice.Text, lblLayoutNotice.Font,
                         new Size(textWidth, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix).Height;
-                    int contentHeight = Math.Max(textHeight, btnDismissLayoutNotice.Height);
-                    lblLayoutNotice.SetBounds(inset, padding + (contentHeight - textHeight) / 2, textWidth, textHeight);
+                    int headingSpace = 0;
+                    if (layoutNoticeIsFailure)
+                    {
+                        int headingHeight = TextRenderer.MeasureText(lblLayoutNoticeHeading.Text, lblLayoutNoticeHeading.Font).Height;
+                        lblLayoutNoticeHeading.SetBounds(inset, padding, textWidth, headingHeight);
+                        headingSpace = headingHeight + (int)Math.Ceiling(3 * scale);
+                    }
+                    int labelHeight = headingSpace + textHeight;
+                    int contentHeight = Math.Max(labelHeight, btnDismissLayoutNotice.Height);
+                    lblLayoutNotice.SetBounds(inset, padding + headingSpace + (contentHeight - labelHeight) / 2, textWidth, textHeight);
                     btnDismissLayoutNotice.Location = new Point(layoutNotice.Width - inset - btnDismissLayoutNotice.Width,
                         padding + (contentHeight - btnDismissLayoutNotice.Height) / 2);
                     layoutNotice.Height = contentHeight + 2 * padding;
@@ -6806,6 +7197,16 @@ namespace Offhand.Companion
             }
         }
 
+        private static void OpenWindowsDisplaySettings(IWin32Window owner)
+        {
+            try { Process.Start(new ProcessStartInfo("ms-settings:display") { UseShellExecute = true }); }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                MessageBox.Show(owner, "Open Settings > System > Display to rearrange your monitors.",
+                    "Display Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
         private void AppendHelpSection(RichTextBox guide, Font sectionFont, string title, params string[] paragraphs)
         {
             if (guide.TextLength > 0) guide.AppendText("\n");
@@ -6819,49 +7220,43 @@ namespace Offhand.Companion
 
         private void FillSetupHelp(RichTextBox guide, Font sectionFont)
         {
-            AppendHelpSection(guide, sectionFont, "First-time setup",
-                "1. Start WoW with the Offhand addon enabled. In WoW's Graphics options, select Windowed and click Apply. WoW should have a movable title bar.",
-                "2. Enter the game world and type /offhand guide in chat. Choose Use Companion when the guide asks for a setup method. Continue to the window placement step.",
-                "3. In Companion, leave Auto-span WoW on launch off for setup. Choose the layout you want, then click Span WoW Now. See Choose a display layout below for the available options.",
-                "4. Return to the in-game guide. Click Reload UI, then Confirm placement. Follow the Auto-Setup Wizard to finish calibration.",
-                "5. On Retail and Forever, finish with Create Mainhand HUD Layout. Leave combat, close Edit Mode, and click the button. Reload when prompted. Wait for layout creation to succeed before moving your panels.");
+            AppendHelpSection(guide, sectionFont, "First-time setup: use Companion only",
+                "Companion, FancyZones and manual placement are alternatives. Follow only one method. These steps cover Companion, recommended on Windows.",
+                "1. Enter the world and select Windowed. Enable Offhand in WoW and back up your Edit Mode layout and UI addon profiles. Open /offhand guide, choose Use Companion and Already installed, then follow its Windowed-mode step. Leave Auto-span WoW on launch off for this first test.",
+                "2. Identify your screens. On the Setup tab, click Identify Displays. Arrange the numbered displays in Windows Display settings to match your desk, then apply. System Status also starts collapsed: click Show there to check the detected client and installed addon files. Installed files do not confirm that the addon is enabled in WoW.",
+                "3. Select your displays. Standard layout is already selected for a new setup. For two full screens, check both under Span displays and select Mainhand (game). For an equal ultrawide split, select one 32:9 or 32:10 screen, enable Single-display 32:9 split and choose Game side. Keep Workspace layout (standard); custom editors are optional.",
+                "4. Apply the span. If several WoW clients are open, select the game window by title and PID. Click Span WoW Now at the top of the dashboard. If asked to confirm saved displays, check the game and workspace screens, then choose OK. If they are wrong, cancel and correct the selection before spanning.",
+                "5. Return to the same in-game guide. Click Window is positioned, then Reload UI. When the guide returns, click Confirm placement and review the visible result. Confirm only if the intended screens or ultrawide region are covered and the game area is visible. Then click Start Calibration. You do not need to restart setup or try another method.");
 
-            AppendHelpSection(guide, sectionFont, "Confirm saved displays",
-                "If System Status asks you to confirm your saved displays, open WoW and click Span WoW Now. Check the game and workspace screens in the dialog.",
-                "Click OK to save the screen selection and proceed with spanning. If a screen is wrong, click Cancel. Use Identify Displays to match the screen numbers to your monitors, then correct Span displays and Mainhand (game) or open Advanced > Workspace layout to edit a saved custom layout. Click Span WoW Now again when ready.");
+            AppendHelpSection(guide, sectionFont, "Calibration: finish in the same guide",
+                "Review display detection, Mainhand orientation, the physical seam and UI size in that order. Companion supplies exact geometry, so locked orientation and seam-width controls are expected. Change screens or Mainhand in Companion only if the selected arrangement is wrong, then span again and reload.",
+                "Where offered, finish with Create Mainhand HUD Layout outside combat with Blizzard Edit Mode closed, then reload when prompted. Clients without that step use Finish Setup. Follow any additional HUD-addon step offered by your client. Wait for setup to succeed before arranging ordinary workspace panels.",
+                "If calibration and HUD setup are already complete, continue with the check below. Do not create the HUD layout again just to read this Help.");
 
-            AppendHelpSection(guide, sectionFont, "Choose a display layout",
-                "Two full displays. Check both screens under Span displays and pick Mainhand (game). The other screen becomes your Offhand workspace.",
-                "One super-ultrawide. For an equal split on a 32:9 or 32:10 display, check only that screen, enable Single-display 32:9 split, and choose Game side.",
-                "Advanced > Workspace layout. Choose One monitor for a full-height game and workspace split, Two monitors for a full game screen and a rectangular workspace, or Multiple workspaces for a full game screen plus one to three workspaces on separate displays.",
-                "Flexible layout (prototype). Use presets or enter the game and workspace rectangles to place one or two workspaces on the same physical display. " + WorkspaceEditorLayout.FlexibleAddon);
+            AppendHelpSection(guide, sectionFont, "After calibration: check your next launch",
+                "Arrange supported panels in WoW. Exit WoW normally, relaunch it, apply your chosen span and confirm that the game, workspace panels and Mainhand HUD return.",
+                "For standard layouts, you may then enable Auto-span WoW on launch and leave Companion in the tray. Custom layouts use Span WoW Now each time. The title-bar X minimizes to the tray; Exit Companion closes it and leaves the current span in place.",
+                "Keep Companion running for automatic spanning, active display-disconnect recovery, the remembered Restore Window bounds or an indicated Forever recovery bridge. Restore Window at the top returns WoW to its pre-span window and suspends auto-span for that session. The tray menu provides Pause/Resume background monitoring; manual Span and Restore remain available.");
 
-            AppendHelpSection(guide, sectionFont, "Edit and reuse custom workspaces",
-                "In custom editors with a visual picker, click Select area on monitor. Drag to move the area or drag its edges to resize. Use the arrow keys to move, Ctrl + arrow keys to move one pixel, or Shift + arrow keys to resize. Press Enter to accept the area or Esc to return to the editor.",
-                "Check the preview and click Save plan to keep your settings. Click Span WoW Now to resize the game window, then reload the WoW UI once.",
-                "To turn off custom workspaces, open Advanced and click Use standard display layout. Review the suggested displays before saving. The Advanced tab indicates when a custom layout is saved. WoW keeps its current layout when you save. To apply Standard, click Span WoW Now, then type /reload in WoW. With one display and no split, use Restore Window.",
-                "Open Advanced > Workspace profiles to manage named Multiple workspaces plans. To switch plans, pick a profile, click Load selected, then click Save changes. Click Span WoW Now and reload in WoW. Use the in-game Profiles tab for addon panel layouts and theme choices.");
+            AppendHelpSection(guide, sectionFont, "Optional: custom workspaces and saved plans",
+                "Use custom areas only for unequal widths, part of a second screen or extra workspace regions. Two full monitors need only standard layout. On the Advanced tab, open Workspace layout and enable I want custom workspace areas only when you need one of these changes.",
+                "Choose one editor: Custom split on one monitor, Custom area on a second monitor, Custom areas on separate monitors or Flexible custom layout (prototype). " + WorkspaceEditorLayout.FlexibleAddon,
+                "Where available, Select area on monitor lets you drag the area or its edges. Arrow keys move it; Ctrl + arrow moves one pixel and Shift + arrow resizes. Enter accepts and Esc returns. Review the preview and Save plan. To apply changed settings, click Span WoW Now and reload in WoW.",
+                "Workspace profiles saves named Multiple workspaces plans. Loading stages settings: Load selected, then Save changes. Apply them with the same Span and reload sequence. In-game Profiles controls addon settings, not physical display rectangles.");
 
-            AppendHelpSection(guide, sectionFont, "Daily use",
-                "Click Span WoW Now after the game window opens. For standard display layouts, open Advanced to enable Auto-span WoW on launch and set a delay. It is off by default. For custom layouts, use Span WoW Now each time.",
-                "Restore Window returns WoW to its pre-span window and suspends auto-span for that WoW session. Click Span WoW Now to apply the layout again. To stop background launch detection, right-click the Companion tray icon and select Pause background monitoring. Manual Span and Restore remain available.",
-                "The title-bar X minimizes Companion to the tray. Exit Companion closes it and leaves the current WoW window spanned. Keep Companion open for auto-span, automatic display-disconnect recovery, or to restore the remembered window bounds.",
-                "In Remote Desktop, click Span WoW Now and choose the game and workspace screens for that connection. Keep Companion running for Restore Window and confirm the screens again after reconnecting.");
+            AppendHelpSection(guide, sectionFont, "Recovery: choose the matching symptom",
+                "Wrong window or screens: use Restore Window, Identify Displays, then review Span displays and Mainhand before spanning again. If a saved display is missing, reconnect it or review the current layout before retrying. In Remote Desktop, confirm the game and workspace screens for that connection.",
+                "Correct window but wrong addon area: reload after the corrected span and check that Offhand is enabled for that WoW client. Open Activity Log with Show for installation paths and span or file errors. Include /offhand diag if the problem remains.",
+                "Expected full monitors but got a custom area: open Workspace layout (custom) and choose Use standard display layout. Review the displays, span again and reload. Named plans stay saved. A saved custom plan is restored on launch until you switch back; Restore Window alone does not change the saved mode.",
+                "Missing supported panel or HUD element: use Recover Missing UI in Offhand's Recovery & Preview first. It targets fully off-screen supported elements. Gather Safe UI to Mainhand is broader and can change visible panel positions. Use Blizzard Edit Mode for personal HUD adjustments; back up before rebuilding a layout.",
+                "Access denied or error 5: close WoW and Companion and restart them normally at the same privilege level. Do not run only one as administrator.",
+                "Color, sharpness or Windows scaling: expand Display Diagnostics with Show, open Display Troubleshooting and use Copy Display Diagnostics for your report. These controls report display information rather than changing HDR or Windows scale.",
+                "On Forever, follow any Use Modern / Restore Offhand recovery prompt after a disconnect. Keep Companion running through normal shutdown when that client needs its compatibility recovery bridge. Do not rebuild a working HUD merely because the window has not yet been placed.");
 
-            AppendHelpSection(guide, sectionFont, "Recover your window or panels",
-                "If a display is missing, reconnect it before spanning again. Use Restore Window to bring the game back to a usable window.",
-                "If addon panels are out of reach, open Offhand's Recovery & Preview and use Gather Off-Screen UI or Gather Safe UI to Mainhand. To rebuild the game HUD, leave combat, close Edit Mode, and choose Create Mainhand HUD Layout. Reload when prompted.",
-                "On Forever, if Offhand offers Use Modern after a display disconnect, use it until you can reconnect and reapply the saved span. Then choose Restore Offhand. After making personal Edit Mode changes, choose Use Current Edit Mode Layout in Recovery & Preview. Keep Companion running through shutdown when Forever needs the compatibility bridge to restore its layout on the next launch.");
-
-            AppendHelpSection(guide, sectionFont, "Troubleshooting",
-                "If the game view still fills the entire window after a reload, check that the Offhand addon is enabled for that WoW client and matches your Companion package. Open Activity Log for the installation path and any span or file-permission errors.",
-                "If the screen arrangement looks wrong, match the monitor positions in Windows Display Settings to your desk. For color or scale issues, use Display Troubleshooting and Copy Display Diagnostics on the dashboard.",
-                "If Windows reports error 5 when spanning, close both apps and launch Battle.net, WoW, and Companion at the same privilege level.");
-
-            AppendHelpSection(guide, sectionFont, "Updates and privacy",
+            AppendHelpSection(guide, sectionFont, "Updates and support",
                 CompanionDistribution.UpdateHelpText(isStorePackage),
                 CompanionDistribution.PrivacyNetworkText(isStorePackage),
-                "Website, Discord, and CurseForge open in your default browser when you click their buttons.");
+                "Website, Discord and CurseForge buttons open your default browser. For support, include the exact symptom, client, display arrangement, copied display diagnostics and /offhand diag. Review logs for private details before sharing.");
         }
 
         internal Form CreateHelpDialog(bool displayTroubleshooting)
@@ -6917,12 +7312,7 @@ namespace Offhand.Companion
             else if (displayTroubleshooting)
             {
                 Button settings = CreateButton("Windows Display Settings", 0, 0, 0, 32, cBtnBg, cText, cBorderDim);
-                settings.Click += (s, e) =>
-                {
-                    try { Process.Start(new ProcessStartInfo("ms-settings:display") { UseShellExecute = true }); }
-                    catch (Exception ex) { MessageBox.Show(help, "Could not open Windows Display Settings. Open Settings > System > Display manually.\r\n" + ex.Message,
-                        "Display Settings", MessageBoxButtons.OK, MessageBoxIcon.Information); }
-                };
+                settings.Click += (s, e) => OpenWindowsDisplaySettings(help);
                 Button copy = CreateButton("Copy Diagnostics", 0, 0, 0, 32, cBtnBg, cText, cBorderDim);
                 copy.Click += (s, e) => CopyColorDiagnostics();
                 var buttons = DashboardButtonRow(new Control[] { settings, copy, close }, 32);
@@ -6934,11 +7324,11 @@ namespace Offhand.Companion
             {
                 Button tutorial = CreateButton("Start Companion tutorial",0,0,220,32,cBtnBg,cText,cBorderDim);
                 tutorial.Click += (s,e) => { help.DialogResult = DialogResult.Retry; help.Close(); };
+                Button support = CreateButton("Support Offhand", 0, 0, 0, 32, cBtnBg, cText, cBorderDim);
+                support.Click += (s, e) => OpenCommunityLink(CompanionDistribution.WebsiteUrl + "#support", "the Offhand support page");
                 Button news = CreateButton("What's new",0,0,130,32,cBtnBg,cText,cBorderDim);
                 news.Click += (s,e) => { help.DialogResult = DialogResult.Yes; help.Close(); };
-                var buttons = DashboardButtonRow(new Control[] { tutorial, news, close }, 32);
-                buttons.ColumnStyles[0].Width = 46;
-                buttons.ColumnStyles[1].Width = buttons.ColumnStyles[2].Width = 27;
+                var buttons = DashboardButtonRow(new Control[] { tutorial, news, support, close }, 32);
                 buttons.Dock = DockStyle.Fill;
                 buttons.BackColor = cCard;
                 footer.Controls.Add(buttons);
@@ -7099,10 +7489,10 @@ namespace Offhand.Companion
 
         private void RestoreForm()
         {
-            this.ShowInTaskbar = true;
             this.Show();
             this.WindowState = FormWindowState.Normal;
             this.Activate();
+            QueueDashboardFit();
         }
 
         internal void ToggleBackgroundMonitoring()
@@ -7118,6 +7508,7 @@ namespace Offhand.Companion
         private void ExitApplication()
         {
             isExplicitExit = true;
+            StopStandardRespanCheck();
             if (monitorTimer != null) monitorTimer.Stop();
             if (remoteSpan != null) InvokeRestoreWindow(false);
             if (trayIcon != null) trayIcon.Visible = false;
@@ -7393,17 +7784,22 @@ namespace Offhand.Companion
             }
         }
 
-        private static string DescribeDashboardLayout(MonitorSelection.Plan plan, bool applied, bool wowRunning = true)
+        private static string DescribeDashboardLayout(MonitorSelection.Plan plan, bool applied, bool wowRunning = true, bool restored = false)
         {
-            string state = applied ? "Layout sent to WoW" : wowRunning
-                ? "Layout selected. Click Span WoW Now to apply." : "Selected display layout";
+            string state = "Selected display layout";
+            if (applied) state = "Layout sent to WoW";
+            else if (restored) state = "WoW is in its restored window.";
+            else if (wowRunning) state = "Layout selected. Click Span WoW Now to apply.";
             string game = string.Format("Game {0} × {1}", plan.MainhandBounds.Width, plan.MainhandBounds.Height);
             string workspace = plan.MultiRegion
                 ? string.Format("{0} workspace{1} on {2} display{3}", plan.Workspaces.Length,
                     plan.Workspaces.Length == 1 ? "" : "s", plan.Indices.Length, plan.Indices.Length == 1 ? "" : "s")
                 : string.Format("Workspace {0} × {1}{2}", plan.WorkspaceBounds.Width, plan.WorkspaceBounds.Height,
                     plan.SplitSingle ? " (single display)" : "");
-            return state + "\r\n" + game + "  •  " + workspace;
+            string mode = plan.IsCustom || plan.FlexibleLayout
+                ? "Custom workspace: selected areas"
+                : plan.SplitSingle ? "Standard layout: equal split" : "Standard layout: full monitors";
+            return mode + "\r\n" + state + "\r\n" + game + "  •  " + workspace;
         }
 
         private void UpdateDashboardStatusSummary()
@@ -7450,12 +7846,14 @@ namespace Offhand.Companion
             }
             if (status == null)
             {
-                lblWowStatus.Text = anyWoWProcess ? "WoW: Waiting for one game window" : "WoW: Not running";
+                bool chooseClient = anyWoWProcess && cmbWowClient != null && cmbWowClient.Items.Count > 1
+                    && cmbWowClient.SelectedIndex == 0;
+                lblWowStatus.Text = chooseClient ? "WoW: Choose a client" : anyWoWProcess ? "WoW: Waiting for a game window" : "WoW: Not running";
                 lblWowStatus.ForeColor = cMuted;
                 lblAddonStatus.Text = "Offhand addon: Waiting for WoW";
                 lblAddonStatus.ForeColor = cMuted;
-                lblAddonReason.Text = anyWoWProcess
-                    ? "Wait for WoW to open. Keep one WoW window open when using Remote Desktop."
+                lblAddonReason.Text = chooseClient ? "Choose the WoW client above Span WoW Now to check its addon."
+                    : anyWoWProcess ? "Wait for WoW to open. Keep one WoW window open when using Remote Desktop."
                     : "Start WoW to check the addon for that client.";
                 UpdateDashboardStatusSummary();
                 return;
@@ -7567,6 +7965,7 @@ namespace Offhand.Companion
                         if (!spannedPids.Contains(proc.Id) && !restoredPids.Contains(proc.Id))
                         {
                             spannedPids.Add(proc.Id);
+                            clientSelection.Pin();
                             AddLog("Detected an existing WoW span and resumed display-loss protection for this client.");
                         }
                     }
@@ -7608,7 +8007,8 @@ namespace Offhand.Companion
                     }
                 }
                 if (currentDisplayPlan != null)
-                    lblDisplayInfo.Text = DescribeDashboardLayout(currentDisplayPlan, selectedLayoutApplied);
+                    lblDisplayInfo.Text = DescribeDashboardLayout(currentDisplayPlan, selectedLayoutApplied,
+                        restored: restoredPids.Contains(proc.Id));
 
                 if (local) TryRecoverClassicSpan(proc, status, currentDisplayPlan, currentDisplays);
 
@@ -7630,7 +8030,7 @@ namespace Offhand.Companion
                     if (!retryAfter.ContainsKey(proc.Id) || DateTime.Now >= retryAfter[proc.Id])
                     {
                         if (!launchTimes.ContainsKey(proc.Id)) launchTimes[proc.Id] = DateTime.Now;
-                        double spanDelay = CompanionTiming.AutoSpanDelay(proc.ProcessName, status.WowDir, numDelaySpan.Value);
+                        double spanDelay = CompanionTiming.AutoSpanDelay(clientSelection.Current.ProcessName, status.WowDir, numDelaySpan.Value);
                         if ((DateTime.Now - launchTimes[proc.Id]).TotalSeconds < spanDelay)
                         {
                             retryAfter[proc.Id] = DateTime.Now.AddSeconds(1);
@@ -7639,11 +8039,7 @@ namespace Offhand.Companion
                         }
                         AddLog(string.Format("New WoW launch detected (PID: {0}). Preparing auto-span...", proc.Id));
                         retryAfter[proc.Id] = DateTime.Now.AddSeconds(10);
-                        if (InvokeSpanWindow(false))
-                        {
-                            spannedPids.Add(proc.Id);
-                        }
-                        else
+                        if (!InvokeSpanWindow(false))
                         {
                             failedAutoSpanPids.Add(proc.Id);
                             AddLog("Automatic spanning is paused for this WoW process after a failed window operation. Review the diagnostic above, then use Span WoW Now to retry explicitly.");
@@ -7665,84 +8061,127 @@ namespace Offhand.Companion
 
             if (proc != null) proc.Dispose();
 
-            // Clean dead PIDs
-            var pidsToCheck = new HashSet<int>(spannedPids);
-            pidsToCheck.UnionWith(restoredPids);
-            pidsToCheck.UnionWith(failedAutoSpanPids);
-            pidsToCheck.UnionWith(launchTimes.Keys);
-            foreach (int pid in pidsToCheck)
+        }
+
+        private List<WoWClientWindow> DiscoverClients(out bool anyRecognizedProcess)
+        {
+            anyRecognizedProcess = false;
+            var clients = new List<WoWClientWindow>();
+            foreach (string processName in wowProcessNames)
             {
-                try
+                Process[] candidates;
+                try { candidates = Process.GetProcessesByName(processName); }
+                catch (System.ComponentModel.Win32Exception) { continue; }
+                foreach (Process candidate in candidates)
                 {
-                    Process.GetProcessById(pid);
+                    using (candidate)
+                    {
+                        try
+                        {
+                            if (candidate.SessionId != currentSessionId) continue;
+                            // A process without a window still owns its SavedVariables.
+                            anyRecognizedProcess = true;
+                            IntPtr handle = candidate.MainWindowHandle;
+                            if (handle == IntPtr.Zero) continue;
+                            var client = new WoWClientWindow(candidate.Id, candidate.StartTime.ToUniversalTime().Ticks,
+                                handle, candidate.MainWindowTitle, candidate.ProcessName);
+                            if (IsLiveClient(candidate, client)) clients.Add(client);
+                        }
+                        catch (InvalidOperationException) { } // exited during enumeration
+                        catch (System.ComponentModel.Win32Exception) { } // unavailable to this user
+                    }
                 }
-                catch
-                {
-                    if (remoteSpan != null && remoteSpan.ProcessId == pid) InvalidateRemoteSpan();
-                    spannedPids.Remove(pid);
-                    appliedTopologies.Remove(pid);
-                    restoredPids.Remove(pid);
-                    failedAutoSpanPids.Remove(pid);
-                    originalWindows.Remove(pid);
-                    classicRecovery.Remove(pid);
-                    launchTimes.Remove(pid);
-                    retryAfter.Remove(pid);
-                    AddLog(string.Format("WoW process (PID: {0}) closed.", pid));
-                }
+            }
+            clients.Sort(delegate(WoWClientWindow a, WoWClientWindow b) {
+                int order = a.StartedUtcTicks.CompareTo(b.StartedUtcTicks);
+                return order != 0 ? order : a.Pid.CompareTo(b.Pid);
+            });
+            return clients;
+        }
+
+        private static bool IsLiveClient(Process process, WoWClientWindow client)
+        {
+            if (client == null || process == null || process.Id != client.Pid) return false;
+            try
+            {
+                if (process.HasExited || process.StartTime.ToUniversalTime().Ticks != client.StartedUtcTicks) return false;
+                process.Refresh();
+                uint owner;
+                return process.MainWindowHandle == client.Handle && client.Handle != IntPtr.Zero &&
+                    NativeMethods.GetWindowThreadProcessId(client.Handle, out owner) != 0 && owner == client.Pid;
+            }
+            catch (InvalidOperationException) { return false; }
+            catch (System.ComponentModel.Win32Exception) { return false; }
+        }
+
+        private List<WoWClientWindow> RefreshClientSelection(out bool anyRecognizedProcess)
+        {
+            var clients = DiscoverClients(out anyRecognizedProcess);
+            var selected = clientSelection.Resolve(clients, anyRecognizedProcess);
+            // All of these caches belong to one particular process AND window. A recycled PID
+            // must not inherit a previous client's original bounds or a pending auto-span.
+            foreach (var previous in knownClients)
+            {
+                if (clients.Exists(previous.SameWindow)) continue;
+                int pid = previous.Pid;
+                if (remoteSpan != null && remoteSpan.ProcessId == pid) InvalidateRemoteSpan();
+                spannedPids.Remove(pid);
+                appliedTopologies.Remove(pid);
+                restoredPids.Remove(pid);
+                failedAutoSpanPids.Remove(pid);
+                originalWindows.Remove(pid);
+                classicRecovery.Remove(pid);
+                launchTimes.Remove(pid);
+                retryAfter.Remove(pid);
+                if (layoutNoticeProcessId == pid) SetLayoutNotice(0, "");
+            }
+            knownClients = clients;
+            RefreshClientPicker(clients, selected);
+            return clients;
+        }
+
+        private void SelectClient(WoWClientWindow choice)
+        {
+            bool any;
+            var clients = RefreshClientSelection(out any);
+            var prior = clientSelection.Current;
+            if (prior != null && !prior.SameWindow(choice) && spannedPids.Contains(prior.Pid))
+            {
+                const string message = "Click Restore Window before selecting another WoW client.";
+                SetLayoutNotice(prior.Pid, message);
+                AddLog(message);
+                return;
+            }
+            var live = choice == null ? null : clients.Find(choice.SameWindow);
+            if (choice != null && live == null) AddLog("The chosen WoW window has closed or changed. Select a running client again.");
+            clientSelection.Select(live);
+            RefreshClientPicker(clients, live);
+            if (live != null) AddLog("Selected WoW client: " + live + ".");
+            if (prior != null && !prior.SameWindow(live))
+            {
+                launchTimes.Remove(prior.Pid);
+                SetLayoutNotice(0, "");
             }
         }
 
         private Process GetWoWProcess(out bool anyRecognizedProcess, bool requireSingleWindow = false)
         {
-            anyRecognizedProcess = false;
-            Process selected = null;
-            bool multipleWindows = false;
-            foreach (string processName in wowProcessNames)
-            {
-                Process[] candidates;
-                try
-                {
-                    candidates = Process.GetProcessesByName(processName);
-                }
-                catch
-                {
-                    // Process discovery can race with process startup or shutdown.
-                    continue;
-                }
+            var clients = RefreshClientSelection(out anyRecognizedProcess);
+            if (requireSingleWindow && clients.Count != 1) return null;
+            return OpenLiveClient(clientSelection.Current);
+        }
 
-                foreach (Process candidate in candidates)
-                {
-                    bool keep = false;
-                    try
-                    {
-                        if (candidate.SessionId != currentSessionId) continue;
-                        anyRecognizedProcess = true;
-                        if ((selected == null || requireSingleWindow) && candidate.MainWindowHandle != IntPtr.Zero)
-                        {
-                            if (selected == null)
-                            {
-                                selected = candidate;
-                                keep = true;
-                            }
-                            else multipleWindows = true;
-                        }
-                    }
-                    catch
-                    {
-                        // A process can exit while Windows is returning its window.
-                    }
-                    finally
-                    {
-                        if (!keep) candidate.Dispose();
-                    }
-                }
-            }
-            if (multipleWindows)
-            {
-                selected.Dispose();
-                return null;
-            }
-            return selected;
+        // The caller owns the returned process. A delayed operation may only reopen the window
+        // it originally observed, even if discovery now lists another WoW instance first.
+        internal static Process OpenLiveClient(WoWClientWindow selected)
+        {
+            if (selected == null) return null;
+            Process process;
+            try { process = Process.GetProcessById(selected.Pid); }
+            catch (ArgumentException) { return null; }
+            if (IsLiveClient(process, selected)) return process;
+            process.Dispose();
+            return null;
         }
 
         private Process GetWoWProcess()
@@ -7761,7 +8200,7 @@ namespace Offhand.Companion
 
         private AddonStatus TestOffhandAddonStatus(Process proc)
         {
-            AddonStatus result = new AddonStatus { Installed = false, Reason = "Launch exactly one WoW client.",
+            AddonStatus result = new AddonStatus { Installed = false, Reason = "Select a running WoW client.",
                 SetupHint = "See the Activity Log for the addon check details." };
             if (proc == null) return result;
 
@@ -7802,17 +8241,8 @@ namespace Offhand.Companion
 
         private IntPtr GetWoWWindowHandle(Process proc)
         {
-            if (proc == null) return IntPtr.Zero;
-            proc.Refresh();
-            IntPtr handle = proc.MainWindowHandle;
-            if (handle == IntPtr.Zero)
-            {
-                handle = NativeMethods.FindProcessWindow(proc.Id);
-            }
-            uint ownerPid;
-            NativeMethods.GetWindowThreadProcessId(handle, out ownerPid);
-            if (ownerPid != proc.Id) return IntPtr.Zero;
-            return handle;
+            var target = clientSelection.Current;
+            return IsLiveClient(proc, target) ? target.Handle : IntPtr.Zero;
         }
 
         private static string RecoveryPlanKey(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
@@ -7903,16 +8333,17 @@ namespace Offhand.Companion
 
         private bool InvokeRestoreWindow(bool manual, bool fillConnectedMainhand)
         {
+            StopStandardRespanCheck();
             Process proc = null;
             try
             {
                 RemoteSpan activeRemoteSpan = remoteSpan;
-                proc = activeRemoteSpan == null ? GetWoWProcess() : Process.GetProcessById(activeRemoteSpan.ProcessId);
-                if (proc == null) throw new Exception("Launch exactly one WoW client first.");
+                proc = manual ? GetWoWProcess() : OpenLiveClient(clientSelection.Current);
+                if (proc == null) throw new InvalidOperationException("Select a running WoW client in the Companion before restoring its window.");
                 classicRecovery.Remove(proc.Id);
                 IntPtr handle = GetWoWWindowHandle(proc);
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready.");
-                if (activeRemoteSpan != null && (handle != activeRemoteSpan.Handle || proc.SessionId != currentSessionId))
+                if (activeRemoteSpan != null && (proc.Id != activeRemoteSpan.ProcessId || handle != activeRemoteSpan.Handle || proc.SessionId != currentSessionId))
                 {
                     InvalidateRemoteSpan();
                     throw new InvalidOperationException("The original Remote Desktop WoW window changed. Retry Restore Window for the current window.");
@@ -7944,14 +8375,35 @@ namespace Offhand.Companion
                 }
                 Rectangle target = RestoreGeometry.Fit(desired, workArea);
                 
-                WindowRestore.Apply(handle, target, newStyle);
+                if (GetWoWWindowHandle(proc) != handle)
+                    throw new InvalidOperationException("The selected WoW window changed before it could be restored.");
+                if (known && manual && activeRemoteSpan == null && !fillConnectedMainhand
+                    && RemoteDesktop.Read() == RemoteDesktop.State.Local)
+                {
+                    uint restoreOwner;
+                    uint restoreThread = NativeMethods.GetWindowThreadProcessId(handle, out restoreOwner);
+                    List<MonitorSelection.Display> displays = TryReadRestoreDisplays();
+                    if (WindowRestore.Apply(handle, target, newStyle, null, NativeMethods.ReadWindowDpi, () =>
+                        {
+                            uint currentOwner;
+                            return displays != null && restoreThread != 0 && restoreOwner == proc.Id
+                                && RemoteDesktop.Read() == RemoteDesktop.State.Local
+                                && MonitorSelection.SameDisplays(displays, TryReadRestoreDisplays())
+                                && GetWoWWindowHandle(proc) == handle
+                                && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == restoreThread
+                                && currentOwner == restoreOwner;
+                        }))
+                        AddLog("Exact window restore verified after the window DPI settled: " + target + ".");
+                }
+                else
+                    WindowRestore.Apply(handle, target, newStyle);
                 SetTaskbarFullscreen(handle, false);
                 if (remoteSpan != null && remoteSpan.ProcessId == proc.Id) InvalidateRemoteSpan();
                 
                 spannedPids.Remove(proc.Id);
                 appliedTopologies.Remove(proc.Id);
                 restoredPids.Add(proc.Id);
-                if (layoutNoticeProcessId == proc.Id) SetLayoutNotice(0, "");
+                if (layoutNoticeProcessId == proc.Id && !layoutNoticeIsFailure) SetLayoutNotice(0, "");
                 if (manual && !NativeMethods.SetForegroundWindow(handle))
                     AddLog("WoW was restored, but Windows did not return keyboard focus automatically. Click the WoW window once to activate it.");
                 AddLog(fillConnectedMainhand
@@ -7974,6 +8426,126 @@ namespace Offhand.Companion
         private bool InvokeSpanWindow(bool manual)
         {
             return InvokeSpanWindow(manual, false);
+        }
+
+        private const string CheckingStandardRespan = "Checking whether WoW keeps the span…";
+
+        private void StopStandardRespanCheck()
+        {
+            if (standardRespanTimer == null) return;
+            standardRespanTimer.Dispose();
+            standardRespanTimer = null;
+            pendingStandardRespan.Dispose();
+            pendingStandardRespan = null;
+            if (!IsDisposed && lblLayoutNotice.Text == CheckingStandardRespan) SetLayoutNotice(0, "");
+        }
+
+        private void WatchStandardRespan(WoWClientWindow client, MonitorSelection.Plan plan,
+            IList<MonitorSelection.Display> displays, Size restoredClient, SpanRollback rollback)
+        {
+            // WoW can reapply its windowed size after SetWindowPos succeeds.
+            // Keep the pre-span window and topology available until WoW settles.
+            int processId = client.Pid;
+            IntPtr handle = client.Handle;
+            int generation = displaySelectionGeneration;
+            var elapsed = Stopwatch.StartNew();
+            standardRespanTimer = new Timer { Interval = 250 };
+            pendingStandardRespan = rollback;
+            standardRespanTimer.Tick += (sender, args) =>
+            {
+                try
+                {
+                    uint owner;
+                    NativeMethods.GetWindowThreadProcessId(handle, out owner);
+                    if (IsDisposed || !client.SameWindow(clientSelection.Current) || owner != processId
+                        || generation != displaySelectionGeneration || RemoteDesktop.Read() != RemoteDesktop.State.Local
+                        || !spannedPids.Contains(processId))
+                    {
+                        StopStandardRespanCheck();
+                        return;
+                    }
+                    var window = ReadRecoveryObservation(handle);
+                    bool visible = NativeMethods.IsWindowVisible(handle);
+                    bool reset = visible && StandardRespanCheck.MatchesReset(window, handle, plan.Bounds, restoredClient)
+                        && SpanClipRegion.Matches(handle, plan, plan.Bounds);
+                    if (!reset && elapsed.ElapsedMilliseconds < 6000) return;
+                    using (Process process = OpenLiveClient(client))
+                    {
+                        if (process == null || process.Id != processId || GetWoWWindowHandle(process) != handle
+                            || !MonitorSelection.SameDisplays(displays, ReadDisplays()))
+                        {
+                            StopStandardRespanCheck();
+                            return;
+                        }
+                    }
+                    if (!reset && visible && window != null && window.Usable
+                        && window.Bounds == plan.Bounds
+                        && (window.Style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) == 0
+                        && window.Client == plan.Bounds.Size && SpanClipRegion.Matches(handle, plan, plan.Bounds))
+                    {
+                        rollback.Commit();
+                        StopStandardRespanCheck();
+                        ReportSpanApplied(processId, plan.Bounds, true, false, false);
+                        return;
+                    }
+                    bool restored = false;
+                    if (reset)
+                    {
+                        // Recheck after validating ownership and the selected displays.
+                        if (!NativeMethods.IsWindowVisible(handle)
+                            || !StandardRespanCheck.MatchesReset(ReadRecoveryObservation(handle), handle, plan.Bounds, restoredClient)
+                            || !SpanClipRegion.Matches(handle, plan, plan.Bounds)) return;
+                        string failure = rollback.Rollback();
+                        if (failure != null) AddLog(failure);
+                        restored = rollback.IsRestoredNormalWindow();
+                        if (restored)
+                        {
+                            SetTaskbarFullscreen(handle, false);
+                            spannedPids.Remove(processId);
+                            appliedTopologies.Remove(processId);
+                            restoredPids.Add(processId);
+                        }
+                    }
+                    StopStandardRespanCheck();
+                    ReportSpanFailure(processId, restored);
+                }
+                catch (Exception ex)
+                {
+                    StopStandardRespanCheck();
+                    AddLog("Could not verify the Standard re-span: " + ex.Message);
+                }
+            };
+            standardRespanTimer.Start();
+        }
+
+        private void ReportSpanFailure(int processId, bool restored)
+        {
+            string notice = restored
+                ? "WoW shrank after spanning, so Companion restored your previous window. In WoW, type /reload and wait for it to finish. Then click Span WoW Now again."
+                : "WoW did not keep the span. Click Restore Window, then type /reload in WoW before spanning again.";
+            SetLayoutNotice(processId, notice, spanFailed: true);
+            AddLog("Span failed. " + notice);
+            uint foregroundOwner;
+            NativeMethods.GetWindowThreadProcessId(NativeMethods.GetForegroundWindow(), out foregroundOwner);
+            if (!Visible || WindowState == FormWindowState.Minimized || foregroundOwner != currentProcessId)
+            {
+                trayIcon.ShowBalloonTip(8000, "Offhand: Span failed", notice, ToolTipIcon.Warning);
+                AddLog("Requested the Windows span failure notification.");
+            }
+        }
+
+        private void ReportSpanApplied(int processId, Rectangle bounds, bool manual, bool remote, bool custom)
+        {
+            if (remote) AddLog(string.Format("Remote Desktop span applied at {0}x{1}. {2} Keep Companion open for Restore Window.", bounds.Width, bounds.Height, ReloadLayoutInstruction));
+            else AddLog(GraphicsRecoveryTestBuild
+                ? string.Format(RecoveryScope + " span request applied at {0}x{1}; stable-window verification remains separate.", bounds.Width, bounds.Height)
+                : string.Format("Spanned {0}x{1}. {2} For first-time setup, run /offhand guide after reloading.", bounds.Width, bounds.Height, ReloadLayoutInstruction));
+            if (custom)
+                AddLog("Custom window bounds applied. If Offhand Window Setup prompts, choose Use Companion. Use Span WoW Now after a graphics reset.");
+            trayIcon.ShowBalloonTip(6000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Span applied",
+                GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
+                : ReloadLayoutInstruction + (remote ? " Keep Companion open for Restore Window." : ""), ToolTipIcon.Info);
+            if (manual && !GraphicsRecoveryTestBuild) SetLayoutNotice(processId, ReloadLayoutInstruction);
         }
 
         private void PreparePhysicalSpanSelection(bool manual, List<MonitorSelection.Display> displays)
@@ -8016,6 +8588,7 @@ namespace Offhand.Companion
 
         private bool InvokeSpanWindow(bool manual, bool graphicsRecovery)
         {
+            if (standardRespanTimer != null) return false;
             Process proc = null;
             SpanRollback rollback = null;
             MonitorSelection.Plan plan = null;
@@ -8028,8 +8601,11 @@ namespace Offhand.Companion
                 if (session != RemoteDesktop.State.Local && (!remote || !manual))
                     throw new InvalidOperationException("Remote Desktop spanning requires an active connection and a manual click on Span WoW Now.");
                 bool anyWoWProcess;
-                proc = GetWoWProcess(out anyWoWProcess, remote);
-                if (proc == null) throw new Exception("Launch exactly one WoW client first.");
+                proc = manual ? GetWoWProcess(out anyWoWProcess, remote) : OpenLiveClient(clientSelection.Current);
+                if (proc == null) throw new InvalidOperationException(remote
+                    ? "Keep one WoW window open for Remote Desktop and select it in the Companion."
+                    : "Select a running WoW client in the Companion before spanning its window.");
+                WoWClientWindow confirmedClient = clientSelection.Current;
                 int confirmedGeneration = remoteGeneration;
                 List<MonitorSelection.Display> displays = ReadDisplays();
                 if (remote)
@@ -8073,10 +8649,20 @@ namespace Offhand.Companion
                 Rectangle bounds = plannedBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
 
+                bool canRetryDpi = !remote && manual && plan.IsCustom && !graphicsRecovery && !GraphicsRecoveryTestBuild;
+#if GRAININESS_TEST
+                canRetryDpi = false;
+#endif
+                uint spanOwner;
+                uint spanThread = NativeMethods.GetWindowThreadProcessId(handle, out spanOwner);
+                if (spanThread == 0 || spanOwner != proc.Id)
+                    throw new InvalidOperationException("The WoW window changed. Wait for the client to open and try Span WoW Now again.");
                 if (remote) ValidateRemoteConfirmation(confirmedGeneration, displays);
                 else if (RemoteDesktop.Read() != RemoteDesktop.State.Local)
                     throw new InvalidOperationException("The Windows session changed. Review the displays and click Span WoW Now again.");
                 string topologyMessage;
+                if (!confirmedClient.SameWindow(clientSelection.Current) || !IsLiveClient(proc, confirmedClient))
+                    throw new InvalidOperationException("The selected WoW window changed. Select the client again.");
                 rollback = new SpanRollback(Path.Combine(status.WowDir, "Interface", "AddOns", "Offhand", "Core", "CompanionTopology.lua"), handle);
                 byte[] writtenTopology;
                 if (!CompanionTopologyBridge.TryWrite(status.WowDir, plan, displays, out topologyMessage, out writtenTopology))
@@ -8084,6 +8670,8 @@ namespace Offhand.Companion
                 rollback.TopologyWritten(writtenTopology);
                 AddLog(topologyMessage);
 
+                if (!IsLiveClient(proc, confirmedClient))
+                    throw new InvalidOperationException("The selected WoW window closed before the span could be applied.");
                 rollback.WindowChanged = true;
                 if (NativeMethods.IsZoomed(handle) || NativeMethods.IsIconic(handle))
                 {
@@ -8092,6 +8680,7 @@ namespace Offhand.Companion
 
                 NativeMethods.RECT oldRect;
                 if (!NativeMethods.GetWindowRect(handle, out oldRect)) throw new Exception("Could not read WoW window bounds.");
+                uint beforeDpi = canRetryDpi ? NativeMethods.ReadWindowDpi(handle) : 0;
 
                 NativeMethods.RECT oldClient;
                 Size oldClientSize = NativeMethods.GetClientRect(handle, out oldClient)
@@ -8191,6 +8780,44 @@ namespace Offhand.Companion
                     {
                         var observation = boundsRead ? ReadRecoveryObservation(handle, actual) : null;
                         failedBoundsReadback = WindowInteropDiagnostics.SpanReadback(bounds, observedBounds, readError, observation);
+                        if (canRetryDpi)
+                        {
+                            uint afterDpi = NativeMethods.ReadWindowDpi(handle);
+                            failedBoundsReadback += " Window DPI before/after span: " + beforeDpi + "/" + afterDpi + ".";
+                            uint currentOwner;
+                            if (SpanDpiRetry.Matches(bounds, observation, beforeDpi, afterDpi)
+                                && RemoteDesktop.Read() == RemoteDesktop.State.Local
+                                && MonitorSelection.SameDisplays(displays, ReadDisplays())
+                                && GetWoWWindowHandle(proc) == handle
+                                && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == spanThread
+                                && spanOwner == currentOwner
+                                && SpanClipRegion.Matches(handle, plan, bounds))
+                            {
+                                AddLog(failedBoundsReadback + " Retrying the exact custom span once after the DPI change.");
+                                NativeMethods.SetLastError(0);
+                                bool resized = NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.X, bounds.Y,
+                                    bounds.Width, bounds.Height, flags);
+                                int resizeError = resized ? 0 : Marshal.GetLastWin32Error();
+                                var afterRetry = ReadRecoveryObservation(handle);
+                                uint retryDpi = NativeMethods.ReadWindowDpi(handle);
+                                bool recovered = resized && SpanDpiRetry.IsExact(bounds, afterRetry, observation.Style)
+                                    && retryDpi == afterDpi && GetWoWWindowHandle(proc) == handle
+                                    && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == spanThread
+                                    && spanOwner == currentOwner && SpanClipRegion.Matches(handle, plan, bounds);
+                                failedBoundsReadback += " DPI retry: " + WindowInteropDiagnostics.SpanReadback(bounds,
+                                    afterRetry == null ? (Rectangle?)null : afterRetry.Bounds, 0, afterRetry)
+                                    + " Window DPI after retry: " + retryDpi + ".";
+                                if (!resized) failedBoundsReadback += " SetWindowPos Windows error " + resizeError + ".";
+                                if (recovered)
+                                {
+                                    AddLog("Exact custom span verified after the window DPI settled.");
+                                    failedBoundsReadback = null;
+                                }
+                            }
+                        }
+                    }
+                    if (failedBoundsReadback != null)
+                    {
                         failedBoundsAt = DateTime.UtcNow;
                         AddLog("Failed " + failedBoundsReadback);
                         string reason = boundsRead ? "WoW did not retain the requested window bounds."
@@ -8237,9 +8864,17 @@ namespace Offhand.Companion
                     }
                     else AddLog(RecoveryScope + " recovery not armed: monitoring is paused or no distinct pre-span client size was recorded. Resume monitoring, Restore Window, then span again.");
                 }
+                bool checkStandardRespan = manual && !remote && !plan.IsCustom && !plan.SplitSingle
+                    && restoredPids.Contains(proc.Id) && original != null && original.Handle == handle
+                    && oldClientSize.Width > 0 && oldClientSize.Height > 0 && oldClientSize != plannedBounds.Size
+                    && ClassicGraphicsRecovery.IsSupportedClient(status.WowDir, ClassicGraphicsRecovery.ClientScope.Forever);
+#if GRAININESS_TEST
+                checkStandardRespan = checkStandardRespan && SpanPresentationTest.Mode == SpanTestMode.Baseline;
+#endif
                 restoredPids.Remove(proc.Id);
                 failedAutoSpanPids.Remove(proc.Id);
                 spannedPids.Add(proc.Id);
+                clientSelection.Pin();
 #if GRAININESS_TEST
                 // Bound read-only sampling to one minute and cancel superseded runs.
                 int generation = ++spanTestGeneration;
@@ -8257,24 +8892,24 @@ namespace Offhand.Companion
                 };
                 evidenceTimer.Start();
 #endif
-                if (remote) AddLog(string.Format("Remote Desktop span applied at {0}x{1}. {2} Keep Companion open for Restore Window.", bounds.Width, bounds.Height, ReloadLayoutInstruction));
-                else AddLog(GraphicsRecoveryTestBuild
-                    ? string.Format(RecoveryScope + " span request applied at {0}x{1}; stable-window verification remains separate.", bounds.Width, bounds.Height)
-                    : string.Format("Spanned {0}x{1}. {2} For first-time setup, run /offhand guide after reloading.", bounds.Width, bounds.Height, ReloadLayoutInstruction));
-                if (plan.IsCustom)
-                    AddLog("Custom window bounds applied. If Offhand Window Setup prompts, choose Use Companion. Use Span WoW Now after a graphics reset.");
-                trayIcon.ShowBalloonTip(6000, GraphicsRecoveryTestBuild ? RecoveryScope + " span requested" : "Span applied: type /reload in WoW",
-                    GraphicsRecoveryTestBuild ? "Wait for stable-span confirmation in the activity log before the VSync test."
-                    : ReloadLayoutInstruction + (remote ? " Keep Companion open for Restore Window." : ""), ToolTipIcon.Info);
                 appliedTopologies[proc.Id] = new AppliedTopology {
                     Handle = handle, LayoutKey = CompanionTopologyBridge.LayoutKey(plan, displays)
                 };
-                rollback.Commit();
                 if (remote)
                     remoteSpan = new RemoteSpan { ProcessId = proc.Id, Handle = handle, Displays = displays, Topology = rollback.Topology };
                 SetTaskbarFullscreen(handle, true);
-                if (manual && !GraphicsRecoveryTestBuild)
-                    SetLayoutNotice(proc.Id, ReloadLayoutInstruction);
+                if (checkStandardRespan)
+                {
+                    if (!layoutNoticeIsFailure || layoutNoticeProcessId != proc.Id)
+                        SetLayoutNotice(proc.Id, CheckingStandardRespan);
+                    WatchStandardRespan(confirmedClient, plan, displays, oldClientSize, rollback);
+                    rollback = null;
+                }
+                else
+                {
+                    rollback.Commit();
+                    ReportSpanApplied(proc.Id, bounds, manual, remote, plan.IsCustom);
+                }
                 return true;
             }
             catch (Exception ex)

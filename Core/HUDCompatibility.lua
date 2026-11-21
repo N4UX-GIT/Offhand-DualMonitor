@@ -60,12 +60,34 @@ function Compatibility.HasCustomStatusBarAddon()
     return true
 end
 
+local function GetBagSmithParkingParent(frame)
+    -- BagSmith can leave the native bag binding enabled. Its replacement
+    -- parks the native backpack under a hidden, anonymous UIParent child.
+    if not frame or not frame.GetParent or (frame.IsForbidden and frame:IsForbidden()) then return end
+    local parent = frame:GetParent()
+    if parent and parent ~= UIParent and parent ~= _G.ContainerFrameContainer
+        and not (parent.IsForbidden and parent:IsForbidden())
+        and parent.GetName and parent:GetName() == nil and parent.GetParent
+        and parent:GetParent() == UIParent and parent.IsShown and not parent:IsShown() then
+        return parent
+    end
+end
+
+function Compatibility.GetBagSmithParkingParent()
+    if Offhand.isForever and Compatibility.IsAddonPresent("BagSmith") then
+        return GetBagSmithParkingParent(_G.ContainerFrame1)
+            or GetBagSmithParkingParent(_G.ContainerFrameCombinedBags)
+    end
+end
+
 function Compatibility.HasCustomBagAddon()
     if Compatibility.IsAddonPresent("EllesmereUIBags")
         and not (Offhand.isForever and Compatibility.UsesNativeGamepadInterface()) then return true end
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
         or _G.ArkInventory or _G.BetterBags or _G.Inventorian
         or _G.ElvUI or _G.Tukui then return true end
+    if Compatibility.IsAddonPresent("BetterBags") then return true end
+    if Compatibility.GetBagSmithParkingParent() then return true end
     -- Combined mode can exist without an individual backpack root. Either
     -- native root is sufficient; explicit replacement owners above still win.
     return not (_G.ContainerFrame1 or _G.ContainerFrameCombinedBags)
@@ -198,7 +220,7 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     end
     if not IsOrdinaryPopupValue(name) then return true end
     local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsDonGameplayFrame(frame, name) then return true end
+    if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
     if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
     if type(name) == "string" and linkedChatPopupRoots[name] then return true end
     -- Titan's full-width bars derive their size from two anchors. Popup

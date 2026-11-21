@@ -7,3 +7,18 @@ Live addon source and observed target-client behavior remain authoritative. Keep
 
 Apply this rule to existing and future addon projects, including checkouts outside the current workspace. At new-project setup, add a root `AGENTS.md` with this canonical reference so the convention travels with the repository. If the knowledge path is unavailable, report the access gap and use verified project/upstream evidence explicitly; do not silently claim the knowledge project was consulted.
 <!-- wowkb:reference:end -->
+
+## Compatibility regression checks
+
+For addon UI, frame ownership, persistence, input or compatibility changes, run
+`python scripts/check-compatibility.py` and the checker tests in
+`tests/test_compatibility_check.py`. Preserve existing regression suites.
+Use `docs/COMPATIBILITY.md` for supported scenarios and remaining live checks.
+
+Before live QA, compare the installed addon with the intended checkout using
+`--installed <Offhand-folder>`. Record deliberate differences from other
+candidate branches rather than overwriting them. Before release, test the
+combined candidate and check `--require-fresh-live`. A source fingerprint
+mismatch requires a new live run for that scope, not an edited hash alone.
+Keep simulations, real interactions, reporter acceptance and release evidence
+distinct. Do not call an untested addon version or deferred scenario verified.

@@ -107,7 +107,50 @@ function Setup:Hide()
     self.offeredContext = nil
 end
 
-function Setup:UseExisting()
+function Setup:ReviewExisting(anchor)
+    local status = Offhand.Mainhand:GetCharacterSetupLayoutStatus(true)
+    if status.reason == "combat" or status.reason == "open" or status.reason == "input" then
+        Offhand:Print(Offhand.L.CHARACTER_SETUP_RETRY)
+        return
+    end
+    local choices = status.choices
+    if status.ellesmereReview and (not choices or #choices == 0) then
+        return self:Show("CHARACTER_SETUP_ELLESMERE")
+    end
+    if not status.available then
+        return self:Show(status.reason == "span" and "CHARACTER_SETUP_WAITING_FOR_SPAN"
+            or status.reason == "ownership" and "CHARACTER_SETUP_REFRESH" or "CHARACTER_SETUP_NO_LAYOUT")
+    end
+    local function Confirm(name)
+        Offhand.Options:Confirm(string.format(Offhand.L.PROFILE_REUSE_HUD_CONFIRM, name), function()
+            if self:UseExisting(name) then Offhand.Options:UpdateProfileList() end
+        end)
+    end
+    if not choices or #choices <= 1 then return Confirm(choices and choices[1] and choices[1].name or status.name) end
+
+    local function Label(choice)
+        return string.format(Offhand.L[choice.shared and "PROFILE_HUD_SHARED" or "PROFILE_HUD_PERSONAL"], choice.name)
+    end
+    if MenuUtil and MenuUtil.CreateContextMenu then
+        MenuUtil.CreateContextMenu(anchor, function(_, menu)
+            for _, choice in ipairs(choices) do
+                menu:CreateRadio(Label(choice), function(item) return item.active end,
+                    function(item) Confirm(item.name) end, choice)
+            end
+        end)
+    elseif UIDropDownMenu_Initialize and UIDropDownMenu_AddButton and ToggleDropDownMenu then
+        self.layoutMenu = self.layoutMenu or CreateFrame("Frame", "OffhandProfileHUDMenu", anchor, "UIDropDownMenuTemplate")
+        UIDropDownMenu_Initialize(self.layoutMenu, function()
+            for _, choice in ipairs(choices) do
+                local name = choice.name
+                UIDropDownMenu_AddButton({text = Label(choice), checked = choice.active, func = function() Confirm(name) end}, 1)
+            end
+        end, "MENU")
+        ToggleDropDownMenu(1, nil, self.layoutMenu, anchor, 0, 0)
+    end
+end
+
+function Setup:UseExisting(expectedName)
     if not Offhand.db or not Offhand.db.enabled
         or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
         return false
@@ -115,7 +158,7 @@ function Setup:UseExisting()
     local mainhand = Offhand.Mainhand
     local ok, layoutName, moved, changed
     if mainhand and mainhand.UseExistingEditModeLayout then
-        ok, layoutName, moved, changed = mainhand:UseExistingEditModeLayout()
+        ok, layoutName, moved, changed = mainhand:UseExistingEditModeLayout(expectedName, true)
     end
     if not ok then
         local blocked = layoutName == "combat" or layoutName == "open" or layoutName == "input"

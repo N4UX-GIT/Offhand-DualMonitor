@@ -164,6 +164,8 @@ StaticPopupDialogs["OFFHAND_ENABLE_FOREVER_PROFESSIONS_MOVEMENT"] = {
 for _, link in ipairs({
     { key = "OFFHAND_WEBSITE_LINK", text = "WEBSITE_LINK_TEXT", url = Offhand.websiteUrl },
     { key = "OFFHAND_DISCORD_LINK", text = "DISCORD_LINK_TEXT", url = Offhand.discordUrl },
+    { key = "OFFHAND_STUDIO_LINK", text = "USER_MEDIA_STUDIO_LINK_TEXT",
+        url = (Offhand.websiteUrl or "https://offhand-wow.onrender.com/") .. "background-studio.html" },
 }) do
     local url = link.url
     StaticPopupDialogs[link.key] = {
@@ -178,6 +180,7 @@ Offhand.Options = Options
 
 _G.BINDING_HEADER_OFFHAND = L["BINDING_HEADER_OFFHAND"]
 _G.HEADER_OFFHAND = L["BINDING_HEADER_OFFHAND"]
+_G.BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP = L["BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP"]
 _G.BINDING_NAME_OFFHAND_TOGGLE_SETTINGS = L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"]
 _G.BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS =
     L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"]
@@ -723,6 +726,16 @@ function Options:CreateFloatingPanel()
     laserCheck.Text:SetWidth(290)
     configFrame.laserCheck = laserCheck
 
+    do
+        local guide = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
+        guide:SetPoint("TOPLEFT", 330, -174)
+        guide:SetSize(280, 24)
+        guide:SetText(L["TOGGLE_MAINHAND_CENTRE_GUIDE"])
+        guide:SetScript("OnClick", function()
+            if not Offhand.CenterGuide:Toggle() then Offhand:Print(L["MSG_CENTER_GUIDE_REQUIRES_SPAN"]) end
+        end)
+    end
+
     local rawMouseCheck = CreateNativeCheckbox(card1_1, L["RAW_MOUSE_INPUT"],
         function() return Offhand.db and Offhand.db.rawMouseInput ~= false end,
         function(val)
@@ -1132,10 +1145,10 @@ function Options:CreateFloatingPanel()
         L["MAP_SCALE_TARGET_HELP"], Offhand.isForever and L["MAP_SCALE_HELP_FOREVER"] or L["MAP_SCALE_HELP"])
 
     local mapScaleSlider = CreateNativeSlider(card2_1, L["MAP_SCALE"], 0.50,
-        Offhand.MapScale:GetState().max, 0.05,
+        Offhand.MapScale:GetState().max, 0.01,
         function() return Offhand.MapScale:GetState().value end,
         function(val) Offhand.MapScale:Set(val) end,
-        "%.0f%%", L["MAP_SCALE"], L["MAP_SCALE_TARGET_HELP"]
+        "%.0f%%", L["MAP_SCALE"], L["MAP_SCALE_TARGET_HELP"], true
     )
     -- This action applies through the map owner; a full UI layout can move
     -- unrelated windows and is not needed for a scale preference.
@@ -1189,7 +1202,7 @@ function Options:CreateFloatingPanel()
         local state = Offhand.MapScale:GetState()
         local openMapActive = IsIntegrationActive("OpenMap")
         local openMapOwner = openMapActive and state.owner == "OpenMap"
-        mapScaleSlider:SetRange(state.min, state.max)
+        mapScaleSlider:SetRange(state.min, state.max, state.step)
         mapScaleSlider.title:SetText(L["MAP_SCALE"] .. (openMapOwner and " (OpenMap)" or ""))
         Controls.SetSliderEnabled(mapScaleSlider, state.available)
         autoFitBtn:SetEnabled(state.available)
@@ -1207,6 +1220,15 @@ function Options:CreateFloatingPanel()
     card2_1:RegisterEvent("PLAYER_REGEN_ENABLED")
     card2_1:RegisterEvent("ADDON_LOADED")
     card2_1:SetScript("OnEvent", function() if card2_1:IsShown() then RefreshMapScaleControls() end end)
+    Offhand.MapScale:ObserveMapChanges(card2_1, RefreshMapScaleControls)
+
+    function Options:OpenMapSettings()
+        if not configFrame:IsShown() then self:Open() end
+        SwitchTab(2)
+        local _, _, _, _, y = card2_1:GetPoint(1)
+        Controls.SetScrollOffset(optionsScrollFrame, -(y or 0))
+        RefreshMapScaleControls()
+    end
 
     local mapMoveCheck
     if not Offhand.isForever then
@@ -1248,6 +1270,17 @@ function Options:CreateFloatingPanel()
                 Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
             end
         end
+        local keepOpenChecks = {}
+        if Offhand.WorkspaceToggleKeys and Offhand.WorkspaceToggleKeys:Available() then
+            local function AddKeepOpenCheck(key, label)
+                local check = CreateNativeCheckbox(card2_1, L[label],
+                    function() return Offhand.db and Offhand.db[key] == true end,
+                    function(value) Offhand.db[key] = value == true end)
+                keepOpenChecks[#keepOpenChecks + 1] = {check = check, key = key}
+            end
+            AddKeepOpenCheck("keepMapToggleOpen", "KEEP_MAP_TOGGLE_OPEN")
+            AddKeepOpenCheck("keepBagToggleOpen", "KEEP_BAG_TOGGLE_OPEN")
+        end
         function card2_1.RefreshIntegration(openMapOwner)
             local fadeHelp
             if Offhand.isForever then
@@ -1276,7 +1309,13 @@ function Options:CreateFloatingPanel()
                 placeOpenMap:SetPoint("TOPLEFT", 12, -top - 30)
                 placeOpenMap:SetPoint("TOPRIGHT", -12, -top - 30)
             end
-            ResizeMonitorCard(card2_1, top + (recoverMap and openMapOwner and 66 or 0))
+            top = top + (recoverMap and openMapOwner and 66 or 0)
+            for _, entry in ipairs(keepOpenChecks) do
+                entry.check:SetPoint("TOPLEFT", 10, -top)
+                entry.check:SetChecked(Offhand.db and Offhand.db[entry.key] == true)
+                top = top + math.max(28, Controls.MeasureWrappedText(entry.check.Text, entry.check.Text:GetText(), 530) + 10)
+            end
+            ResizeMonitorCard(card2_1, top)
         end
         card2_1.RefreshIntegration(IsIntegrationActive("OpenMap") and Offhand.MapScale:GetState().owner == "OpenMap")
     end
@@ -1860,9 +1899,7 @@ function Options:CreateFloatingPanel()
     local rClassic = CreateNativeRadioButton(card3_1, L["THEME_CLASSIC"],
         function() return (Offhand.db and Offhand.db.theme == "CLASSIC") end,
         function()
-            Offhand.db.theme = "CLASSIC"
-            Offhand.db.trimColor = "GOLD"
-            Offhand.db.canvasColor = "CLASSIC_STONE"
+            Offhand.Themes:SetThemePreset(Offhand.db, "CLASSIC")
             Offhand:UpdateTheme()
         end,
         L["THEME_CLASSIC_TIP_TITLE"], L["THEME_CLASSIC_TIP_DESC"]
@@ -1879,9 +1916,7 @@ function Options:CreateFloatingPanel()
     local rSlate = CreateNativeRadioButton(card3_1, L["THEME_SLATE"],
         function() return (Offhand.db and Offhand.db.theme == "BLIZZARD_SLATE") end,
         function()
-            Offhand.db.theme = "BLIZZARD_SLATE"
-            Offhand.db.trimColor = "SILVER"
-            Offhand.db.canvasColor = "CHARCOAL"
+            Offhand.Themes:SetThemePreset(Offhand.db, "BLIZZARD_SLATE")
             Offhand:UpdateTheme()
         end,
         L["THEME_SLATE_TIP_TITLE"], L["THEME_SLATE_TIP_DESC"]
@@ -1898,9 +1933,7 @@ function Options:CreateFloatingPanel()
     local rTinker = CreateNativeRadioButton(card3_1, L["THEME_TINKER"],
         function() return (Offhand.db and Offhand.db.theme == "GNOMISH_TINKER") end,
         function()
-            Offhand.db.theme = "GNOMISH_TINKER"
-            Offhand.db.trimColor = "TINKER_BRASS"
-            Offhand.db.canvasColor = "TINKER_SLATE"
+            Offhand.Themes:SetThemePreset(Offhand.db, "GNOMISH_TINKER")
             Offhand:UpdateTheme()
         end,
         L["THEME_TINKER_TIP_TITLE"], L["THEME_TINKER_TIP_DESC"]
@@ -1917,9 +1950,7 @@ function Options:CreateFloatingPanel()
     local rObsidian = CreateNativeRadioButton(card3_1, L["THEME_OBSIDIAN"],
         function() return (Offhand.db and Offhand.db.theme == "OBSIDIAN") end,
         function()
-            Offhand.db.theme = "OBSIDIAN"
-            Offhand.db.trimColor = "BRONZE"
-            Offhand.db.canvasColor = "CHARCOAL"
+            Offhand.Themes:SetThemePreset(Offhand.db, "OBSIDIAN")
             Offhand:UpdateTheme()
         end,
         L["THEME_OBSIDIAN_TIP_TITLE"], L["THEME_OBSIDIAN_TIP_DESC"]
@@ -1933,11 +1964,10 @@ function Options:CreateFloatingPanel()
     subObsidian:SetPoint("TOPLEFT", 34, -104)
     subObsidian:SetText(L["THEME_OBSIDIAN_DESC"])
 
-    local rPitchBlack = CreateNativeRadioButton(card3_1, L["CANVAS_BLACK"],
+    local rPitchBlack = CreateNativeRadioButton(card3_1, L["THEME_PITCH_BLACK"],
         function() return (Offhand.db and Offhand.db.theme == "PITCH_BLACK") end,
         function()
-            Offhand.db.theme = "PITCH_BLACK"
-            Offhand.db.canvasColor = "PURE_BLACK"
+            Offhand.Themes:SetThemePreset(Offhand.db, "PITCH_BLACK")
             Offhand:UpdateTheme()
         end,
         L["THEME_PITCH_BLACK_TIP_TITLE"], L["THEME_PITCH_BLACK_TIP_DESC"]
@@ -2168,7 +2198,7 @@ function Options:CreateFloatingPanel()
         end
     end
 
-    alphaSlider = CreateNativeSlider(card3_3, L["SLIDER_CANVAS_OPACITY"], 0.10, 1.0, 0.05,
+    alphaSlider = CreateNativeSlider(card3_3, L["SLIDER_CANVAS_OPACITY"], 0, 1.0, 0.05,
         function() return (Offhand.db and Offhand.db.canvasAlpha) or 0.95 end,
         function(val)
             Offhand.db.canvasAlpha = val
@@ -2187,7 +2217,7 @@ function Options:CreateFloatingPanel()
     themeNote:SetPoint("TOPLEFT", 12, -188)
     themeNote:SetText(L["BTN_CANVAS_PREVIEW_TIP_DESC"])
 
-    local card3_4 = CreateCard(tab3, L["CARD_USER_MEDIA"], 176,
+    local card3_4 = CreateCard(tab3, L["CARD_USER_MEDIA"], 212,
         L["USER_MEDIA_ENABLE_TIP_DESC"], L["USER_MEDIA_RESTART_NOTE"])
 
     local userMediaStatus = card3_4:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -2254,6 +2284,13 @@ function Options:CreateFloatingPanel()
     userMediaRestartNote:SetPoint("TOPRIGHT", -14, -138)
     userMediaRestartNote:SetJustifyH("LEFT")
     userMediaRestartNote:SetText(L["USER_MEDIA_RESTART_NOTE"])
+    do
+        local studioLink = CreateFrame("Button", nil, card3_4, "UIPanelButtonTemplate")
+        studioLink:SetSize(244, 24)
+        studioLink:SetPoint("BOTTOMLEFT", 12, 12)
+        studioLink:SetText(L["USER_MEDIA_STUDIO_LINK"])
+        studioLink:SetScript("OnClick", function() Offhand:ShowPopup("OFFHAND_STUDIO_LINK") end)
+    end
 
     local userMediaFitControls = {
         userMediaPackageFit, userMediaFillFit, userMediaContainFit, userMediaStretchFit,
@@ -2300,11 +2337,15 @@ function Options:CreateFloatingPanel()
         activeProfileLabel:SetPoint("TOPLEFT", 16, -24)
         activeProfileLabel:SetWidth(630)
         if activeProfileLabel.SetWordWrap then activeProfileLabel:SetWordWrap(false) end
-        activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
+        local hudLabel = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        hudLabel:SetPoint("TOPLEFT", 16, -48)
+        hudLabel:SetWidth(630)
+        hudLabel:SetJustifyH("LEFT")
+        if hudLabel.SetWordWrap then hudLabel:SetWordWrap(false) end
 
         local profileScroll = CreateFrame("ScrollFrame", "OffhandProfileScrollFrame", card4_1, "UIPanelScrollFrameTemplate")
-        profileScroll:SetPoint("TOPLEFT", 16, -56)
-        profileScroll:SetSize(280, 220)
+        profileScroll:SetPoint("TOPLEFT", 16, -74)
+        profileScroll:SetSize(280, 202)
         Controls.EnableWheelScroll(profileScroll)
     
         local profileScrollBG = CreateFrame("Frame", nil, profileScroll, BackdropTemplate())
@@ -2342,6 +2383,15 @@ function Options:CreateFloatingPanel()
         resetBtn:SetSize(160, 26)
         resetBtn:SetPoint("TOPLEFT", deleteBtn, "BOTTOMLEFT", 0, -24)
         resetBtn:SetText(L["PROFILES_BTN_RESET"])
+
+        local reuseHUD = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        reuseHUD:SetSize(284, 26)
+        reuseHUD:SetPoint("TOPLEFT", resetBtn, "BOTTOMLEFT", 0, -8)
+        reuseHUD:SetText(L["PROFILE_REUSE_HUD"])
+        reuseHUD:SetScript("OnClick", function(button) Offhand.CharacterSetup:ReviewExisting(button) end)
+        if not (Offhand.HasBlizzardEditMode and Offhand:HasBlizzardEditMode() and Offhand.CharacterSetup) then
+            reuseHUD:Hide()
+        end
     
         local createEditBox = CreateFrame("EditBox", nil, card4_1, "InputBoxTemplate")
         createEditBox:SetSize(200, 26)
@@ -2353,12 +2403,19 @@ function Options:CreateFloatingPanel()
         nameLabel:SetText(L["PROFILE_NEW_NAME"])
     
         local createBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
-        createBtn:SetSize(80, 26)
+        createBtn:SetSize(190, 26)
         createBtn:SetPoint("LEFT", createEditBox, "RIGHT", 4, 0)
-        createBtn:SetText(L["PROFILES_BTN_CREATE"])
+        createBtn:SetText(L["PROFILE_CREATE_COPY"])
+        local freshBtn = CreateFrame("Button", nil, card4_1, "UIPanelButtonTemplate")
+        freshBtn:SetSize(190, 26)
+        freshBtn:SetPoint("LEFT", createBtn, "RIGHT", 6, 0)
+        freshBtn:SetText(L["PROFILE_CREATE_DEFAULTS"])
+        if Offhand.SetTooltip then
+            Offhand:SetTooltip(freshBtn, L["PROFILE_CREATE_DEFAULTS"], L["PROFILE_CREATE_DEFAULTS_HELP"])
+        end
         configFrame.profileControls = {
-            rows = profileButtons, scroll = profileScroll, input = createEditBox,
-            create = createBtn, load = loadBtn, copy = copyBtn, delete = deleteBtn,
+            rows = profileButtons, scroll = profileScroll, input = createEditBox, hudLabel = hudLabel, reuseHUD = reuseHUD,
+            create = createBtn, fresh = freshBtn, load = loadBtn, copy = copyBtn, delete = deleteBtn,
         }
 
         local autoSaveNote = card4_1:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -2368,8 +2425,13 @@ function Options:CreateFloatingPanel()
         autoSaveNote:SetText(L["SETTINGS_AUTOSAVE"])
 
         function Options:UpdateProfileList()
+            reuseHUD:SetEnabled(Offhand.db and Offhand.db.enabled == true)
             local profiles = Offhand.GetProfiles and Offhand:GetProfiles() or {"Default"}
             activeProfileLabel:SetText(L["PROFILES_CURRENT_LABEL"] .. " |cff00ff00" .. tostring((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") .. "|r")
+            local layout = Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus and Offhand.Mainhand:GetLayoutStatus()
+            local name = layout and layout.configured and layout.generatedName
+            hudLabel:SetText(type(name) == "string" and name:match("%S")
+                and (L["PROFILE_CHARACTER_HUD"] .. "  " .. name) or "")
         
             -- Hide old buttons
             for _, btn in ipairs(profileButtons) do btn:Hide() end
@@ -2416,7 +2478,7 @@ function Options:CreateFloatingPanel()
                 yOffset = yOffset - profileRowHeight
             end
         
-            profileScrollContent:SetHeight(math.max(220, #profiles * profileRowHeight + 8))
+            profileScrollContent:SetHeight(math.max(profileScroll:GetHeight(), #profiles * profileRowHeight + 8))
             Controls.SetScrollOffset(profileScroll,
                 profileScroll.GetVerticalScroll and profileScroll:GetVerticalScroll() or 0)
             loadBtn:SetEnabled(selectedProfileName ~= nil and selectedProfileName ~= (OffhandCharDB and OffhandCharDB.activeProfile))
@@ -2452,16 +2514,16 @@ function Options:CreateFloatingPanel()
         end)
         resetBtn:SetScript("OnClick", function()
             local name = (OffhandCharDB and OffhandCharDB.activeProfile) or "Default"
-            Options:Confirm(string.format(L["PROFILE_RESET_CONFIRM"], name), function()
+            Options:Confirm(string.format(L["PROFILE_RESET_SHARED_CONFIRM"], name), function()
                 if ((OffhandCharDB and OffhandCharDB.activeProfile) or "Default") == name then
                     if Offhand.ResetConfig then Offhand:ResetConfig() end
                 end
             end)
         end)
-        local function CreateProfileFromInput()
+        local function CreateProfileFromInput(fromDefaults)
             local t = strtrim(createEditBox:GetText() or "")
             if t ~= "" and Offhand.CreateProfile then
-                local success, err = Offhand:CreateProfile(t)
+                local success, err = Offhand:CreateProfile(t, fromDefaults)
                 if success then
                     createEditBox:SetText("")
                     createEditBox:ClearFocus()
@@ -2478,8 +2540,9 @@ function Options:CreateFloatingPanel()
                 end
             end
         end
-        createBtn:SetScript("OnClick", CreateProfileFromInput)
-        createEditBox:SetScript("OnEnterPressed", CreateProfileFromInput)
+        createBtn:SetScript("OnClick", function() CreateProfileFromInput(false) end)
+        freshBtn:SetScript("OnClick", function() CreateProfileFromInput(true) end)
+        createEditBox:SetScript("OnEnterPressed", function() CreateProfileFromInput(false) end)
         createEditBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     end
 
@@ -2532,7 +2595,7 @@ function Options:CreateFloatingPanel()
     end)
 
     local helpCards = { helpOverview }
-    local helpTopics = { "SETUP", "COMPANION", "EDIT_MODE", "PANELS", "COLD_LAUNCH", "RECOVERY", "WELCOME" }
+    local helpTopics = { "SETUP", "COMPANION", "PANELS", "COLD_LAUNCH", "EDIT_MODE", "RECOVERY", "WELCOME" }
     for _, topic in ipairs(helpTopics) do
         local title = L["HELP_" .. topic .. "_TITLE"]
         local text = L["HELP_" .. topic .. "_BODY"]
@@ -2853,6 +2916,11 @@ function Options:CreateFloatingPanel()
     Options:UpdateCardThemes()
     configFrame:Hide()
     return configFrame
+end
+
+function Options:ShowMapSettings()
+    self:CreateFloatingPanel()
+    self:OpenMapSettings()
 end
 
 function Options:Open(showSeamGuide)

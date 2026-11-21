@@ -18,6 +18,42 @@ function Professions.Install(Canvas, services)
     local OnPanelDragStop = assert(services.OnPanelDragStop, "Missing Professions service: OnPanelDragStop")
     local SaveOpenWorkspacePanels = assert(services.SaveOpenWorkspacePanels, "Missing Professions service: SaveOpenWorkspacePanels")
 
+    -- Forever's crafting Escape handler calls CheckConfirmClose before the
+    -- ordinary panel close path. Once OnHide runs Blizzard ends the tradeskill
+    -- session, so showing the frame again cannot preserve the selected recipe.
+    local craftingEscape
+    local function ReleaseCraftingEscape()
+        if IsExperimentalForeverProfessionsMovementEnabled() then return end
+        if craftingEscape and _G.ProfessionsFrame and _G.ProfessionsFrame.CheckConfirmClose == craftingEscape then
+            _G.ProfessionsFrame.CheckConfirmClose = ProfessionsMixin.CheckConfirmClose
+        end
+        craftingEscape = nil
+    end
+
+    local function InstallCraftingEscape(frame)
+        if frame ~= _G.ProfessionsFrame or not ProfessionsMixin
+            or not ProfessionsMixin.CheckConfirmClose or not debugstack
+            or InCombatLockdown() or not CanManagePanelsFromAddon()
+            or frame.CheckConfirmClose ~= ProfessionsMixin.CheckConfirmClose then return end
+        local nativeClose = frame.CheckConfirmClose
+        frame.CheckConfirmClose = function(self, ...)
+            local db = Offhand.db
+            if self == frame and db and db.enabled and db.persistentWorkspacePanels ~= false
+                and IsExperimentalForeverProfessionsMovementEnabled() and CanManagePanelsFromAddon()
+                and not InCombatLockdown() and not (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+                and db.savedWorkspacePositions and db.savedWorkspacePositions.ProfessionsFrame
+                and IsSpannedLayoutActive() and Canvas.IsFrameOnWorkspace(self)
+                and ((self.CraftingPage and self.CraftingPage:IsShown()) or (self.BookPage and self.BookPage:IsShown()))
+                and GameMenuFrame and not GameMenuFrame:IsShown()
+                and debugstack(2, 2, 0):find("Blizzard_ProfessionsRegistration.lua", 1, true) then
+                GameMenuFrame:Show()
+                return
+            end
+            return nativeClose(self, ...)
+        end
+        craftingEscape = frame.CheckConfirmClose
+    end
+
     -- Experimental Forever Professions support is intentionally isolated from the
     -- universal panel lifecycle. Blizzard must first finish a native manual
     -- opening before an Offhand drag surface is attached. After the player moves
@@ -131,6 +167,7 @@ function Professions.Install(Canvas, services)
             or not IsExperimentalForeverProfessionsMovementEnabled()
             or not C_Timer or not C_Timer.After then return false end
         self:InstallForeverProfessionsEscapeHooks()
+        InstallCraftingEscape(frame)
         if frame._OffhandExperimentalProfessionsQueued then return true end
 
         local function RestoreSavedProfessionsPosition()
@@ -352,6 +389,13 @@ function Professions.Install(Canvas, services)
 
     function Canvas:DisableExperimentalForeverProfessionsMovement()
         if not Offhand.isForever then return false end
+        if craftingEscape then
+            if InCombatLockdown() and Offhand.RunOrQueueCombat then
+                Offhand:RunOrQueueCombat(ReleaseCraftingEscape)
+            elseif not InCombatLockdown() then
+                ReleaseCraftingEscape()
+            end
+        end
         if self.experimentalProfessionsWatcher then
             if self.experimentalProfessionsWatcher.Cancel then
                 self.experimentalProfessionsWatcher:Cancel()

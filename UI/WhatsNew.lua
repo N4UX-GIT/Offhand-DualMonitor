@@ -8,6 +8,7 @@ Offhand.WhatsNew = WhatsNew
 -- See docs/ADDON-RELEASE-NOTICES.md before updating either value.
 local storeVersion = "2.1.8"
 local releases = {
+    ["2.1.5-beta.37"] = { highlights = "WHATS_NEW_BETA37", companion = "2.1.9-beta.1" },
     ["2.1.5-beta.36"] = { highlights = "WHATS_NEW_BETA36" },
     ["2.1.5-beta.35"] = { highlights = "WHATS_NEW_BETA35", notes = "https://www.curseforge.com/wow/addons/offhand/files" },
     ["2.1.5-beta.34"] = { highlights = "WHATS_NEW_BETA34", companion = "2.1.9-beta.1" },

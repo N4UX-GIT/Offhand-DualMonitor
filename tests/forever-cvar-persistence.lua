@@ -6,6 +6,7 @@ local currentCharacterName = "Tester"
 local currentCharacterRealm = "TestRealm"
 UnitFullName = function() return currentCharacterName, currentCharacterRealm end
 UnitName = function() return currentCharacterName end
+UnitGUID = function() return "Player-" .. currentCharacterName end
 GetNormalizedRealmName = function() return currentCharacterRealm end
 local function ClearProfileSnapshotCVars()
     local count = tonumber(tostring(cvars.offhandForeverProfileManifest or ""):match(
@@ -22,14 +23,16 @@ C_CVar = nil
 local clientBuild = "70009"
 GetBuildInfo = function() return "1.60.1", clientBuild, "Sep 25 2026", 16001 end
 
-local function NewAddon(isForever, accountDB, characterDB, recoveryVersion, diskState)
+local function NewAddon(isForever, accountDB, characterDB, recoveryVersion, diskState, characterRecovery)
     local addon = { isForever = isForever }
     addon.foreverDiskSavedVariables = diskState
     _G.Offhand = addon
     _G.OffhandDB = accountDB or {}
     _G.OffhandCharDB = characterDB or {}
     _G.OffhandForeverStateBridgeVersion = recoveryVersion
+    _G.OffhandForeverCharacterRecovery = characterRecovery
     assert(loadfile("Core/Config.lua"))("Offhand", addon)
+    assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", addon)
     addon:InitializeConfig()
     return addon
 end
@@ -199,7 +202,7 @@ local currentDisk = {
             },
         },
     },
-    character = { activeProfile = "Raid", foreverEditModeLayoutID = 19, hudSetupReminderDeclined = true },
+    character = { characterGUID = "Player-Tester", activeProfile = "Raid", foreverEditModeLayoutID = 19, hudSetupReminderDeclined = true },
 }
 local function AssertCurrentDiskPreferences(addon)
     assert(OffhandCharDB.activeProfile == "Raid" and OffhandCharDB.foreverEditModeLayoutID == 19
@@ -591,3 +594,96 @@ cvars.offhandForeverPosition_CharacterFrame='W5|1|2|3|4|5|6|7|8|'..string.rep('a
 local invalidRegion=NewAddon(true)
 assert(not invalidRegion.db.savedWorkspacePositions.CharacterFrame,'Overlong W5 region accepted')
 print('PASS: bounded W5 workspace identity persistence, reload and malformed-record preservation')
+
+-- Live Beta 36 regression: a cold bridge from Naux selected Naux's settings
+-- while entering Moonweaver, then discarded Moonweaver's HUD ownership.
+local function RecoveryAccount(revision)
+    return { foreverPersistenceRevision = revision, profiles = {
+        Default = {}, Moon = { canvasOpacity = 0.31 }, Naux = { canvasOpacity = 0.72 },
+    } }
+end
+local function RecoveryCharacter(name, layout)
+    return { characterGUID = "Player-" .. name, activeProfile = name,
+        mainhandLayout = { ownerGUID = "Player-" .. name, ownerName = name, generatedName = layout },
+        hudSetupReminderDeclined = true }
+end
+local function CheckRecovery(expected, bridgeCharacter, diskCharacter, payload, diskRevision, bridgeRevision)
+    cvars = {}
+    local addon = NewAddon(true, RecoveryAccount(bridgeRevision or 5), bridgeCharacter, "cold-identity", {
+        account = RecoveryAccount(diskRevision or 5), character = diskCharacter,
+    }, payload)
+    assert((OffhandCharDB.activeProfile or "Default") == expected,
+        "cold recovery selected another character's settings")
+    assert(addon.db == OffhandDB.profiles[expected], "selected settings table does not match the character")
+    if expected ~= "Default" then
+        assert(OffhandCharDB.mainhandLayout and OffhandCharDB.mainhandLayout.ownerName == expected
+                and not OffhandCharDB.previousHUDIdentity and OffhandCharDB.hudSetupReminderDeclined,
+            "cold recovery replaced or discarded the current character's HUD")
+    end
+    return addon
+end
+currentCharacterName = "Moon"
+local moonCharacter = RecoveryCharacter("Moon", "Offhand Main - Moon")
+local nauxCharacter = RecoveryCharacter("Naux", "Offhand Main - Naux")
+local legacyMismatch = CheckRecovery("Moon", nauxCharacter, moonCharacter)
+assert(legacyMismatch.foreverPersistenceDiagnostics.bridgeCharacter == "unmatched"
+        and legacyMismatch.foreverPersistenceDiagnostics.bridge == "used",
+    "account recovery and rejected character recovery must be diagnosed independently")
+CheckRecovery("Default", nauxCharacter, nil)
+CheckRecovery("Default", { activeProfile = "Naux" }, nil)
+CheckRecovery("Moon", moonCharacter, nil)
+local payload = { schema = 1, characters = { nauxCharacter, moonCharacter } }
+local recoveredMoon = CheckRecovery("Moon", nauxCharacter, nil, payload)
+assert(recoveredMoon.foreverPersistenceDiagnostics.bridgeCharacter == "used")
+-- Match identity rather than newest-file or array order, in both directions.
+currentCharacterName = "Naux"
+CheckRecovery("Naux", moonCharacter, nil, payload)
+currentCharacterName = "Moon"
+CheckRecovery("Moon", nauxCharacter, moonCharacter, { schema = 99, characters = { nauxCharacter } })
+CheckRecovery("Moon", nauxCharacter, moonCharacter, { schema = 1, characters = false })
+CheckRecovery("Moon", nauxCharacter, moonCharacter, { schema = 1, characters = { nauxCharacter } })
+-- Neither stale nor already-consumed bridges may replace current disk state.
+local staleIdentity = CheckRecovery("Moon", nauxCharacter, moonCharacter, payload, 6, 5)
+assert(staleIdentity.foreverPersistenceDiagnostics.bridge == "present-stale")
+local savedAccount, savedCharacter = OffhandDB, OffhandCharDB
+local consumedIdentity = NewAddon(true, RecoveryAccount(5), nauxCharacter, "cold-identity", {
+    account = savedAccount, character = savedCharacter,
+}, payload)
+assert(OffhandCharDB == savedCharacter and consumedIdentity.db == savedAccount.profiles.Moon)
+ClearProfileSnapshotCVars()
+local consumedMissing = NewAddon(true, RecoveryAccount(5), nauxCharacter, "cold-identity", {
+    account = RecoveryAccount(5),
+}, payload)
+assert(OffhandCharDB.activeProfile == nil and not OffhandCharDB.mainhandLayout
+        and consumedMissing.db == OffhandDB.profiles.Default,
+    "an unconditional legacy bridge leaked character data on a consumed reload with missing disk state")
+-- A recreated character with the same name must not inherit the former GUID.
+local oldMoon = RecoveryCharacter("Moon", "Old layout")
+oldMoon.characterGUID = "Player-OldMoon"
+CheckRecovery("Default", oldMoon, nil, { schema = 1, characters = { oldMoon } })
+local originalUnitGUID = UnitGUID
+UnitGUID = function() return nil end
+CheckRecovery("Default", nauxCharacter, nil, payload)
+UnitGUID = originalUnitGUID
+currentCharacterName = "Tester"
+OffhandForeverCharacterRecovery = nil
+print("PASS: character-scoped fresh, stale, consumed, legacy and recreated-character bridge recovery")
+
+cvars = {
+    offhandForeverPositionIndex = "RXPFrame,JournalFrame,RXPItemFrame",
+    offhandForeverPosition_RXPFrame = "W|10|20|200|100",
+    offhandForeverOpenPanels = "V1|RXPFrame,RXPItemFrame,JournalFrame",
+}
+local legacyGuide = {
+    savedMainPositions = {RXPFrame = {x = 2320.595, y = 611.072}},
+    savedWorkspacePositions = {RXPItemFrame = {x = 8, y = 12}, JournalFrame = {x = 1}},
+    openWorkspacePanels = {RXPFrame = true, JournalFrame = true},
+}
+local repaired = NewAddon(true, {profiles = {Default = {}, Other = legacyGuide}})
+assert(not legacyGuide.savedMainPositions.RXPFrame and not legacyGuide.savedWorkspacePositions.RXPItemFrame)
+assert(not legacyGuide.openWorkspacePanels.RXPFrame and legacyGuide.openWorkspacePanels.JournalFrame)
+assert(legacyGuide.savedWorkspacePositions.JournalFrame.x == 1)
+repaired.ForeverPersistence:RestorePositions()
+repaired.ForeverPersistence:RestoreOpenPanels()
+assert(not repaired.db.savedWorkspacePositions.RXPFrame and not repaired.db.openWorkspacePanels.RXPItemFrame)
+print("PASS: inactive RestedXP records retire and Forever session fallback cannot reseed them")

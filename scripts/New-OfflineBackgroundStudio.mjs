@@ -10,7 +10,8 @@ export function offlineBackgroundStudio() {
     const studio=readFileSync(join(root,'Website/background-studio.js'),'utf8')
         .replace(/^import \{[\s\S]*?\} from "\.\/background-studio-core\.mjs[^"\n]*";\s*/, '');
     if (/^\s*(import|export)\s/m.test(core+'\n'+studio)) throw new Error('Unbundled module dependency.');
-    const script='\n"use strict";\n(()=>{\n'+core+'\n'+studio+'\n})();\n';
+    // HTML normalizes CRLF and CR to LF before the browser checks the CSP hash.
+    const script=('\n"use strict";\n(()=>{\n'+core+'\n'+studio+'\n})();\n').replace(/\r\n?/g,'\n');
     if (/<\/script/i.test(script)) throw new Error('Unsafe inline script delimiter.');
     const digest=createHash('sha256').update(script).digest('base64');
     const css=['style.css','background-studio.css'].map(name=>readFileSync(join(root,'Website',name),'utf8')

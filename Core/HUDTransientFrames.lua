@@ -2,9 +2,36 @@
 local _, Offhand = ...
 local Transient = {}
 Offhand.HUDTransientFrames = Transient
+local function IsPlainValue(value)
+    return not issecretvalue or not issecretvalue(value)
+end
+
 local function OrdinaryNumber(value)
-    if issecretvalue and issecretvalue(value) then return false end
+    if not IsPlainValue(value) then return false end
     return type(value) == "number" and value == value and math.abs(value) < math.huge
+end
+
+local function CanMoveCombatPopup(frame)
+    local function HasFlag(method, expected)
+        if not frame[method] then return false end
+        local value = frame[method](frame)
+        return IsPlainValue(value) and value == expected
+    end
+    if not HasFlag("IsForbidden", false) or not HasFlag("IsProtected", false)
+        or not HasFlag("CanChangeProtectedState", true) or not HasFlag("IsAnchoringRestricted", false)
+        or not HasFlag("IsAnchoringSecret", false) or not HasFlag("IsUserPlaced", false) then return false end
+    local parent = frame:GetParent()
+    return IsPlainValue(parent) and parent == UIParent
+end
+
+local function ReadPopupPoint(frame)
+    local count = frame:GetNumPoints()
+    if not OrdinaryNumber(count) or count ~= 1 then return end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if IsPlainValue(point) and IsPlainValue(relative) and IsPlainValue(relativePoint)
+        and OrdinaryNumber(x) and OrdinaryNumber(y) then
+        return { point, relative, relativePoint, x, y }
+    end
 end
 
 function Transient.Install(HUD, services)
@@ -36,6 +63,64 @@ function Transient.Install(HUD, services)
         return a and b and a[1] == b[1] and a[2] == b[2] and a[3] == b[3]
             and math.abs((a[4] or 0) - (b[4] or 0)) < 0.001
             and math.abs((a[5] or 0) - (b[5] or 0)) < 0.001
+    end
+
+    local function MainhandPopupPoint(frame, original, m)
+        local scale, parentScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+        if not OrdinaryNumber(scale) or not OrdinaryNumber(parentScale) or scale <= 0 or parentScale <= 0 then return end
+        local left, right, top = m.gameLeft, m.gameRight, m.gameTop
+        if not OrdinaryNumber(left) or not OrdinaryNumber(right) or not OrdinaryNumber(top) then return end
+        local factor = parentScale / scale
+        return { "TOP", UIParent, "BOTTOMLEFT",
+            (left + right) / 2 * factor + (original[4] or 0), top * factor + (original[5] or 0) }
+    end
+
+    local combatInvitePlacementFailed
+    local function PositionForeverCombatPartyInvite()
+        if Offhand._loggingOut or not InCombatLockdown() or combatInvitePlacementFailed
+            or not Offhand.db or not Offhand.db.enabled or not Offhand.db.seamRedirect
+            or not StaticPopup_FindVisible then return end
+        pcall(function()
+            local m = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+            if not m or not m.isSpanned then return end
+            local invite = StaticPopup_FindVisible("PARTY_INVITE")
+            if not IsPlainValue(invite) or not invite then return end
+            local shown = invite:IsShown()
+            if not IsPlainValue(shown) or not shown then return end
+            local pooled = {}
+            for i = 1, 4 do
+                local frame = _G["StaticPopup" .. i]
+                if frame then pooled[frame] = true end
+            end
+            -- Move the stock root of the invite's stack. Its native links and
+            -- buttons remain untouched, even when another popup precedes it.
+            local root = invite
+            for _ = 1, 4 do
+                if not pooled[root] or not CanMoveCombatPopup(root) then return end
+                local original = ReadPopupPoint(root)
+                if not original or original[1] ~= "TOP" then return end
+                if original[2] == UIParent then
+                    if original[3] ~= "TOP" or original[4] ~= 0 or original[5] ~= -135 then return end
+                    local desired = MainhandPopupPoint(root, original, m)
+                    if not desired then return end
+                    local function Apply(point)
+                        root:ClearAllPoints()
+                        root:SetPoint(unpack(point))
+                    end
+                    local wrote = pcall(Apply, desired)
+                    local read, actual = pcall(ReadPopupPoint, root)
+                    if wrote and read and SamePopupPoint(actual, desired) then
+                        specialPopupPoints[root] = { original = original, applied = desired }
+                    else
+                        combatInvitePlacementFailed = true
+                        if not read or not SamePopupPoint(actual, original) then pcall(Apply, original) end
+                    end
+                    return
+                end
+                if original[3] ~= "BOTTOM" or original[4] ~= 0 or original[5] ~= 0 then return end
+                root = original[2]
+            end
+        end)
     end
 
     function HUD:PositionPremadeGroupDialogs(m, preparing)
@@ -85,13 +170,8 @@ function Transient.Install(HUD, services)
                         and original[1] == "TOP" and original[3] == "TOP"
                         and (not Offhand.isForever or (original[4] or 0) == 0)
                         and frame.GetEffectiveScale then
-                        local scale = frame:GetEffectiveScale()
-                        local parentScale = UIParent:GetEffectiveScale()
-                        if scale and scale > 0 and parentScale and parentScale > 0 then
-                            local factor = parentScale / scale
-                            local desired = { "TOP", UIParent, "BOTTOMLEFT",
-                                (m.gameLeft + m.gameRight) / 2 * factor + (original[4] or 0),
-                                m.gameTop * factor + (original[5] or 0) }
+                        local desired = MainhandPopupPoint(frame, original, m)
+                        if desired then
                             specialPopupPoints[frame] = { original = original, applied = desired }
                             Points(frame, desired)
                         end
@@ -117,6 +197,7 @@ function Transient.Install(HUD, services)
             end
             return
         end
+        combatInvitePlacementFailed = nil
         local popupPending, tradePending = foreverPopupPending, foreverTradePending
         foreverPopupPending, foreverTradePending = nil, nil
         if tradePending and Offhand.MenuPlacement then Offhand.MenuPlacement:RecoverForeverTrade() end
@@ -125,6 +206,12 @@ function Transient.Install(HUD, services)
 
     local function HookPremadeGroupPlacement()
         if not (Offhand.isRetail or Offhand.isForever) or not hooksecurefunc then return end
+        if Offhand.isForever and type(StaticPopup_Show) == "function" and not specialPopupHooks.StaticPopup_Show then
+            specialPopupHooks.StaticPopup_Show = true
+            hooksecurefunc("StaticPopup_Show", function(which)
+                if IsPlainValue(which) and which == "PARTY_INVITE" then PositionForeverCombatPartyInvite() end
+            end)
+        end
         for _, name in ipairs({ "StaticPopup_SetUpPosition", "StaticPopupSpecial_Show",
             "StaticPopupSpecial_Hide", "StaticPopup_Hide", "ShowUIPanel", "HideUIPanel", "UpdateUIPanelPositions" }) do
             local updatesPanels = name == "UpdateUIPanelPositions"
@@ -134,6 +221,7 @@ function Transient.Install(HUD, services)
                 specialPopupHooks[name] = true
                 hooksecurefunc(name, function(dialog)
                     if Offhand.isForever then
+                        if name == "StaticPopup_SetUpPosition" then PositionForeverCombatPartyInvite() end
                         if Offhand._loggingOut or not C_Timer or not C_Timer.After then return end
                         local trade = _G.TradeFrame
                         if updatesPanels or togglesPanel then
@@ -675,6 +763,32 @@ function Transient.Install(HUD, services)
             ]])
         end)
         return ok
+    end
+
+    local mainhandPoints = {
+        TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true, CENTER = true,
+        RIGHT = true, BOTTOMLEFT = true, BOTTOM = true, BOTTOMRIGHT = true,
+    }
+    Offhand.API = Offhand.API or {}
+    -- Offsets use UIParent units. The caller owns the frame and any later re-anchoring.
+    function Offhand.API.SecureAnchorToMainhand(frame, point, x, y)
+        if InCombatLockdown() then return false, "combat" end
+        if not frame or not frame.GetEffectiveScale or not frame.SetPoint or not frame.ClearAllPoints then return false, "frame" end
+        if frame.IsForbidden and frame:IsForbidden() then return false, "forbidden" end
+        point, x, y = point or "CENTER", x or 0, y or 0
+        if not IsPlainValue(point) or not mainhandPoints[point] then return false, "point" end
+        if not OrdinaryNumber(x) or not OrdinaryNumber(y) then return false, "offset" end
+        local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+        if not metrics or not metrics.isSpanned then return false, "span" end
+        local scale, parentScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+        if not OrdinaryNumber(scale) or scale <= 0 or not OrdinaryNumber(parentScale) or parentScale <= 0 then return false, "scale" end
+        local px = point:find("LEFT") and metrics.gameLeft or point:find("RIGHT") and metrics.gameRight
+            or (metrics.gameLeft + metrics.gameRight) / 2
+        local py = point:find("TOP") and metrics.gameTop or point:find("BOTTOM") and metrics.gameBottom
+            or (metrics.gameBottom + metrics.gameTop) / 2
+        local factor = parentScale / scale
+        if SecureScreenPoint(frame, point, (px + x) * factor, (py + y) * factor) then return true end
+        return false, "secure"
     end
 
     local protectedMenuPoints = setmetatable({}, {__mode = "k"})

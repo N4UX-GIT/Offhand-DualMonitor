@@ -31,7 +31,15 @@ function Controls.StyleSurface(frame, kind)
         or not frame.SetBackdropBorderColor then return end
     kind = kind or "card"
     styledFrames[frame] = kind
-    frame:SetBackdrop(FLAT_BACKDROP)
+    if kind == "window" and frame.GetName and frame:GetName() == "OffhandFloatingConfigFrame" and Offhand.Themes then
+        local theme = Offhand.Themes:GetThemeInfo(Offhand.db and Offhand.db.theme or "CLASSIC")
+        frame:SetBackdrop({
+            bgFile = FLAT_BACKDROP.bgFile, edgeFile = theme.edgeFile,
+            edgeSize = theme.edgeSize, insets = theme.insets,
+        })
+    else
+        frame:SetBackdrop(FLAT_BACKDROP)
+    end
     local black = Offhand.db and Offhand.db.theme == "PITCH_BLACK"
     local shade = black and 0 or (kind == "window" and 0.035 or 0.065)
     if kind == "input" then shade = black and 0 or 0.025 end
@@ -56,7 +64,9 @@ function Controls.StyleSurface(frame, kind)
             frame:SetBackdropColor(.075, .082, .105, 1)
         end
     end
-    if active and enabled then
+    if kind == "window" or kind == "header" then
+        frame:SetBackdropBorderColor(r, g, b, 1)
+    elseif active and enabled then
         local strength = frame.uiPrimary and 1 or .85
         if frame.uiPrimary then frame:SetBackdropBorderColor(1,.89,.52,1)
         else frame:SetBackdropBorderColor(r * strength, g * strength, b * strength, 1) end
@@ -309,7 +319,7 @@ function Controls.SetSliderEnabled(slider, enabled)
     -- commit handler must see the locked state and reject the pending edit.
     if not enabled then Controls.EndSliderInteraction(slider) end
     for _, widget in pairs({ rail = slider, minus = slider.btnMinus,
-        plus = slider.btnPlus, input = slider.editBox }) do
+        plus = slider.btnPlus, input = slider.editBox, drag = slider.dragSurface }) do
         if widget.SetEnabled then widget:SetEnabled(enabled)
         elseif enabled and widget.Enable then widget:Enable()
         elseif not enabled and widget.Disable then widget:Disable() end
@@ -358,7 +368,7 @@ function Controls.EnsureScrollVisible(scroll, top, height)
     return Controls.SetScrollOffset(scroll, offset)
 end
 
-function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, setVal, formatStr, tooltipTitle, tooltipText)
+function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal, setVal, formatStr, tooltipTitle, tooltipText, fineInput)
     local L = Offhand.L or setmetatable({}, { __index = function(_, key) return key end })
     local function BackdropTemplate()
         return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
@@ -514,53 +524,66 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         Controls.SetInputFocused(self, true)
     end)
 
-    btnMinus:SetScript("OnClick", function()
-        if editBox.ClearFocus then editBox:ClearFocus() end
-        local cur = slider:GetValue() or getVal()
-        local stepAmount = step
-        if IsShiftKeyDown and IsShiftKeyDown() then stepAmount = step * 5 end
-        local newVal = math.max(minVal, cur - stepAmount)
-        newVal = math.floor(((newVal - minVal) / step) + 0.5) * step + minVal
-        newVal = math.floor(newVal * 10000 + 0.5) / 10000
-        slider:SetValueDirect(newVal)
-    end)
+    local function StepValue(direction)
+        local stride = IsShiftKeyDown and IsShiftKeyDown() and 5 or 1
+        local value = slider:GetValue() + direction * stride * step
+        value = math.max(minVal, math.min(maxVal, value))
+        local stepped = math.floor(((value - minVal) / step) + 0.5) * step + minVal
+        return math.floor(stepped * 10000 + 0.5) / 10000
+    end
 
-    btnPlus:SetScript("OnClick", function()
+    local function ClickStep(direction)
         if editBox.ClearFocus then editBox:ClearFocus() end
-        local cur = slider:GetValue() or getVal()
-        local stepAmount = step
-        if IsShiftKeyDown and IsShiftKeyDown() then stepAmount = step * 5 end
-        local newVal = math.min(maxVal, cur + stepAmount)
-        newVal = math.floor(((newVal - minVal) / step) + 0.5) * step + minVal
-        newVal = math.floor(newVal * 10000 + 0.5) / 10000
-        slider:SetValueDirect(newVal)
-    end)
+        slider:SetValueDirect(StepValue(direction))
+    end
+    btnMinus:SetScript("OnClick", function() ClickStep(-1) end)
+    btnPlus:SetScript("OnClick", function() ClickStep(1) end)
+
+    if fineInput and (not editBox.HasScript or editBox:HasScript("OnArrowPressed")) then
+        editBox:SetScript("OnArrowPressed", function(self, key)
+            if not Controls.IsSliderEnabled(slider) or (key ~= "UP" and key ~= "DOWN") then return end
+            local value = StepValue(key == "UP" and 1 or -1)
+            slider:SetValueDirect(value)
+            self:SetText(FormatValue(value))
+            self:HighlightText()
+        end)
+    end
 
     -- Physical-pixel-delta drag controller.
-    -- GetCursorPosition() returns raw screen pixels independent of UI scale.
-    -- The same physical mouse movement always produces the same value change
-    -- regardless of UIParent:SetScale(), fixing the runaway sensitivity on the
-    -- Global UI Scale slider (which modifies the parent frame's own scale).
     local DRAG_PIXELS = 600  -- physical pixels of travel for full value range
+
+    local function DragValue(s)
+        local curX = GetCursorPosition and select(1, GetCursorPosition()) or s._dragStartX
+        local pixelDelta = (curX - s._dragStartX) * (s._dragPixelsPerUnit or 1)
+        local valDelta = pixelDelta * ((maxVal - minVal) / DRAG_PIXELS)
+        local newVal = math.max(minVal, math.min(maxVal, s._dragStartVal + valDelta))
+        newVal = math.floor(((newVal - minVal) / step) + 0.5) * step + minVal
+        newVal = math.floor(newVal * 10000 + 0.5) / 10000
+        return newVal
+    end
 
     local function StartCustomDrag(self)
         -- A pending step-button apply must not resize the viewport halfway
         -- through a later drag. Release/hide/disable schedules the final state.
         if self.coalesceGeometryLayout then PauseGeometryLayout() end
         self._dragStartX = GetCursorPosition and select(1, GetCursorPosition()) or 0
+        if fineInput and GetPhysicalScreenSize then
+            -- Forever reports cursor coordinates in UIParent's scaled space.
+            -- Capture the conversion once so the ruler stays fixed during a drag.
+            local cursorWidth = UIParent:GetWidth() * UIParent:GetEffectiveScale()
+            self._dragPixelsPerUnit = cursorWidth > 0 and GetPhysicalScreenSize() / cursorWidth or 1
+        end
         self._dragStartVal = self:GetValue()
         self._isCustomDrag = true
+        self._lastDragValue = nil
         self:SetScript("OnUpdate", function(s)
             if not s._isCustomDrag or not Controls.IsSliderEnabled(s) then
                 Controls.EndSliderInteraction(s)
                 return
             end
-            local curX = GetCursorPosition and select(1, GetCursorPosition()) or s._dragStartX
-            local pixelDelta = curX - s._dragStartX
-            local valDelta = pixelDelta * ((maxVal - minVal) / DRAG_PIXELS)
-            local newVal = math.max(minVal, math.min(maxVal, s._dragStartVal + valDelta))
-            newVal = math.floor(((newVal - minVal) / step) + 0.5) * step + minVal
-            newVal = math.floor(newVal * 10000 + 0.5) / 10000
+            local newVal = DragValue(s)
+            if fineInput and newVal == s._lastDragValue then return end
+            s._lastDragValue = newVal
             -- Update display directly (OnValueChanged returns early during drag)
             if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
                 editBox:SetText(FormatValue(newVal))
@@ -571,7 +594,19 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         end)
     end
 
-    slider:SetScript("OnMouseDown", function(self, button)
+    -- The native thumb also handles a drag. Use one pointer owner for the map
+    -- so native track positioning cannot replace the physical delta on release.
+    local pointer = slider
+    if fineInput then
+        pointer = CreateFrame("Frame", nil, slider)
+        pointer:SetPoint("TOPLEFT", slider, "TOPLEFT")
+        pointer:SetPoint("BOTTOMRIGHT", slider, "BOTTOMRIGHT")
+        pointer:EnableMouse(true)
+        slider.dragSurface = pointer
+        if Offhand.SetTooltip and tooltipTitle then Offhand:SetTooltip(pointer, tooltipTitle, tooltipText) end
+    end
+    pointer:SetScript("OnMouseDown", function(_, button)
+        local self = slider
         if not Controls.IsSliderEnabled(self) then return end
         if editBox and editBox.ClearFocus then editBox:ClearFocus() end
         if button == "LeftButton" then
@@ -579,14 +614,16 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
         end
     end)
 
-    slider:SetScript("OnMouseUp", function(self, button)
+    pointer:SetScript("OnMouseUp", function(_, button)
+        local self = slider
         if not Controls.IsSliderEnabled(self) then Controls.EndSliderInteraction(self); return end
         if button == "LeftButton" and self._isCustomDrag then
+            local released = fineInput and DragValue(self) or self:GetValue()
             Controls.EndSliderInteraction(self)
             -- Native slider handling can move the thumb after the last custom
             -- OnUpdate. Commit that final displayed value before applying the
             -- layout so a quick drag does not require a step-button click.
-            local finalValue = math.max(minVal, math.min(maxVal, self:GetValue() or getVal()))
+            local finalValue = math.max(minVal, math.min(maxVal, released or getVal()))
             finalValue = math.floor(((finalValue - minVal) / step) + 0.5) * step + minVal
             finalValue = math.floor(finalValue * 10000 + 0.5) / 10000
             if editBox and not (editBox.HasFocus and editBox:HasFocus()) then
@@ -650,14 +687,27 @@ function Controls.CreateNativeSlider(parent, text, minVal, maxVal, step, getVal,
 
     -- Update the captured bounds used by typing, stepping and custom dragging,
     -- as well as the native thumb. Synchronizing owners must not call setVal.
-    slider.SetRange = function(self, lower, upper)
+    slider.SetRange = function(self, lower, upper, increment)
         if type(lower) ~= "number" or type(upper) ~= "number" or lower ~= lower or upper ~= upper
             or lower <= -math.huge or upper >= math.huge or lower >= upper then return false end
-        if lower == minVal and upper == maxVal then return true end
+        increment = increment or step
+        if type(increment) ~= "number" or increment ~= increment
+            or increment <= 0 or increment > upper - lower then return false end
+        if lower == minVal and upper == maxVal and increment == step then return true end
         Controls.EndSliderInteraction(self)
         minVal, maxVal = lower, upper
         self._isRefreshing = true
         self:SetMinMaxValues(minVal, maxVal)
+        if step ~= increment then
+            step = increment
+            self:SetValueStep(step)
+            if Offhand.SetTooltip then
+                Offhand:SetTooltip(btnPlus, L["SLIDER_STEP_UP_TIP_TITLE"],
+                    string.format(L["SLIDER_STEP_UP_TIP_DESC_FMT"], FormatValue(step)))
+                Offhand:SetTooltip(btnMinus, L["SLIDER_STEP_DOWN_TIP_TITLE"],
+                    string.format(L["SLIDER_STEP_DOWN_TIP_DESC_FMT"], FormatValue(step)))
+            end
+        end
         self:SetValue(getVal())
         if editBox.ClearFocus then editBox:ClearFocus() end
         self._isRefreshing = nil

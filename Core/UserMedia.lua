@@ -238,10 +238,11 @@ function UserMedia:ApplyToCanvas(canvas,settings)
     if not texture or not dimTexture then return false end
 
     local matteR, matteG, matteB = HexColor(media.matte)
-    SetSolidColor(canvas.bgTexture, matteR, matteG, matteB, 1)
+    local opacity = BoundedNumber(settings.canvasAlpha, 0, 1) or 1
+    SetSolidColor(canvas.bgTexture, matteR, matteG, matteB, opacity)
     if texture.SetTexture then texture:SetTexture(media.texture) end
     if texture.SetVertexColor then texture:SetVertexColor(1, 1, 1, 1) end
-    if texture.SetAlpha then texture:SetAlpha(media.opacity) end
+    if texture.SetAlpha then texture:SetAlpha(media.opacity * opacity) end
 
     local contentU = media.imageWidth / media.textureWidth
     local contentV = media.imageHeight / media.textureHeight
@@ -277,7 +278,7 @@ function UserMedia:ApplyToCanvas(canvas,settings)
 
     if dimTexture.ClearAllPoints then dimTexture:ClearAllPoints() end
     if dimTexture.SetAllPoints then dimTexture:SetAllPoints(canvas) end
-    SetSolidColor(dimTexture, 0, 0, 0, media.dim)
+    SetSolidColor(dimTexture, 0, 0, 0, media.dim * opacity)
     if texture.Show then texture:Show() end
     if dimTexture.Show then dimTexture:Show() end
     return true

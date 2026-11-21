@@ -21,12 +21,12 @@ local function IsPlainValue(value)
     return ok and secret == false
 end
 
-local function CanPreserveBagThroughEscape()
+function Adapter.CanPreserveBagThroughEscape()
     -- Keeping an open bag in Escape's native close stack can prevent the next
     -- hardware Escape from reaching target dismissal. Unknown state yields too.
     if type(UnitExists) ~= "function" then return false end
     local ok, exists = pcall(UnitExists, "target")
-    return ok and IsPlainValue(exists) and not exists
+    return ok and IsPlainValue(exists) and exists == false
 end
 
 local function HasFlag(frame, method, expected)
@@ -91,6 +91,130 @@ function Adapter.Install(Canvas, services)
     local foreverNativeBagState = setmetatable({}, { __mode = "k" })
     local scaleFitFallbacks = setmetatable({}, { __mode = "k" })
     local foreverNativeBagController
+    local targetEscapeButton
+    local windowEscapeButton
+    local bagEscapeOwner
+
+    local function GetNativeBagEscapeAction()
+        local db = Offhand.db
+        if not db or not db.enabled or db.persistentWorkspacePanels == false
+            or IsCombatRestricted() or not IsSpannedLayoutActive() or not CanManagePanelsFromAddon()
+            or (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
+            or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+            or not UnitExists or not GetUIPanel then return nil end
+        local found = false
+        for index = 0, NUM_CONTAINER_FRAMES or 13 do
+            local name = index == 0 and "ContainerFrameCombinedBags" or "ContainerFrame" .. index
+            local frame = _G[name]
+            if frame and frame:IsShown() then
+                if not HasFlag(frame, "IsForbidden", false) or not frame:IsVisible()
+                    or not IsFrameOnWorkspace(frame) then return false end
+                found = true
+            end
+        end
+        if not found then return false end
+        if (GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus())
+            or (SpellIsTargeting and SpellIsTargeting()) or (CursorHasItem and CursorHasItem())
+            or (UnitCastingInfo and UnitCastingInfo("player"))
+            or (UnitChannelInfo and UnitChannelInfo("player"))
+            or (MenuUtil and MenuUtil.IsAnyMenuOpen and MenuUtil.IsAnyMenuOpen()) then return false end
+        for index = 1, STATICPOPUP_NUMDIALOGS or 4 do
+            local popup = _G["StaticPopup" .. index]
+            if popup and popup:IsShown() then return false end
+        end
+        -- Let the dedicated crafting handler protect an anchored recipe
+        -- session. CloseWindows would bypass it and end the tradeskill.
+        if db.savedWorkspacePositions and db.savedWorkspacePositions.ProfessionsFrame
+            and ProfessionsFrame and ProfessionsFrame:IsShown() and IsFrameOnWorkspace(ProfessionsFrame) then
+            return false
+        end
+        for _, name in ipairs({"GameMenuFrame", "LootFrame", "SpellFlyout", "DropDownList1", "DropDownList2"}) do
+            local panel = _G[name]
+            if panel and panel:IsShown() then return false end
+        end
+        local windows = false
+        for _, area in ipairs({"left", "center", "right", "doublewide", "fullscreen"}) do
+            local panel = GetUIPanel(area)
+            if panel and panel:IsShown() then windows = true end
+        end
+        for _, name in pairs(UISpecialFrames or {}) do
+            local panel = _G[name]
+            if panel and panel:IsShown() then
+                -- CloseWindows also processes this registry. A bag registered
+                -- here cannot be preserved by skipping CloseAllBags alone.
+                if IsBackpackRoot(name) or name:match("^ContainerFrame%d+$") then return nil end
+                windows = true
+            end
+        end
+        if windows then return type(CloseWindows) == "function" and "windows" or nil end
+        -- ShowUIPanel skips an already visible frame. Inspect can therefore
+        -- display a real unit without occupying a slot that CloseWindows sees.
+        if InspectFrame and not InspectFrame:IsForbidden() and InspectFrame:IsVisible() then
+            return type(HideUIPanel) == "function" and "inspect" or nil
+        end
+        local target = UnitExists("target")
+        if IsPlainValue(target) and target then return "target" end
+    end
+
+    function Canvas:RefreshForeverNativeBagTargetEscape()
+        if IsCombatRestricted() or not SetOverrideBindingClick or not ClearOverrideBindings
+            or not GetBindingAction or not RegisterStateDriver then return false end
+        local targetAction = "CLICK OffhandForeverBagTargetEscape:LeftButton"
+        local windowAction = "CLICK OffhandForeverBagWindowEscape:LeftButton"
+        local current = GetBindingAction("ESCAPE", true)
+        local kind = (current == "TOGGLEGAMEMENU" or current == targetAction or current == windowAction)
+            and GetNativeBagEscapeAction()
+        local owner
+        if kind == "target" then
+            if not targetEscapeButton then
+                -- Blizzard's secure target action handles the hardware key.
+                -- The independent button owns this temporary override.
+                targetEscapeButton = CreateFrame("Button", "OffhandForeverBagTargetEscape", UIParent,
+                    "SecureActionButtonTemplate,SecureHandlerStateTemplate")
+                targetEscapeButton:RegisterForClicks("AnyUp")
+                targetEscapeButton:SetAttribute("type", "target")
+                targetEscapeButton:SetAttribute("unit", "none")
+                targetEscapeButton:SetAttribute("useOnKeyDown", false)
+                targetEscapeButton:SetAttribute("_onstate-combat", [[
+                    if newstate == "combat" then self:ClearBindings() end
+                ]])
+                RegisterStateDriver(targetEscapeButton, "combat", "[combat] combat; nocombat")
+            end
+            owner = targetEscapeButton
+        elseif kind == "windows" or kind == "inspect" then
+            if not windowEscapeButton then
+                -- Keep the dismissal input outside native bag ancestry and the
+                -- shared Escape handler list. CloseWindows retains native panel
+                -- cleanup without CloseAllWindows' preceding CloseAllBags.
+                windowEscapeButton = CreateFrame("Button", "OffhandForeverBagWindowEscape", UIParent,
+                    "SecureHandlerStateTemplate")
+                windowEscapeButton:RegisterForClicks("AnyUp")
+                windowEscapeButton:SetScript("OnClick", function()
+                    local action = GetNativeBagEscapeAction()
+                    if action == "windows" then
+                        CloseWindows()
+                    elseif action == "inspect" then
+                        HideUIPanel(InspectFrame)
+                    end
+                end)
+                windowEscapeButton:SetAttribute("_onstate-combat", [[
+                    if newstate == "combat" then self:ClearBindings() end
+                ]])
+                RegisterStateDriver(windowEscapeButton, "combat", "[combat] combat; nocombat")
+            end
+            owner = windowEscapeButton
+        end
+        if bagEscapeOwner and bagEscapeOwner ~= owner then
+            ClearOverrideBindings(bagEscapeOwner)
+            bagEscapeOwner = nil
+        end
+        if owner and (bagEscapeOwner ~= owner
+            or current ~= (kind == "target" and targetAction or windowAction)) then
+            SetOverrideBindingClick(owner, true, "ESCAPE", owner:GetName(), "LeftButton")
+            bagEscapeOwner = owner
+        end
+        return owner ~= nil
+    end
 
     local function GetForeverNativeBagSavedPosition(frame)
         if not Offhand.isForever or not Offhand.db or not frame or not frame.GetName then
@@ -752,6 +876,7 @@ function Adapter.Install(Canvas, services)
             and GameMenuFrame:IsShown() or false
         local lastPreservingPanelShown = IsForeverNativeBagPreservingPanelShown()
         foreverNativeBagController:SetScript("OnUpdate", function(_, elapsed)
+            Canvas:RefreshForeverNativeBagTargetEscape()
             local enabled = Offhand.db and Offhand.db.enabled
                 and IsSpannedLayoutActive()
                 and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
@@ -810,7 +935,7 @@ function Adapter.Install(Canvas, services)
 
                     if not shown and state.wasShown and gameMenuToggleObserved
                         and not optionsOpeningObserved and not leavingGameMenuForPanel
-                        and not CanPreserveBagThroughEscape() then
+                        and not Adapter.CanPreserveBagThroughEscape() then
                         state.pendingOpenRestore = nil
                         state.pendingOpenAttempts = nil
                         state.pendingGameMenuToggle = nil

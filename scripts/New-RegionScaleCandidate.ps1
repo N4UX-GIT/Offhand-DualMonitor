@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][string]$OutputDirectory,
-    [string]$ExpectedVersion='2.1.7',
+    [string]$ExpectedVersion='2.1.6',
     [string]$SourceProvenanceFile
 )
 $ErrorActionPreference='Stop'

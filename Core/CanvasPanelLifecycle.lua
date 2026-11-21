@@ -533,7 +533,8 @@ function Lifecycle.InstallModality(Canvas, services)
     -- independently. Detach only the already-saved workspace panel; do not alter
     -- UIPanelWindows or any secure layout attributes (especially on Forever).
     EvictWorkspacePanelSlot = function(frame)
-        if not frame or not GetUIPanel or not HideUIPanel or IsPanelEvicting(frame)
+        if Offhand._loggingOut or Offhand._openPanelsCapturedForTransition
+            or not frame or not GetUIPanel or not HideUIPanel or IsPanelEvicting(frame)
             or (InCombatLockdown and InCombatLockdown()) then return false end
         if not CanManagePanelsFromAddon() then return false end
         local name = frame.GetName and frame:GetName()

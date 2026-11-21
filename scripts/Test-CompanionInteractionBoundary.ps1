@@ -9,6 +9,8 @@ $allowed=@(
  'shcore.dll!GetScaleFactorForMonitor','user32.dll!GetWindowPlacement','user32.dll!SetWindowPlacement',
  'user32.dll!EnumWindows','user32.dll!GetWindowThreadProcessId','user32.dll!IsWindowVisible','user32.dll!IsZoomed',
  'user32.dll!IsIconic','user32.dll!ShowWindow','user32.dll!SetForegroundWindow','user32.dll!GetWindowLong',
+ # Read foreground ownership only to decide whether to show a Windows notification.
+ 'user32.dll!GetForegroundWindow',
  'user32.dll!SetWindowLong','kernel32.dll!SetLastError','kernel32.dll!OpenProcess',
  'kernel32.dll!QueryFullProcessImageName','kernel32.dll!CloseHandle','user32.dll!SetWindowPos',
  'user32.dll!SetWindowRgn','user32.dll!GetWindowRgn','user32.dll!GetClientRect','user32.dll!IsHungAppWindow',

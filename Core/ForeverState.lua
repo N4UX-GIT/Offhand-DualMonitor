@@ -7,4 +7,7 @@
     Generated snapshots are guarded by the Forever interface range.
     They also set OffhandForeverStateBridgeVersion so Config.lua can prefer a
     newly generated cold-start snapshot exactly once per client session.
+    Character records are isolated in OffhandForeverCharacterRecovery schema 1.
+    Config.lua selects a record only after matching the current player GUID;
+    account recovery never authorizes another character's settings or HUD.
 --]]

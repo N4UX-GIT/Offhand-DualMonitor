@@ -783,7 +783,9 @@ local function DiagnosticCVar(name)
     local function read(getter)
         if type(getter) ~= "function" then return nil end
         local ok, value = pcall(getter, name)
-        return ok and value ~= nil and tostring(value) or nil
+        if not ok or (issecretvalue and issecretvalue(value)) then return nil end
+        if type(value) == "string" and value ~= "" then return value end
+        if type(value) == "number" then return tostring(value) end
     end
     return read(GetCVar) or read(C_CVar and C_CVar.GetCVar) or "unavailable"
 end
@@ -796,8 +798,34 @@ local function DiagnosticCVarFallback(primary, fallback)
     return value
 end
 
--- The support command only needs world-text compensation. Do not collect the
--- renderer CVars and enumerate nameplates from GetPerformanceDiagnostics for it.
+-- Sample graphics settings without enumerating frames or measuring a render buffer.
+function Viewport:GetGraphicsDiagnostics()
+    local fps
+    if type(GetFramerate) == "function" then
+        local ok, value = pcall(GetFramerate)
+        if ok and not (issecretvalue and issecretvalue(value)) then
+            local sample = tonumber(value)
+            if sample and sample >= 0 and sample < math.huge then fps = sample end
+        end
+    end
+    return {
+        fps = fps,
+        gxApi = DiagnosticCVar("gxApi"),
+        gxVSync = DiagnosticCVarFallback("vsync", "gxVSync"),
+        maxFPS = DiagnosticCVar("maxFPS"),
+        maxFPSBk = DiagnosticCVar("maxFPSBk"),
+        renderScale = DiagnosticCVar("RenderScale"),
+        dynamicRenderScale = DiagnosticCVar("DynamicRenderScale"),
+        resampleQuality = DiagnosticCVar("ResampleQuality"),
+        resampleAlwaysSharpen = DiagnosticCVar("ResampleAlwaysSharpen"),
+        resampleSharpness = DiagnosticCVar("ResampleSharpness"),
+        antiAliasingMode = DiagnosticCVar("ffxAntiAliasingMode"),
+        cmaa2Quality = DiagnosticCVar("CMAA2Quality"),
+        msaaQuality = DiagnosticCVar("MSAAQuality"),
+        msaaAlphaTest = DiagnosticCVar("MSAAAlphaTest"),
+    }
+end
+
 function Viewport:GetWorldTextDiagnostics(metrics)
     local m = metrics or self:GetMetrics()
     local scale, cvar = ReadWorldTextScale()
@@ -852,34 +880,14 @@ function Viewport:GetPerformanceDiagnostics(metrics)
         * math.max(0, tonumber(m.physicalHeight) or 0)
     local mainhandPixels = math.max(0, tonumber(m.gamePixelWidth) or 0)
         * math.max(0, tonumber(m.gamePixelHeight) or 0)
-    local fps
-    if GetFramerate then
-        local ok, value = pcall(GetFramerate)
-        if ok then fps = tonumber(value) end
-    end
-    return {
-        fps = fps,
+    local diagnostics = self:GetGraphicsDiagnostics()
+    local details = {
         spanPixels = spanPixels,
         mainhandPixels = mainhandPixels,
         boundsToMainhandRatio = mainhandPixels > 0 and spanPixels / mainhandPixels or 0,
         gxWindowedResolution = DiagnosticCVar("gxWindowedResolution"),
-        renderScale = DiagnosticCVar("RenderScale"),
-        resampleQuality = DiagnosticCVar("ResampleQuality"),
-        gxApi = DiagnosticCVar("gxApi"),
-        -- Retail exposes this as "vsync"; older branches have also used the
-        -- gx-prefixed spelling. Keep one diagnostic field across both.
-        gxVSync = DiagnosticCVarFallback("vsync", "gxVSync"),
-        maxFPS = DiagnosticCVar("maxFPS"),
-        maxFPSBk = DiagnosticCVar("maxFPSBk"),
         lowLatencyMode = DiagnosticCVar("LowLatencyMode"),
-        msaaQuality = DiagnosticCVar("MSAAQuality"),
-        msaaAlphaTest = DiagnosticCVar("MSAAAlphaTest"),
-        antiAliasingMode = DiagnosticCVar("ffxAntiAliasingMode"),
-        cmaa2Quality = DiagnosticCVar("CMAA2Quality"),
         textureFilteringMode = DiagnosticCVar("textureFilteringMode"),
-        dynamicRenderScale = DiagnosticCVar("DynamicRenderScale"),
-        resampleAlwaysSharpen = DiagnosticCVar("ResampleAlwaysSharpen"),
-        resampleSharpness = DiagnosticCVar("ResampleSharpness"),
         worldTextScale = worldTextScale and tostring(worldTextScale) or "unavailable",
         worldTextScaleCVar = worldTextScaleCVar or "unavailable",
         originalWorldTextScale = Offhand.db and Offhand.db.originalWorldTextScale or nil,
@@ -912,6 +920,8 @@ function Viewport:GetPerformanceDiagnostics(metrics)
         unitNameFriendlyPlayerName = DiagnosticCVar("UnitNameFriendlyPlayerName"),
         unitNameEnemyPlayerName = DiagnosticCVar("UnitNameEnemyPlayerName"),
     }
+    for key, value in pairs(details) do diagnostics[key] = value end
+    return diagnostics
 end
 
 function Viewport:CaptureDiagnostics(remember)
@@ -979,6 +989,39 @@ function Viewport:Reset()
         Offhand.HUD:PositionRetailNotifications()
         Offhand.HUD:PositionPremadeGroupDialogs()
     end
+end
+
+function Viewport:ScheduleSettledCompanionRefresh()
+    if not Offhand.isForever or not Offhand.db or not Offhand.db.enabled
+        or not C_Timer or not C_Timer.After then return end
+    local generation = (self.companionRefreshGeneration or 0) + 1
+    self.companionRefreshGeneration = generation
+    local displayGeneration = Offhand._displayGeometryGeneration
+    self.settledCompanionRefresh = nil
+
+    local function Refresh()
+        if self.companionRefreshGeneration ~= generation
+            or Offhand._displayGeometryGeneration ~= displayGeneration
+            or Offhand._displayGeometryTransitionActive or self.loggingOut
+            or not Offhand.db or not Offhand.db.enabled
+            or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
+        local metrics = self:GetMetrics()
+        if not metrics.isSpanned or not metrics.companionTopology
+            or metrics.companionVersionStatus == "MISMATCH"
+            or metrics.gamePixelHeight >= metrics.physicalHeight then return end
+        if InCombatLockdown() then
+            Offhand:RunOrQueueCombat(Refresh)
+            return
+        end
+
+        -- Repeat the viewport part of calibration after the display and
+        -- world-entry updates settle. The native renderer may still be
+        -- catching up even when the first WorldFrame rectangle already fits.
+        self:Apply()
+        self.settledCompanionRefresh = true
+    end
+
+    C_Timer.After(1.5, Refresh)
 end
 
 function Offhand:InitializeViewport()

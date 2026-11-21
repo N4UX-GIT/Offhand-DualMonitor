@@ -51,6 +51,7 @@ local function makeMockFrame(name, w, h)
         borderColor = nil,
     }
     table.insert(frames, f)
+    function f:GetName() return self.name end
     function f:SetSize(width, height) self.w = width; self.h = height end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
@@ -204,7 +205,29 @@ addon.db.canvasColor = "CLASSIC_STONE"
 addon.Themes:ApplyCanvasTheme(mockCanvas)
 assert(mockCanvas.backdrop.edgeFile == "Interface\\DialogFrame\\UI-DialogBox-Border", "Classic theme must apply UI-DialogBox-Border to workspace canvas")
 assert(mockCanvas.backdrop.edgeSize == 32, "Classic theme edgeSize must be 32")
-assert(mockCanvas.borderColor.r == 1.0 and mockCanvas.borderColor.g == 1.0 and mockCanvas.borderColor.b == 1.0, "Classic Gold trim must keep untainted 1,1,1 border color")
+local function assertTrim(frame, key)
+    local color = addon.Themes:GetColorPalettes()[key]
+    local border = frame.borderColor
+    assert(border.r == color.r and border.g == color.g and border.b == color.b,
+        "Rendered trim must match the " .. key .. " swatch")
+end
+local dialog = makeMockFrame("ThemedDialog", 300, 200)
+local settingsWindow = makeMockFrame("OffhandFloatingConfigFrame", 300, 200)
+local settingsHeader = addon.Themes:CreateBayHeader(settingsWindow, "Settings")
+for _, theme in ipairs({"CLASSIC", "PITCH_BLACK"}) do
+    addon.Themes:SetThemePreset(addon.db, theme)
+    for _, key in ipairs({"GOLD", "SILVER"}) do
+        addon.db.trimColor = key
+        addon.Themes:ApplyCanvasTheme(mockCanvas)
+        addon.Themes:ApplyBackdrop(dialog)
+        addon.Themes:ApplyBackdrop(settingsWindow)
+        addon.Themes:UpdateHeader(settingsHeader)
+        assertTrim(mockCanvas, key)
+        assertTrim(dialog, key)
+        assertTrim(settingsWindow, key)
+        assertTrim(settingsHeader, key)
+    end
+end
 
 -- B. Blizzard Slate theme with Silver trim
 addon.db.theme = "BLIZZARD_SLATE"
@@ -232,6 +255,16 @@ assert(pt.x == 14 and pt.y == -14, "BayHeader TOPLEFT must be indented (14, -14)
 -- 3. Test Options Panel and Themed Slider Thumbs
 local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Options floating panel must be created")
+for _, themeKey in ipairs(addon.Themes:GetThemeList()) do
+    addon.Themes:SetThemePreset(addon.db, themeKey)
+    addon.Options:UpdateCardThemes()
+    local theme = addon.Themes:GetThemeInfo(themeKey)
+    assert(configFrame.backdrop.edgeFile == theme.edgeFile and configFrame.backdrop.edgeSize == theme.edgeSize,
+        themeKey .. " must apply its border artwork to the settings window after controls refresh")
+    local trim = pals[addon.db.trimColor]
+    local border = configFrame.borderColor
+    assert(border.r == trim.r and border.g == trim.g and border.b == trim.b)
+end
 assert(addon.WorkspaceOptions.controls.sizing,"Workspace settings omitted region sizing")
 assert(configFrame:GetHeight() == 732, "Options floating panel height must be 732px")
 local workspace = addon.WorkspaceOptions.controls
