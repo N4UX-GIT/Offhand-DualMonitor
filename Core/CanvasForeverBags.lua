@@ -147,6 +147,11 @@ function Adapter.Install(Canvas, services)
             end
         end
         if windows then return type(CloseWindows) == "function" and "windows" or nil end
+        -- ShowUIPanel skips an already visible frame. Inspect can therefore
+        -- display a real unit without occupying a slot that CloseWindows sees.
+        if InspectFrame and not InspectFrame:IsForbidden() and InspectFrame:IsVisible() then
+            return type(HideUIPanel) == "function" and "inspect" or nil
+        end
         local target = UnitExists("target")
         if IsPlainValue(target) and target then return "target" end
     end
@@ -176,7 +181,7 @@ function Adapter.Install(Canvas, services)
                 RegisterStateDriver(targetEscapeButton, "combat", "[combat] combat; nocombat")
             end
             owner = targetEscapeButton
-        elseif kind == "windows" then
+        elseif kind == "windows" or kind == "inspect" then
             if not windowEscapeButton then
                 -- Keep the dismissal input outside native bag ancestry and the
                 -- shared Escape handler list. CloseWindows retains native panel
@@ -185,7 +190,12 @@ function Adapter.Install(Canvas, services)
                     "SecureHandlerStateTemplate")
                 windowEscapeButton:RegisterForClicks("AnyUp")
                 windowEscapeButton:SetScript("OnClick", function()
-                    if GetNativeBagEscapeAction() == "windows" then CloseWindows() end
+                    local action = GetNativeBagEscapeAction()
+                    if action == "windows" then
+                        CloseWindows()
+                    elseif action == "inspect" then
+                        HideUIPanel(InspectFrame)
+                    end
                 end)
                 windowEscapeButton:SetAttribute("_onstate-combat", [[
                     if newstate == "combat" then self:ClearBindings() end

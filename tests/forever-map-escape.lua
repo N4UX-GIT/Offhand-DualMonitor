@@ -1549,6 +1549,22 @@ do
     assert(closes == 2, "a stale window binding must not run another native close transaction")
     assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
         "with no window or target, Escape must return to Blizzard")
+    -- Inspect may already be visible when INSPECT_READY calls ShowUIPanel.
+    -- Blizzard then skips slot registration and CloseWindows cannot find it.
+    local priorInspect = InspectFrame
+    InspectFrame = makePanel("InspectFrame", true, metrics.gameLeft + 20, 400, 240, 320)
+    function InspectFrame:IsForbidden() return false end
+    function InspectFrame:IsVisible() return self.shown end
+    selected = true
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape() and owner == windowOwner,
+        "visible slotless Inspect must have priority over target clearing")
+    windowOwner.scripts.OnClick()
+    assert(not InspectFrame:IsShown() and selected and ContainerFrameCombinedBags:IsVisible()
+        and closes == 2, "close just the detached inspection through its native dismissal")
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagTargetEscape:LeftButton",
+        "the target must remain reachable on the next Escape")
+    InspectFrame = priorInspect
     selected = true
     UISpecialFrames = {}
     GetCurrentKeyBoardFocus = function() return true end
