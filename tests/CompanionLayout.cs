@@ -815,6 +815,12 @@ namespace Offhand.Companion
 
                 Application.DoEvents();
                 form.EndDashboardTutorial(false);
+                form.SetDashboardSectionExpanded(status, false, false);
+                Application.DoEvents();
+                // On short desktops both tabs can reach the same working-area limit.
+                // Compare navigation against the fitted height of compact Setup.
+                form.ResizeDashboardToWorkingArea(Screen.FromControl(form).WorkingArea, true);
+                int setupHeight = form.Height;
                 var activity = One<Panel>(form, panel => panel.Controls.OfType<Label>().Any(label => label.Text.Trim() == "ACTIVITY LOG"));
                 form.SelectDashboardPage(true);
                 form.SetDashboardSectionExpanded(activity, true, false);
@@ -823,8 +829,8 @@ namespace Offhand.Companion
                 int dashboardWidth = form.Width;
                 form.SelectDashboardPage(false);
                 Application.DoEvents();
-                if (form.Height >= advancedHeight || form.Width != dashboardWidth)
-                    throw new Exception("Setup must shrink below expanded Advanced (" + advancedHeight + "), got " + form.Size);
+                if (form.Height != setupHeight || form.Width != dashboardWidth || advancedHeight < setupHeight)
+                    throw new Exception("Switching from Advanced (" + advancedHeight + ") must fit Setup (" + setupHeight + "), got " + form.Size);
                 form.SelectDashboardPage(true);
                 Application.DoEvents();
                 if (form.Height != advancedHeight)
