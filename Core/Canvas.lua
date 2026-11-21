@@ -366,6 +366,9 @@ local function IsUnsafeForPanelMutation(frame, name)
 end
 
 local function IsPersistentPanelLoadCandidate(name)
+    -- Forever's native map binding must own the first open after login or
+    -- reload. An addon-opened map can taint quest pin refresh on combat close.
+    if Offhand.isForever and name == "WorldMapFrame" then return false end
     return PanelRegistry.IsBasePersistentCandidate(name)
         and (not IsForeverProfessionsPanel(nil, name)
             or IsPersistentForeverProfessionsPanelName(name))
@@ -1027,7 +1030,7 @@ function Canvas:RestorePersistentFrames(mode)
         if frame and ShouldYieldWorldMapToMoveAny(name) then
             if canOpenPanels and name == "WorldMapFrame" and IsExternallyPositionedWorldMap(name)
                 and openPanels[name] and not IsContextBoundPanel(name) then
-                if not frame:IsShown() then
+                if not Offhand.isForever and not frame:IsShown() then
                     if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
                 end
                 if frame:IsShown() then self:PreserveExternalWorldMapOpenState(frame) end

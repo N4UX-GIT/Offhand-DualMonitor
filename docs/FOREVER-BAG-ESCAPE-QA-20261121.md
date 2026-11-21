@@ -107,3 +107,33 @@ returning to its native scale, preserves distinct external scale choices,
 and checks both visible panels on the next frame after combat. This passed
 the candidate's 140 Lua suites and ten checker tests. It was not installed
 for the native-M comparison, which must keep the same runtime as session 776.
+
+In session 778 on the same installed `1ea7c2b`, the map and backpack were
+closed at login. The ordinary M binding opened the map before combat. The
+player then pressed M once during combat, left B untouched and opened Social
+and Character. The BugSack occurrence count did not increase from session 776
+through session 778. In the player's combat screenshot (02:35:01), Character's
+title and close button were above Offhand and Social had opened on Mainhand.
+At 02:36:04, before any further UI input or reload, both panels were back on
+Offhand with their titles and close buttons visible. Session 776 and 778 differed
+in both map opening method and backpack state.
+
+For the next comparison, the installed addon matched `30f92c7` in the
+compatibility checker. On Moonweaver's 1440 × 600 Offhand workspace with
+Companion 2.1.9-beta.1, the 02:39:52 screenshot confirmed that the compact
+map reopened after reload with the backpack, Social and Character closed.
+The combat check uses the same M, O and C sequence as session 778.
+
+On `30f92c7`, session 780 reproduced the blocked map close with the backpack
+closed. BugSack's occurrence count increased by one (the grouped entry now
+has two). At 02:41:40 the native taint log attributes blocked quest pin
+passthrough writes to Offhand during the M binding's HideUIPanel call. At
+02:41:52 Character's title and close button were above the physical Offhand
+display and Character obscured Social. At 02:42:45, before further panel
+input, the two panels were back side by side with both close buttons visible.
+The post-combat recovery passed this run. In-combat access remains open.
+
+The agreed Forever behavior is to leave the native map closed after login
+and reload, including when its old open marker is present. M opens it at
+the saved geometry. Addon-owned restore and late panel registration should
+both respect that rule. Other clients retain their existing reopen behavior.

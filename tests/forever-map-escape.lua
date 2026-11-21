@@ -556,17 +556,20 @@ WorldMapFrame:Hide()
 ToggleWorldMap = previousToggleWorldMap
 gamepadUI = false
 
--- Reload restoration must reopen the saved workspace map without replacing
--- Blizzard's protected scripts.
+-- Saved geometry survives reload, but only a player action should open the map.
 WorldMapFrame:Hide()
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(not createdHandles[1].mouseEnabled and createdHandles[1].point[4] == -100,
     "closing the map must park its handle outside the window")
 AssertStableMapControls("closed")
 addon.db.openWorkspacePanels.WorldMapFrame = true
+local savedMapPosition = addon.db.savedWorkspacePositions.WorldMapFrame
+local savedMapScale = WorldMapFrame:GetScale()
 addon.Canvas:RestorePersistentFrames()
-assert(WorldMapFrame:IsShown(),
-    "Forever reload restoration must reopen the saved World Map")
+assert(not WorldMapFrame:IsShown() and not addon.Canvas:QueuePersistentPanelRestore(WorldMapFrame, "WorldMapFrame"),
+    "neither reload nor a late panel registration may open the saved Forever map")
+assert(savedMapPosition and savedMapPosition == addon.db.savedWorkspacePositions.WorldMapFrame
+    and WorldMapFrame:GetScale() == savedMapScale, "restore must preserve the closed map's geometry")
 assert(WorldMapFrame.setScriptWrites == 0,
     "Reload restoration must not replace protected World Map scripts")
 
@@ -1163,9 +1166,9 @@ createdHandles[1].scripts.OnUpdate(nil, 1)
 WorldMapFrame:Hide()
 addon.Canvas:RestorePersistentFrames()
 flushTimers()
-assert(WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+assert(not WorldMapFrame:IsShown() and WorldMapFrame.left == 200
     and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
-    "Forever reload must reopen external maps without applying dormant Offhand geometry")
+    "Forever reload must leave an externally positioned map closed at its owner's geometry")
 assert(WorldMapFrame.hookScriptWrites == 0 and WorldMapFrame.setScriptWrites == 0,
     "external map observation must not add or replace protected map scripts")
 end
