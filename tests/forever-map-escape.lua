@@ -556,7 +556,7 @@ WorldMapFrame:Hide()
 ToggleWorldMap = previousToggleWorldMap
 gamepadUI = false
 
--- Saved geometry survives reload, but only a player action should open the map.
+-- Ordinary restore and late registration cannot toggle the native map.
 WorldMapFrame:Hide()
 createdHandles[1].scripts.OnUpdate(nil, 1)
 assert(not createdHandles[1].mouseEnabled and createdHandles[1].point[4] == -100,
@@ -567,11 +567,30 @@ local savedMapPosition = addon.db.savedWorkspacePositions.WorldMapFrame
 local savedMapScale = WorldMapFrame:GetScale()
 addon.Canvas:RestorePersistentFrames()
 assert(not WorldMapFrame:IsShown() and not addon.Canvas:QueuePersistentPanelRestore(WorldMapFrame, "WorldMapFrame"),
-    "neither reload nor a late panel registration may open the saved Forever map")
+    "neither ordinary restore nor a late panel registration may open the saved Forever map")
 assert(savedMapPosition and savedMapPosition == addon.db.savedWorkspacePositions.WorldMapFrame
     and WorldMapFrame:GetScale() == savedMapScale, "restore must preserve the closed map's geometry")
 assert(WorldMapFrame.setScriptWrites == 0,
     "Reload restoration must not replace protected World Map scripts")
+
+do
+    local originalMapAPI = C_Map
+    local requests = 0
+    C_Map = { OpenWorldMap = function() requests = requests + 1 end }
+    addon.db.openWorkspacePanels.WorldMapFrame = nil
+    addon.Canvas:RestorePersistentFrames("reload")
+    assert(requests == 0, "a closed map stays closed after reload")
+    addon.db.openWorkspacePanels.WorldMapFrame = true
+    gamepadUI = true
+    addon.Canvas:RestorePersistentFrames("reload")
+    gamepadUI = false
+    assert(requests == 0, "Gamepad UI owns its native panels")
+    addon.Canvas:RestorePersistentFrames("reload")
+    addon.Canvas:RestorePersistentFrames()
+    assert(requests == 1 and not WorldMapFrame:IsShown(),
+        "request one native open on reload without directly showing or toggling the frame")
+    C_Map = originalMapAPI
+end
 
 -- Native reopening can put the map back into a UIPanel slot. Forever must not
 -- repair that from a handler attached to the protected map itself. The external
@@ -722,6 +741,8 @@ addon.Canvas:RestorePersistentFrames()
 assert(nativeBagOpens == 0 and addon.db.openWorkspacePanels.ContainerFrameCombinedBags == true,
     "Gamepad UI reload restoration must not open bags from addon code")
 gamepadUI = false
+ContainerFrameSettingsManager = { IsUsingCombinedBags = function() return true end }
+addon.Canvas:ResetSeparateBagVisibilityAtLogin()
 addon.Canvas:RestorePersistentFrames()
 assert(nativeBagOpens > 0 and ContainerFrameCombinedBags:IsShown()
         and addon.db.savedWorkspacePositions.ContainerFrameCombinedBags ~= nil
@@ -729,6 +750,55 @@ assert(nativeBagOpens > 0 and ContainerFrameCombinedBags:IsShown()
     "Forever must restore an explicitly tracked native workspace backpack")
 
 ContainerFrameCombinedBags:Hide()
+do
+    ContainerFrameSettingsManager.IsUsingCombinedBags = function() return false end
+    local positions = addon.db.savedWorkspacePositions
+    local backpack, satchel = { x = 145, y = 840 }, { x = 380, y = 840 }
+    positions.ContainerFrame1, positions.ContainerFrame2 = backpack, satchel
+    addon.db.nativeBackpackWorkspacePosition = backpack
+    local open = addon.db.openWorkspacePanels
+    open.ContainerFrame1, open.ContainerFrame2, open.SomeOtherPanel = true, true, true
+    addon.HasCustomBagAddon = function() return true end
+    addon.Canvas:ResetSeparateBagVisibilityAtLogin()
+    assert(open.ContainerFrame1 and open.ContainerFrame2, "custom bag owners retain their visibility")
+    addon.HasCustomBagAddon = function() return false end
+    addon.Canvas:ResetSeparateBagVisibilityAtLogin()
+    local previousOpens = nativeBagOpens
+    addon.Canvas:RestorePersistentFrames("reload")
+    addon.Canvas:RestorePersistentFrames()
+    assert(nativeBagOpens == previousOpens and not addon.db.nativeBackpackWorkspaceOpen
+        and not open.ContainerFrameCombinedBags and not open.ContainerFrame1 and not open.ContainerFrame2
+        and open.SomeOtherPanel, "startup and delayed restores must leave separate bags closed")
+    assert(positions.ContainerFrame1 == backpack and positions.ContainerFrame2 == satchel
+        and addon.db.nativeBackpackWorkspacePosition == backpack, "separate bags retain saved positions")
+    local oldChar, oldBackpack, oldSatchel = OffhandCharDB, ContainerFrame1, ContainerFrame2
+    local oldToggle, oldIsOpen = ToggleBag, IsBagOpen
+    OffhandCharDB = {}
+    ContainerFrame1 = makePanel("ContainerFrame1", true, 145, 840, 180, 305)
+    ContainerFrame2 = makePanel("ContainerFrame2", true, 380, 840, 180, 305)
+    ContainerFrame1.GetID = function() return 0 end
+    ContainerFrame2.GetID = function() return 3 end
+    addon.CanvasBackpackState.CaptureSeparateBagsForReload(addon.Canvas)
+    assert(table.concat(OffhandCharDB.separateWorkspaceBagIDs, ",") == "0,3",
+        "reload must capture equipped IDs independently of their frame numbers")
+    ContainerFrame1:Hide()
+    ContainerFrame2:Hide()
+    local toggled = {}
+    IsBagOpen = function(id) return id == 3 end
+    ToggleBag = function(id) toggled[#toggled + 1] = id end
+    addon.Canvas.pendingSeparateBagIDs = OffhandCharDB.separateWorkspaceBagIDs
+    addon.Canvas:RestorePersistentFrames("reload")
+    addon.Canvas:RestorePersistentFrames()
+    assert(table.concat(toggled, ",") == "0" and nativeBagOpens == previousOpens,
+        "reload must open only missing saved bags and consume the request once")
+    addon.CanvasBackpackState.CaptureSeparateBagsForReload(addon.Canvas)
+    assert(#OffhandCharDB.separateWorkspaceBagIDs == 0, "closed bags must replace the old snapshot")
+    OffhandCharDB, ContainerFrame1, ContainerFrame2 = oldChar, oldBackpack, oldSatchel
+    ToggleBag, IsBagOpen = oldToggle, oldIsOpen
+    positions.ContainerFrame1, positions.ContainerFrame2, open.SomeOtherPanel = nil, nil, nil
+    addon.db.nativeBackpackWorkspacePosition = positions.ContainerFrameCombinedBags
+    ContainerFrameSettingsManager = nil
+end
 addon.db.nativeBackpackWorkspaceOpen = nil
 addon.db.openWorkspacePanels.ContainerFrameCombinedBags = nil
 addon.db.openWorkspacePanels.EUI_MainBagFrame = true
@@ -1185,7 +1255,7 @@ assert(isSpecial("WorldMapFrame"), "external drag persistence must settle after 
 WorldMapFrame.left = 200
 createdHandles[1].scripts.OnUpdate(nil, 1)
 WorldMapFrame:Hide()
-addon.Canvas:RestorePersistentFrames()
+addon.Canvas:RestorePersistentFrames("reload")
 flushTimers()
 assert(not WorldMapFrame:IsShown() and WorldMapFrame.left == 200
     and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
@@ -1217,6 +1287,22 @@ do
     addon.RunOrQueueCombat = function(_, fn) pending[#pending + 1] = fn end
     C_Timer.After = function(_, fn) timers[#timers + 1] = fn end
     WorldMapFrame:Show()
+    local previousRepair = addon.Canvas.RepairCombatWorldMapAnchor
+    addon.db.keepMapToggleOpen = true
+    local repairs = 0
+    addon.Canvas.RepairCombatWorldMapAnchor = function(_, map)
+        repairs = repairs + 1
+        map.left = 12
+    end
+    local observe = createdHandles[1].scripts.OnUpdate
+    observe(nil, 0.016)
+    WorldMapFrame.left = 260 -- Blizzard's second layout after the native open
+    observe(nil, 0.016)
+    assert(WorldMapFrame.left == 12 and repairs == 2, "repair the opening and reflow on consecutive rendered frames")
+    observe(nil, 1)
+    assert(repairs == 2, "stop repairing once the initial combat layout has settled")
+    addon.Canvas.RepairCombatWorldMapAnchor = previousRepair
+    addon.db.keepMapToggleOpen = nil
     for _ = 1, 12 do
         mapTransactions.RepairUIPanelTransaction(nil, true)
         while #timers > 0 do table.remove(timers, 1)() end
@@ -1224,6 +1310,10 @@ do
     assert(#pending == 1, "repeated panel transactions must retain only one combat map retry")
     inCombat = false
     pending[1]()
+    assert(#timers == 1, "regeneration must settle after the native frame handlers")
+    table.remove(timers, 1)()
+    assert(#timers > 0, "the native post-combat reflow needs the same bounded retries as a panel transaction")
+    while #timers > 0 do table.remove(timers, 1)() end
     assert(WorldMapFrame:IsShown(), "combat settlement must preserve the latest map visibility")
     WorldMapFrame:Hide()
     InCombatLockdown, C_Timer.After, addon.RunOrQueueCombat = previousCombat, previousAfter, nil

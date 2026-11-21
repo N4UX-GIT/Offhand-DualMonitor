@@ -212,6 +212,9 @@ end
 -- and each vendor's own position persistence keep their existing policies.
 function Compatibility.ShouldPreservePopupPosition(frame, name)
     if not frame then return false end
+    -- This full-screen parent derives its rectangle from both UIParent corners.
+    -- Moving it like a popup leaves Blizzard's separate bags without a rectangle.
+    if frame == _G.ContainerFrameContainer then return true end
     if not IsOrdinaryPopupValue(name) then return true end
     if name == nil and type(frame.GetName) == "function" then
         local ok, value = pcall(frame.GetName, frame)

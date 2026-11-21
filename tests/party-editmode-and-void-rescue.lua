@@ -1115,6 +1115,28 @@ assert(nativeMenuPoint[1] == "CENTER" and nativeMenuPoint[3] == "BOTTOMLEFT"
     "direct native GameMenuFrame_Show must reach physical Mainhand without ToggleGameMenu")
 end
 do
+    GameMenuFrame.ofaMovable = true
+    addon.HUD:HookFrames()
+    local function restoreMoverPoint()
+        GameMenuFrame:ClearAllPoints()
+        GameMenuFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 2229, 1117)
+    end
+    for i = 1, 2 do
+        restoreMoverPoint()
+        assert(GameMenuFrame.points[1][1] == "CENTER" and GameMenuFrame.points[1][3] == "BOTTOMLEFT",
+            "both OneForAll show passes must finish at Mainhand center")
+    end
+    metrics.isSpanned = false
+    restoreMoverPoint()
+    assert(GameMenuFrame.points[1][1] == "CENTER" and GameMenuFrame.points[1][3] == "CENTER",
+        "a restored single window must use its own center")
+    GameMenuFrame.ofaMoving = true
+    restoreMoverPoint()
+    assert(GameMenuFrame.points[1][1] == "TOPLEFT", "yield while the player drags the menu")
+    GameMenuFrame.ofaMoving, GameMenuFrame.ofaMovable = nil, nil
+    metrics.isSpanned = true
+end
+do
     ConsolePort = {}
     ShowUIPanel(GameMenuFrame)
     GameMenuFrame:ClearAllPoints()
@@ -2388,6 +2410,14 @@ titanBar:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', 0, 0)
 assert(titanBar:GetTop() > metrics.gameTop + 2, 'Titan bar must cross the Mainhand top edge')
 table.insert(UIParent.children, titanBar)
 owned[#owned+1] = titanBar
+-- The native bag parent spans UIParent. Its children need both corners even
+-- when the top of the virtual desktop is in the gap above Mainhand.
+local oldBagParent = ContainerFrameContainer
+ContainerFrameContainer = makeMockFrame('ContainerFrameContainer',4000,2560)
+ContainerFrameContainer:SetPoint('BOTTOMRIGHT',UIParent,'BOTTOMRIGHT',0,0)
+ContainerFrameContainer:SetPoint('TOPLEFT',UIParent,'TOPLEFT',0,0)
+table.insert(UIParent.children,ContainerFrameContainer)
+owned[#owned+1] = ContainerFrameContainer
 local counts={};for _,f in ipairs(owned) do counts[f]=f.setPointCalls end
 addon.HUD:HookFrames()
 for _,f in ipairs(owned) do ShowUIPanel(f) end
@@ -2412,6 +2442,7 @@ flushTimers()
 for _,f in ipairs(baganatorRoots) do
     assert(f.setPointCalls==counts[f],'automatic void rescue moved a Baganator backpack')
 end
+ContainerFrameContainer = oldBagParent
 -- A user can move an ordinary center-area panel between immediate placement
 -- and the deferred settle pass. The timer must not erase that newer intent.
 local settling=makeMockFrame('UserPositionDuringPopupSettle',250,200)

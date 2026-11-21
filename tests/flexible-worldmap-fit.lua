@@ -85,6 +85,26 @@ addon.Canvas:ConfigureWorldMap()
 assert(#map.scaleWrites == 2 and map.scale == .55, 'the explicit smaller scale was not preserved')
 print('PASS: Forever stacked keyboard map applies the fitted scale once')
 
+do
+    local a, f = boot(1, {0, 0, 1100, 1950}, 1)
+    a.isForever, a.isRetail = true, false
+    a.db.keepMapToggleOpen, a.db.workspaceMapScale = true, 'AUTO'
+    f.w, f.h = 1004, 689
+    f.minimizedWidth, f.minimizedHeight, f.questLogWidth = 702, 534, 333
+    local shown, sidebar = false, true
+    function f:IsShown() return shown end
+    function f:ShouldBeMinimized() return true end
+    function f:ShouldShowQuestLogPanel() return sidebar end
+    for _, withLog in ipairs({true, false}) do
+        sidebar, shown, f.w, f.h = withLog, false, 1004, 689
+        a.Canvas:ConfigureWorldMap()
+        local before = f.scale
+        shown, f.w, f.h = true, withLog and 1035 or 702, 534
+        a.Canvas:ConfigureWorldMap()
+        assert(math.abs(f.scale - before) < .00001, 'first native open must retain its prepared scale')
+    end
+end
+
 -- Use the settings entry point. At 50% the old anchor offsets temporarily
 -- put the map on the left workspace, until restore places it on Mainhand.
 do

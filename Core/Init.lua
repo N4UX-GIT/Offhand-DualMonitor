@@ -1491,6 +1491,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     elseif event == "PLAYER_LOGIN" then
         if Offhand.EnsureCharacterIdentity then Offhand:EnsureCharacterIdentity() end
+        if Offhand.Canvas and Offhand.Canvas.ResetSeparateBagVisibilityAtLogin then
+            Offhand.Canvas:ResetSeparateBagVisibilityAtLogin()
+        end
         if Offhand.db and Offhand.db.antiShimmer and Offhand.SetAntiShimmer then
             Offhand:SetAntiShimmer(true)
         end
@@ -1553,6 +1556,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             or (transitionMetrics and not transitionMetrics.isSpanned
                 and transitionMetrics.topologyStatus == "MISMATCH")
         if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
+            if Offhand.CanvasBackpackState and Offhand.Canvas then
+                Offhand.CanvasBackpackState.CaptureSeparateBagsForReload(Offhand.Canvas)
+            end
             -- Explicit panel toggles and close buttons maintain this table while
             -- the player is active. Preserve that last known state here: on
             -- Forever, Blizzard can hide CharacterFrame and the Combined
@@ -1563,7 +1569,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 local foreverNativeBackpack = Offhand.isForever
                     and (name == "ContainerFrame1"
                         or name == "ContainerFrameCombinedBags")
-                if frame and frame:IsVisible() and not foreverNativeBackpack then
+                if Offhand.isForever and (name == "PlayerSpellsFrame" or name == "WorldMapFrame") then
+                    -- These native panels can close without going through a
+                    -- tracked toggle. Sample the root's own shown flag, even
+                    -- when its parent is hidden during the transition.
+                    Offhand.db.openWorkspacePanels[name] = frame and frame:IsShown() or nil
+                elseif frame and frame:IsVisible() and not foreverNativeBackpack then
                     Offhand.db.openWorkspacePanels[name] = true
                 end
             end
@@ -1613,6 +1624,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand._openPanelsCapturedForTransition = false
         if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:BeginSession() end
         local shouldEvaluateNotices = not Offhand._hasEnteredWorld
+        local restoringReload = shouldEvaluateNotices and select(1, ...) == true
+        if restoringReload and Offhand.isForever and Offhand.Canvas and OffhandCharDB
+            and type(OffhandCharDB.separateWorkspaceBagIDs) == "table" then
+            Offhand.Canvas.pendingSeparateBagIDs = OffhandCharDB.separateWorkspaceBagIDs
+        end
         Offhand._hasEnteredWorld = true
         -- Refresh viewport and layout after zone transition or loading screen
         C_Timer.After(0.5, function()
@@ -1626,7 +1642,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 Offhand.RawMouse:Refresh(entryMetrics)
             end
             if (not entryMetrics or entryMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
-                Offhand.Canvas:RestorePersistentFrames()
+                Offhand.Canvas:RestorePersistentFrames(restoringReload and "reload" or nil)
             end
             if Offhand.Canvas and Offhand.Canvas.RequestPersistentWorldMapRefocus then
                 Offhand.Canvas:RequestPersistentWorldMapRefocus()

@@ -95,6 +95,24 @@ assert(social.moves == 1, "a matched anchor should avoid another SetPoint")
 addon.db.savedWorkspacePositions.SocialUIFrame = {x=18,y=1500}
 canvas:RepairShownSocialCommunityPanels()
 assert(social.x == 18 and social.y == 1500 and social.moves == 2, "honor an explicit Offhand placement")
+do
+    local map = setmetatable({x=260,y=1697,width=1000,height=534,moves=0}, {__index=social})
+    WorldMapFrame = map
+    function map:GetName() return "WorldMapFrame" end
+    function map:IsMaximized() return self.maximized == true end
+    addon.CanvasCompatibility.ShouldYieldWorldMap=function() return false end
+    addon.CanvasCompatibility.IsAddonLoaded=function() return false end
+    addon.db.keepMapToggleOpen=true
+    addon.db.savedWorkspacePositions.WorldMapFrame={x=12,y=1800}
+    assert(canvas:RepairCombatWorldMapAnchor(map) and map.x==12 and map.y==1800 and map.moves==1)
+    map.protected=true; map.x=260
+    assert(not canvas:RepairCombatWorldMapAnchor(map) and map.moves==1)
+    map.protected=false;map.maximized=true
+    assert(not canvas:RepairCombatWorldMapAnchor(map) and map.moves==1)
+    WorldMapFrame=nil
+    addon.db.savedWorkspacePositions.WorldMapFrame=nil
+    addon.db.keepMapToggleOpen=nil
+end
 social.protected = true; social.x = 1113
 canvas:RepairShownSocialCommunityPanels()
 assert(social.x == 1113 and social.moves == 2, "yield to combat protection")

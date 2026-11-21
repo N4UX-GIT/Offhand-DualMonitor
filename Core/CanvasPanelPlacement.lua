@@ -998,6 +998,17 @@ function Placement.Install(Canvas, services)
         return ok and restored or false
     end
 
+    function Canvas:RepairCombatWorldMapAnchor(map)
+        local db = Offhand.db
+        if not Offhand.isForever or not db or not db.enabled or not db.keepMapToggleOpen
+            or map ~= _G.WorldMapFrame or not InCombatLockdown() or IsPanelDragging(map)
+            or not map:IsShown() or map:IsMaximized()
+            or Offhand.CanvasCompatibility.ShouldYieldWorldMap(map)
+            or Offhand.CanvasCompatibility.IsAddonLoaded("MapWise") then return false end
+        local saved = db.savedWorkspacePositions and db.savedWorkspacePositions.WorldMapFrame
+        return RestoreCombatSavedAnchor(map, true, saved)
+    end
+
     function Canvas:RepairCombatWorkspaceSlots()
         local db = Offhand.db
         if not Offhand.isForever or not db or not db.enabled or not db.savedWorkspacePositions
