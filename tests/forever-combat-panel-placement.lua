@@ -98,6 +98,19 @@ social.protected = true; social.x = 1113
 canvas:RepairShownSocialCommunityPanels()
 assert(social.x == 1113 and social.moves == 2, "yield to combat protection")
 social.protected = false
+metrics.workspaceTop = 457
+social.x, social.y = 530, 687
+canvas:RepairShownSocialCommunityPanels()
+assert(social.x >= metrics.gameLeft and social.y <= metrics.gameTop
+    and social.y - social:GetHeight() >= metrics.gameBottom,
+    "a native-size Social panel that exceeds Offhand stays reachable during combat")
+local beforeSocialRestore = restores
+combat = false
+canvas:ReleaseCombatPanelClamps()
+assert(restores == beforeSocialRestore + 1, "refit visible workspace Social immediately at combat exit")
+restores, social.moves = beforeSocialRestore, 2
+metrics.workspaceTop = 1950
+combat = true
 addon.db.savedWorkspacePositions.SocialUIFrame = nil
 social.x, social.y = 1113, 986
 local character = setmetatable({x=1617,y=986,width=631,height=484,moves=0}, {__index=social})

@@ -893,6 +893,25 @@ function Placement.Install(Canvas, services)
             end
         end
         if repairDefaults then self:RepairDefaultForeverSlots() end
+        local social = _G.SocialUIFrame
+        local db = Offhand.db
+        local position = db and db.savedWorkspacePositions and db.savedWorkspacePositions.SocialUIFrame
+        if Offhand.isForever and db and db.enabled and type(position) == "table" and not position.autoRoute
+            and social and not social:IsForbidden() and social:IsShown() and not IsPanelDragging(social) and self.CanManagePanelsFromAddon()
+            and not Offhand.CanvasCompatibility.HasMoveAny() and not Offhand.CanvasCompatibility.HasClassicUIForever()
+            and not (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
+            -- Social can open at native size during lockdown. Re-enter the normal
+            -- fit and placement path as soon as resizing is available again.
+            local m = WithWorkspace(Offhand.Viewport:GetMetrics())
+            if m and m.isSpanned then
+                if Offhand.WorkspaceRegions then m = Offhand.WorkspaceRegions:ForFrame(m, social, position) end
+                local p = GetPanelPhysicalPlacement(social)
+                if p and (p.x < m.workspaceLeft or p.x + p.width > m.workspaceRight
+                    or p.y > m.workspaceTop or p.y - p.height < m.workspaceBottom) then
+                    RestoreWorkspacePosition(social)
+                end
+            end
+        end
     end
 
     function Canvas:ShouldDeferCombatSocialAnchor(frame)
@@ -931,12 +950,22 @@ function Placement.Install(Canvas, services)
                 or not IsPublicNumber(placement.width) or not IsPublicNumber(placement.height)
                 or placement.width <= 0 or placement.height <= 0 then return false end
             local x, y = position.x, position.y
-            if workspace then
+            local oversizedSocial = false
+            if workspace and frame == _G.SocialUIFrame then
+                if Offhand.WorkspaceRegions then metrics = Offhand.WorkspaceRegions:ForFrame(metrics, frame, position) end
+                oversizedSocial = placement.width > metrics.workspaceRight - metrics.workspaceLeft - 24 + 0.01
+                    or placement.height > metrics.workspaceTop - metrics.workspaceBottom - 24 + 0.01
+            end
+            if workspace and not oversizedSocial then
                 x, y = ResolveCombatWorkspaceAnchor(metrics, frame, position, placement.width, placement.height)
             else
                 local left, right = metrics.gameLeft + 12, metrics.gameRight - 12
                 local bottom, top = metrics.gameBottom + 12, metrics.gameTop - 12
                 if placement.width > right - left or placement.height > top - bottom then return false end
+                if oversizedSocial then
+                    -- Preserve a reachable native slot until the workspace fit can run.
+                    x, y = placement.x, placement.y
+                end
                 x = math.max(left, math.min(x, right - placement.width))
                 y = math.max(bottom + placement.height, math.min(y, top))
             end

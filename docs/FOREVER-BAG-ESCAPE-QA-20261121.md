@@ -64,3 +64,28 @@ The candidate ZIP differs from the previous ZIP only in
 The scope of the refreshed receipt is the separate backpack and these
 out-of-combat interactions. Combat, flight and equipped bags 1–4 remain
 deferred.
+
+### Player-driven combat on the short workspace
+
+Moonweaver used the same packaged add-on and portable Companion on Forever
+1.60.1.71037 with a 1440 × 600 workspace. The first fight lasted 42.425
+seconds between regeneration events. Within 0.10 seconds of combat entry
+the map, bag and Escape bindings yielded to Blizzard. M closed the map and
+B closed the separate backpack. After combat both reopened at their
+pre-fight bounds and the keep-open bindings returned before reload.
+
+BugSack session 774 recorded one new entry for
+`OhBagQA: Button:SetPassThroughButtons()` from Blizzard's quest-pin
+acquisition during the native map toggle. The event observer saw 14 blocked
+notifications at the same instant. The temporary QA add-on had opened the
+map from Lua before the fight. This run does not establish whether the same
+error occurs when the player opens the map with its ordinary binding.
+
+Character was already open at combat entry. C closed it before O opened
+Social. Social's top reached 687.0 UI units on a workspace ending at 457.1.
+It stayed clipped for over 42 seconds after combat, then refitted to 445.1
+when the map reopened. The follow-up candidate checks the native-size Social
+rectangle during combat and restores a visible saved Social panel to its
+workspace at combat exit. A regression exercises a 675-unit Social panel on
+a 457-unit workspace. Player-operated confirmation with the QA helper
+disabled is pending.
