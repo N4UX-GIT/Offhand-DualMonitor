@@ -465,6 +465,53 @@ addon.HUD:HookFrames()
 -- ============================================================================
 addon.HUD:AlignHUDFrames(metrics)
 
+do
+    local oldForever, oldSeam = addon.isForever, addon.db.seamRedirect
+    local oldApi, oldMainhand, oldErrors = addon.API, addon.mainhandFrame, UIErrorsFrame
+    local mainhand = makeMockFrame("TestErrorMainhand", metrics.gameWidth, metrics.gameHeight)
+    local errors = makeMockFrame("UIErrorsFrame", 512, 60)
+    addon.API = { GetMainhandFrame = function() return mainhand end }
+    addon.mainhandFrame = mainhand
+    addon.isForever, addon.db.seamRedirect = true, true
+    local layout = {}
+    for key, value in pairs(metrics) do layout[key] = value end
+    local function check(relative, y)
+        addon.HUD:AlignHUDFrames(layout)
+        local point, parent, origin, dx, dy = errors:GetPoint(1)
+        assert(point == "TOP" and parent == relative and origin == "TOP" and dx == 0 and dy == y,
+            "Forever error text must retain the native inset and follow the correct monitor")
+    end
+    errors:SetPoint("TOP", UIParent, "TOP", 0, -122)
+    check(mainhand, -122)
+    local writes = errors.setPointCalls
+    check(mainhand, -122)
+    assert(errors.setPointCalls == writes)
+    layout.isSpanned = false
+    check(UIParent, -122)
+    layout.isSpanned = true
+    layout.gameLeft, layout.gameRight, layout.gameTop = 0, 2084.5, 1097
+    errors:ClearAllPoints()
+    errors:SetScale(0.8)
+    errors:SetPoint("TOP", UIParent, "TOP", 0, -144)
+    check(mainhand, -144)
+    assert(errors:GetScale() == 0.8)
+    addon.db.seamRedirect = false
+    check(UIParent, -144)
+    addon.db.seamRedirect = true
+    errors:SetUserPlaced(true)
+    check(UIParent, -144)
+    errors:SetUserPlaced(false)
+    errors:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, 0)
+    check(UIParent, -144)
+    assert(errors:GetNumPoints() == 2)
+    errors:ClearAllPoints()
+    errors:SetPoint("TOP", PlayerFrame, "TOP", 0, -82)
+    check(PlayerFrame, -82)
+    addon.isForever, addon.db.seamRedirect = oldForever, oldSeam
+    addon.API, addon.mainhandFrame, UIErrorsFrame = oldApi, oldMainhand, oldErrors
+    addon.HUD:AlignHUDFrames(metrics)
+end
+
 local function assertMainhandAnchor(frame, point, x, y, message)
     local anchor = frame.points[#frame.points]
     assert(anchor and anchor[1] == point and anchor[2] == UIParent and anchor[3] == "BOTTOMLEFT",

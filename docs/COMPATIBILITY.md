@@ -115,3 +115,21 @@ BetterBags, Bagnaros and Baganator checks on build 71037, see the
 Required CI checks and a staged beta rollout are useful additional release
 controls. Repository hosting settings and publication behavior were not changed
 by this work.
+
+## Forever error and quest-progress text
+
+On November 21, 2026, a clean `71d6ae4` simulation of the reported
+5118 × 1347 manual span placed `UIErrorsFrame` 60 UI units below the top
+of Mainhand. Blizzard's native top inset was 122. The fix preserves the
+frame's own top offset when switching its reference from UIParent to Mainhand.
+
+Live QA used Forever 1.60.1.71037 and Companion 2.1.9-beta.1. With Offhand
+disabled, the native inset measured 122. The packaged fix measured 122 with
+Mainhand on the right using Companion geometry, on the left using a manual
+half-width layout, and after returning to one window. Horizontal center
+error rounded to zero in each case. Red error and yellow information previews
+used Blizzard's event handler with the same two messages on each layout.
+Toggling seam redirection, reloading the UI and scaling the message frame to
+80% preserved the inset. An explicit anchor to the minimap survived realignment.
+BugSack recorded zero new errors. The reporter used build 70959. Actual quest
+progress and raid encounters remain outside this measurement.

@@ -94,6 +94,27 @@ local function Prepare(frame, m)
     frame:SetClampedToScreen(false)
 end
 
+-- Forever uses the same top-anchored message frame for red errors and quest
+-- progress. Keep Blizzard's inset in the frame's own units as the viewport moves.
+local function AlignForeverErrorMessages(m)
+    local frame = UIErrorsFrame
+    if not frame or frame:GetNumPoints() ~= 1 then return end
+    local point, relative, relativePoint, x, y = frame:GetPoint(1)
+    if point ~= "TOP" or relativePoint ~= "TOP" then return end
+    if relative ~= UIParent and relative ~= Offhand.mainhandFrame then return end
+    if frame:IsUserPlaced() or (frame.IsInDefaultPosition and not frame:IsInDefaultPosition()) then return end
+    if x ~= 0 then return end
+
+    local target = UIParent
+    if Offhand.db.seamRedirect and m.isSpanned then
+        target = Offhand.API.GetMainhandFrame()
+    end
+    if target and target ~= relative then
+        frame:ClearAllPoints()
+        frame:SetPoint(point, target, relativePoint, x, y)
+    end
+end
+
 local Transient = assert(
     Offhand.HUDTransientFrames,
     "Offhand HUD transient frames must load before SeamRedirect"
@@ -393,12 +414,14 @@ function HUD:AlignHUDFrames(m)
             Offhand.MainhandCompatibility.UpdateClassicRightContainer(m)
         end
         self:AlignChatFrame(m)
+        if Offhand.isForever then AlignForeverErrorMessages(m) end
         if Offhand.db.seamRedirect then
-            for _, item in ipairs({{"UIErrorsFrame", -60}, {"RaidWarningFrame", -100}}) do
-                local frame = _G[item[1]]
-                Prepare(frame, m)
-                if frame then Anchor(frame, "TOP", m, 0, item[2]) end
+            if not Offhand.isForever then
+                Prepare(UIErrorsFrame, m)
+                Anchor(UIErrorsFrame, "TOP", m, 0, -60)
             end
+            Prepare(RaidWarningFrame, m)
+            Anchor(RaidWarningFrame, "TOP", m, 0, -100)
             self:PositionMainhandTransientFrames(m)
         end
     end)
