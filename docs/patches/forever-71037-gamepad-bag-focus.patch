@@ -1,0 +1,20 @@
+--- a/Interface/AddOns/Blizzard_GamepadSharedUtility/FrameControlsManager.lua
++++ b/Interface/AddOns/Blizzard_GamepadSharedUtility/FrameControlsManager.lua
+@@ -215,11 +215,15 @@
+ 		EventRegistry:RegisterCallback("UIParentPanelManager.ForcePanelHide", HandlePanelFrameHidden, self);
+ 
+ 		EventRegistry:RegisterCallback("ContainerFrame.OpenBag", function(_)
+-			self:FrameShown(ContainerFrameCombinedBags);
++			if InputUtil.IsGamepadUIEnabled() then
++				self:FrameShown(ContainerFrameCombinedBags);
++			end
+ 		end, self)
+ 
+ 		EventRegistry:RegisterCallback("ContainerFrame.CloseBag", function(_)
+-			self:FrameHidden(ContainerFrameCombinedBags);
++			if InputUtil.IsGamepadUIEnabled() then
++				self:FrameHidden(ContainerFrameCombinedBags);
++			end
+ 		end, self)
+ 
+ 		EventRegistry:RegisterFrameEventAndCallback("GLOBAL_REGION_MOUSE_DOWN", self.OnGlobalRegionMouseDown, self);

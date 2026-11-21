@@ -61,7 +61,7 @@ using Timer = System.Windows.Forms.Timer;
 #endif
 #if UI_PREVIEW
 [assembly: AssemblyFileVersion("2.1.9.8005")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.1")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.2")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.9.1")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.1")]
+[assembly: AssemblyFileVersion("2.1.9.2")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.2")]
 #endif
 
 namespace Offhand.Companion
@@ -4631,7 +4631,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.9-beta.1";
+        internal const string BaseVersion = "2.1.9-beta.2";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 5";
@@ -4812,6 +4812,7 @@ namespace Offhand.Companion
         private TableLayoutPanel dashboardStack;
         private Panel dashboardScroll;
         private bool dashboardFitQueued;
+        private bool dashboardShrinkRequested;
         private TableLayoutPanel dashboardFooter;
         private Panel dashboardHeader;
         private bool layingOutDashboard;
@@ -5834,25 +5835,29 @@ namespace Offhand.Companion
             LayoutDashboardCards();
         }
 
-        private void QueueDashboardFit()
+        private void QueueDashboardFit(bool allowShrink = false)
         {
-            if (dashboardFitQueued || !IsHandleCreated || !Visible || WindowState != FormWindowState.Normal) return;
+            if (!IsHandleCreated || !Visible || WindowState != FormWindowState.Normal) return;
+            dashboardShrinkRequested |= allowShrink;
+            if (dashboardFitQueued) return;
             dashboardFitQueued = true;
             BeginInvoke(new Action(() =>
             {
                 dashboardFitQueued = false;
+                bool shrink = dashboardShrinkRequested;
+                dashboardShrinkRequested = false;
                 if (!IsDisposed && !Disposing && Visible && tutorialOverlay == null)
-                    GrowDashboardToWorkingArea(Screen.FromControl(this).WorkingArea);
+                    ResizeDashboardToWorkingArea(Screen.FromControl(this).WorkingArea, shrink);
             }));
         }
 
-        internal void GrowDashboardToWorkingArea(Rectangle workArea)
+        internal void ResizeDashboardToWorkingArea(Rectangle workArea, bool allowShrink = false)
         {
             if (WindowState != FormWindowState.Normal) return;
             LayoutDashboardCards();
             int required = SizeFromClientSize(new Size(ClientSize.Width, DashboardRequiredClientHeight())).Height;
             int fitted = Math.Min(required, workArea.Height);
-            if (fitted <= Height) return;
+            if (fitted == Height || (!allowShrink && fitted < Height)) return;
             int top = Math.Max(workArea.Top, Math.Min(Top, workArea.Bottom - fitted));
             SetBounds(Left, top, Width, fitted, BoundsSpecified.Y | BoundsSpecified.Height);
             LayoutDashboardCards();
@@ -6843,7 +6848,7 @@ namespace Offhand.Companion
                 dashboardScroll.ResumeLayout(true);
             }
             LayoutDashboardCards();
-            QueueDashboardFit();
+            QueueDashboardFit(allowShrink: true);
         }
 
         private void UpdateDashboardNavigation()
@@ -6904,7 +6909,7 @@ namespace Offhand.Companion
             {
                 appSettings[section.Key] = (!expanded).ToString();
                 SaveConfig();
-                if (expanded) QueueDashboardFit();
+                QueueDashboardFit(allowShrink: !expanded);
             }
         }
 
@@ -7351,9 +7356,9 @@ namespace Offhand.Companion
             {
                 if (whatsNew)
                 {
-                    AppendHelpSection(guide, sectionFont, "Workspace C preview",
-                        "With Offhand addon Beta 34, open the custom workspace editor to add Workspace C on a fourth display.",
-                        "Identify your displays and check the preview before applying. Four physical displays and mixed HDR or DPI configurations still need live testing.");
+                    AppendHelpSection(guide, sectionFont, "More room on your desktop",
+                        "Expand the sections you need in Advanced. Switch back to Setup and the Companion shrinks to fit. Your sections are still expanded when you return.",
+                        "Running two WoW clients? Use the WoW client list on Setup to choose which window to span.");
                     AppendHelpSection(guide, sectionFont, "Your saved setup",
                         "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
                     AppendHelpSection(guide, sectionFont, "If something looks wrong",

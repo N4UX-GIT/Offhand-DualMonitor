@@ -37,10 +37,10 @@ end
 
 local combatGeometryMethods = {"GetLeft", "GetTop", "GetWidth", "GetHeight", "GetEffectiveScale"}
 
-local function CanRepairCombatAnchor(frame, state)
+local function CanRepairCombatAnchor(frame, state, allowFirstBackpackOpen)
     -- This is permission to attempt one root-only correction, not proof of
     -- native item-action/taint safety. Unknown or secret security state yields.
-    if not state or not state.nativeInitialized or state.combatPlacementFailed
+    if not state or state.combatPlacementFailed
         or not HasFlag(frame, "IsForbidden", false)
         or not HasFlag(frame, "IsProtected", false)
         or not HasFlag(frame, "CanChangeProtectedState", true)
@@ -48,7 +48,7 @@ local function CanRepairCombatAnchor(frame, state)
         or not HasFlag(frame, "IsAnchoringSecret", false) then return false end
     local ok, parent = pcall(frame.GetParent, frame)
     if not ok or not IsPlainValue(parent) then return false end
-    if parent == UIParent then return true end
+    if parent == UIParent then return state.nativeInitialized == true end
     -- Separate native bags retain Blizzard's container parent. Do not reparent
     -- them or mistake this known native ancestry for replacement-addon ownership.
     if not ContainerFrameContainer or parent ~= ContainerFrameContainer
@@ -58,7 +58,19 @@ local function CanRepairCombatAnchor(frame, state)
         or not HasFlag(parent, "IsAnchoringRestricted", false)
         or not HasFlag(parent, "IsAnchoringSecret", false) then return false end
     local parentOK, ancestor = pcall(parent.GetParent, parent)
-    return parentOK and IsPlainValue(ancestor) and ancestor == UIParent
+    if not parentOK or not IsPlainValue(ancestor) or ancestor ~= UIParent then return false end
+    if state.nativeInitialized then return true end
+    -- On its first hardware open after reload, Blizzard assigns the backpack
+    -- ID, fills its slots and anchors the finished root to its native parent.
+    if not allowFirstBackpackOpen or frame ~= _G.ContainerFrame1 then return false end
+    local ready, initialized = pcall(function()
+        local id, size = frame:GetID(), frame.size
+        local point, relative = frame:GetPoint(1)
+        return IsPlainValue(id) and id == 0 and IsPlainValue(size) and type(size) == "number"
+            and size > 0 and IsPlainValue(point) and point == "BOTTOMRIGHT"
+            and IsPlainValue(relative) and relative == parent
+    end)
+    return ready and initialized
 end
 
 -- The Gamepad adapter has its own position store and observer. Share only the
@@ -338,7 +350,7 @@ function Adapter.Install(Canvas, services)
             or not Offhand.db or not Offhand.db.enabled or not frame
             or not frame.IsShown or not frame:IsShown() then return false end
         local inCombat = IsCombatRestricted()
-        if inCombat and not CanRepairCombatAnchor(frame, state) then return false end
+        if inCombat and not CanRepairCombatAnchor(frame, state, Offhand.db.keepBagToggleOpen) then return false end
         local position, onWorkspace = GetForeverNativeBagSavedPosition(frame)
         if inCombat then
             -- Never invent or capture placement during combat. Read geometry

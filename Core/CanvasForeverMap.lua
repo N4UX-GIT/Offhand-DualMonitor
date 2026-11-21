@@ -510,6 +510,11 @@ function Adapter.Install(Canvas, services)
 
         state.settlementGeneration = (state.settlementGeneration or 0) + 1
         local generation = state.settlementGeneration
+        local function ResumeAfterCombat()
+            if generation == state.settlementGeneration and map:IsShown() and not FrameState.IsDragging(map) then
+                QueueForeverWorldMapSettlement(map, state, true, true)
+            end
+        end
         local function Settle()
             if generation ~= state.settlementGeneration
                 or NativeGamepadOwnsMap()
@@ -519,14 +524,18 @@ function Adapter.Install(Canvas, services)
                 or (map.IsMaximized and map:IsMaximized()) then return end
             if InCombatLockdown() then
                 if Offhand.RunOrQueueCombat then
-                    state.resumeSettlement = Settle
+                    state.resumeSettlement = ResumeAfterCombat
                     if not state.combatSettlementQueued then
                         state.combatSettlementQueued = true
                         Offhand:RunOrQueueCombat(function()
                             state.combatSettlementQueued = nil
                             local resume = state.resumeSettlement
                             state.resumeSettlement = nil
-                            if resume then resume() end
+                            -- Blizzard can run a second native layout after regeneration.
+                            -- Start the usual bounded retries on the following frame.
+                            if resume then
+                                if C_Timer and C_Timer.After then C_Timer.After(0, resume) else resume() end
+                            end
                         end)
                     end
                 end
@@ -745,6 +754,7 @@ function Adapter.Install(Canvas, services)
         end
 
         local pendingWorkspaceDrop
+        local combatPlacementRemaining
         local function UpdateHandle(_, elapsed)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
@@ -769,11 +779,27 @@ function Adapter.Install(Canvas, services)
                     if elapsedSinceUpdate >= 0.10 then pendingWorkspaceDrop = nil end
                 end
             end
+            local combatCompact = mapShown and not maximized and Offhand.db.keepMapToggleOpen and InCombatLockdown()
+            if combatCompact then
+                -- Observe the first rendered frame and the short native reflow
+                -- that follows. The slower drag-handle poll is visible on open.
+                if not state.observedCombatCompact then
+                    combatPlacementRemaining = 0.6
+                elseif combatPlacementRemaining then
+                    combatPlacementRemaining = combatPlacementRemaining - elapsed
+                end
+                if combatPlacementRemaining and combatPlacementRemaining > 0 then
+                    if not NativeGamepadOwnsMap() then Canvas:RepairCombatWorldMapAnchor(map) end
+                else
+                    combatPlacementRemaining = nil
+                end
+            else
+                combatPlacementRemaining = nil
+            end
+            state.observedCombatCompact = combatCompact
             if elapsedSinceUpdate < 0.10 and not state.mapWiseLayout then return end
             elapsedSinceUpdate = 0
-
             UpdateMapWiseLayout(map, state, mapShown, maximized)
-
             local gamepadOwned = NativeGamepadOwnsMap()
             if (_G.SpokenPlacesPanel or map.QuestLog) and not InCombatLockdown() then
                 local metrics

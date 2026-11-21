@@ -8,6 +8,46 @@ local _, Offhand = ...
 local BackpackState = {}
 Offhand.CanvasBackpackState = BackpackState
 
+function BackpackState.UsesForeverSeparateBags()
+    local manager = _G.ContainerFrameSettingsManager
+    return Offhand.isForever and manager and manager.IsUsingCombinedBags
+        and not manager:IsUsingCombinedBags()
+        and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
+end
+
+function BackpackState.CaptureSeparateBagsForReload(canvas)
+    if not BackpackState.UsesForeverSeparateBags() or not OffhandCharDB
+        or not canvas.CanManagePanelsFromAddon() then return end
+    local ids = {}
+    local family = BackpackState.GetWorkspacePosition(Offhand.db)
+    local backpackShown = _G.ContainerFrame1 and _G.ContainerFrame1:IsShown()
+    for i = 1, NUM_CONTAINER_FRAMES or 13 do
+        local frame = _G["ContainerFrame" .. i]
+        if frame and frame.GetID and frame:IsShown() and not (frame.IsForbidden and frame:IsForbidden()) then
+            local id = frame:GetID()
+            if type(id) == "number" and not (issecretvalue and issecretvalue(id))
+                and id >= 0 and id <= (NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5)
+                and ((family and backpackShown) or canvas.IsFrameOnWorkspace(frame)) then
+                ids[#ids + 1] = id
+            end
+        end
+    end
+    -- Container frames are pooled. Save the equipped bag IDs in display order.
+    OffhandCharDB.separateWorkspaceBagIDs = ids
+end
+
+function BackpackState.RestoreSeparateBagsAfterReload(canvas)
+    local ids = canvas.pendingSeparateBagIDs
+    canvas.pendingSeparateBagIDs = nil
+    if not ids or not BackpackState.UsesForeverSeparateBags() or not ToggleBag or not IsBagOpen then return end
+    for _, id in ipairs(ids) do
+        if type(id) == "number" and id >= 0 and id <= (NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5)
+            and id == math.floor(id) and not IsBagOpen(id) then
+            ToggleBag(id)
+        end
+    end
+end
+
 function BackpackState.UsesTBCBagIDs()
     local registry = Offhand.CanvasPanelRegistry
     return registry and registry.IsTBCPanelRuntime and registry.IsTBCPanelRuntime()

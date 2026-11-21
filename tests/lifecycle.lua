@@ -823,6 +823,27 @@ initOnEvent(nil, "PLAYER_LOGOUT")
 assert(capturedOpenPanels and capturedOpenPanels.TestWorkspaceFrame == true,
     "PLAYER_LOGOUT must preserve the last explicit open state after Blizzard teardown hiding")
 
+do
+    local priorMap, priorSpells = WorldMapFrame, PlayerSpellsFrame
+    local priorForever = addon.isForever
+    addon.isForever = true
+    addon.db.savedWorkspacePositions.WorldMapFrame = {x=100,y=300}
+    addon.db.savedWorkspacePositions.PlayerSpellsFrame = {x=200,y=400}
+    for _, mapOpen in ipairs({true, false}) do
+        WorldMapFrame = {IsShown=function() return mapOpen end}
+        PlayerSpellsFrame = {IsShown=function() return not mapOpen end}
+        addon.db.openWorkspacePanels = {WorldMapFrame=not mapOpen, PlayerSpellsFrame=mapOpen}
+        addon._openPanelsCapturedForTransition = false
+        initOnEvent(nil, "PLAYER_LOGOUT")
+        assert(capturedProfileOpenPanels.WorldMapFrame == (mapOpen or nil))
+        assert(capturedProfileOpenPanels.PlayerSpellsFrame == (not mapOpen or nil))
+    end
+    addon.db.savedWorkspacePositions.WorldMapFrame = nil
+    addon.db.savedWorkspacePositions.PlayerSpellsFrame = nil
+    WorldMapFrame, PlayerSpellsFrame = priorMap, priorSpells
+    addon.isForever = priorForever
+end
+
 -- Restore Window can leave Forever without any loaded exact topology. Do not
 -- replace the last spanned-session visibility snapshot with the temporary
 -- single-screen state during logout or /reload.
@@ -865,9 +886,9 @@ do
     -- a fresh session using the same fixture.
     addon._loggingOut = nil
     addon._displayGeometryTransitionActive = false
-    local function Enter(first)
+    local function Enter(first, initialLogin, reload)
         if first then addon._hasEnteredWorld = nil end
-        initOnEvent(nil, "PLAYER_ENTERING_WORLD")
+        initOnEvent(nil, "PLAYER_ENTERING_WORLD", initialLogin, reload)
         local count = 0
         while #queue > 0 do
             count = count + 1
@@ -887,6 +908,14 @@ do
     addon.GetOnboardingResumeStep = function() return 6 end
     Enter(true)
     assert(opened == 1, "a deliberately disabled profile must not receive incomplete-setup prompts")
+    addon.db.enabled = true
+    addon.Viewport.GetMetrics = function() return {isSpanned = true} end
+    local modes = {}
+    addon.Canvas.RestorePersistentFrames = function(_, mode) modes[#modes + 1] = mode or "normal" end
+    Enter(true, true, false)
+    Enter(true, false, true)
+    Enter(false, false, false)
+    assert(table.concat(modes, ",") == "normal,reload,normal", "only a UI reload should restore map visibility")
 end
 print("PASS: lifecycle, entry notice resumption, disabled isolation and completed-setup preservation")
 

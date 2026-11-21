@@ -111,7 +111,7 @@ assert(dialog:IsShown() and addon.guideOpened == 0 and OffhandDB.lastSeenRelease
 assert(dialog.title.text:find(firstRelease, 1, true) and dialog.point[4] == 1560)
 assert(not dialog.body.text:find(addon.L.WHATS_NEW_FALLBACK, 1, true),
     "publish concise in-game highlights for the version in the TOC")
-assert(dialog.body.text:find("2.1.7-beta.9", 1, true) and dialog.storeButton.uiPrimary,
+assert(dialog.body.text:find(addon.L.WHATS_NEW_COMPANION_CHECK, 1, true) and dialog.storeButton.uiPrimary,
     "an earlier Companion beta should offer the confirmed Store update")
 assert(not dialog.link:IsShown() and not dialog.link.focus, "login must not take keyboard focus")
 dialog.storeButton.scripts.OnClick()
@@ -119,8 +119,9 @@ assert(dialog.link.text == addon.companionStoreUrl and dialog.link.focus and dia
 dialog.children[3].scripts.OnClick() -- Release notes link.
 assert(dialog.link.text == "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v" .. firstRelease,
     "the current beta must link to its matching release notes")
-assert(dialog.body.text:find(addon.L.WHATS_NEW_COMPANION_PAIRED:format("2.1.9-beta.1"), 1, true),
-    "the paired beta must identify its Companion version")
+assert(dialog.body.text:find(addon.L.WHATS_NEW_BETA38_COMPANION:format("2.1.9-beta.2"), 1, true),
+    "identify the portable beta and where to find it")
+assert(not dialog.body.text:find("2.1.7-beta.9", 1, true), "span history is not release news")
 assert(dialog:GetHeight() - 44 > 52 + dialog.body:GetHeight(), "footer overlaps release notes")
 
 cinematic = true
@@ -152,6 +153,18 @@ assert(dialog.link.text == addon.companionStoreUrl and not dialog.link.focus,
     "controller mode should not force keyboard focus")
 addon.WhatsNew:Dismiss()
 gamepad = false
+metrics = { isSpanned = true, gameLeft = 0, gameRight = 560,
+    gameBottom = 0, gameTop = 340, gameWidth = 560, gameHeight = 340 }
+for _,version in ipairs({"2.1.9-beta.1", "2.1.9-beta.2", "invalid"}) do
+    OffhandCompanionTopology = { companionVersion = version }
+    SlashCmdList.OFFHAND("whatsnew")
+    assert(not dialog.storeButton.uiPrimary and not dialog.body.text:find(addon.L.WHATS_NEW_COMPANION_CHECK, 1, true))
+    dialog.children[3].scripts.OnClick()
+    assert(dialog:GetHeight() * dialog:GetScale() <= metrics.gameHeight - 31,
+        "wrapped highlights and the copyable release link must fit on a short Mainhand")
+    addon.WhatsNew:Dismiss()
+end
+metrics = normalMetrics
 
 local account = OffhandDB
 metadata["X-Offhand-Release"] = ""
@@ -166,7 +179,7 @@ Event("PLAYER_REGEN_ENABLED")
 Flush()
 dialog = assert(frames.OffhandWhatsNewFrame)
 assert(dialog:IsShown() and dialog.body.text:find(addon.L.WHATS_NEW_FALLBACK, 1, true)
-    and dialog.storeButton.uiPrimary and not dialog.body.text:find("last used", 1, true),
+    and not dialog.storeButton.uiPrimary and not dialog.body.text:find("last used", 1, true),
     "a new stable release should show a link and avoid guessing an absent Companion version")
 addon.WhatsNew:Dismiss()
 Flush()

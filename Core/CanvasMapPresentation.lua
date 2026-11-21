@@ -271,6 +271,16 @@ function Map.FitWindow(map, m, isWorkspaceMap)
     local availableWidth = (isWorkspaceMap and m.workspaceWidth or m.gameWidth) - 24
     local availableHeight = (isWorkspaceMap and m.workspaceHeight or m.gameHeight) - 24
     local width, height = map:GetWidth(), map:GetHeight()
+    -- On Forever the hidden XML frame can still have its startup dimensions.
+    -- Fit the size Blizzard will use on first open while scale is writable.
+    if Offhand.isForever and isWorkspaceMap and Offhand.db.keepMapToggleOpen
+        and map == _G.WorldMapFrame and map.IsShown and not map:IsShown()
+        and map.ShouldBeMinimized and map:ShouldBeMinimized()
+        and map.ShouldShowQuestLogPanel and type(map.minimizedWidth) == "number"
+        and type(map.minimizedHeight) == "number" and type(map.questLogWidth) == "number" then
+        width = map.minimizedWidth + (map:ShouldShowQuestLogPanel() and map.questLogWidth or 0)
+        height = map.minimizedHeight
+    end
     local currentScale = map:GetScale()
     local effectiveScale, parentScale = map:GetEffectiveScale(), UIParent:GetEffectiveScale()
     if issecretvalue and (issecretvalue(width) or issecretvalue(height)

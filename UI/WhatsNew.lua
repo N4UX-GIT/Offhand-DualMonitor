@@ -6,9 +6,12 @@ Offhand.WhatsNew = WhatsNew
 
 -- The paired Companion and the version published in Microsoft Store can differ.
 -- See docs/ADDON-RELEASE-NOTICES.md before updating either value.
-local storeVersion = "2.1.8"
+local storeVersion = "2.1.9-beta.1"
 local releases = {
-    ["2.1.5-beta.37"] = { highlights = "WHATS_NEW_BETA37", companion = "2.1.9-beta.1" },
+    ["2.1.5-beta.38"] = { highlights = "WHATS_NEW_BETA38", companion = "2.1.9-beta.2",
+        companionNote = "WHATS_NEW_BETA38_COMPANION" },
+    ["2.1.5-beta.37"] = { highlights = "WHATS_NEW_BETA37", companion = "2.1.9-beta.1",
+        companionNote = "WHATS_NEW_BETA37_COMPANION" },
     ["2.1.5-beta.36"] = { highlights = "WHATS_NEW_BETA36" },
     ["2.1.5-beta.35"] = { highlights = "WHATS_NEW_BETA35", notes = "https://www.curseforge.com/wow/addons/offhand/files" },
     ["2.1.5-beta.34"] = { highlights = "WHATS_NEW_BETA34", companion = "2.1.9-beta.1" },
@@ -36,7 +39,7 @@ local function ReleaseMessage()
     local lines = { L[release and release.highlights or "WHATS_NEW_FALLBACK"] }
     if release then
         lines[#lines + 1] = release.companion
-            and L["WHATS_NEW_COMPANION_PAIRED"]:format(release.companion)
+            and L[release.companionNote or "WHATS_NEW_COMPANION_PAIRED"]:format(release.companion)
             or L["WHATS_NEW_COMPANION_UNCHANGED"]
     end
 
@@ -45,14 +48,11 @@ local function ReleaseMessage()
     local bridge = _G.OffhandCompanionTopology
     local lastUsed = type(bridge) == "table" and bridge.companionVersion
     local order = Compare(lastUsed, storeVersion)
-    if order ~= nil then
-        lines[#lines + 1] = L["WHATS_NEW_COMPANION_LAST_USED"]:format(lastUsed)
-    end
-    lines[#lines + 1] = L["WHATS_NEW_COMPANION_STORE"]:format(storeVersion)
-    if order == nil or order < 0 then
+    local suggestStore = order ~= nil and order < 0
+    if suggestStore then
         lines[#lines + 1] = L["WHATS_NEW_COMPANION_CHECK"]
     end
-    return table.concat(lines, "\n\n"), order == nil or order < 0
+    return table.concat(lines, "\n\n"), suggestStore
 end
 
 local function Fit(f, metrics)

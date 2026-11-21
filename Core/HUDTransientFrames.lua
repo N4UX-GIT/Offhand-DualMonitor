@@ -792,6 +792,7 @@ function Transient.Install(HUD, services)
     end
 
     local protectedMenuPoints = setmetatable({}, {__mode = "k"})
+    local oneForAllMenu
 
     -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
     -- center can be the upper-left corner of Mainhand in a mixed-height topology.
@@ -803,18 +804,35 @@ function Transient.Install(HUD, services)
         local frame = _G.GameMenuFrame
         local m = Offhand.Viewport and Offhand.Viewport.GetMetrics
             and Offhand.Viewport:GetMetrics() or nil
-        if not frame or not m or not m.isSpanned or not frame.ClearAllPoints
+        if not frame or not m or not frame.ClearAllPoints
             or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
+        if not m.isSpanned and not frame.ofaMovable and not protectedMenuPoints[frame] then return false end
+        if frame.ofaMoving then return false end
 
-        local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
-        local cx = (m.gameLeft + m.gameRight) / 2
-        local cy = (m.gameBottom + m.gameTop) / 2
+        local relativeTo, x, y = "CENTER", 0, 0
+        if m.isSpanned then
+            local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
+            relativeTo = "BOTTOMLEFT"
+            x = (m.gameLeft + m.gameRight) * factor / 2
+            y = (m.gameBottom + m.gameTop) * factor / 2
+        end
+        -- OneForAll restores its TOPLEFT anchor on show, again next frame,
+        -- and after panel layout. Finish that specific write before rendering.
+        if frame.ofaMovable and frame ~= oneForAllMenu and hooksecurefunc
+            and frame.IsProtected and not frame:IsProtected() then
+            oneForAllMenu = frame
+            hooksecurefunc(frame, "SetPoint", function(self, point, relative, relativePoint)
+                if point == "TOPLEFT" and relative == UIParent and relativePoint == "BOTTOMLEFT"
+                    and self:IsShown() and not self.ofaMoving and not InCombatLockdown() then
+                    PositionForeverGameMenu()
+                end
+            end)
+        end
+        local desired = {"CENTER", UIParent, relativeTo, x, y}
         local inspected, correct = pcall(function()
             if not frame.GetNumPoints or not frame.GetPoint or frame:GetNumPoints() ~= 1 then return false end
             local point, relative, relativePoint, x, y = frame:GetPoint(1)
-            return point == "CENTER" and relative == UIParent and relativePoint == "BOTTOMLEFT"
-                and type(x) == "number" and type(y) == "number"
-                and math.abs(x-cx*factor) < .01 and math.abs(y-cy*factor) < .01
+            return SamePopupPoint({point, relative, relativePoint, x, y}, desired)
         end)
         if inspected and correct then return true end
         if frame.IsProtected then
@@ -830,14 +848,14 @@ function Transient.Install(HUD, services)
                         or SamePopupPoint(current, protectedMenuPoints[frame])
                 end)
                 if not native or not eligible then return false end
-                if not SecureScreenPoint(frame, "CENTER", cx * factor, cy * factor) then return false end
-                protectedMenuPoints[frame] = {"CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor}
+                if not SecureScreenPoint(frame, "CENTER", x, y, relativeTo) then return false end
+                protectedMenuPoints[frame] = m.isSpanned and desired or nil
                 return true
             end
         end
         local ok = pcall(function()
             frame:ClearAllPoints()
-            frame:SetPoint("CENTER", UIParent, "BOTTOMLEFT", cx * factor, cy * factor)
+            frame:SetPoint("CENTER", UIParent, relativeTo, x, y)
         end)
         return ok
     end

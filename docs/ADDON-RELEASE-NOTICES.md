@@ -9,10 +9,10 @@ remains unread. The player can always reopen it with `/offhand whatsnew`.
 Before packaging an addon release:
 
 1. Add the exact manifest version, including any beta suffix, to the release
-   table in [UI/WhatsNew.lua](../UI/WhatsNew.lua). Add two or three highlights to
+   table in [UI/WhatsNew.lua](../UI/WhatsNew.lua). Add short, player-facing highlights to
    each locale. Link to the full notes on the matching GitHub release.
 2. Set the entry's `companion` field only if this addon release is paired with a
-   new Companion release. Leave it empty for addon-only updates.
+   new Companion release. Use a localized `companionNote` to describe its download channel and feature. Leave `companion` empty for addon-only updates.
 3. Update `storeVersion` only after verifying public Microsoft Store
    availability. A paired release, portable ZIP, Store submission, or private
    flight is not evidence of public availability. If the Store is behind, keep
@@ -26,8 +26,8 @@ Before packaging an addon release:
    Gamepad UI, and check an upgrade with an up-to-date handoff.
 
 The dialog compares the published Store version with the Companion that last
-wrote the display handoff. It labels that version as historical. With an older
-or missing handoff it asks Store users to check for an update. Store availability
+wrote the display handoff. Only a known older handoff adds a suggestion to
+check the Store. Without version evidence the Store link stays neutral. Store availability
 is packaged release information; WoW does not query the Store or inspect the
 installed desktop app. The Store and release notes buttons provide copyable
 addresses.

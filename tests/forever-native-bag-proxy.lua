@@ -846,6 +846,22 @@ bag:SetPoint('TOPLEFT',ContainerFrameContainer,'BOTTOMLEFT',9000,9000)
 controller.scripts.OnUpdate(controller,.001)
 assert(bag:GetLeft()<metrics.workspaceRight,
     'a reopened separate native bag must repair while retaining its Blizzard container parent')
+do
+    local original = ContainerFrame1
+    local cold = setmetatable({size=16}, {__index=bag})
+    ContainerFrame1 = cold
+    function cold:GetID() return 0 end
+    function cold:GetPoint() return "BOTTOMRIGHT",ContainerFrameContainer end
+    local allowed = addon.CanvasForeverBags.CanRepairCombatAnchor
+    assert(not allowed(cold, {}, false), "first-open repair requires the explicit keyboard policy")
+    assert(allowed(cold, {}, true), "a natively placed separate backpack can be repaired on its first open")
+    cold.size=nil
+    assert(not allowed(cold, {}, true), "a root without generated slots must wait")
+    cold.size=16
+    function cold:GetPoint() return "TOPLEFT",UIParent end
+    assert(not allowed(cold, {}, true), "an uninitialized root must have Blizzard's own first anchor")
+    ContainerFrame1 = original
+end
 local nativeContainer=ContainerFrameContainer
 ContainerFrameContainer={}
 bag.GetParent=function() return nativeContainer end

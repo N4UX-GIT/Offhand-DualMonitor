@@ -1,34 +1,50 @@
 # Changelog
 
+## [2.1.5-beta.38] - 2026-11-21
+
+- **Pick up where you left off on Forever.** With window restoration on, reload with your backpack, satchel or compact Blizzard map open on Offhand and they return to their saved spots. Close a window before reloading and it stays closed. Separate bags start closed on a fresh login.
+- **Open your map mid-fight.** Your compact map opens at the size and spot you chose on Offhand and stays there when combat ends. M and B use their normal game toggles during combat. Outside combat, you can set either key to keep its window open on a second press.
+- **Find the Game Menu on the first Escape.** On Forever with OneForAll, it opens in the center of Mainhand when WoW spans your monitors, or in the center of the game window when you play on one screen.
+- **Get your desktop space back.** Expand the sections you want in Advanced, then switch to Setup. Companion shrinks to fit the tab and gives those sections room again when you switch back.
+
+- A player reported their bags stayed open while talking to a flight master and taking off.
+
+**Known issue on Forever.** If your separate Blizzard bags reopened after a reload, closing and reopening them with B during a fight can show a yellow interface warning. The backpack still opens at its saved spot. B reopens the backpack only.
+
 ## [2.1.5-beta.37] - 2026-11-21
 
-Offhand Beta 37 pairs the in-game add-on with Windows Companion 2.1.9-beta.1.
+### Maps and questing
 
-### Maps, bags and panels
+- Give the big map its own shortcut under **Key Bindings → Offhand**. Open it to plan your route, then close it to bring the compact map back to Offhand.
+- Fit the map to your screen with **Auto-Fit**, then fine-tune it with the slider or arrow keys. The Blizzard map remembers the size you chose on Mainhand, and its title stays within reach when you drag it to the top of Offhand. OpenMap 0.8.10 also supports resizing and placement.
+- On Forever, if you reload with the Blizzard map open on Offhand and window restoration enabled, it comes back where you left it. Close it before reloading and it stays closed. A Spellbook you closed stays closed, too.
+- Your RestedXP guide stays where you put it, even if an older Offhand profile remembers a different spot. Escape leaves the guide open. If you use Spoken, its Places list and the tab that reopens it stay on the same screen as the map.
 
-- Adjust map scale by dragging the slider or using the keyboard. The native map now uses its saved scale on Mainhand and keeps its title reachable when dropped near the top of Offhand.
-- Bind the expanded map to return to the compact Offhand map when closed. On Forever, the native map stays closed after login or reload until you press M.
-- Choose whether a second map or bag keypress keeps the window open on Offhand outside combat. Escape closes gossip and Inspect before clearing the target while the separate backpack stays in place.
-- RestedXP keeps control of its guide position and Escape behavior, including when upgrading from a profile with old guide coordinates. Spoken Places stays with its map.
-- On short workspaces, Character and Social fit side by side, including Character's tabs. Collections, Professions, the compact Spellbook and the quest list have better bounds. Chat and its input box stay on Mainhand when assigned there.
-- Corrected Gold and Silver settings trim, the party management drawer, and placement of native error text on Mainhand.
+### Bags, crafting and conversations
 
-### Profiles and Companion
+- On Forever, choose whether your map and bags stay open on Offhand. Outside combat, press the usual key to open the window and use its close button when you’re done. With the setting on, you can also open your compact Blizzard map or separate backpack on Offhand during a fight. In combat, pressing the key again uses the normal game toggle.
+- On Forever, Escape closes an NPC conversation or a player’s Inspect window first. Press Escape again to clear your target. Your separate Offhand backpack stays open through both presses.
+- Keep your Cooking recipes and ingredients side by side on Offhand when you open the Game Menu with Bagnon or Blizzard’s combined backpack. With independent windows enabled, you can also expand your Spellbook while your BetterBags Next, Bagnaros or Baganator inventory stays open.
 
-- Choose a personal HUD or a compatible account-wide layout in Profiles. Setup and reset guidance now explain Windows display alignment and which profile data will be cleared.
-- Select the running WoW client you want Companion to span. The updated dashboard keeps its section header clear and its client selector border visible. Wine verification and automatic span retries have also been improved.
+### Your characters and screens
 
-### GitHub contributors
+- Give an alt the HUD you already set up. In **Profiles**, choose the character’s own HUD or a compatible shared layout by name. When you switch characters, Offhand remembers which profile belongs to each one.
+- Starting over? Copy your current settings or start from defaults, and see which characters a reset would affect before you confirm.
+- On Forever, Character and Social fit side by side even on a short second screen. The titles and close buttons for Collections, Professions and the compact Spellbook stay within reach, and the quest list fits on screen. Move your Spellbook back to Mainhand and it stays there when you expand or collapse it.
+- On Forever, keep chat and its typing box together on Mainhand. Party invites, party controls and red game messages are easier to see on the screen where you play. If you switch between keyboard and controller, you can keep a HUD layout for each. On Retail, HUD repair can bring the default XP and reputation bars back to Mainhand.
 
-- **@bitwize01 (Frosted)** contributed active Gamepad UI detection for Forever layout generation and recovery. [PR #18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18)
-- **@paramboy (Michele)** contributed the Retail default status-bar placement repair. [PR #45](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/45)
-- **@Iceskull7** contributed the running-client selector for Companion. [PR #131](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/131)
-- **@N4UX-GIT** contributed Wine verification, setup and Help updates, Forever map and invite placement, inventory Escape handling, and combat panel placement. Thanks to **@victormolla14** for the Wine report and **@bitwize01** for confirming the fallback. [PR #19](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/19), [PR #100](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/100), [PR #107](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/107), [PR #128](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/128), [PR #129](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/129), [PR #130](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/130)
-- **@dependabot** maintained the Lua, CodeQL and release workflows. [PR #43](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/43), [PR #103](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/103), [PR #104](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/104), [PR #105](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/105)
+### Make Offhand yours
 
-### Forever testing
+- Create a background for your second screen in **Offhand Background Studio**, linked from the website and the addon’s background settings. The opacity slider now fades Studio images too. Older images can use the slider after you export them again. Gold and Silver also show the matching trim around your settings.
+- The Windows Companion tour now takes four steps. Open Windows Display Settings right from Setup to line up your monitors as they sit on your desk. In WoW, turn on the centre line from **Display** to check where the middle of Mainhand falls.
+- Have more than one WoW window open? Choose exactly which one Companion stretches across your screens. Returning to the same display setup is quicker, too. You can reuse a layout WoW has already loaded without another round of calibration. The portable Windows Companion **2.1.9-beta.1** is available with the GitHub release.
 
-On Moonweaver's 1440 × 600 workspace, the native backpack, gossip, Inspect, map, Social, Character and Collections passed their tested interactions. The expanded Spellbook could still fail to open in combat with Offhand disabled. Flight masters, additional bags and Talents remain follow-up checks.
+### Community thanks
+
+- **@Iceskull7** added the WoW window picker in Companion. [#131](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/131)
+- **@bitwize01 (Frosted)** helped Forever use the right HUD when playing with a controller. **@paramboy (Michele)** helped bring Retail’s XP and reputation bars back onto the game screen. [#18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18), [#45](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/45)
+- **@N4UX-GIT** contributed setup guidance, Wine improvements, map and bag controls, and better window placement during combat. Thanks to **@victormolla14** for reporting the Wine issue and **@bitwize01** for helping check the fix. [#19](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/19), [#100](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/100), [#107](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/107), [#128](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/128), [#129](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/129), [#130](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/130)
+- Thanks also to **@dependabot** for maintaining the project’s checks and release tools. [#43](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/43), [#103](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/103), [#104](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/104), [#105](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/105)
 
 
 ## [2.1.5-beta.36] - 2026-11-16

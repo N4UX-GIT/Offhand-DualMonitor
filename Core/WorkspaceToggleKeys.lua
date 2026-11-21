@@ -43,8 +43,15 @@ local function InventoryOnWorkspace(action)
         local manager = _G.ContainerFrameSettingsManager
         if not manager or not manager.IsUsingCombinedBags then return false end
         if manager:IsUsingCombinedBags(id) then return OnWorkspace(_G.ContainerFrameCombinedBags) end
-        local frame = ContainerFrameUtil_GetShownFrameForID and ContainerFrameUtil_GetShownFrameForID(id)
-        return frame ~= _G.ContainerFrameCombinedBags and OnWorkspace(frame)
+        -- Blizzard’s enumerator builds its shared frame list on first use.
+        -- Inspect only existing roots so that keyboard polling leaves that to Blizzard.
+        for index = 1, NUM_CONTAINER_FRAMES or 13 do
+            local frame = _G["ContainerFrame" .. index]
+            if Visible(frame) and frame.GetID and frame:GetID() == id then
+                return OnWorkspace(frame)
+            end
+        end
+        return false
     end
     local bags = Offhand.BagPersistence
     local better = bags and bags.betterBags

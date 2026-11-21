@@ -255,7 +255,7 @@ namespace Offhand.Companion
                 var cards = scrollPanel.Controls.OfType<TableLayoutPanel>().Single();
                 if (cards.Height + scrollPanel.Padding.Vertical <= scrollPanel.ClientSize.Height)
                     throw new Exception("Fixture did not reproduce the initial status refresh outgrowing the startup window.");
-                form.GrowDashboardToWorkingArea(roomyDesktop);
+                form.ResizeDashboardToWorkingArea(roomyDesktop);
                 LayoutAll(form);
                 bool contentOverflows = cards.Bottom > scrollPanel.ClientSize.Height - scrollPanel.Padding.Bottom;
                 if (form.Width != startupBounds.Width || form.Left != startupBounds.Left
@@ -721,7 +721,7 @@ namespace Offhand.Companion
                 var guide=One<RichTextBox>(dialog, control=>true);
                 var close=One<Button>(dialog, button=>button.Text=="Got it");
                 var heading=One<Label>(dialog, label=>true);
-                if (!guide.Text.Contains("Workspace C preview") || !guide.Text.Contains("fourth display")
+                if (!guide.Text.Contains("More room on your desktop") || !guide.Text.Contains("WoW client list")
                     || !guide.Text.Contains("If something looks wrong")
                     || !guide.Text.Contains("/reload") || !guide.Text.Contains("/offhand guide")
                     || !guide.Text.Contains("placement/calibration") || !guide.Text.Contains("preserved"))
@@ -776,12 +776,12 @@ namespace Offhand.Companion
                 var showStatus = One<Button>(status, button => button.Text == "Show");
                 showStatus.PerformClick();
                 form.UpdateClientStatus(new AddonStatus { Installed = true, Version = "2.1.5", ReleaseTag = "beta.36" }, true);
-                form.GrowDashboardToWorkingArea(roomyDesktop);
+                form.ResizeDashboardToWorkingArea(roomyDesktop);
                 if (form.Width != startup.Width || form.Height <= startup.Height || !roomyDesktop.Contains(form.Bounds))
                     throw new Exception("Setup must grow when the detected client adds status content.");
                 var grown = form.Bounds;
                 form.UpdateClientStatus(null, false);
-                form.GrowDashboardToWorkingArea(roomyDesktop);
+                form.ResizeDashboardToWorkingArea(roomyDesktop);
                 if (form.Bounds != grown)
                     throw new Exception("Setup must keep its height when WoW closes.");
 
@@ -791,7 +791,7 @@ namespace Offhand.Companion
                 form.Height = form.MinimumSize.Height;
                 var advancedStart = form.Bounds;
                 form.SetLayoutNotice(123, string.Concat(Enumerable.Repeat("Review the display layout. ", 25)));
-                form.GrowDashboardToWorkingArea(roomyDesktop);
+                form.ResizeDashboardToWorkingArea(roomyDesktop);
                 LayoutAll(form);
                 if (form.Height <= advancedStart.Height || !roomyDesktop.Contains(form.Bounds))
                     throw new Exception("Advanced must grow to fit its content within the working area.");
@@ -813,6 +813,23 @@ namespace Offhand.Companion
                 form.SetLayoutNotice(0, "");
                 form.SelectDashboardPage(false);
 
+                Application.DoEvents();
+                form.EndDashboardTutorial(false);
+                var activity = One<Panel>(form, panel => panel.Controls.OfType<Label>().Any(label => label.Text.Trim() == "ACTIVITY LOG"));
+                form.SelectDashboardPage(true);
+                form.SetDashboardSectionExpanded(activity, true, false);
+                Application.DoEvents();
+                int advancedHeight = form.Height;
+                int dashboardWidth = form.Width;
+                form.SelectDashboardPage(false);
+                Application.DoEvents();
+                if (form.Height >= advancedHeight || form.Width != dashboardWidth)
+                    throw new Exception("Setup must shrink below expanded Advanced (" + advancedHeight + "), got " + form.Size);
+                form.SelectDashboardPage(true);
+                Application.DoEvents();
+                if (form.Height != advancedHeight)
+                    throw new Exception("Returning to expanded Advanced must restore its content height.");
+                form.SelectDashboardPage(false);
                 form.SetDashboardSectionExpanded(status, false, true);
                 form.Hide();
             }

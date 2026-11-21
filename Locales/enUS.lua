@@ -14,7 +14,10 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
-L["WHATS_NEW_BETA37"] = "On Forever, Character and Social fit side by side on short workspaces. The map stays closed after reload until you press M."
+L["WHATS_NEW_BETA38"] = "• On Forever, reload with your map and separate bags open to bring them back where you left them. Open the compact map mid-fight at its saved size.\n• Give the big map its own shortcut in Key Bindings → Offhand. Close it to return to the compact map.\n• Share a HUD with your alts or choose a different layout for each character in Profiles."
+L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s shrinks to fit when you switch from Advanced to Setup. Pick which WoW window to span right from Setup."
+L["WHATS_NEW_BETA37"] = "• Share a HUD with your alts. In Profiles, choose a shared layout by name or keep your character’s own.\n• Plan your route on the big map. Give it a shortcut in Key Bindings → Offhand. Close it and your compact map is back.\n• On Forever, choose whether to keep your map, bags, or both open on Offhand. Open the window with its usual key. Outside combat, further presses do nothing. In combat, the key works normally.\n• Switch between keyboard and controller on Forever with a separate HUD layout for each."
+L["WHATS_NEW_BETA37_COMPANION"] = "Companion %s has a four-step tour to help line up your screens. If you run two copies of WoW, choose which window uses both monitors. Get the portable version on GitHub."
 L["WHATS_NEW_BETA36"] = "• Fixed an Offhand shutdown issue that could delay the loading screen after /reload.\n• On Forever, Professions and Spellbook open on Mainhand by default and stay there when used together.\n• On Forever, newer saved settings now take precedence over an older Companion recovery snapshot."
 L["WHATS_NEW_BETA35"] = "• The World Map stays visible on Offhand while you move on Forever.\n• Move OpenMap to Offhand."
 L["WHATS_NEW_BETA34"] = "• Use /offhand centerline to check Mainhand alignment.\n• Set up EllesmereUI in a separate profile after exporting a backup.\n• Try Workspace C on a fourth display with the paired portable Companion beta."
@@ -23,8 +26,6 @@ L["WHATS_NEW_BETA32"] = "• Set panel sizes separately for each workspace.\n•
 L["WHATS_NEW_FALLBACK"] = "See the full release notes for changes in this version."
 L["WHATS_NEW_COMPANION_PAIRED"] = "Companion %s accompanies this addon release."
 L["WHATS_NEW_COMPANION_UNCHANGED"] = "No new Companion release accompanies this addon update."
-L["WHATS_NEW_COMPANION_LAST_USED"] = "Companion last used to span WoW: %s."
-L["WHATS_NEW_COMPANION_STORE"] = "Microsoft Store version at release: %s."
 L["WHATS_NEW_COMPANION_CHECK"] = "If you use the Microsoft Store edition, check for an update there."
 L["WHATS_NEW_STORE_LINK"] = "Microsoft Store link"
 L["WHATS_NEW_NOTES_LINK"] = "Release notes"
@@ -926,8 +927,8 @@ L["MSG_MAP_LAYOUT_ERROR"] = "Map layout error: %s"
 -- Profile Management
 -- ============================================================================
 L["TAB_PROFILES"] = "Profiles"
-L["KEEP_MAP_TOGGLE_OPEN"] = "Keep the Offhand map open when I press its key again"
-L["KEEP_BAG_TOGGLE_OPEN"] = "Keep Offhand bags open when I press the bag key again"
+L["KEEP_MAP_TOGGLE_OPEN"] = "Keep the Offhand map open when I press its key again (outside combat)"
+L["KEEP_BAG_TOGGLE_OPEN"] = "Keep Offhand bags open when I press the bag key again (outside combat)"
 L["PROFILE_CHARACTER_HUD"] = "Saved HUD for this character"
 L["PROFILE_REUSE_HUD"] = "Review saved HUD layout"
 L["PROFILE_HUD_PERSONAL"] = "Personal · %s"

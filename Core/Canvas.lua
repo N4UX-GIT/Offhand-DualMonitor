@@ -366,8 +366,8 @@ local function IsUnsafeForPanelMutation(frame, name)
 end
 
 local function IsPersistentPanelLoadCandidate(name)
-    -- Forever's native map binding must own the first open after login or
-    -- reload. An addon-opened map can taint quest pin refresh on combat close.
+    -- Generic panel restore uses ShowUIPanel or Show. Forever's map has a
+    -- separate reload-only open request below and must skip these paths.
     if Offhand.isForever and name == "WorldMapFrame" then return false end
     return PanelRegistry.IsBasePersistentCandidate(name)
         and (not IsForeverProfessionsPanel(nil, name)
@@ -579,6 +579,27 @@ end
 local function ClearNativeBackpackOpenState()
     if not Offhand.db then return end
     local changed = BackpackState.ClearOpenState(Offhand.db)
+    if changed then SaveOpenWorkspacePanels() end
+end
+
+function Canvas:ResetSeparateBagVisibilityAtLogin()
+    local db = Offhand.db
+    if not db or not db.enabled or not CanManagePanelsFromAddon()
+        or not BackpackState.UsesForeverSeparateBags() then return end
+
+    -- Older profiles have only a backpack marker. Preserve it for a UI reload
+    -- without promoting a single open backpack into a request to open every bag.
+    if OffhandCharDB and type(OffhandCharDB.separateWorkspaceBagIDs) ~= "table"
+        and IsNativeBackpackTrackedOpen() and GetNativeBackpackWorkspacePosition() then
+        OffhandCharDB.separateWorkspaceBagIDs = {0}
+    end
+    local changed = BackpackState.ClearOpenState(db)
+    for name in pairs(db.openWorkspacePanels) do
+        if type(name) == "string" and name:match("^ContainerFrame%d+$") then
+            db.openWorkspacePanels[name] = nil
+            changed = true
+        end
+    end
     if changed then SaveOpenWorkspacePanels() end
 end
 
@@ -1048,6 +1069,15 @@ function Canvas:RestorePersistentFrames(mode)
                 or IsPersistentForeverProfessionsPanelName(name)) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
+            elseif mode == "reload" and Offhand.isForever and name == "WorldMapFrame"
+                and openPanels[name] and PanelRegistry.CanAutoOpen(frame, name)
+                and not IsUnsafeForPanelMutation(frame, name)
+                and not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name])
+                and C_Map and C_Map.OpenWorldMap then
+                -- Request the native WORLD_MAP_OPEN event. Toggling directly
+                -- from restore previously led to a blocked quest-pin update
+                -- when the player closed the map during combat.
+                C_Map.OpenWorldMap()
             elseif canOpenPanels and openPanels[name] and CanAutoOpenSavedPanel(frame, name) then
                 if name == "WorldMapFrame" then
                     if ToggleWorldMap then
@@ -1098,6 +1128,14 @@ function Canvas:RestorePersistentFrames(mode)
     -- authoritative there.
     if Offhand.isForever then
         hasBag = IsNativeBackpackTrackedOpen() and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
+        if self.pendingSeparateBagIDs then
+            if BackpackState.UsesForeverSeparateBags() then
+                BackpackState.RestoreSeparateBagsAfterReload(self)
+                hasBag = false
+            else
+                self.pendingSeparateBagIDs = nil
+            end
+        end
     end
     if BackpackState.UsesTBCBagIDs and BackpackState.UsesTBCBagIDs() then
         -- Frame names are pooled on Anniversary. Never let legacy per-frame
