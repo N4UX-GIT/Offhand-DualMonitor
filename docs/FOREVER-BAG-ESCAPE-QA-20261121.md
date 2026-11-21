@@ -176,3 +176,12 @@ a non-finite damage value to BreakUpLargeNumbers. The correction defers peer
 repair for that native taxi close and skips it during a world transition.
 The regression exercises both teardown and ordinary in-world panel settlement.
 [Forever taxi close handler](https://github.com/Gethe/wow-ui-source/blob/bebcb6bf309cf41b41bd74f8ca651e6a105b2676/Interface/AddOns/Blizzard_UIPanels_Game/Shared/TaxiFrame.lua#L128-L132)
+
+Packaged `43b419e` matched the installed runtime and passed 140 Lua suites
+and ten compatibility checker tests. In session 785, Moonweaver exited with
+both panels open on the same spanned workspace using Companion 2.1.9-beta.1.
+The recorder observed TAXIMAP_CLOSED, PLAYER_LEAVING_WORLD and PLAYER_LOGOUT
+in that order at the same timestamp, with both panel bounds unchanged.
+BugSack recorded zero new occurrences. Forever was closed and the temporary
+recorder was returned to its inert state. The combat placement result is from
+session 784 and the corrected client-exit result is from session 785.
