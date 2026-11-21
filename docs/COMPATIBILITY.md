@@ -49,11 +49,9 @@ freshness check fails until the affected cases are rerun. Updating fingerprints
 without a new matching live run does not renew evidence. Deferred cases remain
 deferred even when the fingerprints match.
 
-The November 18 real-interaction receipt deliberately reports a mismatch for
-Canvas.lua, CanvasPanelPlacement.lua and Init.lua in this bag branch. The local
-installation contains other candidate fixes. The actual game result is valid
-for that installation; it is not certification of the standalone branch or a
-future merged release.
+The November 21 native backpack receipt records the packaged runtime at
+`b46c4b1` on Forever 71037. Check a later combined candidate against its
+own runtime before promoting these results.
 
 ## Forever bag scope recorded through November 18, 2026
 
@@ -85,9 +83,10 @@ was rerun with OneForAll disabled.
 Actual NPC and inspection results:
 [November 18 QA](FOREVER-BAG-ESCAPE-QA-20261118.md).
 
-On the newer candidate the native backpack stayed on Offhand, but one
-player-operated inspection cleared the target too early. The release check
-remains open. [November 21 native backpack retest](FOREVER-BAG-ESCAPE-QA-20261121.md).
+The November 21 retest reproduced early target clearing when Inspect was
+visible outside both window registries. The corrected package passed that
+case, ordinary portrait-menu inspection and real NPC gossip.
+[November 21 native backpack retest](FOREVER-BAG-ESCAPE-QA-20261121.md).
 
 For the crafting Escape handler, expanded Spellbook, and isolated Bagnon,
 BetterBags, Bagnaros and Baganator checks on build 71037, see the

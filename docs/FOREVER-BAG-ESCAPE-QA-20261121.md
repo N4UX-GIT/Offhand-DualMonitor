@@ -34,9 +34,33 @@ The independent visibility and target recorder continued working. A reload
 removed the failing timer. The corrected observer checked the method, recorded
 the unavailable capability, and captured the final clean run.
 
-Treat the inspection result as intermittent on `5a521de`. Five subsequent
-inspections passed, including the player's retry. The initial confirmed failure
-keeps the native bag/Escape release check open. Its active binding was not
-recorded, so the cause remains unresolved. No production patch or replacement
-freshness receipt was issued. Combat, flight and equipped bags 1–4 remain
-outside these out-of-combat backpack checks.
+Five subsequent inspections passed on `5a521de`, including the player's
+retry. The original failing run did not capture the active binding.
+
+### Follow-up on the packaged fix
+
+The QA observer opened Inspect after requesting real player equipment and
+before the server's `INSPECT_READY` event. Blizzard's `ShowUIPanel` skips a
+frame that is already shown. The equipment loaded, but Inspect did not occupy
+a native panel slot. On Mainhand the special-window registration still let
+Escape close it. Dragging the frame to Offhand removed that registration.
+At that point the old build assigned Escape to its target button. The first
+press cleared the player and Inspect hid 38 ms later. This establishes one
+reproducible cause of the original symptom. The triggering conditions of
+the first player-operated run remain unknown.
+
+On `b46c4b1`, Offhand checks the visible Inspect frame before assigning
+target clearing and uses Blizzard's `HideUIPanel` to close that unlisted
+frame. On Forever 1.60.1.71037 with Companion 2.1.9-beta.1 the same
+early-show case preserved the player target on first Escape and cleared it
+on the second. Ordinary inspection via the target portrait menu and NPC
+gossip gave the same order. The separate backpack stayed at identical
+Offhand bounds; B closed it and reopened it there. BugSack and the
+blocked/forbidden event recorder were clear throughout the follow-up.
+
+The candidate ZIP differs from the previous ZIP only in
+`Core/CanvasForeverBags.lua`. Its SHA-256 is
+`db2a22de6c9d0d5b58ffb807d36ddc2679e563cf0e0b60a6c28078a67d699ee7`.
+The scope of the refreshed receipt is the separate backpack and these
+out-of-combat interactions. Combat, flight and equipped bags 1–4 remain
+deferred.
