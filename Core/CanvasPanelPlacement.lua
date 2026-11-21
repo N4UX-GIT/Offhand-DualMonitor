@@ -893,25 +893,30 @@ function Placement.Install(Canvas, services)
             end
         end
         if repairDefaults then self:RepairDefaultForeverSlots() end
-        local social = _G.SocialUIFrame
         local db = Offhand.db
-        local position = db and db.savedWorkspacePositions and db.savedWorkspacePositions.SocialUIFrame
-        if Offhand.isForever and db and db.enabled and type(position) == "table" and not position.autoRoute
-            and social and not social:IsForbidden() and social:IsShown() and not IsPanelDragging(social) and self.CanManagePanelsFromAddon()
-            and not Offhand.CanvasCompatibility.HasMoveAny() and not Offhand.CanvasCompatibility.HasClassicUIForever()
-            and not (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
-            -- Social can open at native size during lockdown. Re-enter the normal
-            -- fit and placement path as soon as resizing is available again.
-            local m = WithWorkspace(Offhand.Viewport:GetMetrics())
-            if m and m.isSpanned then
-                if Offhand.WorkspaceRegions then m = Offhand.WorkspaceRegions:ForFrame(m, social, position) end
-                local p = GetPanelPhysicalPlacement(social)
-                if p and (p.x < m.workspaceLeft or p.x + p.width > m.workspaceRight
-                    or p.y > m.workspaceTop or p.y - p.height < m.workspaceBottom) then
-                    RestoreWorkspacePosition(social)
+        if not Offhand.isForever or not db or not db.savedWorkspacePositions then return end
+        local function RefitVisiblePair()
+            if db ~= Offhand.db or not db.enabled or Offhand._loggingOut or InCombatLockdown()
+                or not self.CanManagePanelsFromAddon() or Offhand.CanvasCompatibility.HasMoveAny()
+                or Offhand.CanvasCompatibility.HasClassicUIForever()
+                or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
+            local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
+            if not metrics or not metrics.isSpanned then return end
+            for _, name in ipairs({"CharacterFrame", "SocialUIFrame"}) do
+                local frame, pos = _G[name], db.savedWorkspacePositions and db.savedWorkspacePositions[name]
+                if type(pos) == "table" and not pos.autoRoute and frame and frame:GetName() == name and not frame:IsForbidden()
+                    and frame:IsShown() and not IsPanelDragging(frame) then
+                    local m = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ForFrame(metrics,frame,pos) or metrics
+                    local p = GetPanelPhysicalPlacement(frame)
+                    if p and (p.x < m.workspaceLeft or p.x + p.width > m.workspaceRight
+                        or p.y > m.workspaceTop - 1 or p.y - p.height < m.workspaceBottom) then
+                        RestoreWorkspacePosition(frame)
+                    end
                 end
             end
         end
+        -- Finish after Blizzard's regeneration handlers have settled the slots.
+        if C_Timer and C_Timer.After then C_Timer.After(0, RefitVisiblePair) else RefitVisiblePair() end
     end
 
     function Canvas:ShouldDeferCombatSocialAnchor(frame)

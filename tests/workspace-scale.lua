@@ -228,5 +228,12 @@ local function separate()
 end
 separate()
 social.hidden=true;restore(character);social.hidden=false;restore(social);separate()
+social:SetScale(1);flush();restore(social);separate()
+social.hidden=true
+S:Apply(social,false,m);near(social.scale,1)
+S:Refresh();near(social.scale,433/675)
+assert(not social:IsShown(),"preparing Social must leave it closed")
+social.hidden=false
+social:SetScale(.55);flush();restore(social);near(social.scale,.55)
 near(a.db.savedWorkspacePositions.CharacterFrame.x,91)
 near(a.db.savedWorkspacePositions.SocialUIFrame.x,530)

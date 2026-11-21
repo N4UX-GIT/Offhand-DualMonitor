@@ -217,7 +217,7 @@ function Scale:ApplySingle(f,m,multiplier,owner,fit)
         -- Reapply their saved fit while respecting other explicit scale writes.
         local name=Name(f) or ""
         local restoresNative=name:match("^ContainerFrame") or (fit and Offhand.isForever
-            and (name=="ProfessionsFrame" or name=="PlayerSpellsFrame"))
+            and (name=="ProfessionsFrame" or name=="PlayerSpellsFrame" or name=="SocialUIFrame"))
         if not restoresNative or not Near(current,state.native) then
             self.state[f]=nil;self.released[f]=true;return true
         end
@@ -430,6 +430,12 @@ function Scale:Refresh()
             if f and Read(f,"IsShown") then
                 if canvas.RestoreRegionScaledPanel then canvas:RestoreRegionScaledPanel(f)
                 else canvas:RestoreWorkspacePosition(f) end
+            elseif f and Offhand.isForever and not m.workspaceRegions and type(saved[name])=="table"
+                and not saved[name].autoRoute and (name=="CharacterFrame" or name=="SocialUIFrame")
+                and self:Allowed(f) then
+                -- These panels can first be shown in lockdown. Fit an already
+                -- loaded hidden root without showing it or moving its anchor.
+                self:Apply(f,true,m)
             end
         end
     end

@@ -87,5 +87,23 @@ It stayed clipped for over 42 seconds after combat, then refitted to 445.1
 when the map reopened. The follow-up candidate checks the native-size Social
 rectangle during combat and restores a visible saved Social panel to its
 workspace at combat exit. A regression exercises a 675-unit Social panel on
-a 457-unit workspace. Player-operated confirmation with the QA helper
-disabled is pending.
+a 457-unit workspace.
+
+The player-operated control on `1ea7c2b` failed on the same Forever build
+and Companion. The installed files matched the candidate and the QA helper
+contained no executable code. The map had reopened automatically after
+reload. With M and B pressed once each in combat, BugSack session 776
+recorded one `ADDON_ACTION_BLOCKED` attributed to **Offhand**. The stack
+ends at Blizzard's `TOGGLEWORLDMAP` binding and reaches
+`Button:SetPassThroughButtons()` while acquiring a quest pin. No separate
+backpack error was recorded. The player opened Social then Character and
+reported both titles and both close buttons unreachable through combat exit.
+Both panels were inside the workspace in the screenshot following reload.
+The candidate therefore remains held for the map error and panel placement.
+
+A subsequent source change prepares loaded, hidden Character and Social
+roots at their saved workspace size outside combat. It recognizes Social
+returning to its native scale, preserves distinct external scale choices,
+and checks both visible panels on the next frame after combat. This passed
+the candidate's 140 Lua suites and ten checker tests. It was not installed
+for the native-M comparison, which must keep the same runtime as session 776.

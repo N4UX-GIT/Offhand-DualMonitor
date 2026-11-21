@@ -69,6 +69,7 @@ placement.Install(canvas, {
 })
 local social = {x=1113,y=986,moves=0}
 SocialUIFrame = social
+function social:GetName() return "SocialUIFrame" end
 function social:IsShown() return true end
 function social:IsForbidden() return false end
 function social:IsProtected() return self.protected == true end
