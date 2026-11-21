@@ -162,6 +162,28 @@ namespace Offhand.Companion
             Check(SpanDpiRetry.IsExact(requested, observed, 0x140B0000),
                 "exact window, client and region can commit");
 
+            // A span that lands mostly on a lower-scale monitor shrinks instead of growing.
+            var shrunk = new ClassicGraphicsRecovery.Observation {
+                Bounds = new Rectangle(-2160, -611, 3147, 1379), Client = new Size(3147, 1379),
+                Region = new Rectangle(Point.Empty, requested.Size), Style = 0x140B0000, Usable = true,
+            };
+            Check(SpanDpiRetry.Matches(requested, shrunk, 144, 96), "150% to 100% shrink triggers a retry");
+            Check(!SpanDpiRetry.Matches(requested, shrunk, 96, 144), "a shrink does not match a scale increase");
+            shrunk.Bounds.Width = 3000;
+            shrunk.Client = shrunk.Bounds.Size;
+            Check(!SpanDpiRetry.Matches(requested, shrunk, 144, 96), "a shrink cannot pass the scaled request");
+            Check(!SpanDpiRetry.Matches(requested, observed, 144, 96), "an exact window is not a DPI shrink");
+
+            // Every way of spanning gets the retry; only the graphics-recovery test candidate does not.
+            Check(SpanDpiRetry.Allowed(false), "manual, automatic, standard, custom, remote and recovery spans retry");
+            Check(!SpanDpiRetry.Allowed(true), "the graphics-recovery test candidate does not retry");
+            Check(SpanDpiRetry.SameSession(false, RemoteDesktop.State.Local, false, true), "local span, same displays");
+            Check(!SpanDpiRetry.SameSession(false, RemoteDesktop.State.Local, false, false), "local span, displays changed");
+            Check(!SpanDpiRetry.SameSession(false, RemoteDesktop.State.Active, false, true), "local span, session went remote");
+            Check(SpanDpiRetry.SameSession(true, RemoteDesktop.State.Active, true, true), "remote span, same connection");
+            Check(!SpanDpiRetry.SameSession(true, RemoteDesktop.State.Active, false, true), "remote span, connection changed");
+            Check(!SpanDpiRetry.SameSession(true, RemoteDesktop.State.Local, true, true), "remote span, session ended");
+
             using (var window = new Form())
             {
                 IntPtr handle = window.Handle;

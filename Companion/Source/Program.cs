@@ -2757,18 +2757,37 @@ namespace Offhand.Companion
         internal static bool Matches(Rectangle requested, ClassicGraphicsRecovery.Observation actual,
             uint beforeDpi, uint afterDpi)
         {
-            if (beforeDpi == 0 || afterDpi <= beforeDpi || actual == null || !actual.Usable
+            if (beforeDpi == 0 || afterDpi == 0 || afterDpi == beforeDpi || actual == null || !actual.Usable
                 || actual.Bounds.Location != requested.Location || actual.Client != actual.Bounds.Size
                 || actual.Region != new Rectangle(Point.Empty, requested.Size)
                 || (actual.Style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) != 0)
                 return false;
             // Windows can round the suggested dimensions and cap width at its
             // tracking limit. Require the height to match the measured DPI ratio
-            // and the width to grow without exceeding the scaled request.
+            // and the width to move toward the scaled request without passing it:
+            // larger when WoW lands on a higher scale, smaller on a lower one.
             double ratio = (double)afterDpi / beforeDpi;
-            return actual.Bounds.Width > requested.Width
-                && actual.Bounds.Width <= Math.Ceiling(requested.Width * ratio)
-                && Math.Abs(actual.Bounds.Height - requested.Height * ratio) <= 1;
+            bool width = afterDpi > beforeDpi
+                ? actual.Bounds.Width > requested.Width && actual.Bounds.Width <= Math.Ceiling(requested.Width * ratio)
+                : actual.Bounds.Width < requested.Width && actual.Bounds.Width >= Math.Floor(requested.Width * ratio);
+            return width && Math.Abs(actual.Bounds.Height - requested.Height * ratio) <= 1;
+        }
+
+        // Every kind of span gets the one exact retry: manual and automatic, standard and
+        // custom, Remote Desktop and graphics recovery. Only the graphics-recovery test
+        // candidate leaves it out, so its VSync measurements stay unchanged.
+        internal static bool Allowed(bool graphicsRecoveryTestBuild)
+        {
+            return !graphicsRecoveryTestBuild;
+        }
+
+        // The retry only runs when the session and the displays are still the ones the span was
+        // planned for. A local span needs the same local displays; a Remote Desktop span needs
+        // the same confirmed connection and displays.
+        internal static bool SameSession(bool remote, RemoteDesktop.State now, bool sameRemoteConnection, bool sameDisplays)
+        {
+            if (remote) return now == RemoteDesktop.State.Active && sameRemoteConnection && sameDisplays;
+            return now == RemoteDesktop.State.Local && sameDisplays;
         }
 
         internal static bool IsExact(Rectangle requested, ClassicGraphicsRecovery.Observation actual, int style)
@@ -8926,7 +8945,7 @@ namespace Offhand.Companion
                 Rectangle bounds = plannedBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
 
-                bool canRetryDpi = !remote && manual && plan.IsCustom && !graphicsRecovery && !GraphicsRecoveryTestBuild;
+                bool canRetryDpi = SpanDpiRetry.Allowed(GraphicsRecoveryTestBuild);
 #if GRAININESS_TEST
                 canRetryDpi = false;
 #endif
@@ -9062,15 +9081,19 @@ namespace Offhand.Companion
                             uint afterDpi = NativeMethods.ReadWindowDpi(handle);
                             failedBoundsReadback += " Window DPI before/after span: " + beforeDpi + "/" + afterDpi + ".";
                             uint currentOwner;
+                            List<MonitorSelection.Display> nowDisplays = ReadDisplays();
+                            RemoteDesktop.State nowSession = RemoteDesktop.Read();
                             if (SpanDpiRetry.Matches(bounds, observation, beforeDpi, afterDpi)
-                                && RemoteDesktop.Read() == RemoteDesktop.State.Local
-                                && MonitorSelection.SameDisplays(displays, ReadDisplays())
+                                && SpanDpiRetry.SameSession(remote, nowSession,
+                                    remote && RemoteDesktop.SameConnection(nowSession, remoteWatcher.Registered,
+                                        confirmedGeneration, remoteGeneration, displays, nowDisplays),
+                                    MonitorSelection.SameDisplays(displays, nowDisplays))
                                 && GetWoWWindowHandle(proc) == handle
                                 && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == spanThread
                                 && spanOwner == currentOwner
                                 && SpanClipRegion.Matches(handle, plan, bounds))
                             {
-                                AddLog(failedBoundsReadback + " Retrying the exact custom span once after the DPI change.");
+                                AddLog(failedBoundsReadback + " Retrying the exact span once after the DPI change.");
                                 NativeMethods.SetLastError(0);
                                 bool resized = NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.X, bounds.Y,
                                     bounds.Width, bounds.Height, flags);
@@ -9087,7 +9110,7 @@ namespace Offhand.Companion
                                 if (!resized) failedBoundsReadback += " SetWindowPos Windows error " + resizeError + ".";
                                 if (recovered)
                                 {
-                                    AddLog("Exact custom span verified after the window DPI settled.");
+                                    AddLog("Exact span verified after the window DPI settled.");
                                     failedBoundsReadback = null;
                                 }
                             }
