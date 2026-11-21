@@ -17,7 +17,7 @@
   },
   "deferred": [
     "flight paths",
-    "combat",
+    "in-combat Escape",
     "equipped bags 1-4"
   ],
   "evidence": "docs/FOREVER-BAG-ESCAPE-QA-20261121.md",

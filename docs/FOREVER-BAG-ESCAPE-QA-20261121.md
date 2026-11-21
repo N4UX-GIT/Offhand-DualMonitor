@@ -217,3 +217,19 @@ were identical at all checkpoints, the game menu stayed closed, and the
 original Inspect positions were restored. BugSack session 786 recorded zero
 new occurrences for the interaction run. The trace contained no blocked or
 forbidden addon-action events.
+
+### Player-operated combat on 43b419e
+
+In session 787, Moonweaver entered combat with the compact native map and
+separate backpack open on Offhand. M closed the map 2.25 seconds after entry.
+B closed the backpack at 3.47 seconds. Both stayed closed through combat exit.
+This is the native in-combat binding behavior. The keep-open controls were
+tested outside combat in session 786.
+
+O opened Social and C opened Character during the same fight. Both titles
+and close buttons were visible in the player's combat screenshot. Both panels
+had top 445.1 and height 433.1 in UIParent units. Character's side tabs ended
+at x = 713.4 and Social began at x = 721.3. Their positions held at combat
+exit and at the subsequent UI reload. BugSack's occurrence count was unchanged
+from session 786 through 787, with no blocked or forbidden addon actions in
+the combat trace.

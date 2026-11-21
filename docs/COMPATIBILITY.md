@@ -63,6 +63,7 @@ project, knowledge/offhand-forever-bag-compatibility-20261117.md.
 | Provider and tested version | Verified behavior | Remaining scope |
 | --- | --- | --- |
 | Native, Forever 70959 | Separate/combined target-clearing Escape; B and Shift-B toggles; window-first Escape; real NPC gossip and player inspection with the separate backpack on Offhand | Other equipped bags, combat, flight paths, other clients |
+| Native, Forever 71037, `43b419e` | Separate backpack with real NPC gossip, native and early-opening Inspect. B closed the open backpack during player-operated combat. | In-combat Escape, other equipped bags and flight paths |
 | Forever Bag Mover 0.8.0 | Vendor-saved Offhand placement; B/Shift-B using the same action; separate/combined Escape with special-window and native-panel fixtures | Actual NPC/inspection with that modifier enabled; conflicting vendor/Offhand positions |
 | FlareUI 6.11, Bags active | Target-clearing Escape, explicit B close/reopen; OneForAll on/off | Full suite combinations and real interaction callbacks |
 | Baganator 862 | First Escape target clearing, explicit close/reopen; earlier verified Options and restart persistence | Flight paths, combat, every layout/profile combination |
@@ -75,7 +76,8 @@ project, knowledge/offhand-forever-bag-compatibility-20261117.md.
 | EllesmereUI Bags 9.8.9 | Target-clearing Escape and explicit B; another vendor-registered window retains priority | Detached reagent window and other full UI modules |
 | AdiBags | No Forever live pass recorded | Identify a compatible Forever build or fork before claiming support |
 
-Flight paths and combat remain deferred across this work. OneForAll
+Flight paths remain deferred. The 71037 combat result covers the native
+backpack toggle. OneForAll
 independence is directly verified for native separate/combined, FlareUI and
 representative Baganator controls. Do not infer that every provider combination
 was rerun with OneForAll disabled.
