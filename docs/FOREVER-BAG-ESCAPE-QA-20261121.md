@@ -247,3 +247,17 @@ build-specific attribution. [Forever Spellbook tab selection](https://github.com
 Shift+P opened Collections during the same fight. The journal measured
 502.5 × 433.1 UI units at left 99.8, top 445.1 on Offhand. Those bounds
 held through combat exit and the subsequent reload checkpoint.
+
+In the comparison fight (session 791), the recorder confirmed
+`OffhandLoaded=false` at login. P retained its native `TOGGLESPELLBOOK`
+binding and opened the expanded book outside combat. From a closed book,
+the player pressed P once in combat. The book stayed hidden. At 1.16 seconds
+after combat entry the client blocked the same protected attribute write
+under the same attribution. BugSack gained one occurrence with the same
+stack as session 788. Other addons and the latest portable Companion remained
+active in both runs. This reproduces the failure without Offhand on this
+setup. Its underlying cause remains open. The Spellbook result does not block
+release of the tested pair. Moonweaver's original addon enablement file was
+verified after reload, the temporary recorder was deactivated and the
+Spellbook returned to compact mode. BugSack gained zero occurrences from
+restoration through client exit in session 792.
