@@ -2134,15 +2134,7 @@ function Canvas:EnableFreeDragging()
             Canvas._socialPanelHideTransactionHooked = true
             hooksecurefunc("HideUIPanel", function(closedFrame)
                 if closedFrame and IsPanelEvicting(closedFrame) then return end
-                local function Repair()
-                    RepairUIPanelTransaction(closedFrame, true)
-                    Canvas:RepairDefaultForeverSlots()
-                end
-                Repair()
-                if C_Timer and C_Timer.After then
-                    C_Timer.After(0, Repair)
-                    C_Timer.After(0.10, Repair)
-                end
+                foreverMap.RepairAfterPanelHide(closedFrame)
             end)
         end
         if type(_G.UpdateUIPanelPositions) == "function"

@@ -625,6 +625,23 @@ function Adapter.Install(Canvas, services)
         Canvas:RepairShownSocialCommunityPanels()
     end
 
+    local function RepairAfterPanelHide(closedFrame)
+        local function Repair()
+            if Offhand._loggingOut or Offhand._openPanelsCapturedForTransition then return end
+            RepairUIPanelTransaction(closedFrame, true)
+            Canvas:RepairDefaultForeverSlots()
+        end
+        -- Forever also dispatches TAXIMAP_CLOSED at exit. Let the transition
+        -- start before repairing peers or re-showing a native Character panel.
+        if not (Offhand.isForever and closedFrame and closedFrame == _G.TaxiFrame) then
+            Repair()
+        end
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0, Repair)
+            C_Timer.After(0.10, Repair)
+        end
+    end
+
     local function AttachForeverWorldMapDragHandle(map)
         if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
         if ShouldYieldWorldMapToMoveAny(map) and not SupportsExternalWorldMapEscapeProtection(map) then return false end
@@ -884,6 +901,7 @@ function Adapter.Install(Canvas, services)
 
     return {
         RepairUIPanelTransaction = RepairUIPanelTransaction,
+        RepairAfterPanelHide = RepairAfterPanelHide,
         AttachDragHandle = AttachForeverWorldMapDragHandle,
     }
 end

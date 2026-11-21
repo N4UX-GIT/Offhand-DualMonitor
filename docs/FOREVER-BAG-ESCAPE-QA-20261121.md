@@ -162,3 +162,17 @@ shows that the first open refreshes Character to its native width and height.
 The follow-up applies that size when fitting hidden Character and includes
 Character's tabs when resolving a collision for Social during combat.
 [Forever CharacterFrameMixin:UpdateSize](https://github.com/Gethe/wow-ui-source/blob/bebcb6bf309cf41b41bd74f8ca651e6a105b2676/Interface/AddOns/Blizzard_UIPanels_Game/Camelot/CharacterFrame.lua#L248-L251)
+
+Session 784 on packaged `df813a6` passed the O-then-C combat placement
+check. On Moonweaver's 1440 × 600 Offhand workspace both panels had top
+445.1 and height 433.1. Character's side tabs ended at 713.4 and Social
+began at 721.3. The recorder observed the same positions at combat exit and
+logout. Both titles and close buttons were visible in the combat screenshot.
+
+BugSack recorded one new occurrence at 03:03:10 during client exit.
+Blizzard's TAXIMAP_CLOSED handler called HideUIPanel, and Offhand's synchronous
+peer repair evicted and re-showed Character. Blizzard's paper doll then passed
+a non-finite damage value to BreakUpLargeNumbers. The correction defers peer
+repair for that native taxi close and skips it during a world transition.
+The regression exercises both teardown and ordinary in-world panel settlement.
+[Forever taxi close handler](https://github.com/Gethe/wow-ui-source/blob/bebcb6bf309cf41b41bd74f8ca651e6a105b2676/Interface/AddOns/Blizzard_UIPanels_Game/Shared/TaxiFrame.lua#L128-L132)

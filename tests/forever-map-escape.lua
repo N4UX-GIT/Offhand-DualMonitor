@@ -644,6 +644,27 @@ assert(GetUIPanel("left") ~= CharacterFrame and CharacterFrame:IsShown(),
 assert(CharacterFrame:GetLeft() < metrics.workspaceRight,
     "A restored CharacterFrame must remain on the workspace")
 
+do
+    local previousTaxi, previousTimer, pending = TaxiFrame, C_Timer, {}
+    TaxiFrame = makePanel("TaxiFrame", false, 0, 0, 400, 400)
+    C_Timer = {After=function(_, callback) pending[#pending + 1] = callback end}
+    activePanels.left = CharacterFrame
+    CharacterFrame.left = 1800
+    mapTransactions.RepairAfterPanelHide(TaxiFrame)
+    assert(activePanels.left == CharacterFrame and #pending == 2, "taxi close must defer peer repair")
+    addon._openPanelsCapturedForTransition = true
+    for _, callback in ipairs(pending) do callback() end
+    assert(activePanels.left == CharacterFrame and CharacterFrame:IsShown(),
+        "a taxi close during exit must not evict or re-show the paper doll")
+    addon._openPanelsCapturedForTransition = false
+    pending = {}
+    mapTransactions.RepairAfterPanelHide(TaxiFrame)
+    for _, callback in ipairs(pending) do callback() end
+    assert(activePanels.left ~= CharacterFrame and CharacterFrame:IsShown(),
+        "an ordinary taxi close must still settle peers in the active world")
+    TaxiFrame, C_Timer = previousTaxi, previousTimer
+end
+
 activePanels.left = CharacterFrame
 CharacterFrame.left = 1800
 WorldMapFrame:Hide()
