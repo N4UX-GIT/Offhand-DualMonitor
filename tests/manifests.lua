@@ -86,7 +86,7 @@ local canvasChatIndex
 local canvasProfessionsIndex
 local canvasPanelMotionIndex
 local canvasMapPresentationIndex
-local daylightMapCompatibilityIndex
+local bridgesIndex
 local canvasPanelLifecycleIndex
 local canvasPanelPlacementIndex
 local canvasIndex
@@ -121,7 +121,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasProfessions.lua" then canvasProfessionsIndex = index end
     if file == "Core/CanvasPanelMotion.lua" then canvasPanelMotionIndex = index end
     if file == "Core/CanvasMapPresentation.lua" then canvasMapPresentationIndex = index end
-    if file == "Core/DaylightMapCompatibility.lua" then daylightMapCompatibilityIndex = index end
+    if file == "Core/Bridges.lua" then bridgesIndex = index end
     if file == "Core/CanvasPanelLifecycle.lua" then canvasPanelLifecycleIndex = index end
     if file == "Core/CanvasPanelPlacement.lua" then canvasPanelPlacementIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
@@ -163,8 +163,8 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasChatIndex + 1 == canvasProfessionsIndex
         and canvasProfessionsIndex + 1 == canvasPanelMotionIndex
         and canvasPanelMotionIndex + 1 == canvasMapPresentationIndex
-        and canvasMapPresentationIndex + 1 == daylightMapCompatibilityIndex
-        and daylightMapCompatibilityIndex + 1 == canvasPanelLifecycleIndex
+        and canvasMapPresentationIndex + 1 == bridgesIndex
+        and bridgesIndex + 1 == canvasPanelLifecycleIndex
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")

@@ -1,0 +1,18 @@
+## Interface: 16001
+## Title: |cffffbd0aOffhand|r |cffffffff[DaylightUI Bridge]|r
+## Notes: Keeps DaylightUI on Offhand's game monitor. Loads only when Offhand and DaylightUI are both enabled.
+## Author: Kintrok, N4UX (Noggaholic)
+## Version: 2.1.5
+## X-Offhand-Bridge: DaylightUI
+## X-Offhand-Bridge-Contract: 1
+## Group: Offhand
+## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
+## Dependencies: Offhand, DaylightUI
+## SavedVariables: OffhandDaylightUIDB
+
+Core.lua
+Placement.lua
+Scenes.lua
+Map.lua
+Bags.lua
+Init.lua

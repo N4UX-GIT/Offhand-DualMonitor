@@ -23,17 +23,11 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 function New-PortableZip {
     param(
         [Parameter(Mandatory = $true)][string]$SourceDirectory,
-        [Parameter(Mandatory = $true)][string]$DestinationPath,
-        [switch]$IncludeRootDirectory
+        [Parameter(Mandatory = $true)][string]$DestinationPath
     )
 
     $source = (Resolve-Path -LiteralPath $SourceDirectory).Path.TrimEnd('\', '/')
-    $relativeBase = if ($IncludeRootDirectory) {
-        Split-Path -Parent $source
-    } else {
-        $source
-    }
-    $relativeBase = $relativeBase.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $relativeBase = $source + [IO.Path]::DirectorySeparatorChar
 
     if (Test-Path -LiteralPath $DestinationPath) {
         Remove-Item -LiteralPath $DestinationPath -Force
@@ -159,7 +153,10 @@ if (-not $CompanionChanged -and -not $CandidateId) {
 # 3. Package In-Game Addon for CurseForge / Wago
 Write-Host "
 [3/$stepTotal] Packaging In-Game Addon (Offhand-v$addonArtifactVersion.zip)..." -ForegroundColor Yellow
-$addonStaging = Join-Path $tempDir "Offhand"
+# Bridge addons sit beside Offhand in one package root because the client
+# loads only addons placed directly under Interface\AddOns.
+$addonPackageRoot = Join-Path $tempDir "Offhand-Package"
+$addonStaging = Join-Path $addonPackageRoot "Offhand"
 New-Item -ItemType Directory -Path $addonStaging -Force | Out-Null
 
 # Copy root addon files
@@ -174,10 +171,51 @@ Copy-Item (Join-Path $rootDir "LICENSE") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "README.md") -Destination $addonStaging
 Copy-Item (Join-Path $rootDir "CHANGELOG.md") -Destination $addonStaging
 
+# Each Bridges\<Name> folder ships as a sibling addon folder named after its
+# single Offhand_<Name>.toc, with only that TOC and the files it loads.
+$bridgeStagings = @()
+$bridgeManifests = @()
+$bridgesDir = Join-Path $rootDir "Bridges"
+if (Test-Path -LiteralPath $bridgesDir -PathType Container) {
+    foreach ($bridgeDir in Get-ChildItem -LiteralPath $bridgesDir -Directory | Sort-Object Name) {
+        $bridgeTocs = @(Get-ChildItem -LiteralPath $bridgeDir.FullName -File |
+            Where-Object { $_.Extension -eq '.toc' })
+        if ($bridgeTocs.Count -ne 1) {
+            throw "Bridge folder $($bridgeDir.Name) must contain exactly one TOC; found $($bridgeTocs.Count)."
+        }
+        $bridgeToc = $bridgeTocs[0]
+        if (-not $bridgeToc.BaseName.StartsWith('Offhand_', [StringComparison]::Ordinal)) {
+            throw "Bridge TOC $($bridgeToc.Name) must be named Offhand_<Name>.toc."
+        }
+        $bridgeStaging = Join-Path $addonPackageRoot $bridgeToc.BaseName
+        New-Item -ItemType Directory -Path $bridgeStaging -Force | Out-Null
+        Copy-Item -LiteralPath $bridgeToc.FullName -Destination $bridgeStaging
+        $bridgeBase = $bridgeDir.FullName.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+        foreach ($line in [IO.File]::ReadAllLines($bridgeToc.FullName)) {
+            $listed = $line.Trim()
+            if (-not $listed -or $listed.StartsWith('#')) { continue }
+            $source = [IO.Path]::GetFullPath((Join-Path $bridgeDir.FullName $listed.Replace('/', '\')))
+            if (-not $source.StartsWith($bridgeBase, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "$($bridgeToc.Name) loads a file outside its bridge folder: $listed"
+            }
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
+                throw "$($bridgeToc.Name) loads a missing file: $listed"
+            }
+            $destination = Join-Path $bridgeStaging $source.Substring($bridgeBase.Length)
+            New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+            Copy-Item -LiteralPath $source -Destination $destination -Force
+        }
+        $bridgeStagings += $bridgeStaging
+        $bridgeManifests += Join-Path $bridgeStaging $bridgeToc.Name
+    }
+}
+
 if ($CandidateId) {
     $titlePattern = [regex]::new('(?m)^(## Title:[^\r\n]*)(\r?\n)')
     $utf8 = New-Object Text.UTF8Encoding($false)
-    foreach ($manifest in Get-ChildItem -LiteralPath $addonStaging -Filter 'Offhand*.toc' -File) {
+    $candidateManifests = @(Get-ChildItem -LiteralPath $addonStaging -Filter 'Offhand*.toc' -File) +
+        @($bridgeManifests | ForEach-Object { Get-Item -LiteralPath $_ })
+    foreach ($manifest in $candidateManifests) {
         $content = [IO.File]::ReadAllText($manifest.FullName)
         if ($content -match '(?m)^## X-Offhand-(Candidate|Test-Build):' -or $titlePattern.Matches($content).Count -ne 1) {
             throw "Expected one title and no candidate marker in $($manifest.Name)."
@@ -203,7 +241,7 @@ New-Item -ItemType Directory -Path $mediaStaging -Force | Out-Null
 Copy-Item (Join-Path $rootDir "Media\*.blp") -Destination $mediaStaging -Force
 
 $addonZip = Join-Path $distDir "Offhand-v$addonArtifactVersion.zip"
-New-PortableZip -SourceDirectory $addonStaging -DestinationPath $addonZip -IncludeRootDirectory
+New-PortableZip -SourceDirectory $addonPackageRoot -DestinationPath $addonZip
 Write-Host "  -> Created: $addonZip" -ForegroundColor Green
 
 if ($AddonOnly) {
@@ -300,6 +338,9 @@ $bundleStaging = Join-Path $tempDir "Offhand-Bundle"
 New-Item -ItemType Directory -Path $bundleStaging -Force | Out-Null
 
 Copy-Item $addonStaging -Destination (Join-Path $bundleStaging "Offhand") -Recurse
+foreach ($bridgeStaging in $bridgeStagings) {
+    Copy-Item $bridgeStaging -Destination (Join-Path $bundleStaging (Split-Path -Leaf $bridgeStaging)) -Recurse
+}
 Copy-Item $companionExe -Destination (Join-Path $bundleStaging "Offhand.exe")
 Copy-Item (Join-Path $rootDir "README.md") -Destination $bundleStaging
 Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $bundleStaging

@@ -1,10 +1,14 @@
--- Cooperate with DaylightUI's public map mover without changing its saved DB
--- or hooking the native map's geometry methods/scripts. Inspected 1.6.5.2/1.6.6:
+local ADDON_NAME, ns = ...
+local Offhand = ns.Offhand or _G.Offhand
+if ns.contract == false then return end
+
+-- Stands DaylightUI's public map mover aside while Offhand places the world
+-- map (Offhand.API.OwnsWorldMapPlacement), without changing its saved DB or
+-- hooking the native map's geometry methods/scripts. Inspected 1.6.5.2/1.6.6:
 -- Start accepts its config, Scale is read dynamically by all retained Apply
 -- callbacks, and only MapMove reads the projected config supplied here.
-local _, Offhand = ...
 local Adapter = {}
-Offhand.DaylightMapCompatibility = Adapter
+ns.Map = Adapter
 local states = setmetatable({}, { __mode = "k" })
 local current
 
@@ -14,8 +18,7 @@ end
 
 local function FindModule()
     local vendor = _G.DaylightUI
-    if not Offhand.isForever or type(vendor) ~= "table"
-        or type(vendor.GetModule) ~= "function" then return end
+    if type(vendor) ~= "table" or type(vendor.GetModule) ~= "function" then return end
     local ok, module = pcall(vendor.GetModule, vendor, "Skins")
     if ok and type(module) == "table" and type(module.ns) == "table" then
         return vendor, module, module.ns.MapMove
@@ -23,28 +26,12 @@ local function FindModule()
 end
 
 local function WantsOwnership(state)
-    local db, map = Offhand.db, _G.WorldMapFrame
-    if state ~= current or not Offhand.isForever or not db or not db.enabled
+    if state ~= current
         or _G.DaylightUI ~= state.vendor or state.module.enabled == false
         or type(state.module.db) ~= "table"
         or state.module.ns.MapMove ~= state.mover
-        or state.mover.Start ~= state.wrappedStart or state.mover.Scale ~= state.wrappedScale
-        or not map or type(map.GetScale) ~= "function"
-        or (map.IsForbidden and map:IsForbidden()) then return false end
-    if map.IsMaximized and map:IsMaximized() then return false end
-    local canvas = Offhand.Canvas
-    if not canvas or not canvas.CanManagePanelsFromAddon
-        or not canvas.CanManagePanelsFromAddon() then return false end
-    local compatibility = Offhand.CanvasCompatibility
-    if compatibility and compatibility.GetWorldMapExternalOwner() then return false end
-    local persistence = Offhand.CanvasPersistence
-    if not persistence or not (persistence.IsPosition(db.savedWorkspacePositions
-        and db.savedWorkspacePositions.WorldMapFrame)
-        or persistence.IsPosition(db.savedMainPositions and db.savedMainPositions.WorldMapFrame)) then
-        return false
-    end
-    local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-    if not metrics or not metrics.isSpanned then return false end
+        or state.mover.Start ~= state.wrappedStart or state.mover.Scale ~= state.wrappedScale then return false end
+    if not Offhand.API.OwnsWorldMapPlacement() then return false end
     -- Do not acquire interactive controls in the middle of a vendor resize or
     -- combat. An already acquired projection can keep suppressing map writes.
     if state.mover.grip and state.mover.grip.grab then return false end

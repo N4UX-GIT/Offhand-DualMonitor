@@ -76,8 +76,10 @@ local function offhandPlacement()
     map.scale, map.spot = 1.86, {1056, 540}
 end
 offhandPlacement()
-assert(loadfile("Core/DaylightMapCompatibility.lua"))("Offhand", addon)
-local adapter = addon.DaylightMapCompatibility
+assert(loadfile("Core/Bridges.lua"))("Offhand", addon)
+local ns = {Offhand = addon}
+assert(loadfile("Bridges/DaylightUI/Map.lua"))("Offhand_DaylightUI", ns)
+local adapter = ns.Map
 adapter:Refresh()
 local wrappedStart, wrappedScale = mover.Start, mover.Scale
 local sw, pw = map.scaleWrites, map.pointWrites

@@ -15,7 +15,8 @@ python -m unittest discover -s tests -p test_compatibility_check.py -v
 python scripts/check-compatibility.py --report dist/compatibility-check.json
 ```
 
-The portable command follows all six manifests and nested XML loads, rejects
+The portable command follows the six client manifests, every bridge manifest
+under `Bridges/`, and nested XML loads, rejects
 duplicate, missing or external paths, checks Lua 5.1 syntax and runs every Lua
 suite in tests. CI runs the manifest/freshness checker and its tests, then runs
 all Lua suites through the existing CI step.
@@ -31,7 +32,9 @@ python scripts/check-compatibility.py --skip-lua-tests --installed 'C:/Games/Wor
 ```
 
 Only the known Companion-generated ForeverState and CompanionTopology files
-are excluded from the installed-source comparison. A mismatch exits with a
+are excluded from the installed-source comparison. Bridge files, including each
+bridge TOC, are compared with the sibling `Offhand_<Name>` folder next to the
+installed Offhand folder. A mismatch exits with a
 failure so a mixed local install cannot be silently described as this branch.
 Reconcile the intended build before testing. Preserve deliberate changes from
 other branches; do not overwrite the entire installed addon as a shortcut.
@@ -93,6 +96,13 @@ case, ordinary portrait-menu inspection and real NPC gossip.
 For the crafting Escape handler, expanded Spellbook, and isolated Bagnon,
 BetterBags, Bagnaros and Baganator checks on build 71037, see the
 [November 21 Forever QA](FOREVER-CRAFTING-BAG-ESCAPE-QA-20261121.md).
+
+## Bridge addons
+
+Adapters for a single third-party addon ship as separate bridge addons; see
+[BRIDGES.md](BRIDGES.md). The handling behind the DaylightUI Bags row above
+now ships in the `Offhand_DaylightUI` bridge instead of Offhand's core. That
+row's result was recorded before the move and needs a re-run in bridge form.
 
 ## Preserve the baseline when changing compatibility
 

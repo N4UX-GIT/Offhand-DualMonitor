@@ -77,25 +77,58 @@ def live_status(root: Path, receipt: dict) -> dict:
     }
 
 
+def bridge_toc(directory: Path) -> Path:
+    """A bridge folder holds exactly one Offhand_<Name>.toc; it ships as Offhand_<Name>/."""
+    tocs = sorted(p for p in directory.iterdir() if p.is_file() and p.suffix.lower() == ".toc")
+    if len(tocs) != 1 or not tocs[0].stem.startswith("Offhand_"):
+        raise ValueError(f"Bridges/{directory.name} must contain exactly one Offhand_<Name>.toc")
+    return tocs[0]
+
+
+def bridge_manifests(root: Path) -> list[Path]:
+    bridges = root / "Bridges"
+    if not bridges.is_dir():
+        return []
+    return [bridge_toc(directory) for directory in sorted(p for p in bridges.iterdir() if p.is_dir())]
+
+
 def installed_differences(root: Path, installed: Path, files: set[Path]) -> list[str]:
+    """Root files compare with the installed Offhand folder. Bridge files, and
+    each bridge TOC, compare with the sibling Offhand_<Name> folder."""
+    targets: dict[Path, Path] = {}
+    for path in files:
+        relative = path.relative_to(root)
+        if relative.parts[0] == "Bridges" and len(relative.parts) > 2:
+            directory = root / "Bridges" / relative.parts[1]
+            toc = bridge_toc(directory)
+            sibling = installed.parent / toc.stem
+            targets[path] = sibling / path.relative_to(directory)
+            targets[toc] = sibling / toc.name
+        else:
+            targets[path] = installed / relative
     changed = []
-    for path in sorted(files):
+    for path in sorted(targets):
         name = path.relative_to(root).as_posix()
         if name in GENERATED:
             continue
-        target = installed / name
+        target = targets[path]
         if not target.is_file() or source_hash(path.read_bytes()) != source_hash(target.read_bytes()):
             changed.append(name)
     return changed
 
 
 def run_checks(root: Path, args: argparse.Namespace) -> dict:
-    manifests = sorted(root.glob("Offhand*.toc"))
-    if not manifests:
+    clients = sorted(root.glob("Offhand*.toc"))
+    if not clients:
         raise ValueError("No Offhand manifests found")
+    bridges = bridge_manifests(root)
+    manifests = clients + bridges
     files: set[Path] = set()
     for toc in manifests:
-        files.update(manifest_files(root, toc))
+        loaded = manifest_files(root, toc)
+        if toc in bridges and any(not path.is_relative_to(toc.parent.resolve()) for path in loaded):
+            raise ValueError(f"{toc.name}: loads a file outside its bridge folder")
+        files.update(loaded)
     compiler = args.luac or shutil.which("luac") or shutil.which("luac.exe")
     if not compiler:
         raise ValueError("Lua 5.1 compiler required; pass --luac")
@@ -123,7 +156,8 @@ def run_checks(root: Path, args: argparse.Namespace) -> dict:
     status = [live_status(root, json.loads(p.read_text(encoding="utf-8"))) for p in receipts]
     installed = installed_differences(root, Path(args.installed).resolve(), files) if args.installed else []
     return {
-        "manifests": len(manifests), "runtime_lua_files": len(lua_files),
+        "manifests": len(manifests), "bridges": [toc.stem for toc in bridges],
+        "runtime_lua_files": len(lua_files),
         "lua_suites": len(suites), "lua_suites_run": not args.skip_lua_tests,
         "live_evidence": status, "installed_differences": installed,
     }
@@ -145,7 +179,9 @@ def main() -> int:
             report = Path(args.report)
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-        print(f"PASS: {result['manifests']} manifests, {result['runtime_lua_files']} runtime Lua files, "
+        bridges = len(result["bridges"])
+        bridge_note = f" ({bridges} bridge{'' if bridges == 1 else 's'})" if bridges else ""
+        print(f"PASS: {result['manifests']} manifests{bridge_note}, {result['runtime_lua_files']} runtime Lua files, "
               f"{result['lua_suites']} Lua suites ({'run' if result['lua_suites_run'] else 'handled separately'}).")
         for status in result["live_evidence"]:
             state = "RETEST REQUIRED" if status["retest_required"] else "RECORDED SOURCE MATCHES"

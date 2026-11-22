@@ -2220,23 +2220,23 @@ local bagPoint = recoveryBag.points[#recoveryBag.points]
 assert(bagPoint and bagPoint[1] == "BOTTOMRIGHT" and bagPoint[3] == "BOTTOMRIGHT",
     "the backpack must recover above the lower-right action UI")
 do
-    local previous = addon.DaylightMapCompatibility
+    local previous = addon.Bridges
     local map = makeMockFrame("WorldMapFrame", 600, 400)
     local saved = addon.db.savedWorkspacePositions.WorldMapFrame
     addon.db.savedWorkspacePositions.WorldMapFrame = {x=100,y=900}
     map:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",19,1141)
     local points = #map.points
-    addon.DaylightMapCompatibility = {ShouldPreserveSingleScreenPosition=function(_,frame,metrics)
+    addon.Bridges = {ShouldPreserveSingleScreenPosition=function(_,frame,metrics)
         return frame == map and not metrics.isSpanned
     end}
     assert(not addon.Canvas:PlaceForSingleScreenRecovery(map,
         {topologyStatus="MISMATCH",isSpanned=false}) and #map.points == points,
-        "single-screen recovery must not replace Daylight's restored vendor anchor")
-    addon.DaylightMapCompatibility.ShouldPreserveSingleScreenPosition=function()return false end
+        "single-screen recovery must not replace a bridge's restored vendor anchor")
+    addon.Bridges.ShouldPreserveSingleScreenPosition=function()return false end
     assert(addon.Canvas:PlaceForSingleScreenRecovery(map,
         {topologyStatus="MISMATCH",isSpanned=false}),
         "a map without verified vendor placement must retain native recovery")
-    addon.DaylightMapCompatibility = previous
+    addon.Bridges = previous
     addon.db.savedWorkspacePositions.WorldMapFrame = saved
 end
 recoveryPanel:Show()

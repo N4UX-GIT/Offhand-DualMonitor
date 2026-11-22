@@ -48,6 +48,11 @@ Addon work must not modify or rebuild `Companion/Offhand.exe`. Ordinary addon
 branches retain the exact frozen executable and its approved SHA-256. Companion
 changes use `companion/develop` and the Companion release workflow.
 
+Adapters for one third-party addon belong in a bridge addon under
+`Bridges/<Name>/`, not in Offhand's core. A bridge ships as its own
+`Offhand_<Name>` folder beside `Offhand` in the release archives. See
+[BRIDGES.md](BRIDGES.md) for the contract, packaging and checks.
+
 ## Evidence states
 
 Use these terms consistently in issues, pull requests, QA notes, and release

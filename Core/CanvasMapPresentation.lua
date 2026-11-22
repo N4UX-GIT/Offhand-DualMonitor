@@ -357,7 +357,7 @@ function Map.InstallConfiguration(Canvas, services)
     end
 
     function Canvas:ConfigureWorldMap(destination)
-        if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
+        if Offhand.Bridges then Offhand.Bridges:Refresh("map") end
         -- Canvas scale/fader/settlement belongs to keyboard workspace mode.
         -- The Gamepad adapter is the sole root-position writer in native UI.
         if Map.IsNativeGamepadOwned(self) then return end

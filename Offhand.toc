@@ -69,7 +69,7 @@ Core\CanvasChat.lua
 Core\CanvasProfessions.lua
 Core\CanvasPanelMotion.lua
 Core\CanvasMapPresentation.lua
-Core\DaylightMapCompatibility.lua
+Core\Bridges.lua
 Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua

@@ -1,3 +1,4 @@
+import argparse
 import importlib.util
 from pathlib import Path
 import tempfile
@@ -81,6 +82,60 @@ class CompatibilityChecks(unittest.TestCase):
         self.assertEqual(check.installed_differences(self.root, target, {source, generated}), [])
         (target / "Core/Test.lua").write_text("different")
         self.assertEqual(check.installed_differences(self.root, target, {source, generated}), ["Core/Test.lua"])
+
+    def make_bridge(self, toc_name="Offhand_Example.toc", body="Init.lua\n"):
+        bridge = self.root / "Bridges/Example"
+        bridge.mkdir(parents=True, exist_ok=True)
+        (bridge / "Init.lua").write_text("return true\n")
+        (bridge / toc_name).write_text("## Dependencies: Offhand, Example\n" + body)
+        return bridge
+
+    def test_bridge_manifest_is_discovered_and_followed(self):
+        bridge = self.make_bridge()
+        self.assertEqual(check.bridge_manifests(self.root), [bridge / "Offhand_Example.toc"])
+        self.assertEqual(check.manifest_files(self.root, bridge / "Offhand_Example.toc"), {bridge / "Init.lua"})
+
+    def test_no_bridges_folder_means_no_bridge_manifests(self):
+        self.assertEqual(check.bridge_manifests(self.root), [])
+
+    def test_bridge_folder_needs_exactly_one_offhand_prefixed_toc(self):
+        bridge = self.make_bridge()
+        (bridge / "Offhand_Other.toc").write_text("Init.lua\n")
+        with self.assertRaisesRegex(ValueError, "exactly one Offhand_<Name>.toc"):
+            check.bridge_manifests(self.root)
+        (bridge / "Offhand_Other.toc").unlink()
+        (bridge / "Offhand_Example.toc").rename(bridge / "Example.toc")
+        with self.assertRaisesRegex(ValueError, "exactly one Offhand_<Name>.toc"):
+            check.bridge_manifests(self.root)
+
+    def test_bridge_load_paths_cannot_escape_the_repository(self):
+        bridge = self.make_bridge(body="../../../Outside.lua\n")
+        with self.assertRaisesRegex(ValueError, "Missing or external"):
+            check.manifest_files(self.root, bridge / "Offhand_Example.toc")
+
+    def test_bridge_cannot_load_files_outside_its_own_folder(self):
+        self.toc.write_text("Core/Test.lua\n")
+        self.make_bridge(body="../../Core/Test.lua\n")
+        args = argparse.Namespace(luac=str(self.root / "missing-luac"))
+        with self.assertRaisesRegex(ValueError, "outside its bridge folder"):
+            check.run_checks(self.root, args)
+
+    def test_installed_comparison_maps_bridge_files_to_the_sibling_addon_folder(self):
+        bridge = self.make_bridge()
+        source = self.root / "Core/Test.lua"
+        files = {source} | check.manifest_files(self.root, bridge / "Offhand_Example.toc")
+        installed = self.root / "AddOns/Offhand"
+        (installed / "Core").mkdir(parents=True)
+        (installed / "Core/Test.lua").write_bytes(source.read_bytes())
+        self.assertEqual(check.installed_differences(self.root, installed, files),
+                         ["Bridges/Example/Init.lua", "Bridges/Example/Offhand_Example.toc"])
+        sibling = self.root / "AddOns/Offhand_Example"
+        sibling.mkdir()
+        for name in ("Init.lua", "Offhand_Example.toc"):
+            (sibling / name).write_bytes((bridge / name).read_bytes())
+        self.assertEqual(check.installed_differences(self.root, installed, files), [])
+        (sibling / "Init.lua").write_text("different")
+        self.assertEqual(check.installed_differences(self.root, installed, files), ["Bridges/Example/Init.lua"])
 
 
 if __name__ == "__main__":

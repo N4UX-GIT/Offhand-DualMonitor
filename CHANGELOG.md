@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+- **DaylightUI on your game monitor.** A new optional bridge addon, Offhand_DaylightUI, loads when both Offhand and DaylightUI are enabled. It keeps DaylightUI’s bars, windows, banners, AFK screen, fishing and campfire scenes, data bar, loot rolls and vendor window on your game monitor instead of across both. Not yet tested in game in this packaged form.
+- DaylightUI’s map and bag handling moved from Offhand into that bridge. Offhand’s own files no longer name DaylightUI; other addons can be adapted the same way (docs/BRIDGES.md).
+
 ## [2.1.5-beta.38] - 2026-11-21
 
 - **Pick up where you left off on Forever.** With window restoration on, reload with your backpack, satchel or compact Blizzard map open on Offhand and they return to their saved spots. Close a window before reloading and it stays closed. Separate bags start closed on a fresh login.
