@@ -1,0 +1,58 @@
+name: Publish reviewed Beta 39 to CurseForge
+on:
+  push:
+    branches: [codex/curseforge-beta39-publication]
+    paths: [.github/workflows/curseforge-beta39.yml]
+permissions:
+  contents: read
+jobs:
+  publish:
+    if: github.repository == 'N4UX-GIT/Offhand-DualMonitor' && github.run_attempt == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public release and prepare player notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          release='https://api.github.com/repos/N4UX-GIT/Offhand-DualMonitor/releases/tags/v2.1.5-beta.39'
+          curl --fail --silent --show-error "$release" -o release.json
+          jq -e '.tag_name == "v2.1.5-beta.39" and .prerelease and (.draft|not)' release.json >/dev/null
+          url='https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5-beta.39/Offhand-v2.1.5-beta.39.zip'
+          curl --fail --silent --show-error --location "$url" -o Offhand-v2.1.5-beta.39.zip
+          echo '225268b9e6d61a6d7413277cbf8c832f415d12c0bc749eb7d32708cd5c807be5  Offhand-v2.1.5-beta.39.zip' | sha256sum --check
+          jq -e -r '.body | select(length > 100)' release.json > player-notes.md
+      - name: Submit the verified ZIP as a beta
+        shell: bash
+        env:
+          CF_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: |
+          set -euo pipefail
+          api='https://wow.curseforge.com/api'
+          curl --fail --silent --show-error --header "X-Api-Token: $CF_TOKEN" "$api/game/versions" -o versions.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          versions = json.loads(Path("versions.json").read_text())
+          selected = []
+          for label in ("12.1.7", "5.5.4", "4.4.2", "3.4.5", "2.5.6", "1.60.1", "1.15.9"):
+              matches = [v["id"] for v in versions if v["name"] == label]
+              if len(matches) != 1:
+                  raise SystemExit(f"Expected one CurseForge version for {label}, found {matches}")
+              selected.extend(matches)
+          data = {
+              "changelog": Path("player-notes.md").read_text(),
+              "changelogType": "markdown",
+              "displayName": "Offhand v2.1.5 (Pre-Release Beta v39)",
+              "gameVersions": selected,
+              "releaseType": "beta",
+              "isMarkedForManualRelease": False,
+          }
+          Path("metadata.json").write_text(json.dumps(data))
+          PY
+          curl --fail-with-body --silent --show-error --header "X-Api-Token: $CF_TOKEN" \
+            --form 'metadata=<metadata.json' --form 'file=@Offhand-v2.1.5-beta.39.zip;type=application/zip' \
+            "$api/projects/1696140/upload-file" -o submission.json
+          id=$(jq -e -r '.id | select(type == "number" and . > 0)' submission.json)
+          echo "CurseForge file $id"
+          echo "Submitted https://www.curseforge.com/wow/addons/offhand/files/$id" >> "$GITHUB_STEP_SUMMARY"
