@@ -105,6 +105,7 @@ function Adapter.Install(Canvas, services)
     local foreverNativeBagController
     local targetEscapeButton
     local windowEscapeButton
+    local windowEscapeKind
     local bagEscapeOwner
 
     local function GetNativeBagEscapeAction()
@@ -166,6 +167,9 @@ function Adapter.Install(Canvas, services)
         end
         local target = UnitExists("target")
         if IsPlainValue(target) and target then return "target" end
+        if IsPlainValue(target) and target == false and GameMenuFrame and GameMenuFrame.Show then
+            return "menu"
+        end
     end
 
     function Canvas:RefreshForeverNativeBagTargetEscape()
@@ -193,7 +197,7 @@ function Adapter.Install(Canvas, services)
                 RegisterStateDriver(targetEscapeButton, "combat", "[combat] combat; nocombat")
             end
             owner = targetEscapeButton
-        elseif kind == "windows" or kind == "inspect" then
+        elseif kind == "windows" or kind == "inspect" or kind == "menu" then
             if not windowEscapeButton then
                 -- Keep the dismissal input outside native bag ancestry and the
                 -- shared Escape handler list. CloseWindows retains native panel
@@ -203,10 +207,14 @@ function Adapter.Install(Canvas, services)
                 windowEscapeButton:RegisterForClicks("AnyUp")
                 windowEscapeButton:SetScript("OnClick", function()
                     local action = GetNativeBagEscapeAction()
+                    if action ~= windowEscapeKind then return end
                     if action == "windows" then
                         CloseWindows()
                     elseif action == "inspect" then
                         HideUIPanel(InspectFrame)
+                    elseif action == "menu" then
+                        -- ToggleGameMenu and ShowUIPanel both dismiss native bags on Forever.
+                        GameMenuFrame:Show()
                     end
                 end)
                 windowEscapeButton:SetAttribute("_onstate-combat", [[
@@ -216,6 +224,7 @@ function Adapter.Install(Canvas, services)
             end
             owner = windowEscapeButton
         end
+        windowEscapeKind = kind
         if bagEscapeOwner and bagEscapeOwner ~= owner then
             ClearOverrideBindings(bagEscapeOwner)
             bagEscapeOwner = nil
@@ -407,6 +416,32 @@ function Adapter.Install(Canvas, services)
         end
         if not ok and inCombat and state then state.combatPlacementFailed = true end
         return ok
+    end
+
+    -- When the backpack closes, Blizzard moves the first surviving bag to its
+    -- default corner and chains the other bags to it. Move only that stack root.
+    function Canvas:PlaceRemainingSeparateBags()
+        if not ContainerFrameContainer or not Offhand.CanvasBackpackState.UsesForeverSeparateBags() then return end
+        local position = GetNativeBackpackWorkspacePosition()
+        for i = 2, NUM_CONTAINER_FRAMES or 13 do
+            local bag = _G["ContainerFrame" .. i]
+            if bag and HasFlag(bag, "IsForbidden", false) and bag:IsShown()
+                and HasFlag(bag, "IsProtected", false) and HasFlag(bag, "IsAnchoringRestricted", false)
+                and bag:GetParent() == ContainerFrameContainer then
+                local id = bag:GetID()
+                local _, relative = bag:GetPoint(1)
+                if IsPlainValue(id) and type(id) == "number" and id > 0
+                    and id <= (NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5)
+                    and (relative == ContainerFrameContainer or relative == UIParent) then
+                    local x, y, scale, parentScale = GetForeverNativeBagTarget(bag, position, true, false)
+                    if x then
+                        bag:ClearAllPoints()
+                        bag:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x * parentScale / scale, y * parentScale / scale)
+                    end
+                    return
+                end
+            end
+        end
     end
 
     function Canvas:RefreshForeverNativeBagPlacement(frame)
@@ -965,7 +1000,7 @@ function Adapter.Install(Canvas, services)
                         trackedWorkspaceBag = false
                     end
 
-                    if not shown and trackedWorkspaceBag
+                    if not shown and trackedWorkspaceBag and Offhand.db.persistentWorkspacePanels ~= false
                         and ((state.wasShown and closeObserved and not explicitCloseObserved)
                             or (state.wasShown and gameMenuChanged)
                             or panelTransitionActive) then
@@ -975,7 +1010,8 @@ function Adapter.Install(Canvas, services)
                             state.pendingGameMenuToggle = true
                         end
                     end
-                    if state.pendingOpenRestore and not CanManagePanelsFromAddon() then
+                    if state.pendingOpenRestore and (not CanManagePanelsFromAddon()
+                        or Offhand.db.persistentWorkspacePanels == false) then
                         -- Let the Gamepad UI close stand. The saved position remains
                         -- available when the player opens the bag again.
                         state.pendingOpenRestore = nil
@@ -1022,6 +1058,7 @@ function Adapter.Install(Canvas, services)
                         if not state.wasShown or not IsNativeBackpackTrackedOpen() then
                             Canvas:SetWorkspacePanelOpen(frame, true)
                         end
+                        state.wasWorkspaceBackpack = frame == _G.ContainerFrame1 and IsFrameOnWorkspace(frame)
                         state.wasShown = true
                     else
                         if handle and handle.Hide then handle:Hide() end
@@ -1034,6 +1071,10 @@ function Adapter.Install(Canvas, services)
                         end
                         local systemPanelTransition = Canvas._systemPanelOpeningToken ~= nil
                             or panelTransitionActive
+                        if state.wasShown and not shown and state.wasWorkspaceBackpack and enabled
+                            and not inCombat and not inputReserved and CanManagePanelsFromAddon() then
+                            Canvas:PlaceRemainingSeparateBags()
+                        end
                         if state.wasShown and not shown and not state.dragging
                             and not inCombat and not state.pendingOpenRestore
                             and not systemPanelTransition then

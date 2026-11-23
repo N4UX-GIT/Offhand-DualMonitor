@@ -111,16 +111,14 @@ assert(dialog:IsShown() and addon.guideOpened == 0 and OffhandDB.lastSeenRelease
 assert(dialog.title.text:find(firstRelease, 1, true) and dialog.point[4] == 1560)
 assert(not dialog.body.text:find(addon.L.WHATS_NEW_FALLBACK, 1, true),
     "publish concise in-game highlights for the version in the TOC")
-assert(dialog.body.text:find(addon.L.WHATS_NEW_COMPANION_CHECK, 1, true) and dialog.storeButton.uiPrimary,
-    "an earlier Companion beta should offer the confirmed Store update")
+assert(dialog.storeButton.uiPrimary, "an earlier Companion beta should highlight the Store button")
 assert(not dialog.link:IsShown() and not dialog.link.focus, "login must not take keyboard focus")
 dialog.storeButton.scripts.OnClick()
 assert(dialog.link.text == addon.companionStoreUrl and dialog.link.focus and dialog.link.highlight)
 dialog.children[3].scripts.OnClick() -- Release notes link.
 assert(dialog.link.text == "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v" .. firstRelease,
     "the current beta must link to its matching release notes")
-assert(dialog.body.text:find(addon.L.WHATS_NEW_BETA38_COMPANION:format("2.1.9-beta.2"), 1, true),
-    "identify the portable beta and where to find it")
+assert(dialog.body.text == addon.L.WHATS_NEW_BETA39, "Beta 39 should show just its new features")
 assert(not dialog.body.text:find("2.1.7-beta.9", 1, true), "span history is not release news")
 assert(dialog:GetHeight() - 44 > 52 + dialog.body:GetHeight(), "footer overlaps release notes")
 

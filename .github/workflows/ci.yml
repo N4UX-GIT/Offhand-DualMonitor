@@ -30,6 +30,16 @@ jobs:
           python scripts/check-compatibility.py --skip-lua-tests --report dist/compatibility-check.json
           if ($LASTEXITCODE -ne 0) { throw 'Addon compatibility checks failed.' }
 
+      - name: Require current workspace restart evidence for promotion to main
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        shell: pwsh
+        run: |
+          $report = Get-Content -Raw dist/compatibility-check.json | ConvertFrom-Json
+          $restart = @($report.live_evidence | Where-Object id -eq 'forever-workspace-restart')
+          if ($restart.Count -ne 1 -or $restart[0].retest_required) {
+            throw 'Rerun the Forever quit, login and span check on the candidate before promotion.'
+          }
+
       - name: Run Unit Tests
         shell: pwsh
         run: |

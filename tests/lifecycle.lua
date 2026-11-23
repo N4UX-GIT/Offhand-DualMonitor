@@ -791,6 +791,9 @@ addon.db.enabled = true
 addon.db.restoreWorkspaceOnReload = true
 addon.db.savedWorkspacePositions = { TestWorkspaceFrame = { x = 10, y = 20 } }
 TestWorkspaceFrame = { IsVisible = function() return true end }
+addon.db.savedWorkspacePositions.ItemTextFrame = {x=20, y=30}
+addon.db.openWorkspacePanels = {ItemTextFrame=true}
+ItemTextFrame = {IsVisible=function() return true end}
 addon.ForeverPersistence = {
     SaveOpenPanels = function(_, panels)
         capturedOpenPanels = {}
@@ -808,6 +811,10 @@ assert(capturedOpenPanels and capturedOpenPanels.TestWorkspaceFrame == true,
     "PLAYER_LOGOUT must capture open workspace panels for /reload")
 assert(capturedProfileOpenPanels and capturedProfileOpenPanels.TestWorkspaceFrame == true,
     "the complete Forever snapshot must be written after open-panel capture")
+assert(not capturedOpenPanels.ItemTextFrame and not capturedProfileOpenPanels.ItemTextFrame
+    and addon.db.savedWorkspacePositions.ItemTextFrame,
+    "logout must keep an open book's position without persisting its reading session")
+ItemTextFrame = nil
 TestWorkspaceFrame.IsVisible = function() return false end
 initOnEvent(nil, "PLAYER_LEAVING_WORLD")
 assert(capturedOpenPanels.TestWorkspaceFrame == true,
@@ -910,12 +917,25 @@ do
     assert(opened == 1, "a deliberately disabled profile must not receive incomplete-setup prompts")
     addon.db.enabled = true
     addon.Viewport.GetMetrics = function() return {isSpanned = true} end
-    local modes = {}
-    addon.Canvas.RestorePersistentFrames = function(_, mode) modes[#modes + 1] = mode or "normal" end
+    local restores = {}
+    addon.isForever = true
+    addon.Canvas.RestorePersistentFrames = function(canvas)
+        restores[#restores + 1] = canvas.workspaceRestorePending and "reopen" or "layout"
+        canvas.workspaceRestorePending = nil
+    end
     Enter(true, true, false)
     Enter(true, false, true)
     Enter(false, false, false)
-    assert(table.concat(modes, ",") == "normal,reload,normal", "only a UI reload should restore map visibility")
+    assert(table.concat(restores, ",") == "reopen,reopen,layout",
+        "login and reload must request saved visibility once, while zoning only reapplies layout")
+    addon.Viewport.GetMetrics = function() return {isSpanned = false} end
+    Enter(true, true, false)
+    assert(addon.Canvas.workspaceRestorePending and #restores == 3,
+        "login before spanning must leave saved visibility pending")
+    addon.Canvas.workspaceRestorePending = nil
+    addon.db.restoreWorkspaceOnReload = false
+    Enter(true, true, false)
+    assert(not addon.Canvas.workspaceRestorePending, "disabled restoration must not arm a login request")
 end
 print("PASS: lifecycle, entry notice resumption, disabled isolation and completed-setup preservation")
 

@@ -8,6 +8,32 @@ local _, Offhand = ...
 local ManualCanvas = {}
 Offhand.ManualCanvas = ManualCanvas
 
+function ManualCanvas:UseFullHeight()
+    Offhand.db.aspectRatioMode = "FILL"
+    Offhand.db.gameHeightRatio = 1
+end
+
+function ManualCanvas:SelectLayout(preset, mainhand)
+    local db = Offhand.db
+    local metrics = Offhand.Viewport:GetMetrics()
+    if metrics.companionTopology then return end
+    local canvasSize = metrics.manualCanvasSize
+        or string.format("%dx%d", metrics.physicalWidth, metrics.physicalHeight)
+    if preset == "LANDSCAPE_DUAL" then
+        if db.manualLayoutSize ~= canvasSize or db.layoutPreset ~= preset or db.deckWidthRatio ~= 0.5 then
+            self:UseFullHeight()
+        end
+        db.deckWidthRatio = 0.5
+    elseif preset == "STACKED_VERTICAL" and db.layoutPreset ~= preset then
+        db.deckWidthRatio = 0.5
+    elseif preset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and db.layoutPreset ~= preset then
+        db.deckWidthRatio = 0.36
+        db.aspectRatioMode = "16_9"
+    end
+    db.layoutPreset, db.primaryPosition = preset, mainhand
+    db.manualLayoutSize = canvasSize
+end
+
 local SCHEMA = 1
 local MAX_CANVASES = 8
 local MATCH_DIMENSION_RATIO = 0.01

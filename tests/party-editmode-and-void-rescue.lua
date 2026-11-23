@@ -3529,6 +3529,44 @@ for _, flightName in ipairs({"FlightMapFrame", "TaxiFrame"}) do
 end
 end
 
+-- Blizzard closes the active text interaction when its reader hides.
+do
+    local book = makeMockFrame("ItemTextFrame", 450, 560)
+    book:Hide()
+    RegisterUIPanel(book)
+    flushTimers()
+    local oldGet, oldHide = GetUIPanel, HideUIPanel
+    local active = book
+    GetUIPanel = function(area) if area == "left" then return active end end
+    HideUIPanel = function(frame)
+        if frame == book then active = nil end
+        frame:Hide()
+    end
+    book:Show()
+    book:ClearAllPoints()
+    book:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 160, 1500)
+    addon.Canvas.OnPanelDragStop(book)
+    assert(active == book and book:IsShown(), "dragging the readable must keep the reading interaction open")
+    local saved = assert(addon.db.savedWorkspacePositions.ItemTextFrame)
+    book:Hide()
+    active = nil
+    addon.db.openWorkspacePanels.ItemTextFrame = true
+    addon.Canvas:RestorePersistentFrames("reload")
+    flushTimers(); flushTimers()
+    assert(not book:IsShown() and not addon.db.openWorkspacePanels.ItemTextFrame,
+        "a stale readable flag must be cleared without showing an empty book")
+    book:ClearAllPoints()
+    book:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    active = book
+    book:Show()
+    flushTimers()
+    assert(active == book and addon.Canvas.IsFrameOnWorkspace(book)
+        and addon.db.savedWorkspacePositions.ItemTextFrame == saved,
+        "the next readable must open natively at its saved workspace position")
+    book:Hide()
+    GetUIPanel, HideUIPanel = oldGet, oldHide
+end
+
 -- Moving an NPC-bound panel must not detach it from Blizzard's active UIPanel
 -- transaction. AuctionHouseFrame in particular stops reopening after a
 -- HideUIPanel + direct Show cycle even though the auctioneer bell still plays.
@@ -4644,3 +4682,42 @@ print('PASS: protected native Collections registration, oversized routing, origi
     addon.isForever,addon.isRetail=oldForever,oldRetail
 end)()
 print('PASS: modern party-invite popup roots bypass legacy script hooks')
+
+-- Re-run placement on the same native frame before and after DaylightUI
+-- lends it back. The parked frame's inherited scale is a thousandth.
+;(function()
+    addon.isForever = true
+    local followers = {aside = {}, hidden = {}, veil = {}}
+    DaylightUI = {Win = {Followers = followers}}
+    for _, name in ipairs({"PlayerSpellsFrame", "ClassTrainerFrame"}) do
+        local frame = makeMockFrame(name, 600, 500)
+        _G[name] = frame
+        local saved = {x = 1820, y = 1200}
+        addon.db.savedMainPositions[name] = saved
+        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
+        frame.GetParent = function(self) return self.parent end
+        frame.GetEffectiveScale = function(self)
+            return self.parent == followers.aside and 0.001 or 1
+        end
+        for _, parent in pairs(followers) do
+            frame.parent = parent
+            local anchors = frame.points
+            addon.Canvas:RestoreWorkspacePosition(frame)
+            assert(not addon.Canvas:PlacePanelOnMainhand(frame, metrics, saved, false, true))
+            assert(not addon.CanvasPanelRegistry.CanAutoOpen(frame, name))
+            addon.db.savedWorkspacePositions[name] = {x = 40, y = 640}
+            addon.Canvas:PrepareSingleScreenRecovery({isSpanned = false, topologyStatus = "MISMATCH"})
+            assert(frame:IsShown(), name .. " hidden when restoring a single window")
+            addon.db.savedWorkspacePositions[name] = nil
+            assert(frame.points == anchors and frame.setPointCalls == 1,
+                name .. " parked anchor changed during restore or recovery")
+            assert(addon.db.savedMainPositions[name] == saved)
+        end
+        frame.parent = UIParent
+        assert(not addon.IsDaylightParkedPanel(frame))
+        assert(addon.Canvas:PlacePanelOnMainhand(frame, metrics, saved))
+        assert(frame:GetLeft() == saved.x and frame:GetTop() == saved.y,
+            name .. " did not resume saved placement after handback")
+    end
+end)()
+print("PASS: DaylightUI parked Spellbook and Trainer anchors survive restore and recovery until handback")

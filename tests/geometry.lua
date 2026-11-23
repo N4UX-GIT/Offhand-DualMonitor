@@ -128,6 +128,82 @@ local m=addon.Viewport:GetMetrics()
 assert(m.gameWidth>0 and m.gameHeight>0 and m.gameTop<=m.screenHeight)
 print("PASS: physical seam, cross-scale anchors, HUD fit, nested scale, left primary, fill bounds, invalid input")
 
+do
+    local oldDB, oldAccount, oldW, oldH = addon.db, OffhandDB, pw, ph
+    pw, ph = 3840, 1140
+    OffhandDB = {}
+    addon.db = {enabled=true, layoutPreset="LANDSCAPE_DUAL", primaryPosition="RIGHT",
+        deckWidthRatio=0.5, gameHeightRatio=0.5625, gameBottomPixels=0}
+    local preview = addon.Viewport:GetManualPreviewMetrics()
+    assert(preview.arMode == "FILL" and preview.gamePixelHeight == 1140)
+    assert(addon.ManualCanvas:RememberFromMetrics(preview, nil, "MANUAL"))
+    local function checkBounds(height, bottom)
+        addon.Viewport:Apply()
+        local left, y, width, h = worldPixels()
+        near(left, 1920); near(y, bottom); near(width, 1920); near(h, height)
+    end
+    checkBounds(1140, 0)
+    addon.db.aspectRatioMode = "16_9"
+    checkBounds(1080, 0)
+    addon.db.aspectRatioMode = "FILL"
+    checkBounds(641, 0) -- existing custom height is retained until Fill is selected
+    addon.ManualCanvas:UseFullHeight()
+    checkBounds(1140, 0)
+    addon.db.gameBottomPixels = 20
+    checkBounds(1120, 20)
+    addon.db, OffhandDB, pw, ph = oldDB, oldAccount, oldW, oldH
+end
+print("PASS: manual 3840x1140 calibration fills Mainhand and respects explicit aspect, height and inset")
+
+do
+    local oldDB, oldAccount, oldW, oldH, oldScale = addon.db, OffhandDB, pw, ph, uiScale
+    addon.L = {WORKSPACE_SIDE_LEFT="Offhand left", WORKSPACE_SIDE_RIGHT="Offhand right",
+        PRESET_STACK_TOP="Offhand below", PRESET_STACK_BOTTOM="Offhand above"}
+    assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
+    local function checkSide(mainhand, stacked)
+        local m = addon.Viewport:GetMetrics()
+        assert(m.manualCanvas and m.isSpanned)
+        local seam = math.floor((stacked and ph or pw) * addon.db.deckWidthRatio + 0.5)
+        local gap = addon.db.bezelGap
+        local left = mainhand == "RIGHT" and seam + gap or (stacked and addon.db.gameLeftPixels or 0)
+        local bottom = mainhand == "TOP" and seam + gap or 0
+        local width = stacked and pw - left or pw - seam - gap
+        local height = stacked and ph - seam - gap or ph
+        near(m.workspacePixelWidth, stacked and pw or seam)
+        near(m.workspacePixelHeight, stacked and seam or ph)
+        near(m.workspacePixelLeft, mainhand == "LEFT" and pw - seam or 0)
+        near(m.workspacePixelBottom, mainhand == "BOTTOM" and ph - seam or 0)
+        addon.Viewport:Apply()
+        local x, y, w, h = worldPixels()
+        near(x, left); near(y, bottom); near(w, width); near(h, height)
+        local rec = addon.TopologyDetection.Detect()
+        assert(rec.manualLayout and rec.recommendedPosition == mainhand
+            and rec.recommendedDeckRatio == addon.db.deckWidthRatio
+            and rec.recommendedPreset == addon.db.layoutPreset)
+    end
+    local horizontal = {{3840,1080}, {3840,1140}, {3840,1180}, {3840,1181}, {3840,1200},
+        {5120,1600}, {4320,1440}, {2560,1024}, {3200,1200}, {7680,2160}}
+    for _, mainhand in ipairs({"RIGHT","LEFT","BOTTOM","TOP"}) do
+        local stacked = mainhand == "BOTTOM" or mainhand == "TOP"
+        for _, size in ipairs(stacked and {{1920,2160},{2560,3040},{1440,3161}} or horizontal) do
+            pw, ph = size[1], size[2]
+            OffhandDB, addon.db = {}, {enabled=true, bezelGap=3, gameLeftPixels=5}
+            -- Select before remembering, as well as through the normal matched path.
+            local preset = stacked and "STACKED_VERTICAL" or "LANDSCAPE_DUAL"
+            addon.ManualCanvas:SelectLayout(preset, mainhand)
+            assert(addon.ManualCanvas:RememberFromMetrics(addon.Viewport:GetManualPreviewMetrics()))
+            checkSide(mainhand, stacked)
+            addon.db.deckWidthRatio = 0.43
+            ph, uiScale = ph + 1, 0.663
+            assert(loadfile("Core/ManualCanvas.lua"))("Offhand", addon)
+            checkSide(mainhand, stacked)
+        end
+    end
+    addon.db, OffhandDB, pw, ph, uiScale = oldDB, oldAccount, oldW, oldH, oldScale
+    addon.L = nil
+end
+print("PASS: four manual sides survive calibration, asymmetric seams, window resizing and saved-state reuse")
+
 -- Companion topology is authoritative and preserves mixed monitor heights and
 -- offsets without guessing from the combined aspect ratio.
 pw,ph=5280,2560

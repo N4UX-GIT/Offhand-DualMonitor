@@ -5,6 +5,7 @@ Offhand.CanvasPanelPlacement = Placement
 
 local diagnosticPanelNames = {
     "CharacterFrame", "SkillFrame", "PlayerSpellsFrame", "SpellBookFrame",
+    "DaylightUIBook", "ClassTrainerFrame", "DaylightUINpc",
     "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
     "WorldMapFrame", "ForeverXPBarMainFrame", "GameMenuFrame", "GamepadReticle",
     "ConsolePortCrosshair",
@@ -136,8 +137,21 @@ function Placement.InstallSingleScreen(Canvas, services)
     end
 
     function Canvas:PrepareSingleScreenRecovery(metrics)
+        if Offhand.isForever and metrics and metrics.isSpanned then
+            self.hadSpannedWorkspace = true
+        end
         if not IsSingleScreenRecovery(metrics) or not Offhand.db
             or not Offhand.db.savedWorkspacePositions then return end
+        if Offhand.isForever and Offhand.db.enabled then
+            -- Read the equipped bag IDs before recovery hides their pooled frames.
+            -- On login in a single window the last spanned snapshot is already saved.
+            if self.hadSpannedWorkspace and not self.workspaceRestorePending
+                and Offhand.db.restoreWorkspaceOnReload ~= false and Offhand.db.persistentWorkspacePanels ~= false then
+                Offhand.CanvasBackpackState.CaptureSeparateBagsForReload(self)
+            end
+            self.hadSpannedWorkspace = nil
+            self.workspaceRestorePending = true
+        end
         for name in pairs(Offhand.db.savedWorkspacePositions) do
             -- NPC and other interaction panels can end the session on Hide.
             -- Their native panel manager owns visibility and placement here.
@@ -148,7 +162,8 @@ function Placement.InstallSingleScreen(Canvas, services)
                 local frame = _G[name]
                 local addonEscape = Offhand.CanvasAddonEscape
                 local vendorGameplay = addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)
-                if frame and not vendorGameplay and frame.IsShown and frame:IsShown() and frame.Hide then
+                if frame and not vendorGameplay and frame.IsShown and frame:IsShown() and frame.Hide
+                    and not (Offhand.IsDaylightParkedPanel and Offhand.IsDaylightParkedPanel(frame)) then
                     pcall(frame.Hide, frame)
                 end
             end
@@ -272,6 +287,9 @@ function Placement.InstallMainhand(Canvas, services)
             or not Offhand.db.enabled then return false end
         local registry = Offhand.CanvasPanelRegistry
         if registry and registry.GetPositionRoot(frame) ~= frame then return false end
+        -- Recovery can override the usual protected-panel guard. A parked
+        -- native frame must keep its anchor even during explicit recovery.
+        if Offhand.IsDaylightParkedPanel and Offhand.IsDaylightParkedPanel(frame) then return false end
         if IsWorldMapMaximized(frame) then return false end
         local foreverMap = Offhand.isForever and frame == _G.WorldMapFrame
         if foreverMap and ((self.CanManagePanelsFromAddon and not self.CanManagePanelsFromAddon())

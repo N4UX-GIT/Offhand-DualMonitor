@@ -548,15 +548,20 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
     
     local width = isVertical and pw or (pw - deck - bezel)
     local height = isVertical and (ph - deck - bezel) or ph
+    -- The manual dual-landscape preset describes two equal halves. Before
+    -- the player chooses an aspect, use the height WoW actually rendered.
+    local equalLandscape = not isVertical and preset == "LANDSCAPE_DUAL" and ratio == 0.5
+    local mode = db.aspectRatioMode or (equalLandscape and "FILL" or "16_9")
     
     local bottom = 0
     if isVertical then
         bottom = db.primaryPosition == "TOP" and (deck + bezel) or 0
     else
         bottom = math.floor(Number(db.gameBottomPixels, 0, 0, ph - 1) + 0.5)
-        local mode = db.aspectRatioMode or "16_9"
         if mode == "FILL" then
-            height = ph * Number(db.gameHeightRatio, 0.5625, 0.05, 1)
+            if db.aspectRatioMode then
+                height = ph * Number(db.gameHeightRatio, 0.5625, 0.05, 1)
+            end
         else
             local ar = mode == "16_9" and 16 / 9 or mode == "21_9" and 21 / 9 or mode == "32_9" and 32 / 9
                 or Number(db.customAspectRatio, 16 / 9, 0.25, 8)
@@ -570,6 +575,7 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
         left = db.primaryPosition == "LEFT" and 0 or deck + bezel
     else
         left = math.floor(Number(db.gameLeftPixels, 0, 0, pw - 1) + 0.5)
+        width = pw - left
     end
     
     local gameHeight = height * uy
@@ -597,11 +603,14 @@ function Viewport:GetMetrics(allowUnconfirmedManual)
         gamePixelLeft = left, gamePixelBottom = bottom,
         gamePixelWidth = width, gamePixelHeight = height,
         hudScale = hudScale, bezel = isVertical and (bezel * uy) or (bezel * ux), preset = preset,
-        actualAR = width / height, arMode = db.aspectRatioMode or "16_9", isSpanned = true,
+        actualAR = width / height, arMode = mode, isSpanned = true,
         companionTopology = false, topologyStatus = topologyStatus,
         manualCanvas = acceptedManual ~= nil,
         manualCanvasState = acceptedManual and acceptedManual.state or "UNCONFIRMED",
         manualCanvasID = acceptedManual and acceptedManual.id or nil,
+        manualCanvasArrangement = acceptedManual and acceptedManual.record.arrangement or nil,
+        manualCanvasSize = acceptedManual and string.format("%dx%d",
+            acceptedManual.record.referenceWidth, acceptedManual.record.referenceHeight) or nil,
         manualCanvasName = acceptedManual and acceptedManual.record.name or nil,
         manualCanvasSource = acceptedManual and acceptedManual.record.source or nil,
     }

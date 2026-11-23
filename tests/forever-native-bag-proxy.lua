@@ -285,8 +285,26 @@ assert(ContainerFrame1:GetLeft() >= metrics.workspaceLeft + 12
         and ContainerFrame1:GetLeft() + ContainerFrame1:GetWidth() <= metrics.workspaceRight - 12
         and ContainerFrame1:GetBottom() >= metrics.workspaceBottom + 12,
     "individual Blizzard backpack must also open visibly on its first span")
-ContainerFrame1:Hide()
-controller.scripts.OnUpdate(controller, 0.001)
+do
+    local oldManager, oldParent = ContainerFrameSettingsManager, ContainerFrameContainer
+    ContainerFrameSettingsManager = { IsUsingCombinedBags = function() return false end }
+    ContainerFrameContainer = {}
+    ContainerFrame2 = makeFrame("ContainerFrame2", 178, 140)
+    function ContainerFrame2:IsForbidden() return false end
+    function ContainerFrame2:IsProtected() return false end
+    function ContainerFrame2:IsAnchoringRestricted() return false end
+    function ContainerFrame2:GetParent() return ContainerFrameContainer end
+    function ContainerFrame2:GetID() return 1 end
+    ContainerFrame2:Show()
+    ContainerFrame1:Hide()
+    ContainerFrame2:SetPoint("BOTTOMRIGHT", ContainerFrameContainer, "BOTTOMRIGHT", 9000, 0)
+    controller.scripts.OnUpdate(controller, 0.001)
+    assert(ContainerFrame2:GetLeft() >= metrics.workspaceLeft
+        and ContainerFrame2:GetLeft() + ContainerFrame2:GetWidth() <= metrics.workspaceRight
+        and ContainerFrame2:GetBottom() >= metrics.workspaceBottom,
+        "closing the backpack must keep the surviving satchel inside the workspace")
+    ContainerFrame2, ContainerFrameSettingsManager, ContainerFrameContainer = nil, oldManager, oldParent
+end
 ContainerFrame1, ContainerFrameCombinedBags = nil, bag
 
 local function AssertDefaultYield(label)

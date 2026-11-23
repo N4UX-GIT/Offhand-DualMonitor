@@ -53,8 +53,8 @@
 - The current Microsoft Store release is **Companion 2.1.8**. The in-game
   `/offhand whatsnew` notice lists it separately from the paired portable beta.
   [Microsoft Store listing](https://apps.microsoft.com/detail/9PL4PW84Q90W)
-- On Forever, leave combat and close Edit Mode before using **Offhand Settings
-  → Recovery & Preview → Create Mainhand HUD Layout**. Reload when prompted.
+- On Forever, leave combat and close Edit Mode. In **Offhand Settings**, open
+  **Recovery & Preview > Create Mainhand HUD Layout**. Reload when prompted.
   Offhand keeps the source layout available. Existing manually placed bars can
   be adjusted through Blizzard Edit Mode.
 

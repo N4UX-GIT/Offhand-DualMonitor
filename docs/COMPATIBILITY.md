@@ -53,6 +53,36 @@ The November 21 native backpack receipt records the packaged runtime at
 `b46c4b1` on Forever 71037. Check a later combined candidate against its
 own runtime before promoting these results.
 
+## Workspace restoration after a full restart
+
+A player's open map, bags and other eligible workspace panels must return to
+Offhand when the workspace becomes available. A one-screen login must preserve
+that choice until the player spans WoW. A saved position alone must leave a
+closed panel closed. Interaction windows such as NPC gossip require a new
+interaction.
+
+Beta 38 commit `2fdb2d4` used the UI reload flag to request a native map
+open and recover separate bag IDs on Forever. A fresh login did not set that
+flag. The delayed display-size handler performed ordinary layout without
+the reopen request. Single-screen recovery could also interpret a hidden map
+or bag as a player close. The current code keeps the request until the first
+usable workspace and preserves the last spanned visibility through recovery.
+
+`tests/forever-workspace-restart.lua` exercises the real logout, entry and
+display handlers with fresh frames and fresh addon state. The saved tables
+cross the simulated restart. The suite covers both span timings and mixed
+open and closed windows. Existing provider suites cover separate bag IDs,
+external map ownership and explicit closes.
+
+For release QA, quit with the map, backpack and Character open on Offhand
+and a fourth saved panel closed. Relaunch from Battle.net, log in on one
+screen, then apply the span. Check all four panels before touching a key or
+reloading, and inspect BugSack for the session. Record the actual bag and map
+providers and Companion build. Repeat for changes to Companion window spanning
+as well as relevant addon changes. The restart receipt fingerprints the tested
+addon sources. CI checks its freshness on pull requests to main. The live run
+used OpenMap and combined bags. [November 23 restart results](FOREVER-BETA38-BAG-MAP-QA-20261121.md#full-client-restart-with-the-span-applied-after-login-on-november-23).
+
 ## Forever bag scope recorded through November 18, 2026
 
 The rows below describe the local candidates reviewed in Offhand PR #129.
@@ -73,6 +103,7 @@ project, knowledge/offhand-forever-bag-compatibility-20261117.md.
 | BagSmith 1.9.0 | Offhand placement, target-clearing Escape and explicit B | Other replacement settings/profiles |
 | ElvUI 16.01 | Target-clearing Escape, explicit B, Options, Mainhand dismissal control | Other full UI module combinations |
 | DaylightUI Bags 1.9.3 | Target-clearing Escape and explicit B | Other full UI module combinations |
+| DaylightUI replacement Spellbook, Talents and Trainer (Forever) — **placement resolved** | Moonweaver, build 71037, DaylightUI 2.2.3, Companion 2.1.9-beta.2, local development add-on, November 23. Naeluna Swiftmend's training list stayed visible with 184 services through Span and Restore. Spellbook and Talents remained reachable in both layouts, with zero BugSack errors in those checks. The parked native frames had 0.001 relative scale. The visible replacements retained normal scale. | Spanning with the trainer list open triggered a DaylightUI NPC repaint error at `Npc/Window.lua:380` (missing `choices`). Reproduced with the Offhand add-on disabled. The owner closed the placement report after live verification on Moonweaver. Moonweaver had zero talent points. Spending points and purchasing training were outside this placement check. [Report](https://discord.com/channels/1491522138371391691/1573894857351503973) |
 | EllesmereUI Bags 9.8.9 | Target-clearing Escape and explicit B; another vendor-registered window retains priority | Detached reagent window and other full UI modules |
 | AdiBags | No Forever live pass recorded | Identify a compatible Forever build or fork before claiming support |
 
@@ -90,9 +121,21 @@ visible outside both window registries. The corrected package passed that
 case, ordinary portrait-menu inspection and real NPC gossip.
 [November 21 native backpack retest](FOREVER-BAG-ESCAPE-QA-20261121.md).
 
+For Moonweaver's Beta 39 tests with the native map and separate bags, see the
+[November 23 release checks](FOREVER-BETA39-RELEASE-QA.md).
+
+For out-of-combat Escape with an empty target, separate satchel placement,
+Baganator and OpenMap reload behavior on the public Beta 38, Discord
+`178bf64` and the local candidate, see the
+[Beta 38 comparison](FOREVER-BETA38-BAG-MAP-QA-20261121.md).
+
 For the crafting Escape handler, expanded Spellbook, and isolated Bagnon,
 BetterBags, Bagnaros and Baganator checks on build 71037, see the
 [November 21 Forever QA](FOREVER-CRAFTING-BAG-ESCAPE-QA-20261121.md).
+
+### Inventory tooltip crossing the display boundary — resolved
+
+Nin reported that an item tooltip crossed onto Mainhand while hovering a bag on Offhand. In live Forever testing with Baganator 854, the entire Hearthstone tooltip stayed on Offhand with the slot center about 37 physical pixels from the split. Beta 38 includes the tooltip placement fix. The owner closed the report on November 23 based on local verification. Nin's exact setup was unconfirmed at closure. [Discord report](https://discord.com/channels/1491522138371391691/1571130196268945538)
 
 ## Preserve the baseline when changing compatibility
 
@@ -138,3 +181,11 @@ Toggling seam redirection, reloading the UI and scaling the message frame to
 80% preserved the inset. An explicit anchor to the minimap survived realignment.
 BugSack recorded zero new errors. The reporter used build 70959. Actual quest
 progress and raid encounters remain outside this measurement.
+
+### Books and readable items on Offhand
+
+The [Discord book report](https://discord.com/channels/1491522138371391691/1573966761651470457) did not specify the WoW flavor or build. Before the correction, the Lua panel fixture reproduced both the lost native reading interaction after a workspace drag and an empty reader reopening from a stale saved flag. The archived Blizzard 9.2.7 ItemTextFrame XML calls CloseItemText on hide. The corrected fixture keeps the native panel slot and saved position, clears the old open flag and waits for the next book interaction. The lifecycle fixture also checks logout while the reader is visible.
+
+Live acceptance on the affected client is pending. Open a multi-page book, drag it to Offhand, turn the page, close it and reopen it. Reload with the book open. The empty reader should stay closed and a fresh interaction should open the book at the saved location. Check BugSack after the run.
+
+On Moonweaver in Forever 1.60.1.71037, using the installed development add-on and Store Companion 2.1.9-beta.2, a local observer supplied an old open flag and a workspace position to the production reload-restore routine on the spanned client. The reader stayed hidden, the flag cleared, and the same position record survived. The observer restored the pre-test position and the saved trace recorded zero current-session BugSack errors. The inventory scan found no readable items in 31 occupied slots. Opening, dragging, paging and reopening a server-backed book still require a readable item or an accessible world book.

@@ -16,8 +16,15 @@ local function placeholders(text)
     for token in text:gmatch("%%[%d%.]*[sdfix]") do result[#result+1]=token end
     return table.concat(result,"|")
 end
+-- Menu paths must remain readable with the game's default fonts.
+local navArrows = {"←", "↑", "→", "↓", "↔", "⇒", "➜"}
 for _,locale in ipairs(locales) do
     local values=dictionary(locale)
+    for key, value in pairs(values) do
+        for _, arrow in ipairs(navArrows) do
+            assert(not value:find(arrow, 1, true), locale .. ": use words or > in " .. key)
+        end
+    end
     for key,text in pairs(base) do
         assert(type(values[key])=="string" and values[key]~="",locale..": missing "..key)
         assert(placeholders(text)==placeholders(values[key]),locale..": format mismatch in "..key)

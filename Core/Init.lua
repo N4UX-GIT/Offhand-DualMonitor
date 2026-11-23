@@ -1547,14 +1547,14 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
         if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:PauseForTransition() end
-        if Offhand.Canvas and Offhand.Canvas.FinalizeForeverNativeBagStateForTransition then
-            Offhand.Canvas:FinalizeForeverNativeBagStateForTransition()
-        end
         local transitionMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local preserveWorkspaceSnapshot = Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery
             and Offhand.Viewport:IsSingleScreenRecovery(transitionMetrics)
             or (transitionMetrics and not transitionMetrics.isSpanned
                 and transitionMetrics.topologyStatus == "MISMATCH")
+        if not preserveWorkspaceSnapshot and Offhand.Canvas and Offhand.Canvas.FinalizeForeverNativeBagStateForTransition then
+            Offhand.Canvas:FinalizeForeverNativeBagStateForTransition()
+        end
         if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             if Offhand.CanvasBackpackState and Offhand.Canvas then
                 Offhand.CanvasBackpackState.CaptureSeparateBagsForReload(Offhand.Canvas)
@@ -1569,7 +1569,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 local foreverNativeBackpack = Offhand.isForever
                     and (name == "ContainerFrame1"
                         or name == "ContainerFrameCombinedBags")
-                if Offhand.isForever and (name == "PlayerSpellsFrame" or name == "WorldMapFrame") then
+                if Offhand.CanvasPanelRegistry and Offhand.CanvasPanelRegistry.IsContextBoundPanel(name) then
+                    Offhand.db.openWorkspacePanels[name] = nil
+                elseif Offhand.isForever and (name == "PlayerSpellsFrame" or name == "WorldMapFrame") then
                     -- These native panels can close without going through a
                     -- tracked toggle. Sample the root's own shown flag, even
                     -- when its parent is hidden during the transition.
@@ -1624,10 +1626,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand._openPanelsCapturedForTransition = false
         if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:BeginSession() end
         local shouldEvaluateNotices = not Offhand._hasEnteredWorld
-        local restoringReload = shouldEvaluateNotices and select(1, ...) == true
-        if restoringReload and Offhand.isForever and Offhand.Canvas and OffhandCharDB
-            and type(OffhandCharDB.separateWorkspaceBagIDs) == "table" then
-            Offhand.Canvas.pendingSeparateBagIDs = OffhandCharDB.separateWorkspaceBagIDs
+        -- Both a fresh login and a UI reload start a workspace session. The
+        -- first usable span consumes the request, even if it arrives later.
+        if shouldEvaluateNotices and Offhand.isForever and Offhand.Canvas and Offhand.db
+            and Offhand.db.enabled and Offhand.db.persistentWorkspacePanels ~= false
+            and Offhand.db.restoreWorkspaceOnReload ~= false then
+            Offhand.Canvas.workspaceRestorePending = true
         end
         Offhand._hasEnteredWorld = true
         -- Refresh viewport and layout after zone transition or loading screen
@@ -1642,7 +1646,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 Offhand.RawMouse:Refresh(entryMetrics)
             end
             if (not entryMetrics or entryMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
-                Offhand.Canvas:RestorePersistentFrames(restoringReload and "reload" or nil)
+                Offhand.Canvas:RestorePersistentFrames()
             end
             if Offhand.Canvas and Offhand.Canvas.RequestPersistentWorldMapRefocus then
                 Offhand.Canvas:RequestPersistentWorldMapRefocus()

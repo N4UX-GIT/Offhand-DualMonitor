@@ -2,7 +2,7 @@
 
 ### Maps and questing
 
-- Give the big map its own shortcut under **Key Bindings → Offhand**. Open it to plan your route, then close it to bring the compact map back to Offhand.
+- Give the big map its own shortcut under **Key Bindings > Offhand**. Open it to plan your route, then close it to bring the compact map back to Offhand.
 - Fit the map to your screen with **Auto-Fit**, then fine-tune it with the slider or arrow keys. The Blizzard map remembers the size you chose on Mainhand, and its title stays within reach when you drag it to the top of Offhand. OpenMap 0.8.10 also supports resizing and placement.
 - On Forever, if you reload with the Blizzard map open on Offhand and window restoration enabled, it comes back where you left it. Close it before reloading and it stays closed. A Spellbook you closed stays closed, too.
 - Your RestedXP guide stays where you put it, even if an older Offhand profile remembers a different spot. Escape leaves the guide open. If you use Spoken, its Places list and the tab that reopens it stay on the same screen as the map.

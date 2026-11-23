@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "esMX" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novedades de Offhand v%s"
+L["WHATS_NEW_BETA39"] = "• En la configuración manual, divide la ventana en dos mitades con Offhand a la izquierda o a la derecha. Ajusta la altura para aprovechar toda la ventana.\n• Para que el borde se funda con el fondo, selecciona negro absoluto para ambos en Apariencia."
 L["WHATS_NEW_BETA38"] = "• En Forever, el mapa y las bolsas individuales abiertos vuelven a su sitio al recargar. El mapa compacto conserva su tamaño en combate.\n• Asigna una tecla al mapa grande en los atajos de Offhand. Ciérralo para volver al mapa compacto.\n• En Perfiles puedes compartir tu interfaz con otros personajes o elegir una distinta para cada uno."
 L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s reduce la ventana al pasar de las opciones avanzadas a la configuración. Allí puedes elegir qué ventana de WoW ampliar."
 L["WHATS_NEW_BETA37"] = "• Comparte tu interfaz con tus otros personajes. En Perfiles, elige por nombre un diseño compartido o conserva el de tu personaje.\n• Alterna entre dos vistas del mapa. Asigna una tecla al mapa grande y ciérralo para volver al mapa compacto en Offhand.\n• En Forever puedes mantener abiertos el mapa, las bolsas o ambos. La tecla habitual abre la ventana en Offhand. Fuera de combate se ignoran las siguientes pulsaciones. En combate la tecla funciona como siempre.\n• ¿Juegas Forever con control y teclado? Guarda un diseño de interfaz para cada uno."
@@ -107,7 +108,7 @@ L["WORKSPACE_READY_EDIT_MODE"] = "Para los elementos de la interfaz de Blizzard,
 L["WORKSPACE_READY_ADDON"] = "Si un addon controla un elemento, usa su modo de diseño o desbloquéalo desde el addon. Vuelve a bloquearlo cuando termines."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Mostrar Mainhand / Offhand"
-L["ONBOARD_INTRO_BRIEF"] = "Mantén el juego en Mainhand y los paneles compatibles en Offhand.\n\nPrimero guarda tu diseño del modo Edición y los perfiles de tus addons de interfaz. Elige UN método de colocación y termina la calibración en esta guía. No necesitas completar los demás métodos.\n\nLos espacios personalizados, temas y fondos son opcionales después. Cerrar esta guía pausa la configuración."
+L["ONBOARD_INTRO_BRIEF"] = "Mantén el juego en Mainhand y las ventanas compatibles en Offhand. Si otro addon controla una ventana, muévela con ese addon. Hay ejemplos en Ayuda y ajustes.\n\nGuarda tu diseño del modo Edición y los perfiles de tus addons de interfaz. Elige un método para colocar la ventana y completa aquí la calibración.\n\nPuedes personalizar el espacio más adelante. Cerrar la guía pausa la configuración."
 L["ONBOARD_CONTINUE_SETUP"] = "Continuar configuración"
 L["ONBOARD_CALIBRATE_TASK_TITLE"] = "Calibrar Mainhand"
 L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "Pulsa %s para abrir la calibración.\n\nComprueba la unión y el tamaño de la interfaz y crea tu interfaz de Mainhand. Recarga cuando se te indique."
@@ -376,7 +377,7 @@ L["STEP_4_HELP"] = "Elige un tamaño de interfaz cómodo. Pulsa Siguiente para c
 L["STEP_5_HELP"] = "Los marcos protegidos de combate no se mueven como ventanas normales. Termina creando un diseño Blizzard adaptado a Mainhand."
 L["WIZARD_STEP_5_BODY"] = "Crea una copia de tu interfaz de Blizzard para Mainhand. Se conserva la distribución original.\n\nSal del combate y cierra el modo Edición. Pulsa el botón de abajo y recarga cuando se te indique."
 L["HELP_SETUP_TITLE"] = "Configurar dos monitores"
-L["HELP_PANELS_TITLE"] = "Usar el monitor Offhand"
+L["HELP_PANELS_TITLE"] = "Mover ventanas en Offhand"
 L["HELP_RECOVERY_TITLE"] = "Recuperar ventanas o volver a un monitor"
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever usa el modo edición de Blizzard para las barras de acción y los marcos de combate. Fuera de combate, selecciona y guarda un diseño personalizado, colócalo en el monitor principal y asígnalo en la tarjeta Recuperación de Offhand."
 L["EDIT_MODE_LAYOUT_MISSING_RETAIL"] = "El modo edición de Blizzard administra las barras de acción y los marcos de combate. Fuera de combate, colócalos en el monitor principal y elige el diseño que usará este personaje. Offhand recuerda la selección por personaje."
@@ -416,6 +417,8 @@ L["PRESET_GL_PR"] = "Juego izquierda + vertical derecha"
 L["PRESET_GL_PR_TIP_TITLE"] = "Juego izquierda + vertical derecha"
 L["PRESET_GL_PR_TIP_DESC"] = "Para el juego a la izquierda y un monitor Offhand vertical a la derecha."
 
+L["WORKSPACE_SIDE_LEFT"] = "Offhand a la izquierda"
+L["WORKSPACE_SIDE_RIGHT"] = "Offhand a la derecha"
 L["PRESET_DUAL_LANDSCAPE"] = "Dos horizontales (50/50)"
 L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"] = "Dos horizontales en paralelo"
 L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Divide la ventana por igual entre dos monitores horizontales idénticos."
@@ -437,7 +440,7 @@ L["AR_21_9_TIP_DESC"] = "Fija la cámara en 21:9 para ampliar el campo de visió
 
 L["AR_FILL"] = "Llenar altura de ventana"
 L["AR_FILL_TIP_TITLE"] = "Llenar altura (modo relleno)"
-L["AR_FILL_TIP_DESC"] = "Ajusta la altura del área 3D al porcentaje indicado, sin bandas superiores o inferiores."
+L["AR_FILL_TIP_DESC"] = "Usa toda la altura disponible de la ventana de WoW en Mainhand. Conserva la división entre pantallas y el margen inferior."
 
 L["ALIGN_LABEL"] = "Alineación de Mainhand:"
 L["ALIGN_CENTER"] = "Centro"
@@ -805,8 +808,8 @@ L["WIZARD_WELCOME_TEXT"] = "|cffffd100Calibra la configuración elegida|r\n\nLa 
 L["ENABLE_OFFHAND"] = "Activar Offhand en varios monitores"
 L["SHOW_MINIMAP_ICON"] = "Mostrar icono del minimapa"
 L["STACKED_LAYOUT"] = "Monitores apilados"
-L["PRESET_STACK_BOTTOM"] = "Apilados: juego abajo"
-L["PRESET_STACK_TOP"] = "Apilados: juego arriba"
+L["PRESET_STACK_BOTTOM"] = "Offhand arriba"
+L["PRESET_STACK_TOP"] = "Offhand abajo"
 L["MAP_SETTINGS"] = "Mapa del mundo: escala y navegación"
 L["MAP_SCALE"] = "Escala del mapa (% del original)"
 L["MAP_KEEP_OPEN"] = "Mantener el mapa abierto al moverse"
@@ -1004,7 +1007,7 @@ L["HELP_OVERVIEW_BODY"] = "Empieza con /offhand guide y elige un método de colo
 L["HELP_SETUP_BODY"] = "Guarda tu diseño del modo Edición y los perfiles de tus addons de interfaz.\n\n1. Abre /offhand guide. Elige UN método: Companion (recomendado en Windows), FancyZones o colocación manual.\n2. Sigue solo ese método en modo Ventana estándar. Companion: Span WoW Now, recarga la interfaz y confirma la colocación. FancyZones o manual: comprueba visualmente, confirma y recuerda la ventana.\n3. Continúa la misma guía con la calibración. Si se ofrece, crea el diseño HUD Mainhand fuera de combate con el modo Edición cerrado y recarga.\n\nReinicia WoW una vez y vuelve a aplicar tu colocación. Los espacios personalizados, temas y fondos son opcionales."
 L["HELP_COMPANION_TITLE"] = "Colocación de ventanas: Companion y alternativas"
 L["HELP_COMPANION_BODY"] = "Elige UN SOLO método de colocación.\n\nCompanion se recomienda en Windows por su colocación sin bordes y geometría exacta. FancyZones usa una zona de PowerToys. En manual, cambias el tamaño de WoW tú mismo. No necesitas Companion y FancyZones juntos.\n\nSigue tu método en /offhand guide y mantenlo durante la calibración. Con Companion, cambia allí las pantallas o Mainhand y aplica de nuevo; su geometría exacta está bloqueada en el addon. El soporte portátil Linux/Wine sigue siendo experimental."
-L["HELP_PANELS_BODY"] = "Arrastra a Offhand los títulos de paneles compatibles: mapa, personaje, bolsas y chat. Paneles independientes, persistencia y Escape tienen ajustes separados en Monitor Offhand y mapa. La restauración depende de panel, cliente y ajustes. Las ventanas de interacción se cierran al finalizarla.\n\nUsa los ajustes del mapa para la escala compatible. Los addons alternativos mantienen el control. Barras y marcos protegidos no son ventanas normales: usa el modo de edición Blizzard o los controles del addon propietario."
+L["HELP_PANELS_BODY"] = "Arrastra las ventanas compatibles por la barra de título. En Monitor Offhand están los ajustes de Escape y de recarga. Ajusta el tamaño del mapa en sus opciones y las barras de acción en el modo Edición. Las conversaciones se cierran al alejarte del PNJ.\n\nSi una ventana no se mueve o vuelve a su sitio, usa un solo addon para colocarla. Si MoveAny está cargado, Offhand le deja controlar la posición y el tamaño del mapa del mundo. Para una ventana de otro addon, como una bolsa, busca las opciones de desbloqueo o diseño de ese addon.\n\nCon BlizzMove puedes arrastrar las ventanas de Blizzard compatibles por el título. Escribe /bm para ver sus opciones. Blizzard aún puede recolocar una ventana cuando abres otra. BlizzMove admite la mochila combinada. Las bolsas individuales de Blizzard se colocan por separado."
 
 L["HELP_EDIT_MODE_TITLE"] = "HUD protegido y modo de edición de Blizzard"
 

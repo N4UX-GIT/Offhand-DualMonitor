@@ -546,20 +546,9 @@ function Options:CreateFloatingPanel()
 
     function Options:UpdateCardThemes()
         local trimKey = (Offhand.db and Offhand.db.trimColor) or "GOLD"
-        local c
-        if trimKey == "CUSTOM" and Offhand.db and Offhand.db.customTrimColor then
-            c = Offhand.db.customTrimColor
-        else
-            local pals = Offhand.Themes and Offhand.Themes.GetColorPalettes and Offhand.Themes:GetColorPalettes()
-            c = pals and pals[trimKey]
-        end
-        local textR, textG, textB = (c and c.r) or 1.0, (c and c.g) or 0.82, (c and c.b) or 0.0
 
         for _, card in ipairs(registeredCards) do
             Controls.StyleSurface(card, "card")
-            if card.title then
-                card.title:SetTextColor(textR, textG, textB, 1.0)
-            end
         end
 
         for _, slider in ipairs(registeredSliders) do
@@ -746,60 +735,21 @@ function Options:CreateFloatingPanel()
     rawMouseCheck:SetPoint("TOPLEFT", 12, -146)
     rawMouseCheck.Text:SetWidth(560)
 
-    local rPortraitLeft = CreateNativeRadioButton(card1_1, L["PRESET_PL_LR"],
-        function() return (Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT") end,
-        function()
-            Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
-            Offhand.db.primaryPosition = "RIGHT"
-        end,
-        L["PRESET_PL_LR_TIP_TITLE"], L["PRESET_PL_LR_TIP_DESC"]
-    )
-    rPortraitLeft:SetPoint("TOPLEFT", 12, -50)
-
-    local rPortraitRight = CreateNativeRadioButton(card1_1, L["PRESET_GL_PR"],
-        function() return (Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "LEFT") end,
-        function()
-            Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
-            Offhand.db.primaryPosition = "LEFT"
-        end,
-        L["PRESET_GL_PR_TIP_TITLE"], L["PRESET_GL_PR_TIP_DESC"]
-    )
-    rPortraitRight:SetPoint("TOPLEFT", 330, -50)
-
-    local rDual = CreateNativeRadioButton(card1_1, L["PRESET_DUAL_LANDSCAPE"],
-        function() return (Offhand.db and Offhand.db.layoutPreset == "LANDSCAPE_DUAL") end,
-        function()
-            Offhand.db.layoutPreset = "LANDSCAPE_DUAL"
-            Offhand.db.primaryPosition = "LEFT"
-            Offhand.db.deckWidthRatio = 0.50
-        end,
-        L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"], L["PRESET_DUAL_LANDSCAPE_TIP_DESC"]
-    )
-    rDual:SetPoint("TOPLEFT", 12, -74)
-    
-    local rVerticalBottom = CreateNativeRadioButton(card1_1, L["PRESET_STACK_BOTTOM"],
-        function() return (Offhand.db and Offhand.db.primaryPosition == "BOTTOM") end,
-        function()
-            Offhand.db.layoutPreset = "STACKED_VERTICAL"
-            Offhand.db.primaryPosition = "BOTTOM"
-        end,
-        L["STACKED_LAYOUT"], L["PRESET_STACK_BOTTOM"]
-    )
-    rVerticalBottom:SetPoint("TOPLEFT", 330, -74)
-
-    local rVerticalTop = CreateNativeRadioButton(card1_1, L["PRESET_STACK_TOP"],
-        function() return (Offhand.db and Offhand.db.primaryPosition == "TOP") end,
-        function()
-            Offhand.db.layoutPreset = "STACKED_VERTICAL"
-            Offhand.db.primaryPosition = "TOP"
-        end,
-        L["STACKED_LAYOUT"], L["PRESET_STACK_TOP"]
-    )
-    rVerticalTop:SetPoint("TOPLEFT", 12, -98)
+    local layoutRadios = {}
+    for i, choice in ipairs(TopologyDetection.manualLayouts) do
+        local label = L[choice.label]
+        if choice.preset == "LANDSCAPE_DUAL" then label = "50/50 · " .. label end
+        local radio = CreateNativeRadioButton(card1_1, label,
+            function() return TopologyDetection.IsLayoutSelected(choice, Offhand.db) end,
+            function() Offhand.ManualCanvas:SelectLayout(choice.preset, choice.mainhand) end,
+            choice.tip and L[choice.tip .. "_TIP_TITLE"], choice.tip and L[choice.tip .. "_TIP_DESC"])
+        radio:SetPoint("TOPLEFT", 12 + ((i - 1) % 2) * 318, -50 - math.floor((i - 1) / 2) * 24)
+        layoutRadios[i] = radio
+    end
 
     local autoDetectBtn = CreateFrame("Button", nil, card1_1, "UIPanelButtonTemplate")
     autoDetectBtn:SetSize(200, 22)
-    autoDetectBtn:SetPoint("TOPLEFT", 330, -98)
+    autoDetectBtn:SetPoint("TOPLEFT", 330, -26)
     autoDetectBtn:SetText(L["BTN_1CLICK_AUTOCONFIG"])
     autoDetectBtn:SetScript("OnClick", function()
         Options:AutoConfigure()
@@ -882,7 +832,7 @@ function Options:CreateFloatingPanel()
 
     local rFill = CreateNativeRadioButton(card1_2, L["AR_FILL"],
         function() return (Offhand.db and Offhand.db.aspectRatioMode == "FILL") end,
-        function() Offhand.db.aspectRatioMode = "FILL" end,
+        function() Offhand.ManualCanvas:UseFullHeight() end,
         L["AR_FILL_TIP_TITLE"], L["AR_FILL_TIP_DESC"]
     )
     rFill:SetPoint("TOPLEFT", 380, -26)
@@ -1999,6 +1949,7 @@ function Options:CreateFloatingPanel()
         { "SILVER", "Silver", 0.72, 0.75, 0.78 },
         { "BRONZE", "Bronze", 0.85, 0.58, 0.25 },
         { "EMERALD", "Emerald", 0.22, 0.82, 0.35 },
+        { "PURE_BLACK", L["CANVAS_BLACK"], 0.82, 0.82, 0.82 },
     }
     local trimBtnFrames = {}
     local customTrimBtn
@@ -2027,7 +1978,7 @@ function Options:CreateFloatingPanel()
 
     customTrimBtn = CreateFrame("Button", nil, card3_2, "UIPanelButtonTemplate")
     customTrimBtn:SetSize(155, 24)
-    customTrimBtn:SetPoint("TOPLEFT", 12 + 2 * (155 + 8), -58)
+    customTrimBtn:SetPoint("TOPLEFT", 12 + 3 * (155 + 8), -58)
     customTrimBtn:SetText(L["BTN_TRIM_CUSTOM"])
     customTrimBtn:SetScript("OnClick", function()
         local cur = (Offhand.db and Offhand.db.customTrimColor) or { r = 1.0, g = 0.82, b = 0.0 }
@@ -2768,8 +2719,7 @@ function Options:CreateFloatingPanel()
         configFrame.bottomControl:Refresh()
 
         local manualGeometryEnabled = not info.exactTopology
-        for _, control in ipairs({rPortraitLeft, rPortraitRight, rDual, rVerticalBottom,
-            rVerticalTop, r169, r219, rFill, seamSlider, p36Btn, p50Btn, p55Btn}) do
+        for _, control in ipairs({r169, r219, rFill, seamSlider, p36Btn, p50Btn, p55Btn}) do
             if control == seamSlider then Offhand.UIControls.SetSliderEnabled(control, manualGeometryEnabled)
             elseif control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
             if control and control.SetAlpha then control:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
@@ -2783,15 +2733,17 @@ function Options:CreateFloatingPanel()
         worldTextSlider:UpdateText()
         speechBubbleSlider:UpdateText()
 
-        rPortraitLeft:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "RIGHT")
-        rPortraitRight:SetChecked(Offhand.db and Offhand.db.layoutPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and Offhand.db.primaryPosition == "LEFT")
-        rDual:SetChecked(Offhand.db and Offhand.db.layoutPreset == "LANDSCAPE_DUAL")
-        rVerticalBottom:SetChecked(Offhand.db and Offhand.db.primaryPosition == "BOTTOM")
-        rVerticalTop:SetChecked(Offhand.db and Offhand.db.primaryPosition == "TOP")
+        for i, choice in ipairs(TopologyDetection.manualLayouts) do
+            local radio = layoutRadios[i]
+            radio:SetChecked(TopologyDetection.IsLayoutSelected(choice, Offhand.db))
+            radio:SetEnabled(manualGeometryEnabled)
+            if radio.SetAlpha then radio:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
+        end
 
-        r169:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "16_9")
-        r219:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "21_9")
-        rFill:SetChecked(Offhand.db and Offhand.db.aspectRatioMode == "FILL")
+        local aspect = (Offhand.db and Offhand.db.aspectRatioMode) or (manualMetrics and manualMetrics.arMode)
+        r169:SetChecked(aspect == "16_9")
+        r219:SetChecked(aspect == "21_9")
+        rFill:SetChecked(aspect == "FILL")
 
         seamCheck:SetChecked((Offhand.db and Offhand.db.seamRedirect) or false)
         hideCloseCheck:SetChecked((Offhand.db and Offhand.db.hideWorkspaceCloseButtons == true) or false)

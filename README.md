@@ -12,7 +12,7 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
 </div>
 
-Offhand Beta 38 pairs with Windows Companion 2.1.9-beta.2. See the [changelog](CHANGELOG.md) for changes and contributor credits.
+Offhand Beta 39 pairs with Windows Companion 2.1.9-beta.2. See the [changelog](CHANGELOG.md) for changes and contributor credits.
 
 ---
 
@@ -163,8 +163,8 @@ Type /offhand (or /oh) to open the main configuration dashboard.
 *   Use **Offhand Monitor** for map size, window behavior, recovery, and pop-up placement. Forever also has a **Controller controls** section.
 *   Use **Appearance** to set your overall theme, border accents, and background. With a custom display plan active, you can also set a theme and background for each workspace. Background Studio packages support their recommended fit or a Fill, Fit, or Stretch override.
 *   Use **Profiles** for general addon settings across characters. The **Panel presets** card shows which set of in-game positions, opening rules, scale, and workspace appearance is active. Open **Show advanced options** to manage presets manually. A single display layout works with your current panel settings.
-*   To switch saved display plans, open **Advanced → Workspace profiles** in Companion. Select the plan, click **Load selected**, then **Save changes**. Click **Span WoW Now** and type `/reload` in WoW. The first use of a plan copies your current panel settings. Later switches restore each plan's own settings and keep changes to the preset you left. A preset you load manually stays active until you switch to another saved display plan. To go back, load the previous display plan, span, and reload.
-*   In **Panel layout → Where panels open**, choose a **Panel type** and its destination under **Opens on**. Manually moving a window takes priority. **Use routing again** clears the selected panel type's manual positions after confirmation.
+*   To switch saved display plans, open **Advanced > Workspace profiles** in Companion. Select the plan, click **Load selected**, then **Save changes**. Click **Span WoW Now** and type `/reload` in WoW. The first use of a plan copies your current panel settings. Later switches restore each plan's own settings and keep changes to the preset you left. A preset you load manually stays active until you switch to another saved display plan. To go back, load the previous display plan, span, and reload.
+*   In **Panel layout > Where panels open**, choose a **Panel type** and its destination under **Opens on**. Manually moving a window takes priority. **Use routing again** clears the selected panel type's manual positions after confirmation.
 *   In **In-game window scale**, choose **Show advanced options** to preview a manual scale or a Windows-based estimate. Choose **Apply size** to save the preview. **Discard preview** or closing Advanced returns to the saved value. To restore normal size, choose **Preview 100%** and then **Apply size**. The same controls are available under Advanced during calibration.
 *   Click **?** in a settings heading for help with that section. Help for in-game window scale is available before you open Advanced options.
 *   Use **Help & Setup** to open the setup guide, launch the wizard, or jump to recovery.
@@ -175,7 +175,7 @@ Forever Beta uses Blizzard Edit Mode as the owner of action bars and combat fram
 
 During first-time setup, the Wizard's final **Create Mainhand HUD Layout** action clones the active Blizzard layout, preserves custom-positioned entries, moves default HUD anchors into Mainhand, selects the generated layout, and requests a reload. If creation cannot succeed, **Finish Without HUD Layout** records a per-character deferral and completes onboarding without claiming that protected frames were repaired. The normal repair prompt stays suppressed, while **Recovery & Preview** remains available for an explicit later retry. Use Blizzard Edit Mode afterward only for personal fine-tuning. On Forever, click **Use Current Edit Mode Layout** in Recovery & Preview after saving those personal changes. The designation is stored per character rather than in a shared Offhand settings profile. Recovery resolves the saved name before using its numeric slot, so reordered custom layouts cannot select an unrelated profile. If a saved display disappears while Offhand is active, click **Use Modern** in the recovery prompt for a readable single-screen HUD. When the exact topology returns, click **Restore Saved Layout**.
 
-Offhand leaves the Edit Mode manager and protected HUD frames entirely under Blizzard ownership. If its controls are inaccessible after spanning, close Edit Mode, click **Restore Window**, then use **Recovery & Preview → Create Mainhand HUD Layout** outside combat and reload when prompted. Click **Span WoW Now** again if the window was restored. Use **Gather Off-Screen UI** only for ordinary movable panels.
+Offhand leaves the Edit Mode manager and protected HUD frames entirely under Blizzard ownership. If its controls are inaccessible after spanning, close Edit Mode, click **Restore Window**, then use **Recovery & Preview > Create Mainhand HUD Layout** outside combat and reload when prompted. Click **Span WoW Now** again if the window was restored. Use **Gather Off-Screen UI** only for ordinary movable panels.
 
 
 ### Slash Commands

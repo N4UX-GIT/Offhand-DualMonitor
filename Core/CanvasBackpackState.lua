@@ -46,6 +46,9 @@ function BackpackState.RestoreSeparateBagsAfterReload(canvas)
             ToggleBag(id)
         end
     end
+    if #ids > 0 and not IsBagOpen(0) then
+        canvas:PlaceRemainingSeparateBags()
+    end
 end
 
 function BackpackState.UsesTBCBagIDs()
