@@ -455,6 +455,9 @@ end
 local function IsUsableGamepadDestinationPanel(frame, suppliedName)
     if not frame or frame == UIParent or type(frame.ClearAllPoints) ~= "function"
         or type(frame.SetPoint) ~= "function" then return false, "invalid" end
+    if Offhand.IsDaylightParkedPanel and Offhand.IsDaylightParkedPanel(frame) then
+        return false, "daylight-parked"
+    end
     if type(frame.IsForbidden) == "function" then
         local ok, forbidden = pcall(frame.IsForbidden, frame)
         if not ok or forbidden then return false, "forbidden" end

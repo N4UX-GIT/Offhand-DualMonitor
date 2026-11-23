@@ -325,33 +325,23 @@ function Wizard:CreateFrame()
     orientLabel:SetPoint("TOPLEFT", 14, -28)
     orientLabel:SetText(L["WIZARD_LABEL_LAYOUT"])
 
-    local btnPl = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnPl:SetSize(299, 24)
-    btnPl:SetPoint("TOPLEFT", 14, -46)
-    btnPl:SetText(L["PRESET_PL_LR"])
-    if Offhand.SetTooltip then Offhand:SetTooltip(btnPl, L["PRESET_PL_LR_TIP_TITLE"], L["PRESET_PL_LR_TIP_DESC"]) end
-
-    local btnPr = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnPr:SetSize(299, 24)
-    btnPr:SetPoint("LEFT", btnPl, "RIGHT", 10, 0)
-    btnPr:SetText(L["PRESET_GL_PR"])
-    if Offhand.SetTooltip then Offhand:SetTooltip(btnPr, L["PRESET_GL_PR_TIP_TITLE"], L["PRESET_GL_PR_TIP_DESC"]) end
-
-    local btnDual = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnDual:SetSize(608, 24)
-    btnDual:SetPoint("TOPLEFT", 14, -90)
-    btnDual:SetText(L["PRESET_DUAL_LANDSCAPE"])  
-    if Offhand.SetTooltip then Offhand:SetTooltip(btnDual, L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"], L["PRESET_DUAL_LANDSCAPE_TIP_DESC"]) end
-
-    local btnVt = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnVt:SetSize(299, 24)
-    btnVt:SetPoint("TOPLEFT", 14, -68)
-    btnVt:SetText(L["PRESET_STACK_TOP"])
-
-    local btnVb = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
-    btnVb:SetSize(299, 24)
-    btnVb:SetPoint("LEFT", btnVt, "RIGHT", 10, 0)
-    btnVb:SetText(L["PRESET_STACK_BOTTOM"])
+    local layoutButtons = {}
+    for i, choice in ipairs(Offhand.TopologyDetection.manualLayouts) do
+        local button = CreateFrame("Button", nil, card2, "UIPanelButtonTemplate")
+        layoutButtons[i] = button
+        button:SetSize(299, 22)
+        button:SetPoint("TOPLEFT", 14 + ((i - 1) % 2) * 309, -46 - math.floor((i - 1) / 2) * 23)
+        local label = L[choice.label]
+        button:SetText(choice.preset == "LANDSCAPE_DUAL" and ("50/50 · " .. label) or label)
+        if choice.tip and Offhand.SetTooltip then
+            Offhand:SetTooltip(button, L[choice.tip .. "_TIP_TITLE"], L[choice.tip .. "_TIP_DESC"])
+        end
+        button:SetScript("OnClick", function()
+            Offhand.ManualCanvas:SelectLayout(choice.preset, choice.mainhand)
+            f:UpdateState()
+            Offhand:ApplyFullLayout()
+        end)
+    end
 
     local arLabel = card2:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
     arLabel:SetPoint("TOPLEFT", card2, "TOPLEFT", 14, -116)
@@ -384,42 +374,6 @@ function Wizard:CreateFrame()
     if exactTopologyHelp.SetWordWrap then exactTopologyHelp:SetWordWrap(true) end
     f.exactTopologyHelp = exactTopologyHelp
 
-    btnPl:SetScript("OnClick", function()
-        Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
-        Offhand.db.primaryPosition = "RIGHT"
-        f:UpdateState()
-        Offhand:ApplyFullLayout()
-    end)
-
-    btnPr:SetScript("OnClick", function()
-        Offhand.db.layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT"
-        Offhand.db.primaryPosition = "LEFT"
-        f:UpdateState()
-        Offhand:ApplyFullLayout()
-    end)
-
-    btnDual:SetScript("OnClick", function()
-        Offhand.db.layoutPreset = "LANDSCAPE_DUAL"
-        Offhand.db.primaryPosition = "LEFT"
-        Offhand.db.deckWidthRatio = 0.50
-        f:UpdateState()
-        Offhand:ApplyFullLayout()
-    end)
-
-    btnVt:SetScript("OnClick", function()
-        Offhand.db.layoutPreset = "STACKED_VERTICAL"
-        Offhand.db.primaryPosition = "TOP"
-        f:UpdateState()
-        Offhand:ApplyFullLayout()
-    end)
-
-    btnVb:SetScript("OnClick", function()
-        Offhand.db.layoutPreset = "STACKED_VERTICAL"
-        Offhand.db.primaryPosition = "BOTTOM"
-        f:UpdateState()
-        Offhand:ApplyFullLayout()
-    end)
-
     btn169:SetScript("OnClick", function()
         Offhand.db.aspectRatioMode = "16_9"
         f:UpdateState()
@@ -433,7 +387,7 @@ function Wizard:CreateFrame()
     end)
 
     btnFill:SetScript("OnClick", function()
-        Offhand.db.aspectRatioMode = "FILL"
+        Offhand.ManualCanvas:UseFullHeight()
         f:UpdateState()
         Offhand:ApplyFullLayout()
     end)
@@ -1384,7 +1338,8 @@ function Wizard:CreateFrame()
             card1:SetHeight(top+statusHeight+14)
         elseif self.step == 2 then
             local manual = not self.companionLayout
-            for _, control in ipairs({orientLabel,btnPl,btnPr,btnDual,btnVt,btnVb,
+            for _, control in ipairs(layoutButtons) do SetShown(control, manual) end
+            for _, control in ipairs({orientLabel,
                 arLabel,btn169,btn219,btnFill}) do SetShown(control, manual) end
             card2.sectionLabel = L[manual and "WIZARD_CARD2_TITLE" or "WIZARD_COMPANION_LAYOUT_TITLE"]
             card2.title:SetText(card2.sectionLabel)
@@ -1617,19 +1572,17 @@ function Wizard:CreateFrame()
     function f:UpdateState()
         if self._updatingState or not Offhand.db then return end
         self._updatingState = true
-        local p = Offhand.db.layoutPreset
-        local pos = Offhand.db.primaryPosition
-        local ar = Offhand.db.aspectRatioMode
         local hud = Offhand.db.hudScale or 0.70
         local seam = Offhand.db.deckWidthRatio or 0.36
         local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+        local ar = Offhand.db.aspectRatioMode or (metrics and metrics.arMode)
         local manualGeometryEnabled = not (metrics and metrics.companionTopology)
         self.companionLayout = not manualGeometryEnabled
         exactTopologyHelp:SetText(manualGeometryEnabled and ""
             or L["WIZARD_COMPANION_CHANGE"])
         seamHelp:SetText(manualGeometryEnabled and L["WIZARD_SEAM_INSTRUCTION"]
             or L["WIZARD_COMPANION_SEAM"])
-        for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb, btn169, btn219,
+        for _, control in ipairs({btn169, btn219,
             btnFill, seamSlider, seamEditBox, btnMinus, btnPlus, btnSeam36, btnSeam50, btnSeam55}) do
             if control == seamSlider then Controls.SetSliderEnabled(control, manualGeometryEnabled)
             elseif control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
@@ -1648,19 +1601,19 @@ function Wizard:CreateFrame()
             scaleEditBox:SetText(string.format("%.0f%%", hud * 100))
         end
 
-        Offhand.Options:SetChoiceSelected(btnPl, p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "RIGHT")
-        Offhand.Options:SetChoiceSelected(btnPr, p == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and pos == "LEFT")
-        Offhand.Options:SetChoiceSelected(btnDual, p == "LANDSCAPE_DUAL")
-        Offhand.Options:SetChoiceSelected(btnVt, p == "STACKED_VERTICAL" and pos == "TOP")
-        Offhand.Options:SetChoiceSelected(btnVb, p == "STACKED_VERTICAL" and pos == "BOTTOM")
+        for i, choice in ipairs(Offhand.TopologyDetection.manualLayouts) do
+            local button = layoutButtons[i]
+            Offhand.Options:SetChoiceSelected(button, Offhand.TopologyDetection.IsLayoutSelected(choice, Offhand.db))
+            button:SetEnabled(manualGeometryEnabled)
+            if button.SetAlpha then button:SetAlpha(manualGeometryEnabled and 1 or 0.55) end
+        end
 
         Offhand.Options:SetChoiceSelected(btn169, ar == "16_9")
         Offhand.Options:SetChoiceSelected(btn219, ar == "21_9")
         Offhand.Options:SetChoiceSelected(btnFill, ar == "FILL")
         -- Selection styling intentionally enables a choice button, so enforce
         -- the exact-topology lock after applying that styling.
-        for _, control in ipairs({btnPl, btnPr, btnDual, btnVt, btnVb,
-            btn169, btn219, btnFill}) do
+        for _, control in ipairs({btn169, btn219, btnFill}) do
             if control and control.SetEnabled then control:SetEnabled(manualGeometryEnabled) end
         end
 
@@ -1673,6 +1626,7 @@ function Wizard:CreateFrame()
         local pals = Offhand.Themes and Offhand.Themes.GetColorPalettes and Offhand.Themes:GetColorPalettes()
         local c = pals and pals[trimKey]
         if c then
+            c = c.foreground or c
             if seamSlider.thumb and seamSlider.thumb.SetVertexColor then
                 seamSlider.thumb:SetVertexColor(c.r, c.g, c.b, 1.0)
             end
@@ -1886,9 +1840,9 @@ function Wizard:Open(resumeStep)
 
     f.recomText:SetText(string.format("|cffffd100%s|r %s | %.1f%% | %s",
         L["WIZARD_RECOM_PREFIX"],
-        (info.recommendedPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" and (info.recommendedPosition == "RIGHT" and L["PRESET_PL_LR"] or L["PRESET_GL_PR"]) or L["PRESET_DUAL_LANDSCAPE"]),
+        L[Offhand.TopologyDetection.LayoutLabelKey(info.recommendedPreset, info.recommendedPosition)],
         info.recommendedDeckRatio * 100,
-        info.recommendedAR or "16:9"))
+        info.recommendedAR == "FILL" and L["AR_FILL"] or info.recommendedAR or "16:9"))
 
     if info.exactRequired or info.topologyStatus == "MISMATCH" then
         f.statusText:SetText("|cffff5555" ..

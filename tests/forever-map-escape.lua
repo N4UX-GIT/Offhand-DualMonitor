@@ -589,6 +589,30 @@ do
     addon.Canvas:RestorePersistentFrames()
     assert(requests == 1 and not WorldMapFrame:IsShown(),
         "request one native open on reload without directly showing or toggling the frame")
+    addon.Canvas.workspaceRestorePending = true
+    addon.Canvas:RestorePersistentFrames()
+    addon.Canvas:RestorePersistentFrames()
+    assert(requests == 2 and not addon.Canvas.workspaceRestorePending,
+        "a fresh login into a ready workspace requests its saved map exactly once")
+    local originalMetrics = metrics
+    addon.Canvas:PrepareSingleScreenRecovery(metrics)
+    metrics = { isSpanned = false, topologyStatus = "MISMATCH" }
+    addon.Canvas:SetWorkspacePanelOpen(WorldMapFrame, false)
+    addon.Canvas:PrepareSingleScreenRecovery(metrics)
+    addon.Canvas:RestorePersistentFrames()
+    assert(addon.db.openWorkspacePanels.WorldMapFrame and requests == 2,
+        "a missing workspace must retain the map without opening it on Mainhand")
+    metrics = originalMetrics
+    addon.Canvas:PrepareSingleScreenRecovery(metrics)
+    addon.Canvas:RestorePersistentFrames()
+    addon.Canvas:RestorePersistentFrames()
+    assert(requests == 3, "returning the workspace must reopen the map exactly once")
+    addon.Canvas:SetWorkspacePanelOpen(WorldMapFrame, false)
+    metrics = { isSpanned = false, topologyStatus = "MISMATCH" }
+    addon.Canvas:PrepareSingleScreenRecovery(metrics)
+    metrics = originalMetrics
+    addon.Canvas:RestorePersistentFrames()
+    assert(requests == 3, "a map deliberately closed on Offhand stays closed on re-span")
     C_Map = originalMapAPI
 end
 
@@ -786,13 +810,28 @@ do
     local toggled = {}
     IsBagOpen = function(id) return id == 3 end
     ToggleBag = function(id) toggled[#toggled + 1] = id end
-    addon.Canvas.pendingSeparateBagIDs = OffhandCharDB.separateWorkspaceBagIDs
-    addon.Canvas:RestorePersistentFrames("reload")
+    addon.Canvas.workspaceRestorePending = true
+    addon.Canvas:RestorePersistentFrames()
     addon.Canvas:RestorePersistentFrames()
     assert(table.concat(toggled, ",") == "0" and nativeBagOpens == previousOpens,
-        "reload must open only missing saved bags and consume the request once")
+        "session startup must open only missing saved bags and consume the request once")
     addon.CanvasBackpackState.CaptureSeparateBagsForReload(addon.Canvas)
     assert(#OffhandCharDB.separateWorkspaceBagIDs == 0, "closed bags must replace the old snapshot")
+    ContainerFrame1:Show()
+    ContainerFrame2:Show()
+    local originalMetrics = metrics
+    addon.Canvas:PrepareSingleScreenRecovery(metrics)
+    metrics = { isSpanned = false, topologyStatus = "MISMATCH" }
+    addon.Canvas:PrepareSingleScreenRecovery(metrics)
+    addon.Canvas:PrepareSingleScreenRecovery(metrics)
+    assert(table.concat(OffhandCharDB.separateWorkspaceBagIDs, ",") == "0,3",
+        "repeated single-window layout passes must preserve the IDs captured before hiding bags")
+    metrics = originalMetrics
+    toggled = {}
+    IsBagOpen = function() return false end
+    addon.Canvas:RestorePersistentFrames()
+    addon.Canvas:RestorePersistentFrames()
+    assert(table.concat(toggled, ",") == "0,3", "re-span must reopen both separate bags once")
     OffhandCharDB, ContainerFrame1, ContainerFrame2 = oldChar, oldBackpack, oldSatchel
     ToggleBag, IsBagOpen = oldToggle, oldIsOpen
     positions.ContainerFrame1, positions.ContainerFrame2, open.SomeOtherPanel = nil, nil, nil
@@ -1255,11 +1294,20 @@ assert(isSpecial("WorldMapFrame"), "external drag persistence must settle after 
 WorldMapFrame.left = 200
 createdHandles[1].scripts.OnUpdate(nil, 1)
 WorldMapFrame:Hide()
+local originalMapAPI = C_Map
+local openRequests = 0
+C_Map = { OpenWorldMap = function()
+    openRequests = openRequests + 1
+    WorldMapFrame:Show()
+end }
+addon.Canvas:RestorePersistentFrames()
+assert(openRequests == 0, "ordinary layout repairs must not open an external map")
 addon.Canvas:RestorePersistentFrames("reload")
 flushTimers()
-assert(not WorldMapFrame:IsShown() and WorldMapFrame.left == 200
+assert(openRequests == 1 and WorldMapFrame:IsShown() and WorldMapFrame.left == 200
     and WorldMapFrame.bottom == 1300 and WorldMapFrame.scale == 0.83,
-    "Forever reload must leave an externally positioned map closed at its owner's geometry")
+    "Forever reload must request visibility once and preserve the external owner's geometry")
+C_Map = originalMapAPI
 assert(WorldMapFrame.hookScriptWrites == 0 and WorldMapFrame.setScriptWrites == 0,
     "external map observation must not add or replace protected map scripts")
 end
@@ -1578,6 +1626,11 @@ do
     local selected, reserved, combat = true, false, false
     local panel, binding, owner
     local baseBinding = "TOGGLEGAMEMENU"
+    local previousShowUIPanel = ShowUIPanel
+    ShowUIPanel = function(frame)
+        if frame == GameMenuFrame then ContainerFrameCombinedBags:Hide() end
+        frame:Show()
+    end
     RegisterGameMenuEscHandler = function() error("must retain Blizzard's secure Escape handler list") end
     GetUIPanel = function() return panel end
     UnitExists = function() return selected end
@@ -1621,8 +1674,9 @@ do
     assert(owner.attributes.type == "target" and owner.attributes.unit == "none"
         and owner.attributes.useOnKeyDown == false, "Blizzard's secure action must clear the target on key release")
     selected = false
-    assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
-        "clearing the target must return Escape to its ordinary binding")
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape()
+        and binding == "CLICK OffhandForeverBagWindowEscape:LeftButton",
+        "with just the bag open, Escape must be able to open the menu without closing bags")
     selected, panel = true, CharacterFrame
     panel:Show()
     local priorProfession = ProfessionsFrame
@@ -1661,8 +1715,13 @@ do
         "special-window dismissal must not flash the native bag")
     windowOwner.scripts.OnClick()
     assert(closes == 2, "a stale window binding must not run another native close transaction")
+    assert(addon.Canvas:RefreshForeverNativeBagTargetEscape(), "the next Escape should open the menu")
+    windowOwner.scripts.OnClick()
+    assert(GameMenuFrame:IsShown() and ContainerFrameCombinedBags:IsVisible() and closes == 2,
+        "opening the menu must not run a close-and-reopen transaction on bags")
     assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape() and not binding,
-        "with no window or target, Escape must return to Blizzard")
+        "an open Game Menu must retain its native dismissal")
+    GameMenuFrame:Hide()
     -- Inspect may already be visible when INSPECT_READY calls ShowUIPanel.
     -- Blizzard then skips slot registration and CloseWindows cannot find it.
     local priorInspect = InspectFrame
@@ -1707,5 +1766,6 @@ do
     ContainerFrame2:Hide()
     ContainerFrameCombinedBags.left = 1800
     assert(not addon.Canvas:RefreshForeverNativeBagTargetEscape(), "Mainhand must retain native Escape handling")
+    ShowUIPanel = previousShowUIPanel
 end
 print("PASS: Forever map placement, Escape persistence, and native bag secure target binding")

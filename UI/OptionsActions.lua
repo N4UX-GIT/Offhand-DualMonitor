@@ -143,7 +143,14 @@ function Actions.Install(Options, services)
         Offhand.db.layoutPreset = info.recommendedPreset
         Offhand.db.deckWidthRatio = info.recommendedDeckRatio
         Offhand.db.primaryPosition = info.recommendedPosition or "RIGHT"
-        Offhand.db.aspectRatioMode = info.recommendedAR or "16_9"
+        if not info.manualLayout then
+            Offhand.db.manualLayoutSize = nil
+            if info.recommendedAR == "FILL" then
+                Offhand.ManualCanvas:UseFullHeight()
+            else
+                Offhand.db.aspectRatioMode = info.recommendedAR or "16_9"
+            end
+        end
         Offhand.db.hudScale = 0.70
         if not fromWizard then
             if Offhand.MarkSetupComplete then
@@ -167,14 +174,7 @@ function Actions.Install(Options, services)
             end
             if Offhand.Print then
                 Offhand:Print(L["MSG_AUTOCONFIG_APPLIED"], info.description)
-                local presetLabel = L["PRESET_DUAL_LANDSCAPE"]
-                if info.recommendedPreset == "PORTRAIT_LEFT_LANDSCAPE_RIGHT" then
-                    if info.recommendedPosition == "RIGHT" then
-                        presetLabel = L["PRESET_PL_LR"]
-                    else
-                        presetLabel = L["PRESET_GL_PR"]
-                    end
-                end
+                local presetLabel = L[Offhand.TopologyDetection.LayoutLabelKey(info.recommendedPreset, info.recommendedPosition)]
                 local arKey = info.recommendedAR or "16_9"
                 local localeKey = "AR_" .. arKey
                 local arLabel = L[localeKey]

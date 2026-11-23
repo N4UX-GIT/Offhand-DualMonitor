@@ -106,8 +106,8 @@ def run_checks(root: Path, args: argparse.Namespace) -> dict:
     for path in lua_files:
         subprocess.run([compiler, "-p", str(path)], check=True)
     suites = sorted((root / "tests").glob("*.lua"))
-    if not suites:
-        raise ValueError("No Lua regression suites found")
+    if root / "tests/forever-workspace-restart.lua" not in suites:
+        raise ValueError("Missing the workspace restart regression suite")
     if not args.skip_lua_tests:
         runtime = args.lua or shutil.which("lua") or shutil.which("lua.exe")
         if not runtime:
@@ -118,8 +118,8 @@ def run_checks(root: Path, args: argparse.Namespace) -> dict:
         for suite in suites:
             subprocess.run([runtime, str(suite)], cwd=root, check=True, stdout=subprocess.DEVNULL)
     receipts = sorted((root / "tests" / "compatibility").glob("*.json"))
-    if not receipts:
-        raise ValueError("No compatibility evidence receipts found")
+    if root / "tests/compatibility/forever-workspace-restart.json" not in receipts:
+        raise ValueError("Missing the workspace restart live evidence receipt")
     status = [live_status(root, json.loads(p.read_text(encoding="utf-8"))) for p in receipts]
     installed = installed_differences(root, Path(args.installed).resolve(), files) if args.installed else []
     return {

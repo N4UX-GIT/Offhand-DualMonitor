@@ -1,26 +1,44 @@
 <!-- offhand-companion-version: 2.1.9-beta.2 -->
 
-# Offhand Beta 38 and Windows Companion 2.1.9-beta.2
+# Offhand Beta 39
 
-### New in Beta 38
+This add-on update works with Windows Companion 2.1.9-beta.2.
 
-- **Pick up where you left off on Forever.** With window restoration on, reload with your backpack, satchel or compact Blizzard map open on Offhand and they return to their saved spots. Close a window before reloading and it stays closed. Separate bags start closed on a fresh login.
-- **Open your map mid-fight.** Your compact map opens at the size and spot you chose on Offhand and stays there when combat ends. M and B use their normal game toggles during combat. Outside combat, you can set either key to keep its window open on a second press.
-- **Find the Game Menu on the first Escape.** On Forever with OneForAll, it opens in the center of Mainhand when WoW spans your monitors, or in the center of the game window when you play on one screen.
-- **Get your desktop space back.** Expand the sections you want in Advanced, then switch to Setup. Companion shrinks to fit the tab and gives those sections room again when you switch back.
+### Returning to your workspace
 
-### Coming from Beta 36?
+- On Forever, leave your map, backpack and Character panel open on Offhand when you quit. With window restoration enabled, they return when you log in and span WoW again. Panels you closed stay closed.
+- **Restore Window** can temporarily hide your Offhand panels. **Span WoW Now** brings the open ones back, even if you reloaded the UI while playing on one screen.
+- OpenMap returns to the position and size you chose when you reload with the compact map open on Offhand. Closing it first keeps it closed.
 
-- **Share a HUD with your alts.** Choose a compatible shared layout by name in Profiles, or keep each character’s own HUD. Offhand remembers your choice when you switch characters.
-- **Give the big map its own key.** Set a shortcut under **Key Bindings → Offhand** to plan a route on the expanded map. Close it to return to your compact map. Use **Auto-Fit** and the arrow keys to fine-tune the size.
-- **Keep guides and bags handy.** RestedXP remembers where you put the guide. Spoken’s Places list stays with the map. On Forever, Escape lets you leave an NPC conversation or close Inspect while your separate backpack stays open. A player also reported their bags stayed open while talking to a flight master and taking off.
-- **Set up your screens faster.** Pick which running WoW client to span, line up your monitors from Setup, and use the in-game centre line to check Mainhand. You can also create a second-screen background in Offhand Background Studio and adjust its opacity in game.
+### Bags and the Game Menu on Forever
 
-### Known issue on Forever
+- Outside combat, if you choose to keep Offhand panels open on Escape, pressing Escape with no target opens the Game Menu. Your Blizzard backpack stays visible and any satchel you closed stays closed. This works with both separate and combined bags. Turn the setting off to let Escape close your backpack.
+- If you close the backpack with its X while a separate satchel is open on Offhand, the satchel stays on Offhand. Reload with just the satchel open and it returns to that spot on its own.
+- If you use Baganator, its Single and Category views also stay open while you open and close the Game Menu with Escape.
 
-If your separate Blizzard bags reopened after a reload, closing and reopening them with B during a fight can show a yellow interface warning. The backpack still opens at its saved spot. B reopens the backpack only.
+### Manual window setup
+
+- The first-time guide now explains how to move a window controlled by another add-on. If a window won’t move or keeps jumping back, **Help & Setup** has examples for MoveAny and BlizzMove.
+- The setup wizard and **Display & HUD** now let you pick an even split with Offhand on the left or right. The stacked choices also tell you where Offhand will appear, above or below the game.
+- When calibrating two matching landscape displays, Offhand uses the available window height. If your existing setup leaves a black strip above the game, select **Fit Window Height (Fill)**. You can still choose a fixed aspect ratio or a shorter game view.
+- Recalibrating the same manual window remembers which side you picked, where you put the divider and how you sized the game.
+- On a single ultrawide display, you can keep a narrow workspace beside the game or explicitly choose a 50/50 split. The new side choices and window-height setting are translated in all supported game languages.
+
+### Appearance and other panels
+
+- Pair **Pitch Black** border trim with the **Pitch Black** canvas for a borderless look. Labels and selected controls stay visible. On the **Classic Warcraft** theme, the settings header now matches the softer trim around the window.
+- On Forever, DaylightUI’s Trainer, Spellbook and Talents panels stay within reach when switching between a single window and a span.
+- When you finish reading a book and reload, an empty book window no longer opens on its own. Offhand remembers where you placed the reader for the next time you open a book. Turning pages in a multi-page book on Forever still awaits a live check.
+
+### Known issues
+
+- On Forever, reopening a separate Blizzard backpack with B during combat after it was restored can still show a yellow interface warning. The backpack opens at its saved spot. B reopens the backpack only.
+- When spanning monitors of different sizes, the loading artwork can appear cropped. Your in-game view returns to its assigned display once loading finishes.
+- DaylightUI 2.2.3 can report a Lua error when the window is resized with a trainer list open. The training list stayed visible in our test, and the same error occurred with the Offhand add-on disabled.
 
 ### Community thanks
+
+Beta 39 builds on earlier GitHub contributions from these players and developers.
 
 - **@Iceskull7** added the WoW window picker in Companion. [#131](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/131)
 - **@bitwize01 (Frosted)** helped Forever use the right HUD when playing with a controller. **@paramboy (Michele)** helped bring Retail’s XP and reputation bars back onto the game screen. [#18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18), [#45](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/45)

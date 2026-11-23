@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "itIT" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novità di Offhand v%s"
+L["WHATS_NEW_BETA39"] = "• Nella configurazione manuale, dividi la finestra in due metà con Offhand a sinistra o a destra. Adatta l’altezza per usare tutta la finestra.\n• Per un’area di lavoro senza bordi visibili, scegli il nero assoluto per il bordo e lo sfondo in Aspetto."
 L["WHATS_NEW_BETA38"] = "• Su Forever la mappa e le borse singole aperte tornano al loro posto dopo un ricaricamento. In combattimento la mappa compatta mantiene le dimensioni scelte.\n• Assegna un tasto alla mappa grande nelle scorciatoie di Offhand. Chiudila per ritrovare la mappa compatta.\n• In Profili puoi condividere la disposizione con gli altri personaggi o sceglierne una per ciascuno."
 L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s riduce la finestra quando passi dalle opzioni avanzate alla configurazione. Qui puoi scegliere quale finestra di WoW estendere."
 L["WHATS_NEW_BETA37"] = "• Condividi la tua interfaccia con gli altri personaggi. In Profili, scegli per nome una disposizione condivisa o mantieni quella del personaggio.\n• Passa da una vista della mappa all’altra. Assegna un tasto alla mappa grande e chiudila per ritrovare la mappa compatta su Offhand.\n• Su Forever puoi tenere aperti la mappa, le borse o entrambi. Il solito tasto apre la finestra su Offhand. Fuori dal combattimento le pressioni successive vengono ignorate. In combattimento il tasto funziona normalmente.\n• Giochi a Forever con controller e tastiera? Conserva una disposizione dell’interfaccia per ciascuno."
@@ -107,7 +108,7 @@ L["WORKSPACE_READY_EDIT_MODE"] = "Per gli elementi dell’interfaccia Blizzard, 
 L["WORKSPACE_READY_ADDON"] = "Se un addon gestisce un elemento, usa il suo sblocco o la sua modalità di disposizione per spostarlo. Bloccalo di nuovo al termine."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Mostra Mainhand / Offhand"
-L["ONBOARD_INTRO_BRIEF"] = "Mantieni il gioco su Mainhand e i pannelli supportati su Offhand.\n\nPrima salva il layout della modalità Modifica e i profili degli addon UI. Scegli UN metodo di posizionamento e completa la calibrazione in questa guida. Gli altri metodi non sono necessari.\n\nSpazi personalizzati, temi e sfondi sono facoltativi dopo la configurazione. Chiudere la guida mette in pausa la configurazione."
+L["ONBOARD_INTRO_BRIEF"] = "Tieni il gioco su Mainhand e le finestre supportate su Offhand. Se un altro addon controlla una finestra, spostala con i suoi comandi. Trovi esempi in Aiuto e configurazione.\n\nSalva il layout della modalità Modifica e i profili degli addon dell’interfaccia. Scegli un metodo per posizionare la finestra e completa qui la calibrazione.\n\nPotrai personalizzare lo spazio in seguito. Chiudere la guida mette in pausa la configurazione."
 L["ONBOARD_CONTINUE_SETUP"] = "Continua configurazione"
 L["ONBOARD_CALIBRATE_TASK_TITLE"] = "Calibra Mainhand"
 L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "Premi %s per aprire la calibrazione.\n\nControlla la giunzione e la dimensione dell’interfaccia, poi crea l’HUD Mainhand. Ricarica quando richiesto."
@@ -376,7 +377,7 @@ L["STEP_4_HELP"] = "Scegli dimensioni comode per l’interfaccia. Premi Avanti p
 L["STEP_5_HELP"] = "I riquadri protetti di combattimento non si spostano come finestre normali. Completa creando un layout Blizzard adatto a Mainhand."
 L["WIZARD_STEP_5_BODY"] = "Crea una copia dell’HUD Blizzard per Mainhand. La disposizione originale viene conservata.\n\nEsci dal combattimento e chiudi la modalità Modifica, poi fai clic qui sotto. Ricarica l’interfaccia quando richiesto."
 L["HELP_SETUP_TITLE"] = "Configura due monitor"
-L["HELP_PANELS_TITLE"] = "Usa il monitor Offhand"
+L["HELP_PANELS_TITLE"] = "Spostare le finestre su Offhand"
 L["HELP_RECOVERY_TITLE"] = "Recupera finestre o torna a un monitor"
 L["EDIT_MODE_LAYOUT_MISSING"] = "Forever usa la modalità modifica di Blizzard per barre delle azioni e riquadri di combattimento. Fuori dal combattimento, seleziona e salva una disposizione personalizzata, posizionala sul monitor principale e impostala nella scheda Recupero di Offhand."
 L["EDIT_MODE_LAYOUT_MISSING_RETAIL"] = "La modalità modifica di Blizzard gestisce barre delle azioni e riquadri di combattimento. Fuori dal combattimento, posizionali sul monitor principale e scegli la disposizione per questo personaggio. Offhand ricorda la scelta per personaggio."
@@ -416,6 +417,8 @@ L["PRESET_GL_PR"] = "Gioco a sinistra + verticale a destra"
 L["PRESET_GL_PR_TIP_TITLE"] = "Gioco a sinistra + verticale a destra"
 L["PRESET_GL_PR_TIP_DESC"] = "Per gioco a sinistra e Offhand verticale a destra."
 
+L["WORKSPACE_SIDE_LEFT"] = "Offhand a sinistra"
+L["WORKSPACE_SIDE_RIGHT"] = "Offhand a destra"
 L["PRESET_DUAL_LANDSCAPE"] = "Due orizzontali (50/50)"
 L["PRESET_DUAL_LANDSCAPE_TIP_TITLE"] = "Due monitor affiancati"
 L["PRESET_DUAL_LANDSCAPE_TIP_DESC"] = "Divide equamente la finestra tra due monitor orizzontali identici."
@@ -437,7 +440,7 @@ L["AR_21_9_TIP_DESC"] = "Fissa la camera a 21:9 per un campo visivo più ampio."
 
 L["AR_FILL"] = "Riempi altezza finestra"
 L["AR_FILL_TIP_TITLE"] = "Adatta altezza (riempimento)"
-L["AR_FILL_TIP_DESC"] = "Adatta l’altezza 3D alla percentuale impostata, senza bande superiori o inferiori."
+L["AR_FILL_TIP_DESC"] = "Usa tutta l’altezza disponibile della finestra di WoW su Mainhand. Mantiene la divisione degli schermi e il margine inferiore."
 
 L["ALIGN_LABEL"] = "Allineamento Mainhand:"
 L["ALIGN_CENTER"] = "Centro"
@@ -807,8 +810,8 @@ L["WIZARD_WELCOME_TEXT"] = "|cffffd100Calibra la configurazione scelta|r\n\nIl p
 L["ENABLE_OFFHAND"] = "Attiva Offhand su più monitor"
 L["SHOW_MINIMAP_ICON"] = "Mostra icona sulla minimappa"
 L["STACKED_LAYOUT"] = "Monitor sovrapposti"
-L["PRESET_STACK_BOTTOM"] = "Sovrapposti: gioco in basso"
-L["PRESET_STACK_TOP"] = "Sovrapposti: gioco in alto"
+L["PRESET_STACK_BOTTOM"] = "Offhand sopra"
+L["PRESET_STACK_TOP"] = "Offhand sotto"
 L["MAP_SETTINGS"] = "Mappa del mondo: scala e navigazione"
 L["MAP_SCALE"] = "Scala della mappa (% originale)"
 L["MAP_KEEP_OPEN"] = "Tieni aperta la mappa durante il movimento"
@@ -1006,7 +1009,7 @@ L["HELP_OVERVIEW_BODY"] = "Inizia con /offhand guide e scegli un metodo di posiz
 L["HELP_SETUP_BODY"] = "Salva il layout della modalità Modifica e i profili degli addon UI.\n\n1. Apri /offhand guide. Scegli UN metodo: Companion (consigliato su Windows), FancyZones o posizionamento manuale.\n2. Segui solo quel metodo in modalità Finestra standard. Companion: Span WoW Now, ricarica UI e conferma il posizionamento. FancyZones o manuale: verifica visivamente, conferma e memorizza la finestra.\n3. Continua la stessa guida con la calibrazione. Se proposto, crea il layout HUD Mainhand fuori dal combattimento con modalità Modifica chiusa, poi ricarica.\n\nRiavvia WoW una volta e riapplica il posizionamento scelto. Spazi personalizzati, temi e sfondi sono facoltativi."
 L["HELP_COMPANION_TITLE"] = "Posizionamento finestra: Companion e alternative"
 L["HELP_COMPANION_BODY"] = "Scegli UN SOLO metodo di posizionamento.\n\nCompanion è consigliato su Windows per il posizionamento senza bordi e la geometria esatta. FancyZones usa una zona di PowerToys. Con il metodo manuale ridimensioni WoW da solo. Non servono Companion e FancyZones insieme.\n\nSegui il metodo scelto in /offhand guide e mantienilo durante la calibrazione. Con Companion, cambia schermi o Mainhand lì e applica di nuovo; la geometria esatta è bloccata nell’addon. Il supporto portatile Linux/Wine resta sperimentale."
-L["HELP_PANELS_BODY"] = "Trascina su Offhand i titoli dei pannelli supportati: mappa, personaggio, borse e chat. Pannelli indipendenti, persistenza ed Esc hanno opzioni separate in Monitor Offhand e mappa. Il ripristino dipende da pannello, client e impostazioni. Le finestre di interazione si chiudono al termine dell'interazione.\n\nUsa le opzioni mappa per la scala supportata. Gli addon sostitutivi mantengono il controllo. Barre e riquadri protetti non sono normali finestre: usa la modalità modifica Blizzard o i controlli dell'addon proprietario."
+L["HELP_PANELS_BODY"] = "Trascina le finestre supportate dalla barra del titolo. In Monitor Offhand trovi le opzioni per Esc e il ricaricamento. Regola la dimensione della mappa nelle sue opzioni e le barre delle azioni in modalità Modifica. I dialoghi si chiudono quando ti allontani dal PNG.\n\nSe una finestra non si sposta o torna al punto di partenza, usa un solo addon per posizionarla. Quando MoveAny è caricato, Offhand gli lascia gestire posizione e dimensioni della mappa del mondo. Per le finestre sostitutive, come le borse, cerca le opzioni di sblocco o disposizione nel relativo addon.\n\nCon BlizzMove puoi trascinare le finestre Blizzard supportate dal titolo. Digita /bm per le opzioni. Blizzard può ancora spostare una finestra quando ne apri un’altra. BlizzMove supporta lo zaino combinato. Le borse Blizzard separate hanno un posizionamento proprio."
 
 L["HELP_EDIT_MODE_TITLE"] = "HUD protetto e modalità modifica di Blizzard"
 

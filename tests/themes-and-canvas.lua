@@ -29,8 +29,11 @@ local metrics = {
     gameLeft = 1440, gameRight = 4000, gameBottom = 0, gameTop = 1440,
     gameWidth = 2560, gameHeight = 1440, deckWidth = 1440, hudScale = 1,
     screenWidth = 4000, screenHeight = 2560, isSpanned = true,
+    physicalWidth = 4000, physicalHeight = 2560,
+    gamePixelLeft = 1440, gamePixelBottom = 0, gamePixelWidth = 2560, gamePixelHeight = 1440,
 }
 addon.Viewport = { GetMetrics = function() return metrics end }
+GetPhysicalScreenSize = function() return metrics.screenWidth, metrics.screenHeight end
 addon.Print = function() end
 addon.ApplyFullLayout = function() end
 InCombatLockdown = function() return false end
@@ -52,6 +55,7 @@ local function makeMockFrame(name, w, h)
     }
     table.insert(frames, f)
     function f:GetName() return self.name end
+    function f:GetParent() return self.parent end
     function f:SetSize(width, height) self.w = width; self.h = height end
     function f:GetWidth() return self.w end
     function f:GetHeight() return self.h end
@@ -205,18 +209,20 @@ addon.db.canvasColor = "CLASSIC_STONE"
 addon.Themes:ApplyCanvasTheme(mockCanvas)
 assert(mockCanvas.backdrop.edgeFile == "Interface\\DialogFrame\\UI-DialogBox-Border", "Classic theme must apply UI-DialogBox-Border to workspace canvas")
 assert(mockCanvas.backdrop.edgeSize == 32, "Classic theme edgeSize must be 32")
-local function assertTrim(frame, key)
-    local color = addon.Themes:GetColorPalettes()[key]
+local function assertTrim(frame, key, strength)
+    local color = key == "CUSTOM" and addon.db.customTrimColor or addon.Themes:GetColorPalettes()[key]
+    strength = strength or 1
     local border = frame.borderColor
-    assert(border.r == color.r and border.g == color.g and border.b == color.b,
+    assert(border.r == color.r * strength and border.g == color.g * strength and border.b == color.b * strength,
         "Rendered trim must match the " .. key .. " swatch")
 end
 local dialog = makeMockFrame("ThemedDialog", 300, 200)
 local settingsWindow = makeMockFrame("OffhandFloatingConfigFrame", 300, 200)
 local settingsHeader = addon.Themes:CreateBayHeader(settingsWindow, "Settings")
+addon.db.customTrimColor = { r = .25, g = .6, b = .9 }
 for _, theme in ipairs({"CLASSIC", "PITCH_BLACK"}) do
     addon.Themes:SetThemePreset(addon.db, theme)
-    for _, key in ipairs({"GOLD", "SILVER"}) do
+    for _, key in ipairs({"GOLD", "CYAN_GLOW", "EMERALD", "SILVER", "PURE_BLACK", "CUSTOM"}) do
         addon.db.trimColor = key
         addon.Themes:ApplyCanvasTheme(mockCanvas)
         addon.Themes:ApplyBackdrop(dialog)
@@ -225,7 +231,7 @@ for _, theme in ipairs({"CLASSIC", "PITCH_BLACK"}) do
         assertTrim(mockCanvas, key)
         assertTrim(dialog, key)
         assertTrim(settingsWindow, key)
-        assertTrim(settingsHeader, key)
+        assertTrim(settingsHeader, key, theme == "CLASSIC" and .47 or 1)
     end
 end
 
@@ -255,6 +261,22 @@ assert(pt.x == 14 and pt.y == -14, "BayHeader TOPLEFT must be indented (14, -14)
 -- 3. Test Options Panel and Themed Slider Thumbs
 local configFrame = addon.Options:CreateFloatingPanel()
 assert(configFrame ~= nil, "Options floating panel must be created")
+do
+    local blackButton
+    for _, frame in ipairs(frames) do
+        if frame.trimKey == "PURE_BLACK" then blackButton = frame end
+    end
+    assert(blackButton and blackButton:GetText() == addon.L.CANVAS_BLACK)
+    addon.db.canvasColor = "DEEP_BLUE"
+    addon.db.customTrimColor = { r = .2, g = .7, b = .1 }
+    blackButton.scripts.OnClick()
+    assert(blackButton.selected and addon.db.trimColor == "PURE_BLACK")
+    assert(addon.db.canvasColor == "DEEP_BLUE" and addon.db.customTrimColor.g == .7)
+    local border = mockCanvas.borderColor
+    assert(border.r == 0 and border.g == 0 and border.b == 0)
+    local r, g, b = addon.UIControls.GetAccent(true)
+    assert(r > .7 and g > .7 and b > .7, "Pitch Black controls must stay legible")
+end
 for _, themeKey in ipairs(addon.Themes:GetThemeList()) do
     addon.Themes:SetThemePreset(addon.db, themeKey)
     addon.Options:UpdateCardThemes()

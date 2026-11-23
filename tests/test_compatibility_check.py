@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -63,6 +64,15 @@ class CompatibilityChecks(unittest.TestCase):
     def test_empty_receipt_cannot_claim_live_coverage(self):
         with self.assertRaises(ValueError):
             check.live_status(self.root, {"schema": 1, "hash_mode": "utf8-lf", "source_fingerprints": {}})
+
+    def test_workspace_restart_receipt_tracks_logout_login_and_panel_restore(self):
+        path = check.ROOT / "tests/compatibility/forever-workspace-restart.json"
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(receipt["id"], "forever-workspace-restart")
+        essential = {"Core/Init.lua", "Core/Config.lua", "Core/Viewport.lua", "Core/Canvas.lua",
+                     "Core/CanvasPanelPlacement.lua", "Core/CanvasPersistence.lua",
+                     "Core/CanvasBackpackState.lua", "Core/CanvasForeverBags.lua", "Core/CanvasForeverMap.lua"}
+        self.assertFalse(essential.difference(receipt["source_fingerprints"]))
 
     def test_missing_evidence_cannot_claim_live_coverage(self):
         receipt = {"schema": 1, "hash_mode": "utf8-lf", "id": "test", "client": "Forever 70959", "scope": "test",

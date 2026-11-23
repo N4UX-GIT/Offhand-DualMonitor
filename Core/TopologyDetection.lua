@@ -3,6 +3,27 @@ local _, Offhand = ...
 local Detection = {}
 Offhand.TopologyDetection = Detection
 
+Detection.manualLayouts = {
+    {preset="PORTRAIT_LEFT_LANDSCAPE_RIGHT", mainhand="RIGHT", label="PRESET_PL_LR", tip="PRESET_PL_LR"},
+    {preset="PORTRAIT_LEFT_LANDSCAPE_RIGHT", mainhand="LEFT", label="PRESET_GL_PR", tip="PRESET_GL_PR"},
+    {preset="LANDSCAPE_DUAL", mainhand="RIGHT", label="WORKSPACE_SIDE_LEFT", tip="PRESET_DUAL_LANDSCAPE"},
+    {preset="LANDSCAPE_DUAL", mainhand="LEFT", label="WORKSPACE_SIDE_RIGHT", tip="PRESET_DUAL_LANDSCAPE"},
+    {preset="STACKED_VERTICAL", mainhand="BOTTOM", label="PRESET_STACK_BOTTOM"},
+    {preset="STACKED_VERTICAL", mainhand="TOP", label="PRESET_STACK_TOP"},
+}
+
+function Detection.LayoutLabelKey(preset, mainhand)
+    for _, choice in ipairs(Detection.manualLayouts) do
+        if choice.preset == preset and choice.mainhand == mainhand then return choice.label end
+    end
+    return "PRESET_DUAL_LANDSCAPE"
+end
+
+function Detection.IsLayoutSelected(choice, db)
+    return db and db.layoutPreset == choice.preset and db.primaryPosition == choice.mainhand
+        and (choice.preset ~= "LANDSCAPE_DUAL" or db.deckWidthRatio == 0.5)
+end
+
 function Detection.Detect()
     local physW, physH
     if GetPhysicalScreenSize then
@@ -92,6 +113,25 @@ function Detection.Detect()
         return info
     end
 
+    -- An explicit choice on this manual canvas disambiguates same-size
+    -- windows, e.g. two 5:4 monitors versus one ultrawide. Older profiles can
+    -- only have selected a stacked layout manually on a manual canvas.
+    local db = Offhand.db
+    if metrics and metrics.manualCanvas and db and
+        ((metrics.manualCanvasSize and metrics.manualCanvasSize == db.manualLayoutSize)
+        or (not db.manualLayoutSize and metrics.manualCanvasArrangement == "STACKED"
+            and db.layoutPreset == "STACKED_VERTICAL" and
+            (db.primaryPosition == "TOP" or db.primaryPosition == "BOTTOM"))) then
+        info.isSpanned = true
+        info.manualLayout = true
+        info.recommendedPreset = db.layoutPreset
+        info.recommendedPosition = db.primaryPosition
+        info.recommendedDeckRatio = db.deckWidthRatio or 0.5
+        info.recommendedAR = metrics.arMode or db.aspectRatioMode or "FILL"
+        info.description = Offhand.L[Detection.LayoutLabelKey(db.layoutPreset, db.primaryPosition)]
+        return info
+    end
+
     -- ------------------------------------------------------------------------
     -- 1. Specific High-Confidence Multi-Monitor Topologies
     -- ------------------------------------------------------------------------
@@ -146,7 +186,7 @@ function Detection.Detect()
         info.recommendedPreset = "LANDSCAPE_DUAL"
         info.recommendedDeckRatio = 0.50
         info.recommendedPosition = "LEFT"
-        info.recommendedAR = "16_9"
+        info.recommendedAR = "FILL"
         info.description = string.format("Dual 4K Landscape (7680x2160)")
 
     elseif Near(physW, 5120) and Near(physH, 1440) then
@@ -155,7 +195,7 @@ function Detection.Detect()
         info.recommendedPreset = "LANDSCAPE_DUAL"
         info.recommendedDeckRatio = 0.50
         info.recommendedPosition = "LEFT"
-        info.recommendedAR = "16_9"
+        info.recommendedAR = "FILL"
         info.description = string.format("Dual 1440p Landscape")
 
     elseif Near(physW, 3840) and Near(physH, 1080) then
@@ -164,7 +204,7 @@ function Detection.Detect()
         info.recommendedPreset = "LANDSCAPE_DUAL"
         info.recommendedDeckRatio = 0.50
         info.recommendedPosition = "LEFT"
-        info.recommendedAR = "16_9"
+        info.recommendedAR = "FILL"
         info.description = string.format("Dual 1080p Landscape")
 
     elseif Near(physW, 4880) and Near(physH, 2560) then
@@ -230,7 +270,7 @@ function Detection.Detect()
         info.recommendedPreset = "LANDSCAPE_DUAL"
         info.recommendedDeckRatio = 0.50
         info.recommendedPosition = "LEFT"
-        info.recommendedAR = "16_9"
+        info.recommendedAR = "FILL"
         info.description = string.format("Dual Landscape Side-by-Side")
 
     elseif ar >= 2.0 then
@@ -253,6 +293,12 @@ function Detection.Detect()
         info.description = string.format("Single Display")
     end
 
+    -- A window's dimensions identify equal landscape halves, but cannot
+    -- tell us which one the player already confirmed as Mainhand.
+    if info.recommendedAR == "FILL" and metrics and metrics.manualCanvas and Offhand.db
+        and (Offhand.db.primaryPosition == "LEFT" or Offhand.db.primaryPosition == "RIGHT") then
+        info.recommendedPosition = Offhand.db.primaryPosition
+    end
     return info
 end
 

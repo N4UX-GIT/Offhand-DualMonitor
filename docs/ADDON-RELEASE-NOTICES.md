@@ -8,6 +8,14 @@ remains unread. The player can always reopen it with `/offhand whatsnew`.
 
 Before packaging an addon release:
 
+Highlight new features in the dialog. For a fixes-only release, use the heading
+**Bug Fixes** and a brief player-facing overview. Put the detailed fixes in the
+changelog. Present the proposed dialog text for review before final packaging.
+
+Write menu paths with words or an ASCII greater-than sign, as in
+`Key Bindings > Offhand`. Use words for directions. WoW fonts can leave a
+blank where a Unicode arrow appears. Apply this convention in every locale.
+
 1. Add the exact manifest version, including any beta suffix, to the release
    table in [UI/WhatsNew.lua](../UI/WhatsNew.lua). Add short, player-facing highlights to
    each locale. Link to the full notes on the matching GitHub release.

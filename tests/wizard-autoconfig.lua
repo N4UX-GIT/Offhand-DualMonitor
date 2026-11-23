@@ -845,7 +845,24 @@ local infoDual = addon.Options:DetectTopology()
 assert(infoDual.isSpanned == true, "3840x1080 must be detected as spanned")
 assert(infoDual.recommendedPreset == "LANDSCAPE_DUAL", "Dual 1080p must recommend LANDSCAPE_DUAL")
 assert(math.abs(infoDual.recommendedDeckRatio - 0.50) < 0.001, "Dual 1080p must recommend 50% seam")
-assert(infoDual.recommendedAR == "16_9", "Dual 1080p must recommend 16:9 AR")
+assert(infoDual.recommendedAR == "FILL", "Dual 1080p must fit the actual window height")
+
+for _, size in ipairs({{3840,1180}, {3840,1181}, {3840,1200}, {5120,1600}, {4320,1440}}) do
+    GetPhysicalScreenSize = function() return size[1], size[2] end
+    local info = addon.Options:DetectTopology()
+    assert(info.recommendedAR == "FILL" and info.recommendedDeckRatio == 0.5,
+        "dual landscape must fill the measured window at " .. size[1] .. "x" .. size[2])
+end
+
+GetPhysicalScreenSize = function() return 3840, 1140 end
+addon.db.gameHeightRatio = 0.5625
+addon.db.primaryPosition = "RIGHT"
+addon.Viewport.GetMetrics = function() return {manualCanvas=true} end
+addon.Options:AutoConfigure(true, true)
+addon.Viewport.GetMetrics = originalGetMetrics
+assert(addon.db.aspectRatioMode == "FILL" and addon.db.gameHeightRatio == 1
+    and addon.db.deckWidthRatio == 0.5 and addon.db.primaryPosition == "RIGHT",
+    "windowed dual calibration must produce two full-height halves and retain the confirmed Mainhand side")
 
 -- A manually confirmed single 21:9 display preserves a 16:9 Mainhand and
 -- assigns only the remaining width to the Offhand workspace.
@@ -922,14 +939,14 @@ GetPhysicalScreenSize = function() return 5120, 1440 end
 local infoDual1440 = addon.Options:DetectTopology()
 assert(infoDual1440.isSpanned == true, "5120x1440 must be detected as spanned")
 assert(math.abs(infoDual1440.recommendedDeckRatio - 0.50) < 0.001, "5120x1440 must recommend 50% seam")
-assert(infoDual1440.recommendedAR == "16_9", "5120x1440 must recommend 16:9 AR")
+assert(infoDual1440.recommendedAR == "FILL", "Dual 1440p must fit the actual window height")
 
 -- Test 7680x2160 (Dual 4K)
 GetPhysicalScreenSize = function() return 7680, 2160 end
 local infoDual4K = addon.Options:DetectTopology()
 assert(infoDual4K.isSpanned == true, "7680x2160 must be detected as spanned")
 assert(math.abs(infoDual4K.recommendedDeckRatio - 0.50) < 0.001, "7680x2160 must recommend 50% seam")
-assert(infoDual4K.recommendedAR == "16_9", "7680x2160 must recommend 16:9 AR")
+assert(infoDual4K.recommendedAR == "FILL", "Dual 4K must fit the actual window height")
 
 -- Test 6400x2160 (4K + 1440p)
 GetPhysicalScreenSize = function() return 6400, 2160 end
@@ -1011,6 +1028,13 @@ assert(wizardFrame.aspectButtons[1]:IsShown() and wizardFrame.aspectButtons[1]:I
 assert(wizardFrame.seamSlider:IsEnabled() == true
         and wizardFrame.seamHelp:GetText() == addon.L["WIZARD_SEAM_INSTRUCTION"],
     "Wizard step 3 must restore normal guidance when manual geometry is available")
+
+addon.db.gameHeightRatio = 0.5625
+wizardFrame.aspectButtons[3].scripts.OnClick()
+assert(addon.db.gameHeightRatio == 1 and addon.db.aspectRatioMode == "FILL",
+    "selecting Fit Window Height must clear the legacy partial height")
+wizardFrame.aspectButtons[1].scripts.OnClick()
+assert(addon.db.aspectRatioMode == "16_9")
 
 -- First-install users may follow Next instead of the optional recommendation.
 -- Opening a guide remains inert; explicitly advancing confirmed calibration
@@ -2604,6 +2628,51 @@ for _, f in ipairs(frames) do
 end
 assert(addon:SetOnboardingSetupMethod(autoConfigMethod))
 assert(foundAutoDetectBtn, "Card 1_1 must contain 1-Click Auto-Configure button")
+
+do
+    local db, getMetrics = addon.db, addon.Viewport.GetMetrics
+    addon.db = setmetatable({}, {__index=db})
+    addon.Viewport.GetMetrics = function()
+        local m = getMetrics(addon.Viewport)
+        m.physicalWidth, m.physicalHeight = 2560, 1024
+        m.companionTopology, m.manualCanvas, m.manualCanvasSize = false, true, "2560x1024"
+        return m
+    end
+    for _, choice in ipairs({
+        {"50/50 · " .. addon.L.WORKSPACE_SIDE_LEFT, "RIGHT", "LANDSCAPE_DUAL"},
+        {"50/50 · " .. addon.L.WORKSPACE_SIDE_RIGHT, "LEFT", "LANDSCAPE_DUAL"},
+        {addon.L.PRESET_STACK_BOTTOM, "BOTTOM", "STACKED_VERTICAL"},
+        {addon.L.PRESET_STACK_TOP, "TOP", "STACKED_VERTICAL"},
+    }) do
+        local settings, wizard
+        for _, f in ipairs(frames) do
+            if f.labelText == choice[1] then settings = f end
+            if f.text == choice[1] and f.scripts.OnClick then wizard = f end
+        end
+        assert(settings and wizard, "missing layout control: " .. choice[1])
+        for _, button in ipairs({settings,wizard}) do
+            addon.db.primaryPosition = nil
+            button.scripts.OnClick()
+            assert(addon.db.primaryPosition == choice[2] and addon.db.layoutPreset == choice[3])
+            if button == settings then assert(settings.checked) else assert(wizard.selected) end
+            addon.db.deckWidthRatio, addon.db.aspectRatioMode, addon.db.gameHeightRatio = 0.44, "FILL", 0.84
+            local info = addon.Options:AutoConfigure(true,true)
+            assert(info.manualLayout and addon.db.primaryPosition == choice[2] and addon.db.deckWidthRatio == 0.44
+                and addon.db.gameHeightRatio == 0.84, "recalibration lost the selected split: " .. choice[1])
+            addon.Options:ShowSeamGuide()
+            local line = _G.OffhandSeamGuideLine
+            local point = line.points.BOTTOMLEFT
+            local horizontalSplit = choice[3] == "LANDSCAPE_DUAL"
+            local farSide = choice[2] == "LEFT" or choice[2] == "BOTTOM"
+            local length = horizontalSplit and UIParent:GetWidth() or UIParent:GetHeight()
+            local expected = length * (farSide and 0.56 or 0.44) - 2
+            assert(math.abs((horizontalSplit and point.x or point.y) - expected) < 0.01)
+            addon.Options:HideSeamGuide()
+        end
+    end
+    addon.Viewport.GetMetrics, addon.db = getMetrics, db
+    addon.Options:RefreshPanel()
+end
 
 -- Recovery must preserve reachable panels on both monitors and skip protected UI.
 local recoveryMetrics = { isSpanned = true, screenWidth = 4000, screenHeight = 2560,

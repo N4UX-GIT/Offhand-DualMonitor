@@ -89,12 +89,14 @@ local COLOR_PALETTES = {
     SILVER       = { name = "Pewter Silver",     r = 0.72, g = 0.75, b = 0.78, a = 1.0 },
     BRONZE       = { name = "Warm Bronze",       r = 0.85, g = 0.58, b = 0.25, a = 1.0 },
     EMERALD      = { name = "Emerald Green",     r = 0.22, g = 0.82, b = 0.35, a = 1.0 },
+    PURE_BLACK   = { name = "Pitch Black", r = 0, g = 0, b = 0, a = 1, foreground = { r = .82, g = .82, b = .82 } },
     CRIMSON      = { name = "Crimson Red",       r = 0.85, g = 0.22, b = 0.22, a = 1.0 },
 }
 
-local function TrimColor(settings, fallback)
+local function TrimColor(settings, fallback, foreground)
     local key = settings and settings.trimColor
     local color = key == "CUSTOM" and settings.customTrimColor or COLOR_PALETTES[key]
+    if foreground and color and key ~= "CUSTOM" then color = color.foreground or color end
     if color then return color.r, color.g, color.b, color.a or 1 end
     return fallback[1], fallback[2], fallback[3], fallback[4] or 1
 end
@@ -409,7 +411,7 @@ function Themes:UpdateHeader(header, titleText)
 
     if header.title then
         if titleText then header.title:SetText(titleText) end
-        local r, g, b = TrimColor(Offhand.db, theme.headerTextColor)
+        local r, g, b = TrimColor(Offhand.db, theme.headerTextColor, true)
         header.title:SetTextColor(r, g, b, 1)
     end
     if Offhand.UIControls then Offhand.UIControls.StyleSurface(header, "header") end

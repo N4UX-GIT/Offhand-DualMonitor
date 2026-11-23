@@ -19,10 +19,11 @@ local FLAT_BACKDROP = {
     insets = { left = 1, right = 1, top = 1, bottom = 1 },
 }
 
-function Controls.GetAccent()
+function Controls.GetAccent(foreground)
     local db = Offhand.db or {}
     local palettes = Offhand.Themes and Offhand.Themes:GetColorPalettes() or {}
     local color = db.trimColor == "CUSTOM" and db.customTrimColor or palettes[db.trimColor or "GOLD"]
+    if foreground and color and db.trimColor ~= "CUSTOM" then color = color.foreground or color end
     return (color and color.r) or 1, (color and color.g) or 0.82, (color and color.b) or 0.12
 end
 
@@ -48,7 +49,7 @@ function Controls.StyleSurface(frame, kind)
     local selected = frame.selected
     local actionHover = frame.uiPrimary and (frame.uiHover or frame.uiFocus)
     local active = selected or frame.uiPrimary or frame.uiHover or frame.uiFocus
-    local r, g, b = Controls.GetAccent()
+    local r, g, b = Controls.GetAccent(true)
     if kind == "button" then
         shade = enabled and (frame.uiPressed and 0.055 or (active and 0.14 or 0.09)) or 0.045
     end
@@ -65,7 +66,16 @@ function Controls.StyleSurface(frame, kind)
         end
     end
     if kind == "window" or kind == "header" then
-        frame:SetBackdropBorderColor(r, g, b, 1)
+        local borderR, borderG, borderB = Controls.GetAccent()
+        local parent = kind == "header" and frame.GetParent and frame:GetParent()
+        if parent and parent.GetName and parent:GetName() == "OffhandFloatingConfigFrame"
+            and ((Offhand.db and Offhand.db.theme) or "CLASSIC") == "CLASSIC" then
+            -- The bright ridge of the Classic border artwork renders at about
+            -- 47% of its tint. The header's solid edge has no texture shading.
+            local ridge = 0.47
+            borderR, borderG, borderB = borderR * ridge, borderG * ridge, borderB * ridge
+        end
+        frame:SetBackdropBorderColor(borderR, borderG, borderB, 1)
     elseif active and enabled then
         local strength = frame.uiPrimary and 1 or .85
         if frame.uiPrimary then frame:SetBackdropBorderColor(1,.89,.52,1)
@@ -200,7 +210,7 @@ function Controls.StyleSlider(slider)
     if thumb then
         if thumb.SetTexture then thumb:SetTexture("Interface\\Buttons\\WHITE8X8") end
         if thumb.SetSize then thumb:SetSize(10, 20) end
-        if thumb.SetVertexColor then thumb:SetVertexColor(Controls.GetAccent()) end
+        if thumb.SetVertexColor then thumb:SetVertexColor(Controls.GetAccent(true)) end
     end
     if slider.editBox then Controls.StyleSurface(slider.editBox, "input") end
 end

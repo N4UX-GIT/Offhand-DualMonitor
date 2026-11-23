@@ -141,7 +141,20 @@ function Compatibility.HasCustomChatAddon()
     return Compatibility.HasChattynator() or Compatibility.IsAddonPresent("EllesmereUIChat")
 end
 
+-- DaylightUI lends these native panels back for some views. Check the
+-- current parent on every placement, including delayed repairs after a span.
+function Offhand.IsDaylightParkedPanel(frame)
+    if not Offhand.isForever or not frame or
+        (frame ~= _G.PlayerSpellsFrame and frame ~= _G.ClassTrainerFrame) then return false end
+    local win = _G.DaylightUI and _G.DaylightUI.Win
+    local followers = win and win.Followers
+    if not followers or not frame.GetParent or (frame.IsForbidden and frame:IsForbidden()) then return false end
+    local parent = frame:GetParent()
+    return parent ~= nil and (parent == followers.aside or parent == followers.hidden or parent == followers.veil)
+end
+
 function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
+    if Offhand.IsDaylightParkedPanel(frame) then return true end
     if Offhand.ForeverPlusWarnings and Offhand.ForeverPlusWarnings:IsOwnedFrame(frame) then return true end
     name = name or (frame and frame.GetName and frame:GetName())
     -- Replacement minimaps detach the visible canvas from MinimapCluster.

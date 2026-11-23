@@ -578,6 +578,7 @@ end
 
 local function ClearNativeBackpackOpenState()
     if not Offhand.db then return end
+    if Offhand.isForever and (Offhand._displayGeometryTransitionActive or not IsSpannedLayoutActive()) then return end
     local changed = BackpackState.ClearOpenState(Offhand.db)
     if changed then SaveOpenWorkspacePanels() end
 end
@@ -709,6 +710,10 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
     local name = type(frameOrName) == "string" and frameOrName
         or (frameOrName and frameOrName.GetName and frameOrName:GetName())
     if not name then return false end
+    if Offhand.isForever and (name == "WorldMapFrame" or IsBackpackRoot(name))
+        and (Offhand._displayGeometryTransitionActive or not IsSpannedLayoutActive()) then
+        return false
+    end
     if IsContextBoundPanel(name) then
         if Offhand.db.openWorkspacePanels and Offhand.db.openWorkspacePanels[name] ~= nil then
             Offhand.db.openWorkspacePanels[name] = nil
@@ -979,6 +984,15 @@ end
 function Canvas:RestorePersistentFrames(mode)
     local activeLockRestore = mode == "lock"
     if not Offhand.db or not Offhand.db.enabled then return end
+    -- Older snapshots can contain open flags for interactions that have ended.
+    local removed = false
+    for name in pairs(Offhand.db.openWorkspacePanels or {}) do
+        if IsContextBoundPanel(name) then
+            Offhand.db.openWorkspacePanels[name] = nil
+            removed = true
+        end
+    end
+    if removed then SaveOpenWorkspacePanels() end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     self:RelinquishForeverEditModeFrames()
     self:RelinquishForeverNativeBags()
@@ -1003,12 +1017,19 @@ function Canvas:RestorePersistentFrames(mode)
             self.persistentRestorePending = true
             Offhand:RunOrQueueCombat(function()
                 Canvas.persistentRestorePending = false
-                Canvas:RestorePersistentFrames()
+                Canvas:RestorePersistentFrames(mode)
             end)
         end
         return
     end
 
+    local restoreMap = mode == "reload" or self.workspaceRestorePending
+    if self.workspaceRestorePending then
+        self.workspaceRestorePending = nil
+        if OffhandCharDB and BackpackState.UsesForeverSeparateBags() then
+            self.pendingSeparateBagIDs = OffhandCharDB.separateWorkspaceBagIDs
+        end
+    end
     if Offhand.BagPersistence and Offhand.BagPersistence.ResumeWhenWorkspaceReady then
         Offhand.BagPersistence:ResumeWhenWorkspaceReady()
     end
@@ -1051,8 +1072,15 @@ function Canvas:RestorePersistentFrames(mode)
         if frame and ShouldYieldWorldMapToMoveAny(name) then
             if canOpenPanels and name == "WorldMapFrame" and IsExternallyPositionedWorldMap(name)
                 and openPanels[name] and not IsContextBoundPanel(name) then
-                if not Offhand.isForever and not frame:IsShown() then
-                    if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
+                if not frame:IsShown() then
+                    if not Offhand.isForever then
+                        if ToggleWorldMap then ToggleWorldMap() else frame:Show() end
+                    elseif restoreMap and C_Map and C_Map.OpenWorldMap
+                        and PanelRegistry.CanAutoOpen(frame, name)
+                        and not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]) then
+                        -- Request visibility only. The external map addon owns its geometry.
+                        C_Map.OpenWorldMap()
+                    end
                 end
                 if frame:IsShown() then self:PreserveExternalWorldMapOpenState(frame) end
             elseif canOpenPanels and name == "WorldMapFrame" and not Offhand.isForever and openPanels[name]
@@ -1069,7 +1097,7 @@ function Canvas:RestorePersistentFrames(mode)
                 or IsPersistentForeverProfessionsPanelName(name)) then
             if frame:IsShown() then
                 RestoreWorkspacePosition(frame)
-            elseif mode == "reload" and Offhand.isForever and name == "WorldMapFrame"
+            elseif restoreMap and Offhand.isForever and name == "WorldMapFrame"
                 and openPanels[name] and PanelRegistry.CanAutoOpen(frame, name)
                 and not IsUnsafeForPanelMutation(frame, name)
                 and not (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name])

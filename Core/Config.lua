@@ -10,8 +10,8 @@ local defaultSettings = {
     -- Keep the viewport inert until the user confirms placement and applies
     -- calibration. First-launch guidance is independent of this switch.
     enabled = false,
-    layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT", -- "PORTRAIT_LEFT_LANDSCAPE_RIGHT", "LANDSCAPE_DUAL", "CUSTOM"
-    primaryPosition = "RIGHT",      -- "LEFT" or "RIGHT" (In Portrait Left, Primary 3D Game is on the RIGHT!)
+    layoutPreset = "PORTRAIT_LEFT_LANDSCAPE_RIGHT",
+    primaryPosition = "RIGHT",      -- Mainhand is LEFT, RIGHT, TOP or BOTTOM. Offhand occupies the opposite side.
     primaryWidthMode = "AUTO",      -- "AUTO", "CUSTOM"
     customPrimaryWidth = 2560,      -- 16:9 width
     deckWidthRatio = 0.36,          -- 1440 / 4000; saved manual calibration takes precedence
@@ -19,7 +19,7 @@ local defaultSettings = {
     gameBottomPixels = 0,          -- Primary monitor bottom inset within the spanned client
     bezelGap = 0,                   -- Pixels gap between monitors
     theme = "CLASSIC",              -- "CLASSIC", "BLIZZARD_SLATE", "OBSIDIAN", "PITCH_BLACK"
-    trimColor = "GOLD",             -- "GOLD", "SILVER", "BRONZE", "EMERALD", "CRIMSON", "CUSTOM"
+    trimColor = "GOLD",             -- Trim palette key or "CUSTOM"
     customTrimColor = { r = 1.0, g = 0.82, b = 0.0 }, -- User-selected custom accent
     canvasColor = "CHARCOAL",       -- "CHARCOAL", "WARM_NIGHT", "PURE_BLACK", "DEEP_BLUE", "CUSTOM"
     customCanvasColor = { r = 0.12, g = 0.22, b = 0.35 }, -- User-selected custom workspace background
