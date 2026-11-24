@@ -75,4 +75,68 @@ assert(compatibility.IsForeverEditModeFrame(nil, "PartyMemberFrame1"),
 assert(compatibility.IsBlizzardEditModeOwnedFrame(nil, "DamageMeterFrame"),
     "native Damage Meter ownership was not detected")
 
-print("PASS: Canvas external ownership priority, yielding, diagnostics and API fallback")
+-- Active external owners, conflict detection, diagnostics, and once-per-session notice
+C_AddOns = { IsAddOnLoaded = function(name) return loaded[name] == true end }
+IsAddOnLoaded = nil
+addon.db = { enabled = true }
+addon.L = {}
+addon.Viewport = { GetMetrics = function() return { isSpanned = true } end }
+local printed = {}
+addon.Print = function(_, msg) printed[#printed + 1] = msg end
+
+-- Healthy single-owner OpenMap + OneForAll (mitigated via ok contract): zero conflicts, silent chat, synced diag
+loaded = { OpenMap = true, OneForAll = true, Baganator = true }
+WorldMapFrame = { ofaMovable = true }
+OpenMap = { version = "v0.8.14", GetModule = function() return { db = OpenMapDB.worldmap } end }
+OpenMapAPI = { major = 1, version = 5 }
+OpenMapDB = { worldmap = { enabled = true, windowScale = 1, window = false, windowSize = false } }
+Baganator = {}
+local owners = compatibility.GetActiveExternalOwners()
+assert(owners.map == "OpenMap" and owners.bags[1] == "Baganator",
+    "GetActiveExternalOwners must name active map and bag owners")
+assert(#compatibility.GetOwnershipConflicts() == 0,
+    "healthy OpenMap v1 + OneForAll must not trigger an unmitigated conflict")
+assert(compatibility.NotifyActiveConflicts() == 0 and #printed == 0,
+    "healthy coexistence must never print chat notices")
+local diagSynced = compatibility.GetDiagnostics(false)
+assert(diagSynced:find("OpenMapContract=ok", 1, true)
+    and diagSynced:find("WorldMapMover=OneForAll(synced)", 1, true),
+    "detailed diagnostics must expose OpenMapContract and synced mover status")
+
+-- Breaking OpenMap major bump + OneForAll: reports both contract stand-down and mover conflict once per session
+OpenMapAPI.major = 2
+local conflicts = compatibility.GetOwnershipConflicts()
+assert(#conflicts == 2, "breaking OpenMap major + OneForAll must report contract and mover conflicts")
+assert(compatibility.NotifyActiveConflicts() == 2 and #printed == 2,
+    "active conflicts must notify once per session")
+assert(compatibility.NotifyActiveConflicts() == 0 and #printed == 2,
+    "repeated NotifyActiveConflicts must never spam the same conflict twice")
+assert(compatibility.GetDiagnostics(false):find("OpenMapContract=unsupported-major", 1, true)
+    and compatibility.GetDiagnostics(false):find("WorldMapMover=OneForAll(conflict)", 1, true)
+    and compatibility.GetDiagnostics(false):find("Conflicts=", 1, true))
+
+-- Leatrix_Maps + OneForAll + competing bag addons
+compatibility.ResetConflictNotifications()
+printed = {}
+loaded = { Leatrix_Maps = true, OneForAll = true, Baganator = true, Bagnon = true }
+Bagnon = {}
+OpenMap, OpenMapAPI, OpenMapDB = nil, nil, nil
+conflicts = compatibility.GetOwnershipConflicts()
+assert(#conflicts == 2, "Leatrix_Maps + OneForAll and dual bag addons must both flag conflicts")
+assert(compatibility.NotifyActiveConflicts() == 2 and #printed == 2)
+Bagnon = nil
+
+-- ElvUI with bags module disabled + Baganator must NOT flag a false bag conflict;
+-- ElvUI with active ElvUI_ContainerFrame + Baganator MUST flag a bag conflict.
+loaded = { Baganator = true }
+ElvUI = { { private = { bags = { enable = false } } } }
+ElvUI_ContainerFrame = nil
+assert(#compatibility.GetOwnershipConflicts() == 0,
+    "ElvUI with disabled bags + Baganator must not trigger a false bag conflict")
+ElvUI_ContainerFrame = {}
+assert(#compatibility.GetOwnershipConflicts() == 1
+    and compatibility.GetOwnershipConflicts()[1].kind == "bags-conflict",
+    "ElvUI with active bag frame + Baganator must trigger a bag conflict")
+Baganator, ElvUI, ElvUI_ContainerFrame = nil, nil, nil
+
+print("PASS: Canvas external ownership priority, yielding, diagnostics, contract validation, conflicts and API fallback")

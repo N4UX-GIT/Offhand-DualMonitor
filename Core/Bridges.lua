@@ -106,6 +106,19 @@ function Bridges:IsBagOnWorkspace(onWorkspace)
     return false
 end
 
+-- True when any registered bridge currently provides a live replacement bag frame.
+function Bridges:HasCustomBag()
+    for _, id in ipairs(order) do
+        local ok, frames = Call(id, "GetBagFrames")
+        if ok and type(frames) == "table" then
+            for _, frame in pairs(frames) do
+                if frame ~= nil then return true, id end
+            end
+        end
+    end
+    return false
+end
+
 -- True while a bridged addon's own unlock/edit mode is active, so Offhand's
 -- generic window selection pauses cleanly just like Blizzard Edit Mode.
 function Bridges:IsEditModeActive()

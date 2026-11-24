@@ -1751,7 +1751,29 @@ function Options:CreateFloatingPanel()
         local minimapAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
         local key = bagAddon and (minimapAddon and "COMPAT_BOTH" or "COMPAT_BAGS")
             or (minimapAddon and "COMPAT_MINIMAP" or "COMPAT_AUTO")
-        compatDesc:SetText(L[key])
+        local compatLines = { L[key] }
+        local compat = Offhand.CanvasCompatibility
+        if compat and compat.GetActiveExternalOwners then
+            local owners = compat.GetActiveExternalOwners()
+            local parts = {}
+            if owners.map then parts[#parts + 1] = (L["LOCK_WORKSPACE_MAP"] or "Map") .. ": " .. owners.map end
+            if owners.bags then parts[#parts + 1] = (L["LOCK_WORKSPACE_BAGS"] or "Bags") .. ": " .. table.concat(owners.bags, ", ") end
+            if owners.minimap then parts[#parts + 1] = "Minimap: " .. owners.minimap end
+            if owners.chat then parts[#parts + 1] = "Chat: " .. table.concat(owners.chat, ", ") end
+            if #parts > 0 and L["COMPAT_EXTERNAL_OWNERS"] then
+                compatLines[#compatLines + 1] = string.format(L["COMPAT_EXTERNAL_OWNERS"], table.concat(parts, " | "))
+            end
+        end
+        if compat and compat.GetOwnershipConflicts and compat.FormatConflictMessage then
+            local conflicts = compat.GetOwnershipConflicts()
+            for _, conflict in ipairs(conflicts) do
+                local msg = compat.FormatConflictMessage(conflict)
+                if msg then compatLines[#compatLines + 1] = "|cffffcc44" .. msg .. "|r" end
+            end
+        end
+        local compatText = table.concat(compatLines, "\n")
+        compatDesc:SetText(compatText)
+        ResizeMonitorCard(card2_2, math.max(374, 336 + Controls.MeasureWrappedText(compatDesc, compatText, 530) + 14))
     end
 
     local lockSupported = SupportsWindowLock()

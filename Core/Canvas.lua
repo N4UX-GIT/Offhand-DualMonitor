@@ -1240,6 +1240,9 @@ function Canvas:RestorePersistentFrames(mode)
         C_Timer.After(2, function()
             if Offhand.db and Offhand.db.enabled then
                 Canvas:RepairShownWorkspacePanels()
+                if Compatibility and Compatibility.NotifyActiveConflicts then
+                    Compatibility.NotifyActiveConflicts()
+                end
             end
         end)
     end

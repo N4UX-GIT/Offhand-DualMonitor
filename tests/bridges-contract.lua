@@ -127,6 +127,8 @@ assert(Bridges:IsBagOnWorkspace(OnWorkspace) == false and #tested == 1 and teste
     "nil holes and non-table results must be tolerated")
 function second:GetBagFrames() return {frameA} end
 assert(Bridges:IsBagOnWorkspace(OnWorkspace) == true, "a bridge's bag on the workspace must be reported")
+local hasBag, bagOwner = Bridges:HasCustomBag()
+assert(hasBag == true and bagOwner == "First", "HasCustomBag must report registered bridge bag frames")
 local names = Bridges:GetMapAddons()
 assert(#names == 3 and names[1] == "MapA" and names[2] == "Shared" and names[3] == "MapB",
     "map addon names must be deduplicated in order")

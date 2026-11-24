@@ -54,10 +54,13 @@ combat, onWorkspace = false, false
 cx = px
 tick()
 assert(state.u == nil)
-onWorkspace, version = true, "new"
+onWorkspace, version = true, "v0.8.14"
 tick()
-assert(state.u == nil)
-version, owner = "v0.8.13", "MoveAny"
+assert(state.u == px, "future OpenMap patch versions on OpenMapAPI major 1 must keep following")
+OpenMapAPI.major = 2
+tick()
+assert(state.u == nil, "breaking OpenMapAPI major version must stand down follow")
+OpenMapAPI.major, owner = 1, "MoveAny"
 tick()
 assert(state.u == nil)
 owner = "OpenMap"

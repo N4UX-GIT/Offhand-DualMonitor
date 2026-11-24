@@ -86,7 +86,8 @@ function Compatibility.HasCustomBagAddon()
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
         or _G.ArkInventory or _G.BetterBags or _G.Inventorian
         or _G.ElvUI or _G.Tukui then return true end
-    if Compatibility.IsAddonPresent("BetterBags") then return true end
+    if Compatibility.IsAddonPresent("BetterBags") or Compatibility.IsAddonPresent("Bagnaros") then return true end
+    if Offhand.Bridges and Offhand.Bridges.HasCustomBag and Offhand.Bridges:HasCustomBag() then return true end
     if Compatibility.GetBagSmithParkingParent() then return true end
     -- Combined mode can exist without an individual backpack root. Either
     -- native root is sufficient; explicit replacement owners above still win.

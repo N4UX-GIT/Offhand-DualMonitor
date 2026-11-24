@@ -895,14 +895,29 @@ do
     Update()
     assert(MAUTTAB.WORLDMAPFADE == nil and CanFade(), "restore the unset MapUtils preference")
     workspace = true
+    loadedAddons.MapUtils = "1.8.0"
+    Update()
+    assert(MAUTTAB.WORLDMAPFADE == false, "compatible MapUtils 1.x updates must stay supported")
+    workspace = false
+    Update()
+    workspace = true
     loadedAddons.MapUtils = "99.0.0"
     Update()
-    assert(MAUTTAB.WORLDMAPFADE == nil, "unknown MapUtils versions must keep their settings")
+    assert(MAUTTAB.WORLDMAPFADE == nil, "unknown MapUtils major versions must keep their settings")
     loadedAddons.MapUtils = nil
     MAUTTAB = nil
 
     MapWiseAtlasDB = {fadeMapWhileMoving = true}
-    MapWiseAPI = {version = "2.3.99", db = MapWiseAtlasDB, Integration = {native = map}}
+    MapWiseAPI = {version = "2.4.0", db = MapWiseAtlasDB, Integration = {native = map}}
+    loadedAddons.MapWise = "2.4.0"
+    Update()
+    assert(MapWiseAtlasDB.fadeMapWhileMoving == false and not CanFade(),
+        "compatible MapWise 2.x updates must stay supported")
+    MapWiseAPI.version = "3.0.0"
+    Update()
+    assert(MapWiseAtlasDB.fadeMapWhileMoving == true,
+        "breaking MapWise major versions must stand down and restore preference")
+    MapWiseAPI.version = "2.3.99"
     loadedAddons.MapWise = "2.3.99"
     Update()
     assert(MapWiseAtlasDB.fadeMapWhileMoving == false and not CanFade())

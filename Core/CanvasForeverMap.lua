@@ -11,13 +11,26 @@ local function Finite(value)
         and value > -math.huge and value < math.huge
 end
 
+local function ParseMajorVersion(value)
+    if type(issecretvalue) == "function" then
+        local ok, secret = pcall(issecretvalue, value)
+        if not ok or secret then return nil end
+    end
+    if type(value) == "number" and value == value and value >= 0 and value < math.huge then
+        return math.floor(value)
+    end
+    if type(value) ~= "string" then return nil end
+    return tonumber(value:match("^v?(%d+)%."))
+end
+
 -- OpenMap's camera glides for 0.4 seconds. A centered camera follows the
 -- player; browsing away pauses follow until the player centers it again.
 function Adapter.UpdateOpenMapFollow(map, state)
     local api = _G.OpenMapAPI
-    if not api or api.major ~= 1 or not api.GetView or not api.WorldFromMap
-        or not api.ShowWorld or not api.IsStitched or not api.IsStitched()
-        or not C_AddOns or C_AddOns.GetAddOnMetadata("OpenMap", "Version") ~= "v0.8.13"
+    if type(api) ~= "table" or api.major ~= 1
+        or type(api.GetView) ~= "function" or type(api.WorldFromMap) ~= "function"
+        or type(api.ShowWorld) ~= "function" or type(api.IsStitched) ~= "function"
+        or not api.IsStitched()
         or Offhand.CanvasCompatibility.GetWorldMapExternalOwner() ~= "OpenMap"
         or Offhand.db.persistentWorkspacePanels == false or InCombatLockdown() or IsInInstance()
         or not Offhand.Viewport:GetMetrics().isSpanned or not Offhand.Canvas.IsFrameOnWorkspace(map) then
@@ -67,14 +80,14 @@ local function ReadMapUtilsFade()
     if type(db) ~= "table" or not getMetadata
         or not compatibility.IsAddonLoaded("MapUtils") then return end
     local version = getMetadata("MapUtils", "Version")
-    if (version == "1.6.1" or version == "1.7.0")
+    if ParseMajorVersion(version) == 1
         and (db.WORLDMAPFADE == nil or type(db.WORLDMAPFADE) == "boolean") then return db end
 end
 
 local function ReadMapWise(map)
     local api = _G.MapWiseAPI
-    if type(api) ~= "table" or (api.version ~= "2.3.87" and api.version ~= "2.3.98"
-        and api.version ~= "2.3.99") or not Offhand.CanvasCompatibility.IsAddonLoaded("MapWise") then return end
+    if type(api) ~= "table" or ParseMajorVersion(api.version) ~= 2
+        or not Offhand.CanvasCompatibility.IsAddonLoaded("MapWise") then return end
     local db, integration = api.db, api.Integration
     if type(db) == "table" and db == _G.MapWiseAtlasDB
         and type(integration) == "table" and integration.native == map then return db, api.MapWiseUI end
