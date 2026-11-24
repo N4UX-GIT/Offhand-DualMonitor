@@ -1,11 +1,13 @@
 # Addon window compatibility catalog
 
-The [runtime catalog](../Core/AddonWindowCatalog.lua) starts with 16 providers
-on Forever. Each entry describes a specific window role under the addon's
-folder ID. Offhand's [settings and journal adapter](../Core/CanvasAddonEscape.lua)
-uses the catalog to select the existing opener observers and to check close
-policy after it identifies a live root. The bag, map, and quest log entries
-describe existing dedicated behavior.
+The [runtime catalog](../Core/AddonWindowCatalog.lua) starts with 23 providers
+on Forever (including full UI and bag suites whose HUD/mover modules stay under
+their own Edit Mode or dedicated Offhand adapters). Each entry describes a
+specific window role under the addon's folder ID. Offhand's
+[settings and journal adapter](../Core/CanvasAddonEscape.lua) uses the catalog
+to select the existing opener observers and to check close policy after it
+identifies a live root. The bag, map, and quest log entries describe existing
+dedicated behavior.
 
 | Addon | Window | Placement and saved location | Close and reopen behavior |
 | --- | --- | --- | --- |
@@ -26,6 +28,10 @@ describe existing dedicated behavior.
 | OpenMap | World Map | OpenMap owns map geometry | Dedicated map policy when its windowed map qualifies |
 | MoveAny | World Map | MoveAny owns map geometry | Dedicated map policy with current client and panel guards |
 | ClassicUI Forever | World Map and Character | ClassicUI Forever owns geometry | Existing native and provider lifecycle |
+| DaylightUI | Settings (`DaylightUIOptions`) | Picker can remember placement for `DaylightUIOptions` | Native fade-on-Escape preserved (`DUI.Motion`) |
+| DaylightUI (`DaylightUI_*` modules & Movers) | HUD, Edit Mode movers, bags, replacement panels | DaylightUI owns placement via Movers / Win / dedicated bag adapter (excluded from picker; selection pauses during DaylightUI Unlock Mode) | Native / dedicated provider lifecycle |
+| EllesmereUI (`EllesmereUI*`), ElvUI, FlareUI | Full UI suite HUD & movers | Suite owns placement (excluded from picker; dedicated bag/HUD adapters stay active) | Native / dedicated provider lifecycle |
+| ArkInventory, BagSmith, Bagnaros | Inventory | Dedicated bag adapter compatibility (excluded from generic picker) | Dedicated bag Escape policy |
 
 The workspace close policy preserves an eligible window during the game's
 shared special-window close pass while the window is on Offhand and panel

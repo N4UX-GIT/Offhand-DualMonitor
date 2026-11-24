@@ -108,6 +108,10 @@ local function Identify(frame, name)
     end
     local source = Source(frame)
     if not source then return nil end
+    if name == "DaylightUIOptions" and Loaded("DaylightUI")
+        and source:find("/daylightui/options/panel.lua:", 1, true) then
+        return "DaylightUI", "settings"
+    end
     local don = donWindows[name]
     if don then
         -- Kit.Window's own shape: a header and a close button; any addon's copy of DonCore
@@ -160,7 +164,7 @@ local function InstallOpeners()
     -- a root to observe. No shared CreateFrame/ShowUIPanel/Escape hook is used.
     for _, windows in pairs(catalog) do
         for _, window in pairs(windows) do
-            if window.close == "workspace-special-windows" and window.opener then
+            if type(window) == "table" and window.close == "workspace-special-windows" and window.opener then
                 Observe(SlashCmdList, window.opener)
             end
         end

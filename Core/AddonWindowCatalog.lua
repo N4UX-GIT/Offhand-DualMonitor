@@ -58,4 +58,30 @@ Offhand.AddonWindowCatalog = {
         worldMap = {position = "addon", close = "native"},
         character = {position = "addon", close = "native"},
     },
+    DaylightUI = {
+        suitePrefix = "daylightui_",
+        settings = {position = "addon", close = "native", learnPlacementFile = "options/panel.lua"},
+        hud = {position = "addon", close = "native"},
+    },
+    EllesmereUI = {
+        suitePrefix = "ellesmereui",
+        hud = {position = "addon", close = "native"},
+    },
+    ElvUI = {
+        suitePrefix = "elvui",
+        hud = {position = "addon", close = "native"},
+    },
+    FlareUI = {
+        suitePrefix = "flareui",
+        hud = {position = "addon", close = "native"},
+    },
+    ArkInventory = {
+        inventory = {position = "adapter", close = "bag-adapter"},
+    },
+    BagSmith = {
+        inventory = {position = "adapter", close = "bag-adapter"},
+    },
+    Bagnaros = {
+        inventory = {position = "adapter", close = "bag-adapter"},
+    },
 }

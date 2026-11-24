@@ -5,9 +5,12 @@ Offhand.AddonWindowSelection = Selection
 local Windows = Offhand.LearnedAddonWindows
 local toolbar, session
 local buttons, spare = {}, {}
-local outline = {
-    bgFile = "Interface\\Buttons\\WHITE8X8",
+local outlineBackdrop = {
     edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 3,
+}
+local pillBackdrop = {
+    bgFile = "Interface\\Buttons\\WHITE8X8",
+    edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 2,
 }
 
 local function BackdropTemplate()
@@ -31,7 +34,8 @@ local function ShowOutlineTooltip(button)
         GameTooltip:SetText(string.format("%s (%s)", window.owner, window.name), 1, 0.82, 0)
     end
     if GameTooltip.AddLine then
-        GameTooltip:AddLine(Offhand.L["LEARN_WINDOW_CLICK_TOOLTIP"], 0.9, 0.9, 0.9, true)
+        local key = window.remembered and "LEARN_WINDOW_CLICK_UPDATE_TOOLTIP" or "LEARN_WINDOW_CLICK_TOOLTIP"
+        GameTooltip:AddLine(Offhand.L[key], 0.9, 0.9, 0.9, true)
     end
     if GameTooltip.Show then GameTooltip:Show() end
 end
@@ -39,6 +43,7 @@ end
 local function RemoveButton(frame)
     local button = buttons[frame]
     button:Hide()
+    if button.outline then button.outline:Hide() end
     button.window = nil
     buttons[frame] = nil
     spare[#spare + 1] = button
@@ -53,7 +58,7 @@ function Selection:Stop()
 end
 
 local function SameLocation(a, b)
-    return a.strata == b.strata and a.level == b.level
+    return a.strata == b.strata and a.level == b.level and a.remembered == b.remembered
         and math.abs(a.x - b.x) < 1 and math.abs(a.y - b.y) < 1
         and math.abs(a.width - b.width) < 1 and math.abs(a.height - b.height) < 1
 end
@@ -79,10 +84,23 @@ local function SaveWindow(button)
 end
 
 local function Highlight(button)
-    local focused = session and session.focused == button.window.frame
-    button:SetBackdropColor(0, 0.72, 1, (button.hovered or focused) and 0.28 or 0.14)
-    if focused then button:SetBackdropBorderColor(1, 0.92, 0.45, 1)
-    else button:SetBackdropBorderColor(0.25, 0.88, 1, button.hovered and 1 or 0.9) end
+    local window = button.window
+    local focused = session and window and session.focused == window.frame
+    local remembered = window and window.remembered
+    local r, g, b = 0.25, 0.88, 1
+    if focused then
+        r, g, b = 1, 0.90, 0.35
+    elseif remembered then
+        r, g, b = 0.30, 0.86, 0.52
+    end
+    if button.outline then
+        button.outline:SetBackdropBorderColor(r, g, b, (button.hovered or focused) and 1 or 0.9)
+    end
+    button:SetBackdropColor(0.08, 0.10, 0.14, (button.hovered or focused) and 0.98 or 0.92)
+    button:SetBackdropBorderColor(r, g, b, 1)
+    if button.labelText and button.labelText.SetTextColor then
+        button.labelText:SetTextColor(r, g, b)
+    end
 end
 
 local function ShowButton(window)
@@ -90,10 +108,17 @@ local function ShowButton(window)
     if not button then
         button = table.remove(spare)
         if not button then
+            local outline = CreateFrame("Frame", nil, UIParent, BackdropTemplate())
+            outline:SetBackdrop(outlineBackdrop)
+            outline:EnableMouse(false)
+
             button = CreateFrame("Button", nil, UIParent, BackdropTemplate())
-            button:SetBackdrop(outline)
+            button.outline = outline
+            button:SetBackdrop(pillBackdrop)
             button:EnableMouse(true)
             button:RegisterForClicks("LeftButtonUp")
+            button.labelText = button:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            button.labelText:SetPoint("CENTER", button, "CENTER", 0, 0)
             button:SetScript("OnEnter", function(self)
                 self.hovered = true
                 if self.window then Highlight(self); ShowOutlineTooltip(self) end
@@ -111,11 +136,27 @@ local function ShowButton(window)
     local previous = button.window
     if not previous or previous.owner ~= window.owner or previous.file ~= window.file
         or not SameLocation(previous, window) then
+        local outline = button.outline
+        outline:SetFrameStrata(window.strata)
+        outline:SetFrameLevel(window.level)
+        outline:ClearAllPoints()
+        outline:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", window.x, window.y)
+        outline:SetSize(window.width, window.height)
+        outline:Show()
+
+        local pillText = Offhand.L[window.remembered and "LEARN_WINDOW_PILL_UPDATE" or "LEARN_WINDOW_PILL_ADD"]
+        button.labelText:SetText(pillText)
+        local pillWidth = math.max(92, math.min(180, (#pillText * 7) + 20))
+        local pillHeight = 22
+        local topLimit = UIParent and UIParent.GetTop and UIParent:GetTop()
+        local pillY = (type(topLimit) == "number" and window.y + pillHeight + 2 > topLimit)
+            and (window.y - 4) or (window.y + pillHeight + 1)
+
         button:SetFrameStrata(window.strata)
-        button:SetFrameLevel(window.level)
+        button:SetFrameLevel(window.level + 1)
         button:ClearAllPoints()
-        button:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", window.x, window.y)
-        button:SetSize(window.width, window.height)
+        button:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", window.x, pillY)
+        button:SetSize(pillWidth, pillHeight)
         button.window = window
         Highlight(button)
         button:Show()
@@ -124,7 +165,7 @@ end
 
 local function FitToolbar()
     if not toolbar then return end
-    local width = toolbar.boxWidth or 520
+    local width = toolbar.boxWidth or 540
     local textWidth = width - 28
     local controls = Offhand.UIControls
     local hintHeight
@@ -140,7 +181,7 @@ local function FitToolbar()
     toolbar.focusText:SetPoint("TOPLEFT", toolbar, "TOPLEFT", 14, -focusTop)
     local focusHeight = toolbar.focusText.GetStringHeight
         and math.max(16, math.ceil(toolbar.focusText:GetStringHeight() or 16)) or 16
-    toolbar:SetSize(width, math.max(132, focusTop + focusHeight + 48))
+    toolbar:SetSize(width, math.max(136, focusTop + focusHeight + 48))
 end
 
 local function SetFocus(index)
@@ -154,8 +195,12 @@ local function SetFocus(index)
     end
     toolbar.next:SetEnabled(#session.windows > 1)
     toolbar.add:SetEnabled(window ~= nil)
+    if toolbar.forget then toolbar.forget:SetEnabled(window ~= nil and window.remembered == true) end
     if window then
-        if toolbar.focusText.SetTextColor then toolbar.focusText:SetTextColor(1, 0.86, 0.35) end
+        if toolbar.focusText.SetTextColor then
+            if window.remembered then toolbar.focusText:SetTextColor(0.40, 0.90, 0.58)
+            else toolbar.focusText:SetTextColor(1, 0.86, 0.35) end
+        end
         toolbar.focusText:SetText(string.format(Offhand.L["LEARN_WINDOW_FOCUS_ITEM"],
             index, #session.windows, window.owner, window.name))
     else
@@ -172,6 +217,16 @@ end
 function Selection:AddFocused()
     local button = session and buttons[session.focused]
     if button then SaveWindow(button) end
+end
+
+function Selection:ForgetFocused()
+    local button = session and buttons[session.focused]
+    local window = button and button.window
+    if not window or not window.remembered then return end
+    if Windows:ForgetName(window.name) then
+        Offhand:Print(Offhand.L["LEARN_WINDOW_FORGOTTEN"], window.name)
+        self:Refresh()
+    end
 end
 
 function Selection:Refresh()
@@ -204,7 +259,7 @@ local function CreateToolbar()
     local L = Offhand.L
     local bar = CreateFrame("Frame", nil, UIParent, BackdropTemplate())
     bar:SetFrameStrata("TOOLTIP")
-    bar:SetSize(520, 146)
+    bar:SetSize(540, 148)
     local heading = bar:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     heading:SetPoint("TOPLEFT", 14, -12)
     heading:SetText(L["BINDING_NAME_OFFHAND_LEARN_WINDOW"])
@@ -227,6 +282,8 @@ local function CreateToolbar()
     bar.next:SetPoint("BOTTOMLEFT", 12, 12)
     bar.add = Button(ADD or L["BTN_REAPPLY"], function() Selection:AddFocused() end)
     bar.add:SetPoint("LEFT", bar.next, "RIGHT", 6, 0)
+    bar.forget = Button(L["LEARN_WINDOW_BTN_FORGET"], function() Selection:ForgetFocused() end)
+    bar.forget:SetPoint("LEFT", bar.add, "RIGHT", 6, 0)
     bar.done = Button(DONE, function() Selection:Stop() end)
     bar.done:SetPoint("BOTTOMRIGHT", -12, 12)
     bar:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -257,14 +314,15 @@ function Selection:Toggle()
     if Offhand.Options then Offhand.Options:Close() end
     toolbar = toolbar or CreateToolbar()
     Offhand.UIControls.StyleSurface(toolbar, "window")
-    local width = math.max(300, math.min(540, metrics.gameRight - metrics.gameLeft - 24))
+    local width = math.max(320, math.min(540, metrics.gameRight - metrics.gameLeft - 24))
     toolbar.boxWidth = width
     toolbar:SetWidth(width)
     toolbar.hint:SetWidth(width - 28)
     toolbar.focusText:SetWidth(width - 28)
-    local buttonWidth = math.min(116, (width - 48) / 3)
+    local buttonWidth = math.min(112, (width - 54) / 4)
     toolbar.next:SetWidth(buttonWidth)
     toolbar.add:SetWidth(buttonWidth)
+    toolbar.forget:SetWidth(buttonWidth)
     toolbar.done:SetWidth(buttonWidth)
     toolbar:ClearAllPoints()
     toolbar:SetPoint("TOP", UIParent, "BOTTOMLEFT",

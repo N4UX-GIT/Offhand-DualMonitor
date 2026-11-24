@@ -6,7 +6,8 @@ local parent = {GetEffectiveScale = function() return 1 end,
 UIParent = parent
 UIPanelWindows = {}
 ADD, DONE, NONE = "Add", "Done", "None"
-local loaded = {ExampleAddon = true, Platynator = true, ForeverDungeonJournal = true}
+local loaded = {ExampleAddon = true, Platynator = true, ForeverDungeonJournal = true,
+    DaylightUI = true, DaylightUI_InfoPanel = true, DaylightUI_UnitFrames = true, EllesmereUIChat = true}
 C_AddOns = {IsAddOnLoaded = function(name) return loaded[name] == true end}
 InCombatLockdown = function() return combat end
 CreateFrame = function(kind, _, owner)
@@ -14,7 +15,8 @@ CreateFrame = function(kind, _, owner)
     local control = {kind = kind, owner = owner, scripts = {}, SetFrameStrata = Noop,
         SetFrameLevel = Noop, SetBackdrop = Noop, SetBackdropColor = Noop, SetBackdropBorderColor = Noop,
         SetPoint = Noop, ClearAllPoints = Noop, SetSize = Noop, SetWidth = Noop,
-        RegisterForClicks = Noop, RegisterEvent = Noop, EnableMouse = Noop, SetEnabled = Noop}
+        RegisterForClicks = Noop, RegisterEvent = Noop, SetEnabled = Noop}
+    function control:EnableMouse(flag) self.mouseEnabled = flag end
     function control:CreateFontString()
         return {SetPoint = Noop, SetJustifyH = Noop, SetWidth = Noop,
             SetText = function(font, value) font.text = value end}
@@ -295,8 +297,57 @@ assert(toolbar.hint.text == addon.L.LEARN_WINDOW_MODE_HELP
     and toolbar.focusText.text:find("ExampleAddon", 1, true)
     and toolbar.focusText.text:find("ExampleConfigFrame", 1, true),
     "eligible selection mode must show instructions and the focused addon/frame")
+local pill = assert(FindButton("ExampleConfigFrame"))
+assert(pill.mouseEnabled == true and pill.outline and pill.outline.mouseEnabled == false,
+    "window outline must be click-through so dragging the window never triggers an accidental click")
+assert(pill.labelText.text == addon.L.LEARN_WINDOW_PILL_ADD,
+    "unlearned window pill must invite adding to Offhand")
+Accept()
+selection:Stop()
+-- Re-entering selection mode clearly labels an already-remembered window and enables Forget
+windows:Run("")
+pill = assert(FindButton("ExampleConfigFrame"))
+assert(pill.window.remembered == true and pill.labelText.text == addon.L.LEARN_WINDOW_PILL_UPDATE,
+    "already-remembered windows must be visibly labeled as saved/updatable")
+selection:ForgetFocused()
+assert(addon.db.learnedAddonWindows.ExampleConfigFrame == nil,
+    "toolbar Forget button must forget the focused remembered window")
 selection:Stop()
 assert(#windows:ListNames() == 0, "ListNames must return empty when no windows are remembered")
+
+-- DaylightUI HUD/Mover widgets and UI suites must stay excluded while DaylightUIOptions is learnable
+local dlInfo = Frame("DaylightUIInfoPanel")
+dlInfo.source = "Interface/AddOns/DaylightUI_InfoPanel/Panel.lua:181"
+local dlMover = Frame("DaylightUIMoverBar")
+dlMover.source = "Interface/AddOns/DaylightUI/Movers.lua:1555"
+local euiChat = Frame("EllesmereUIChatHolder")
+euiChat.source = "Interface/AddOns/EllesmereUIChat/Chat.lua:42"
+local dlOpts = Frame("DaylightUIOptions")
+dlOpts.source = "Interface/AddOns/DaylightUI/Options/Panel.lua:386"
+replacement.shown = false
+windows:Run("")
+assert(not FindButton("DaylightUIInfoPanel") and not FindButton("DaylightUIMoverBar")
+    and not FindButton("EllesmereUIChatHolder"),
+    "suite HUD and mover widgets must never be offered by the generic addon window picker")
+assert(FindButton("DaylightUIOptions"),
+    "reviewed DaylightUIOptions settings window should remain selectable")
+-- DaylightUI unlock/edit mode pauses selection cleanly
+_G.DaylightUI = {Movers = {unlocked = true}}
+selection:Refresh()
+assert(not FindToolbar(), "DaylightUI unlock mode must pause addon window selection")
+_G.DaylightUI.Movers.unlocked = false
+-- Stale catalog-excluded records saved before suite exclusion are hidden and retired on Refresh
+addon.db.learnedAddonWindows = {
+    DaylightUIInfoPanel = {owner = "DaylightUI_InfoPanel", file = "panel.lua", x = 0.2, y = 0.8},
+    DaylightUIMoverBar = {owner = "DaylightUI", file = "movers.lua", x = 0.2, y = 0.8},
+}
+assert(#windows:ListNames() == 0, "catalog-excluded stale records must not appear in ListNames")
+windows:Refresh()
+assert(addon.db.learnedAddonWindows.DaylightUIInfoPanel == nil
+    and addon.db.learnedAddonWindows.DaylightUIMoverBar == nil,
+    "Refresh must retire stale catalog-excluded suite records without moving them")
+assert(dlInfo.writes == 0 and dlMover.writes == 0, "retired suite HUD frames must never be moved")
+dlInfo.shown, dlMover.shown, euiChat.shown, dlOpts.shown = false, false, false, false
 
 -- Verify Panel layout > Addon windows card description and multi-paragraph ? help
 local cardCalls, createdTexts = {}, {}

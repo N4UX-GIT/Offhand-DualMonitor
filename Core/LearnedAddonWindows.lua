@@ -21,11 +21,17 @@ local function ValidName(name)
         and name:match("^[%a_][%w_]*$") ~= nil
 end
 
+local function DaylightEditModeActive()
+    local dui = _G.DaylightUI
+    return type(dui) == "table" and type(dui.Movers) == "table" and dui.Movers.unlocked == true
+end
+
 local function CanInspect()
     return Offhand.isForever and not ConsolePort and not Offhand._displayGeometryTransitionActive
         and not (InCombatLockdown and InCombatLockdown())
         and not (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled())
         and not (EditModeManagerFrame and EditModeManagerFrame:IsShown())
+        and not DaylightEditModeActive()
 end
 
 local function Metrics()
@@ -80,8 +86,9 @@ local function Identity(frame)
     if ("/" .. file):match("/libs?/") or ("/" .. file):match("/libraries/") then return end
     local lower = owner:lower()
     if lower == "offhand" or lower:match("^blizzard_") then return end
-    for known in pairs(Offhand.AddonWindowCatalog or {}) do
-        if lower == known:lower() then
+    for known, entry in pairs(Offhand.AddonWindowCatalog or {}) do
+        local prefix = type(entry) == "table" and entry.suitePrefix
+        if lower == known:lower() or (type(prefix) == "string" and lower:sub(1, #prefix) == prefix) then
             local adapter = Offhand.CanvasAddonEscape
             if not adapter or not adapter:CanLearnPlacement(frame, name, known, file) then return end
             break
@@ -129,6 +136,24 @@ local function Destination(metrics, id)
     if Finite(left) and Finite(bottom) and Finite(width) and Finite(height) and width > 0 and height > 0 then
         return left, bottom, width, height, bounds.workspaceRegionID
     end
+end
+
+local function CatalogAllowsRecord(owner, file)
+    local lower = type(owner) == "string" and owner:lower() or ""
+    for known, entry in pairs(Offhand.AddonWindowCatalog or {}) do
+        local knownLower = known:lower()
+        local prefix = type(entry) == "table" and entry.suitePrefix
+        if lower == knownLower or (type(prefix) == "string" and lower:sub(1, #prefix) == prefix) then
+            if lower ~= knownLower or type(entry) ~= "table" then return false end
+            for _, role in pairs(entry) do
+                if type(role) == "table" and role.learnPlacementFile == file then
+                    return true
+                end
+            end
+            return false
+        end
+    end
+    return true
 end
 
 local function ValidRecord(record)
@@ -192,7 +217,13 @@ function Windows:Refresh()
     for name, record in pairs(records) do
         count = count + 1
         if count > MAX_WINDOWS then break end
-        if ValidName(name) and ValidRecord(record) then
+        if ValidName(name) and ValidRecord(record) and not CatalogAllowsRecord(record.owner, record.file) then
+            if active[name] then
+                pcall(Release, active[name])
+                active[name] = nil
+            end
+            records[name] = nil
+        elseif ValidName(name) and ValidRecord(record) then
             pcall(function()
                 local frame, state = _G[name], active[name]
                 if Unsafe(frame) or not frame:IsVisible() then
@@ -227,8 +258,10 @@ local function DescribeSelection(frame)
     if not Plain(strata) or not selectableStrata[strata] or not Finite(level) or level < 0 or level >= 10000 then
         return
     end
+    local records = Offhand.db and Offhand.db.learnedAddonWindows
+    local remembered = type(records) == "table" and ValidRecord(records[name]) or false
     return {frame = frame, name = name, owner = owner, file = file, db = Offhand.db,
-        x = x, y = y, width = width, height = height, strata = strata, level = level + 1}
+        remembered = remembered, x = x, y = y, width = width, height = height, strata = strata, level = level + 1}
 end
 
 function Windows:DescribeSelection(frame)
@@ -304,24 +337,31 @@ function Windows:ListNames()
     local records = Offhand.db and Offhand.db.learnedAddonWindows
     local names = {}
     for key, record in pairs(type(records) == "table" and records or {}) do
-        if ValidName(key) and ValidRecord(record) then names[#names + 1] = key end
+        if ValidName(key) and ValidRecord(record) and CatalogAllowsRecord(record.owner, record.file) then
+            names[#names + 1] = key
+        end
     end
     table.sort(names)
     return names
+end
+
+function Windows:ForgetName(name)
+    local records = Offhand.db and Offhand.db.learnedAddonWindows
+    if not ValidName(name) or type(records) ~= "table" or not records[name] then return false end
+    records[name] = nil
+    self:Refresh()
+    return true
 end
 
 function Windows:Run(input)
     local L = Offhand.L
     local action, name = (input or ""):match("^(%S*)%s*(.-)%s*$")
     action = (action or ""):lower()
-    local records = Offhand.db and Offhand.db.learnedAddonWindows
     if action == "list" then
         local names = self:ListNames()
         Offhand:Print(L["LEARN_WINDOW_LIST"], #names > 0 and table.concat(names, ", ") or NONE)
     elseif action == "forget" and ValidName(name) then
-        if type(records) == "table" and records[name] then
-            records[name] = nil
-            self:Refresh()
+        if self:ForgetName(name) then
             Offhand:Print(L["LEARN_WINDOW_FORGOTTEN"], name)
         else
             Offhand:Print(L["LEARN_WINDOW_MISSING"], name)
