@@ -65,4 +65,15 @@ The saved trace showed zero quest pins in Ironforge. At 03:39:50 the player ente
 
 Offhand now issues the same native navigation request when a visible, windowed Blizzard map on Offhand still shows the outdoor zone the player just left. Combat and loading screens clear pending requests. The installed Forever candidate matched the checkout. The compatibility checker passed all 142 Lua suites, including delayed zone IDs, duplicate events, browsing, a closed map, external ownership and cancellation. The checker’s 11 Python tests also passed.
 
-The integrated OpenMap run and the native QA-helper run above retain their original results. Final native acceptance uses `/ohzone watch` with OpenMap unloaded so Offhand is the only addon requesting the zone change.
+### Final Blizzard round trip on 24 November 2026
+
+Passed on Noggaholic with Forever 1.60.1.71037 and Offhand commit `8f7cef2`. OpenMap was unloaded for the run. The separate recorder operated in passive watch mode and sampled Blizzard’s visible quest pins. Offhand handled both zone changes.
+
+| Sample | Player and displayed map | Active quest pins | BugSack entries / occurrences |
+| --- | --- | --- | --- |
+| 04:00:09, before walking | Dun Morogh (1426) | Dwarven Outfitters (179), Supplies to Tannok (2160) | 0 / 0 |
+| 04:00:49, inside the gate | Ironforge (1455) | None | 0 / 0 |
+| 04:01:06, back outside | Dun Morogh (1426) | 179 and 2160 | 0 / 0 |
+| 04:01:54, after pin interaction | Dun Morogh (1426) | 179 and 2160 | 0 / 0 |
+
+Both settled samples matched the initial crossing samples. The player confirmed both artwork changes and successful hover and Shift-click on both pins, with no yellow warning. The recorder captured no blocked or forbidden action during the run. OpenMap 0.8.13 loaded again after the final reload. This closes the outdoor, out-of-combat Forever map-follow report for the native map and the tested OpenMap version.
