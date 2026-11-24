@@ -1,6 +1,6 @@
 # Addon window compatibility catalog
 
-The [runtime catalog](../Core/AddonWindowCatalog.lua) starts with 14 providers
+The [runtime catalog](../Core/AddonWindowCatalog.lua) starts with 15 providers
 on Forever. Each entry describes a specific window role under the addon's
 folder ID. Offhand's [settings and journal adapter](../Core/CanvasAddonEscape.lua)
 uses the catalog to select the existing opener observers and to check close
@@ -13,6 +13,7 @@ describe existing dedicated behavior.
 | Leatrix Maps | World Map | Leatrix owns map geometry | Dedicated map policy when its windowed map qualifies |
 | Leatrix Plus | Settings | Leatrix owns placement | Workspace close policy for recognized settings windows |
 | Leatrix Sounds | Browser and settings | Leatrix owns placement | Workspace close policy for the recognized root |
+| Leveldon | Settings | Leveldon owns placement | Workspace close policy for the recognized DonCoreOptions window |
 | Platynator | Settings | Picker can remember placement for the reviewed settings root | Workspace close policy for settings. Import and confirmation dialogs follow their own rules. |
 | ForeverDungeonJournal | Journal | Picker can remember placement for the reviewed journal root | Workspace close policy for the recognized journal root |
 | Kerzo Classic Quest Log | Quest log | Kerzo saves the position | Dedicated Escape handling and optional reopen after reload. Explicit close clears the saved open intent. |

@@ -4,6 +4,8 @@
 
 - On Forever, leave the Blizzard map open on Offhand as you travel outdoors. Outside combat, it switches to your new zone when you cross the boundary. If you opened a different zone to look something up, it stays there.
 - With OpenMap 0.8.13 on Forever, the outdoor map can follow you smoothly on Offhand at your chosen zoom outside combat. Pan away to browse, then middle-click to follow your character again.
+- On Forever, remember placement for eligible third-party addon windows on Offhand using **Panel layout > Addon windows > Select addon windows**, the new bindings under **Key Bindings > Offhand**, or `/offhand window` (`list`, `forget <name>`). Backed by the 15-provider Forever addon window catalog (automated fixtures pass; live Forever client QA pending before Beta 40 release).
+- Confirmed multi-page book turning and close-before-reload persistence live on Forever 1.60.1.71037.
 
 ## [2.1.5-beta.39] - 2026-11-23
 
