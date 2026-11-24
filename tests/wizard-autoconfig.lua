@@ -2081,7 +2081,7 @@ do
     addon.ShowPopup = function(_, key) shown = key end
     optPanel.websiteButton.scripts.OnClick()
     assert(shown == "OFFHAND_WEBSITE_LINK"
-        and StaticPopupDialogs[shown].gamepadEditBoxText() == "https://offhand-wow.onrender.com/")
+        and StaticPopupDialogs[shown].gamepadEditBoxText() == "https://offhandwow.com/")
     optPanel.discordButton.scripts.OnClick()
     assert(shown == "OFFHAND_DISCORD_LINK"
         and StaticPopupDialogs[shown].gamepadEditBoxText() == "https://discord.gg/J2P3SM6pAY")

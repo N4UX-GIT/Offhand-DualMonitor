@@ -996,7 +996,7 @@ L["RECOVERY_EXTRA_CONFIRM"] = "Reset Extra Abilities to Mainhand? This changes i
 -- Native workspace Escape support (English fallback until translated).
 L["CHECK_ESC_PERSIST_LIMITED_DESC"] = "Keeps supported Offhand windows open on Escape while out of combat. Close buttons and interaction endings still work normally. Protected UI modes retain native behavior."
 
-L["COMPANION_DOWNLOAD_LINK_TEXT"] = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhand-wow.onrender.com/companion.html and through the official GitHub releases."
+L["COMPANION_DOWNLOAD_LINK_TEXT"] = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhandwow.com/companion.html and through the official GitHub releases."
 
 -- Custom workspace options.
 L["WORKSPACE_PANEL_TOO_LARGE"] = "This panel does not fit this workspace. Use Mainhand or a larger workspace."
