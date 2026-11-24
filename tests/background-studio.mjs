@@ -58,7 +58,7 @@ assert.match(mediaToc, /## X-Offhand-Texture-Height: 4096\r\n/);
 assert.match(mediaToc, /## X-Offhand-Suggested-Fit: FILL\r\n/);
 assert.match(mediaToc, /## X-Offhand-Zoom: 1\.2500\r\n/);
 assert.match(mediaToc, /## X-Offhand-Matte: #161922\r\n/);
-assert.match(mediaToc, /## X-Website: https:\/\/offhand-wow\.onrender\.com\/background-studio\.html/);
+assert.match(mediaToc, /## X-Website: https:\/\/offhandwow\.com\/background-studio\.html/);
 assert.match(mediaToc, /## IconTexture: Interface\\AddOns\\Offhand\\Media\\OffhandLogo64x64\.blp/);
 assert.match(mediaToc, /## LoadOnDemand: 1\r\n## Dependencies: Offhand\r\n\r\n$/);
 assert.doesNotMatch(mediaToc, /\.lua|SavedVariables|Companion|X-Offhand-Release/);

@@ -32,7 +32,7 @@ result for a few seconds. Do not skip a required action through an unexplained c
 | HUD | Outside combat with Edit Mode closed, Create Mainhand HUD Layout; reload when prompted | Create your Mainhand HUD layout |
 | Panels | Move supported map, Character and bags to Offhand using their controls | Arrange your Offhand workspace |
 | Persistence | Normal exit, relaunch, enter world and reapply the span; show the returned layout | Check your saved layout |
-| Ending | Hold a clean result for five seconds | Setup complete. offhand-wow.onrender.com |
+| Ending | Hold a clean result for five seconds | Setup complete. offhandwow.com |
 
 If Windowed mode is already selected, use Place WoW. If automatic selection is
 unavailable, show Open display settings and the client's ordinary Windowed choice.

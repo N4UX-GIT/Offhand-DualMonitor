@@ -9,7 +9,7 @@
   
   [![Download on CurseForge](https://img.shields.io/badge/CurseForge-Download-f56e0f?style=for-the-badge&logo=curseforge)](https://www.curseforge.com/wow/addons/offhand)
   [![Get Offhand Companion from Microsoft Store](https://img.shields.io/badge/Get_it_from-Microsoft_Store-0078D4?style=for-the-badge&logo=microsoft)](https://apps.microsoft.com/detail/9PL4PW84Q90W)
-  [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhand-wow.onrender.com/companion.html)
+  [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhandwow.com/companion.html)
 </div>
 
 Offhand Beta 39 pairs with Windows Companion 2.1.9-beta.2. See the [changelog](CHANGELOG.md) for changes and contributor credits.
@@ -35,7 +35,7 @@ UI addon profiles. The larger UI canvas can shift custom interfaces, including
 Ellesmere and Naowh setups, so some panels may need repositioning.
 
 1.  **Install the Addon:** Download the addon from [CurseForge](https://www.curseforge.com/wow/addons/offhand) or install it via your preferred addon manager. For a manual ZIP install, the TOC files must be directly inside `Interface/AddOns/Offhand`; `Interface/AddOns/Offhand/Offhand/Offhand_Forever.toc` is one folder too deep.
-2.  **Choose a spanning method:** On Windows, we recommend the [Microsoft Store Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W) for exact monitor geometry and borderless placement, especially with mixed resolutions or stacked displays. The [manual/FancyZones guide](https://offhand-wow.onrender.com/manual-spanning.html) remains available without an Offhand executable. A [v2.1.5 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5/Offhand-Companion-v2.1.5.zip) is also available. After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
+2.  **Choose a spanning method:** On Windows, we recommend the [Microsoft Store Companion](https://apps.microsoft.com/detail/9PL4PW84Q90W) for exact monitor geometry and borderless placement, especially with mixed resolutions or stacked displays. The [manual/FancyZones guide](https://offhandwow.com/manual-spanning.html) remains available without an Offhand executable. A [v2.1.5 portable ZIP](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/download/v2.1.5/Offhand-Companion-v2.1.5.zip) is also available. After **Span WoW Now** succeeds, you may select **Exit Companion**; the current WoW window remains spanned. Leave it running only when you want automatic spanning, display-disconnect recovery, topology-file repair, or the Forever compatibility bridge. Review [SECURITY.md](SECURITY.md) before choosing an executable path.
 
 Linux users should read [Companion/Linux.md](Companion/Linux.md). The current
 binary remains a Windows application; running it under Wine is an experimental
@@ -130,7 +130,7 @@ repaired the layout, type `/reload` once.
 ### Manual Setup (No Companion App)
 Manual spanning is supported on Retail, Classic, and Forever clients:
 
-See the complete [manual spanning guide](https://offhand-wow.onrender.com/manual-spanning.html).
+See the complete [manual spanning guide](https://offhandwow.com/manual-spanning.html).
 
 1. Set WoW to **Windowed** mode.
 2. Grab the edges of the game window and manually drag them across both monitors. For one ultrawide, size WoW to that display instead.
@@ -140,7 +140,7 @@ See the complete [manual spanning guide](https://offhand-wow.onrender.com/manual
 
 ### Custom Backgrounds
 
-Use the [Background Studio](https://offhand-wow.onrender.com/background-studio.html) to create a custom Offhand canvas background. Processing and ZIP generation happen locally in the browser; the source image is not uploaded.
+Use the [Background Studio](https://offhandwow.com/background-studio.html) to create a custom Offhand canvas background. Processing and ZIP generation happen locally in the browser; the source image is not uploaded.
 
 1. Close World of Warcraft completely.
 2. Extract the generated `Offhand_UserMedia` folder beside `Offhand` in the same `Interface/AddOns` directory. Do not place either addon inside the other.

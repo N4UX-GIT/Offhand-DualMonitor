@@ -33,7 +33,7 @@ detected"**, a named malware alert, or a checksum mismatch, stop and send us:
 
 The Companion is optional on supported clients; a no-executable manual setup is
 available here:
-https://offhand-wow.onrender.com/manual-spanning.html
+https://offhandwow.com/manual-spanning.html
 
 Source, hashes, behavior disclosure, and Microsoft submission references:
 https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/SECURITY.md

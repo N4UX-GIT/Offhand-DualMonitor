@@ -55,7 +55,7 @@ and report the precise detection if a scanner flags a file.
 Download only from the Microsoft Store product or official GitHub releases:
 https://apps.microsoft.com/detail/9PL4PW84Q90W
 https://github.com/N4UX-GIT/Offhand-DualMonitor/releases
-https://offhand-wow.onrender.com/
+https://offhandwow.com/
 
 Wine remains experimental; see Companion/Linux.md in the source repository.
 Full mixed-DPI, physical three-monitor and all-client combat coverage is not

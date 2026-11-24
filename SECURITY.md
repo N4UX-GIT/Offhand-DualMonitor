@@ -89,7 +89,7 @@ budget. The Test 2 importer validates image IDs, dimensions, presentation
 settings and exact manifest/file parity before regeneration. This does not
 imply that the deployed public website has been updated with library support.
 
-The official [Background Studio](https://offhand-wow.onrender.com/background-studio.html)
+The official [Background Studio](https://offhandwow.com/background-studio.html)
 processes PNG, JPEG, and WebP files in browser memory. The selected image is
 not submitted to Offhand. The Studio page applies a restrictive Content
 Security Policy which blocks script-initiated network connections, form
