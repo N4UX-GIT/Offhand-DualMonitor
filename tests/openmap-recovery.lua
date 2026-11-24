@@ -127,7 +127,7 @@ local workspace, refreshes = false, 0
 addon.Canvas = {IsFrameOnWorkspace=function(frame) return frame==map and workspace end}
 module.enabled = true
 module.RefreshExtras = function() refreshes=refreshes+1 end
-for _, version in ipairs({"v0.8.8", "v0.8.9", "v0.8.10"}) do
+for _, version in ipairs({"v0.8.8", "v0.8.9", "v0.8.10", "v0.8.13"}) do
     OpenMap.version = version
     assert(recovery:Run(true), "reviewed OpenMap version cannot move to Offhand: "..version)
     map:SetPoint("CENTER",UIParent,"CENTER",0,0)
@@ -165,7 +165,7 @@ function map:StartMoving() end
 function map:StopMovingOrSizing()
     if self.drop then self.point = self.drop end
 end
-OpenMap.version = "v0.8.9"
+OpenMap.version = "v0.8.13"
 recovery:ObserveUserDrag(map)
 recovery:ObserveUserDrag(map)
 assert(installedHooks == 2, "drag observation must be installed once")
@@ -177,12 +177,19 @@ local function Drag(drop)
     map:StopMovingOrSizing()
 end
 local oldWrites = writes
-Drag({"LEFT", nil, "LEFT", 33, 312})
-assert(db.window[1]=="LEFT" and db.window[2]=="LEFT" and db.window[3]==33 and db.window[4]==312)
+Drag({"TOPLEFT", UIParent, "BOTTOMLEFT", 8, 779})
+assert(db.window[1]=="TOPLEFT" and db.window[2]=="BOTTOMLEFT" and db.window[3]==8 and db.window[4]==779,
+    "OpenMap v0.8.13 drag observation must sync third-party StartMoving/StopMoving drops into db.window")
 assert(writes==oldWrites, "saving a drag must not reposition the native map")
+map:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",19,1920)
+assert(map.point[1]=="TOPLEFT" and map.point[3]=="BOTTOMLEFT" and map.point[4]==8 and map.point[5]==779,
+    "an OpenMap reflow after Escape/M must keep the dropped anchor")
+-- Also verify moving into Mainhand survives a reflow
+Drag({"LEFT", nil, "LEFT", 1800, 312})
+assert(db.window[1]=="LEFT" and db.window[2]=="LEFT" and db.window[3]==1800 and db.window[4]==312)
 map:SetPoint("TOPLEFT",UIParent,"TOPLEFT",45,-50)
-assert(map.point[1]=="LEFT" and map.point[3]=="LEFT" and map.point[4]==33 and map.point[5]==312,
-    "an OpenMap reflow must keep the dropped anchor")
+assert(map.point[1]=="LEFT" and map.point[3]=="LEFT" and map.point[4]==1800 and map.point[5]==312,
+    "a Mainhand drop must also survive an OpenMap reflow")
 local savedDrag = db.window
 map.drop = {"LEFT", nil, "LEFT", 200, 312}
 map:StopMovingOrSizing()
