@@ -26,7 +26,7 @@ export function offlineBackgroundStudio() {
         return `${attribute}="data:${mime};base64,${bytes.toString('base64')}"`;
     });
     html=html.replace(/href="(?!https:|data:|#)([^"?]+\.html)([^"#]*)?(#[^"]*)?"/g,(_,path,_query,anchor)=>
-        `href="https://offhand-wow.onrender.com/${path}${anchor||''}"`);
+        `href="https://offhandwow.com/${path}${anchor||''}"`);
     html=html.replace('<div class="hero-badge">LOCAL BROWSER TOOL</div>',
         '<div class="hero-badge">UNOFFICIAL TEST STUDIO · OFFLINE</div>');
     html=html.replace(/<script type="module" src="background-studio\.js[^"\n]*"><\/script>/,

@@ -14,21 +14,21 @@ Stretching World of Warcraft across two monitors normally leaves the camera cent
 
 ## See Offhand in action
 
-[![Animated Offhand preview: crowded screen, conventional span, portrait workspace, landscape pair, and stacked displays. Select to explore the full interactive tour.](https://i.imgur.com/p4WYjqJ.gif)](https://offhand-wow.onrender.com/demonstration.html)
+[![Animated Offhand preview: crowded screen, conventional span, portrait workspace, landscape pair, and stacked displays. Select to explore the full interactive tour.](https://i.imgur.com/p4WYjqJ.gif)](https://offhandwow.com/demonstration.html)
 
-**[Explore the interactive tour](https://offhand-wow.onrender.com/demonstration.html)** for more layouts. Illustrated screen arrangements; available features depend on your WoW client.
+**[Explore the interactive tour](https://offhandwow.com/demonstration.html)** for more layouts. Illustrated screen arrangements; available features depend on your WoW client.
 
 ---
 
 ## Start here: the Offhand website
 
-[![Visit the official Offhand website for Window Setup, In-Game Setup, Background Studio, and Companion guides](https://i.imgur.com/jNES0Kq.png)](https://offhand-wow.onrender.com/)
+[![Visit the official Offhand website for Window Setup, In-Game Setup, Background Studio, and Companion guides](https://i.imgur.com/jNES0Kq.png)](https://offhandwow.com/)
 
 The official website brings the interactive demo, illustrated setup guides, and Background Studio together in one place.
 
-**[Visit website](https://offhand-wow.onrender.com/)**
+**[Visit website](https://offhandwow.com/)**
 
-[Explore the demo](https://offhand-wow.onrender.com/demonstration.html)   |   [Follow the setup guides](https://offhand-wow.onrender.com/index.html#setup)   |   [Open Background Studio](https://offhand-wow.onrender.com/background-studio.html)
+[Explore the demo](https://offhandwow.com/demonstration.html)   |   [Follow the setup guides](https://offhandwow.com/index.html#setup)   |   [Open Background Studio](https://offhandwow.com/background-studio.html)
 
 ---
 
@@ -46,9 +46,9 @@ Before spanning, save a copy of your Blizzard Edit Mode layout and back up your 
 
 Open the welcome guide, or type `/offhand guide`. Choose how to place WoW across your screens:
 
-- **[Companion, recommended on Windows:](https://offhand-wow.onrender.com/companion.html)** use the optional Microsoft Store app for borderless spanning, display selection, and exact monitor geometry, especially with mixed resolutions or stacked displays. Keep **Auto-span WoW on launch** off during initial setup.
-- **[FancyZones:](https://offhand-wow.onrender.com/manual-spanning.html#fancyzones)** use Microsoft's PowerToys to create a reusable combined Canvas zone on Windows. Spanning monitors must use the same Windows display scaling percentage.
-- **[Manual placement:](https://offhand-wow.onrender.com/manual-spanning.html#manual)** resize and position the ordinary WoW window yourself. No Offhand executable is required for this path or FancyZones.
+- **[Companion, recommended on Windows:](https://offhandwow.com/companion.html)** use the optional Microsoft Store app for borderless spanning, display selection, and exact monitor geometry, especially with mixed resolutions or stacked displays. Keep **Auto-span WoW on launch** off during initial setup.
+- **[FancyZones:](https://offhandwow.com/manual-spanning.html#fancyzones)** use Microsoft's PowerToys to create a reusable combined Canvas zone on Windows. Spanning monitors must use the same Windows display scaling percentage.
+- **[Manual placement:](https://offhandwow.com/manual-spanning.html#manual)** resize and position the ordinary WoW window yourself. No Offhand executable is required for this path or FancyZones.
 
 At the display-mode step, click **Set to Windowed**. If WoW is already Windowed, continue with **Place WoW**. If your client cannot apply the change automatically, use **Open display settings**, select **Windowed**, and apply it. Windowed (Fullscreen) is a different mode.
 
@@ -74,7 +74,7 @@ Move supported maps, bags, Character panels, chat, Spellbook, and Talents onto O
 
 Exit WoW normally, relaunch, restore the intended span, and verify that your workspace and HUD return. FancyZones/manual users may need to reapply their zone or window placement. Companion removes the title bar when it applies a borderless span.
 
-[Follow the illustrated setup and settings guide](https://offhand-wow.onrender.com/in-game-setup.html).
+[Follow the illustrated setup and settings guide](https://offhandwow.com/in-game-setup.html).
 
 ---
 
@@ -94,9 +94,9 @@ Exit WoW normally, relaunch, restore the intended span, and verify that your wor
 
 ## Create a custom Offhand background
 
-[![Background Studio with a custom gold Offhand background, Mainhand game preview, and World Map and Bags reference guides](https://i.imgur.com/87mRyI0.png)](https://offhand-wow.onrender.com/background-studio.html)
+[![Background Studio with a custom gold Offhand background, Mainhand game preview, and World Map and Bags reference guides](https://i.imgur.com/87mRyI0.png)](https://offhandwow.com/background-studio.html)
 
-[Background Studio](https://offhand-wow.onrender.com/background-studio.html) previews your image beside an illustrated Mainhand display and lets you adjust its crop, fit, opacity, and darkening. World Map and Bags outlines are reference guides only; they are not exported.
+[Background Studio](https://offhandwow.com/background-studio.html) previews your image beside an illustrated Mainhand display and lets you adjust its crop, fit, opacity, and darkening. World Map and Bags outlines are reference guides only; they are not exported.
 
 Processing stays in your browser. The generated `Offhand_UserMedia` package contains a texture, declarative metadata, a recipe, and installation instructions. It contains no Lua or executable program code. Install it beside Offhand, fully restart WoW, then enable **Use installed custom background** in **Themes & Colors**. Normal addon updates leave this separate package alone.
 
@@ -114,7 +114,7 @@ Companion manages the desktop window: borderless spanning, display selection, ex
 
 Microsoft Store provides a signed installation and managed updates. For a portable download, use the [official Companion 2.1.5 release and checksums](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.5). The addon and Companion have independent version numbers.
 
-[Read the Companion installation, Linux/Wine, and recovery guide](https://offhand-wow.onrender.com/companion.html).
+[Read the Companion installation, Linux/Wine, and recovery guide](https://offhandwow.com/companion.html).
 
 ### Security and policy
 
@@ -149,7 +149,7 @@ Bind **Toggle gameplay and window focus** in controller configuration to switch 
 
 ### WoW Forever persistence
 
-If your settings return after `/reload` but not after a full restart, see the [Companion recovery guide](https://offhand-wow.onrender.com/companion.html#recovery) or contact us on [Discord](https://discord.gg/J2P3SM6pAY). The recovery bridge is a fallback, not a requirement for every installation.
+If your settings return after `/reload` but not after a full restart, see the [Companion recovery guide](https://offhandwow.com/companion.html#recovery) or contact us on [Discord](https://discord.gg/J2P3SM6pAY). The recovery bridge is a fallback, not a requirement for every installation.
 
 ### Performance
 
@@ -170,7 +170,7 @@ If a border remains inside Mainhand after loading, check window placement, Windo
 - **The protected HUD needs rebuilding:** leave combat and close Blizzard Edit Mode, then use **Create Mainhand HUD Layout**. This can replace edits in the generated Offhand layout and reposition visible HUD systems. Back up your layout first; use missing-only recovery when you want to preserve visible elements.
 - **Blizzard's custom-layout list is full:** open **Escape > Edit Mode**, use the layout dropdown to export a layout if needed, then delete only an unwanted custom layout. Close Edit Mode, reopen `/offhand wizard`, and retry. Offhand does not delete layouts for you.
 
-If the split or window size is wrong, correct the native window placement before rebuilding your HUD or saved panel positions. See the [illustrated recovery guide](https://offhand-wow.onrender.com/in-game-setup.html#recovery).
+If the split or window size is wrong, correct the native window placement before rebuilding your HUD or saved panel positions. See the [illustrated recovery guide](https://offhandwow.com/in-game-setup.html#recovery).
 
 ---
 
@@ -186,7 +186,7 @@ If the split or window size is wrong, correct the native window placement before
 
 ## Support and Feedback
 
-Start with the [illustrated setup and settings guide](https://offhand-wow.onrender.com/in-game-setup.html). For further help, use the CurseForge comments or [join the Offhand Discord](https://discord.gg/J2P3SM6pAY). Select **Offhand** in the **Start Here** channel to access its channels.
+Start with the [illustrated setup and settings guide](https://offhandwow.com/in-game-setup.html). For further help, use the CurseForge comments or [join the Offhand Discord](https://discord.gg/J2P3SM6pAY). Select **Offhand** in the **Start Here** channel to access its channels.
 
 Include your WoW client/build, addon and Companion versions, display arrangement and resolutions, Windows scaling percentage, reproduction steps, screenshots, and any Lua errors.
 

@@ -21,7 +21,7 @@ import {
     inspectGeneratedZip,
     inspectImageHeader,
     recipeControlValues,
-} from "./background-studio-core.mjs?v=20261104-1";
+} from "./background-studio-core.mjs?v=20261124-1";
 
 const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40 * 1000 * 1000;
