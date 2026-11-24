@@ -12,7 +12,7 @@
 ## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Forever
-## X-Website: https://offhand-wow.onrender.com/
+## X-Website: https://offhandwow.com/
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: OffhandDB
