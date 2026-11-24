@@ -2810,6 +2810,7 @@ function Offhand:InitializeCanvas()
             if Offhand._displayGeometryTransitionActive then return end
             if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
             if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
+            if Offhand.LearnedAddonWindows then Offhand.LearnedAddonWindows:Refresh() end
             Canvas:RetryMissingExperimentalForeverProfessionsMovement()
             Canvas:MonitorDetachedChatSettingsPresentation()
             local editModeShown = EditModeManagerFrame and EditModeManagerFrame.IsShown

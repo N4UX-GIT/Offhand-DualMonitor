@@ -4,13 +4,14 @@
 local _, Offhand = ...
 local Adapter = {}
 Offhand.CanvasAddonEscape = Adapter
+local catalog = Offhand.AddonWindowCatalog
 local states = setmetatable({}, {__mode="k"})
 local MAX_SPECIAL, MAX_ROOTS = 256, 64
 local openerHooks = setmetatable({}, {__mode="k"})
 local donGameplayAddons = {LeveldonPanel = "Leveldon", DonMapArrow = "DonMap"}
-
 -- Also used during profile migration, when the guide may not be loaded.
 Adapter.restedXPFrames = {RXPFrame = true, RXPItemFrame = true}
+
 local function Loaded(name)
     local query = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
     return type(query) == "function" and query(name) and true or false
@@ -89,30 +90,36 @@ local function Identify(frame, name)
         return options and options.GetConfigFrame and options:GetConfigFrame() == frame and "Offhand" or nil
     end
     if name == "ForeverDungeonJournalFrame" and Loaded("ForeverDungeonJournal") then
-        return "ForeverDungeonJournal"
+        return "ForeverDungeonJournal", "journal"
     end
     if name == "DonCoreOptions" then
         local options = DonOptions()
-        if options and options.Frame and options.Frame() == frame then return "Leveldon" end
+        if options and options.Frame and options.Frame() == frame then return "Leveldon", "settings" end
         return nil
     end
     local source = Source(frame)
     if not source then return nil end
     if name:match("^PlatynatorCustomiseDialog[%w_]+$") and Loaded("Platynator")
         and source:find("/platynator/customisedialog/main.lua:", 1, true)
-        and frame.Tabs and frame.CloseButton then return "Platynator" end
+        and frame.Tabs and frame.CloseButton then return "Platynator", "settings" end
     if #name ~= 17 or not name:match("^F%w+$") or not frame.GetFrameStrata
         or frame:GetFrameStrata() ~= "FULLSCREEN_DIALOG" then return nil end
     for _, vendor in ipairs({"Leatrix_Maps", "Leatrix_Plus", "Leatrix_Sounds"}) do
         local lower = vendor:lower()
         if Loaded(vendor) and source:find("/" .. lower .. "/" .. lower .. ".lua:", 1, true) then
             if vendor == "Leatrix_Sounds" then
-                if frame.cb and frame.mainTex and frame.footTex then return vendor end
+                if frame.cb and frame.mainTex and frame.footTex then return vendor, "settings" end
             elseif (frame.mt and frame.v) or (frame.c and frame.r and frame.b) then
-                return vendor
+                return vendor, "settings"
             end
         end
     end
+end
+
+function Adapter:CanLearnPlacement(frame, name, owner, file)
+    local identified, role = Identify(frame, name)
+    local window = identified == owner and catalog[owner] and catalog[owner][role]
+    return window and window.learnPlacementFile == file or false
 end
 
 local function ControllerOwned()
@@ -134,8 +141,13 @@ local function InstallOpeners()
     end
     -- These public open transactions cover lazy first creation, before there is
     -- a root to observe. No shared CreateFrame/ShowUIPanel/Escape hook is used.
-    for _, key in ipairs({"Leatrix_Maps", "Leatrix_Plus", "Leatrix_Sounds",
-        "Platynator", "FOREVERDUNGEONJOURNAL"}) do Observe(SlashCmdList, key) end
+    for _, windows in pairs(catalog) do
+        for _, window in pairs(windows) do
+            if window.close == "workspace-special-windows" and window.opener then
+                Observe(SlashCmdList, window.opener)
+            end
+        end
+    end
     Observe(_G, "Platynator_AddonCompartmentCallback")
     Observe(Offhand.Options, "Open")
     Observe(DonOptions(), "Open")
@@ -285,10 +297,14 @@ local function Refresh()
         if type(name) == "string" then
             local frame = _G[name]
             if frame and not states[frame] and count < MAX_ROOTS then
-                local ok, owner = pcall(Identify, frame, name)
+                local ok, owner, role = pcall(Identify, frame, name)
                 if ok and owner then
-                    states[frame] = {name=name, owner=owner}
-                    count = count + 1
+                    local windows = catalog[owner]
+                    local window = windows and windows[role]
+                    if owner == "Offhand" or (window and window.close == "workspace-special-windows") then
+                        states[frame] = {name=name, owner=owner}
+                        count = count + 1
+                    end
                 end
             end
         end

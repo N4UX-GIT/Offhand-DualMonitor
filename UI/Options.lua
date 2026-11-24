@@ -184,6 +184,9 @@ _G.BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP = L["BINDING_NAME_OFFHAND_TOGGLE_EXP
 _G.BINDING_NAME_OFFHAND_TOGGLE_SETTINGS = L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"]
 _G.BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS =
     L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"]
+_G.BINDING_NAME_OFFHAND_LEARN_WINDOW = L["BINDING_NAME_OFFHAND_LEARN_WINDOW"]
+_G.BINDING_NAME_OFFHAND_WINDOW_NEXT = L["BINDING_NAME_OFFHAND_WINDOW_NEXT"]
+_G.BINDING_NAME_OFFHAND_WINDOW_ADD = L["BINDING_NAME_OFFHAND_WINDOW_ADD"]
 
 function Options:CreateMainhandHUDLayout(options)
     if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
@@ -2591,6 +2594,7 @@ function Options:CreateFloatingPanel()
                 panels = workspaceTab, appearance = tab3, profiles = tab4,
             }, CreateCard, Options)
             local panelCards = {workspace.routing, workspace.sizing}
+            if workspace.learning then table.insert(panelCards, 1, workspace.learning) end
             local function RestackPanels()
                 RestackTab(workspaceTab, panelCards)
             end

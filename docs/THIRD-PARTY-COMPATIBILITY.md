@@ -1,5 +1,8 @@
 # Third-party compatibility boundary
 
+The [addon window catalog](ADDON-WINDOW-CATALOG.md) lists the initial Forever
+providers and the behavior Offhand can use for specific windows.
+
 OpenMap retains map window position and scale, including its private saved
 anchor. Its own title handle passed manual placement, reopening and reload
 checks on Forever 70862, including with Leatrix's competing geometry options off.

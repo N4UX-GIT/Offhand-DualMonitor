@@ -223,7 +223,7 @@ end
 
 -- Only automatic popup redirection yields here. Explicit workspace movement
 -- and each vendor's own position persistence keep their existing policies.
-function Compatibility.ShouldPreservePopupPosition(frame, name)
+function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
     if not frame then return false end
     -- This full-screen parent derives its rectangle from both UIParent corners.
     -- Moving it like a popup leaves Blizzard's separate bags without a rectangle.
@@ -253,6 +253,9 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     local bags = Offhand.BagPersistence
     if bags and bags.IsBaganatorBackpackRoot and bags.IsBaganatorBackpackRoot(frame, name) then return true end
     if Compatibility.GetRestedXPGuideFrame() == frame then return true end
+    if allowUserPlaced then return false end
+    local learned = Offhand.LearnedAddonWindows
+    if learned and learned:OwnsPosition(frame, name) then return true end
     if type(frame.IsUserPlaced) == "function" then
         local ok, placed = pcall(frame.IsUserPlaced, frame)
         if not ok or not IsOrdinaryPopupValue(placed) or placed ~= false then return true end

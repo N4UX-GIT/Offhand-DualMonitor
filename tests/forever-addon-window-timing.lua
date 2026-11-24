@@ -89,6 +89,7 @@ local function OpenPlaty()
 end
 SlashCmdList.Platynator=OpenPlaty
 Platynator_AddonCompartmentCallback=OpenPlaty
+assert(loadfile(base..'/Core/AddonWindowCatalog.lua'))('Offhand',addon)
 assert(loadfile(base..'/Core/CanvasAddonEscape.lua'))('Offhand',addon)
 assert(loadfile(base..'/Core/WorkspaceChrome.lua'))('Offhand',addon)
 local adapter=addon.CanvasAddonEscape

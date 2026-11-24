@@ -174,13 +174,18 @@ assert(procDocIndex and procDocIndex > viewportIndex and procDocIndex < canvasIn
     "ProcDoc adapter must load after viewport services and before Canvas refresh")
 assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
     "addon settings Escape adapters must load before Canvas persistence initialization")
+assert(main[addonEscapeIndex - 1] == "Core/AddonWindowCatalog.lua",
+    "the addon window catalog must load before the Escape adapter")
+assert(main[canvasIndex + 1] == "Core/LearnedAddonWindows.lua",
+    "the learned window service must load before Canvas begins its runtime refresh")
 local workspaceOptionsIndex
 for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
 assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex
         and main[controlsIndex+1]=="UI/WorkspaceScaleControls.lua"
         and controlsIndex + 2 == optionsActionsIndex
         and optionsActionsIndex + 1 == workspaceOptionsIndex
-        and workspaceOptionsIndex + 1 == optionsIndex,
+        and workspaceOptionsIndex + 2 == optionsIndex
+        and main[optionsIndex - 1] == "UI/AddonWindowSelection.lua",
     "shared controls and settings actions must load immediately before Options")
 for i=2,#tocs do
     local flavor = entries(tocs[i])

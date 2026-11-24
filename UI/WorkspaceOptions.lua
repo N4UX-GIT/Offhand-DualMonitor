@@ -45,6 +45,14 @@ function UI.Build(tabs,card,options)
         return m and m.workspaceRegions or {}
     end
 
+    local learning
+    if Offhand.isForever and Offhand.AddonWindowSelection then
+        learning = card(tabs.panels, L.LEARN_WINDOW_MODE_TITLE, 74, L.LEARN_WINDOW_MODE_HELP)
+        Button(learning, L.BINDING_NAME_OFFHAND_LEARN_WINDOW, 12, -34, 330, function()
+            Offhand.AddonWindowSelection:Toggle()
+        end)
+    end
+
     local profiles=card(tabs.profiles,L.WORKSPACE_PROFILES_TITLE,140,
         L.WORKSPACE_PROFILES_HELP,L.WORKSPACE_PRESETS_WORKFLOW)
     local profileHelp=Text(profiles,L.WORKSPACE_PROFILES_HELP,12,-34,628)
@@ -344,7 +352,8 @@ function UI.Build(tabs,card,options)
     UI.refreshers=refreshers
     -- Resolve profile selection before its choice label is first rendered.
     local _,current=Offhand.WorkspaceProfiles:List();selected=current
-    UI.controls={sizing=sizing,profiles=profiles,picker=picker,name=input,routing=routing,themes=themeCard,regions=regionRows}
+    UI.controls={learning=learning,sizing=sizing,profiles=profiles,picker=picker,name=input,
+        routing=routing,themes=themeCard,regions=regionRows}
     UI:Refresh()
     return UI.controls
 end

@@ -57,6 +57,7 @@ Core\HUDRecovery.lua
 Core\HUDTransientFrames.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
+Core\AddonWindowCatalog.lua
 Core\CanvasAddonEscape.lua
 Core\CanvasKerzoQuestLog.lua
 Core\CanvasCompatibility.lua
@@ -74,6 +75,7 @@ Core\DaylightMapCompatibility.lua
 Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
+Core\LearnedAddonWindows.lua
 Core\WorkspaceBehavior.lua
 Core\WorkspaceToggleKeys.lua
 Core\WorkspaceChrome.lua
@@ -103,6 +105,7 @@ UI\Controls.lua
 UI\WorkspaceScaleControls.lua
 UI\OptionsActions.lua
 UI\WorkspaceOptions.lua
+UI\AddonWindowSelection.lua
 UI\Options.lua
 UI\SetupVisuals.lua
 UI\DisplayIdentify.lua

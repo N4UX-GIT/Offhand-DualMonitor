@@ -665,6 +665,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
+        or popupKey == "OFFHAND_STUDIO_LINK"
         or popupKey == "OFFHAND_CONFIRM_WINDOWED_MODE"
         or popupKey == "OFFHAND_CONFIRM_PLACEMENT"
         or popupKey == "OFFHAND_CONFIRM_PROFILE"
@@ -1906,10 +1907,13 @@ SLASH_OFFHAND2 = "/oh"
 SLASH_OFFHAND3 = "/Offhand"
 
 SlashCmdList["OFFHAND"] = function(msg)
-    msg = strtrim(msg or ""):lower()
+    local input = strtrim(msg or "")
+    msg = input:lower()
     local cmd, arg = strsplit(" ", msg, 2)
 
-    if cmd == "recovermap" and Offhand.OpenMapRecovery then
+    if cmd == "window" and Offhand.LearnedAddonWindows then
+        Offhand.LearnedAddonWindows:Run(input:match("^%S+%s*(.*)$"))
+    elseif cmd == "recovermap" and Offhand.OpenMapRecovery then
         Offhand.OpenMapRecovery:RunAndReport(strtrim(arg or "") == "offhand")
     elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
         Offhand.EllesmereLayout:Run(strtrim(arg or ""))

@@ -8,4 +8,19 @@
     <Binding name="OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS">
         Offhand_ToggleGamepadUIFocus()
     </Binding>
+    <Binding name="OFFHAND_LEARN_WINDOW">
+        if Offhand and Offhand.LearnedAddonWindows then
+            Offhand.LearnedAddonWindows:Run("")
+        end
+    </Binding>
+    <Binding name="OFFHAND_WINDOW_NEXT">
+        if Offhand and Offhand.AddonWindowSelection then
+            Offhand.AddonWindowSelection:Cycle(1)
+        end
+    </Binding>
+    <Binding name="OFFHAND_WINDOW_ADD">
+        if Offhand and Offhand.AddonWindowSelection then
+            Offhand.AddonWindowSelection:AddFocused()
+        end
+    </Binding>
 </Bindings>
