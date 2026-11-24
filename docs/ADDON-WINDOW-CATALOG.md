@@ -28,8 +28,8 @@ dedicated behavior.
 | OpenMap | World Map | OpenMap owns map geometry | Dedicated map policy when its windowed map qualifies |
 | MoveAny | World Map | MoveAny owns map geometry | Dedicated map policy with current client and panel guards |
 | ClassicUI Forever | World Map and Character | ClassicUI Forever owns geometry | Existing native and provider lifecycle |
-| DaylightUI | Settings (`DaylightUIOptions`) | Picker can remember placement for `DaylightUIOptions` | Native fade-on-Escape preserved (`DUI.Motion`) |
-| DaylightUI (`DaylightUI_*` modules & Movers) | HUD, Edit Mode movers, bags, replacement panels | DaylightUI owns placement via Movers / Win / dedicated bag adapter (excluded from picker; selection pauses during DaylightUI Unlock Mode) | Native / dedicated provider lifecycle |
+| DaylightUI | Settings (`DaylightUIOptions`) | Picker can remember placement for `DaylightUIOptions` (registered via the built-in [DaylightUI bridge](../Bridges/DaylightUI/README.md)) | Native fade-on-Escape preserved (`DUI.Motion`) |
+| DaylightUI (`DaylightUI_*` modules & Movers) | HUD, Edit Mode movers, bags, replacement panels | Built-in DaylightUI bridge keeps DaylightUI's own layout on Mainhand and excludes HUD/mover modules from the picker (selection pauses during DaylightUI Unlock Mode) | Native / bridge lifecycle |
 | EllesmereUI (`EllesmereUI*`), ElvUI, FlareUI | Full UI suite HUD & movers | Suite owns placement (excluded from picker; dedicated bag/HUD adapters stay active) | Native / dedicated provider lifecycle |
 | ArkInventory, BagSmith, Bagnaros | Inventory | Dedicated bag adapter compatibility (excluded from generic picker) | Dedicated bag Escape policy |
 

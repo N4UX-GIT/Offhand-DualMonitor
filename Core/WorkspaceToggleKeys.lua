@@ -72,7 +72,8 @@ local function InventoryOnWorkspace(action)
         end
         if OnWorkspace(backpack and backpack.frame) or OnWorkspace(_G.ARKINV_Frame1)
             or OnWorkspace(_G.BagSmithFrame) or OnWorkspace(_G.ElvUI_ContainerFrame)
-            or OnWorkspace(_G.DaylightUIBag) or OnWorkspace(_G.EUI_MainBagFrame) then return true end
+            or (Offhand.Bridges and Offhand.Bridges:IsBagOnWorkspace(OnWorkspace))
+            or OnWorkspace(_G.EUI_MainBagFrame) then return true end
     end
     if Visible(_G.ContainerFrameCombinedBags) then return OnWorkspace(_G.ContainerFrameCombinedBags) end
     local found = false

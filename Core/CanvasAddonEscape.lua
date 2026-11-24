@@ -108,10 +108,6 @@ local function Identify(frame, name)
     end
     local source = Source(frame)
     if not source then return nil end
-    if name == "DaylightUIOptions" and Loaded("DaylightUI")
-        and source:find("/daylightui/options/panel.lua:", 1, true) then
-        return "DaylightUI", "settings"
-    end
     local don = donWindows[name]
     if don then
         -- Kit.Window's own shape: a header and a close button; any addon's copy of DonCore
@@ -140,7 +136,8 @@ end
 function Adapter:CanLearnPlacement(frame, name, owner, file)
     local identified, role = Identify(frame, name)
     local window = identified == owner and catalog[owner] and catalog[owner][role]
-    return window and window.learnPlacementFile == file or false
+    if window and window.learnPlacementFile == file then return true end
+    return Offhand.Bridges and Offhand.Bridges:CanLearnPlacement(frame, name, owner, file) or false
 end
 
 local function ControllerOwned()

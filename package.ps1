@@ -196,6 +196,18 @@ if ($CandidateId) {
 Copy-Item (Join-Path $rootDir "Core") -Destination $addonStaging -Recurse
 Copy-Item (Join-Path $rootDir "Locales") -Destination $addonStaging -Recurse
 Copy-Item (Join-Path $rootDir "UI") -Destination $addonStaging -Recurse
+if (Test-Path -LiteralPath (Join-Path $rootDir "Bridges") -PathType Container) {
+    $bridgesRoot = Join-Path $rootDir "Bridges"
+    Get-ChildItem -LiteralPath $bridgesRoot -Filter "*.lua" -File -Recurse | ForEach-Object {
+        $rel = $_.FullName.Substring($rootDir.Length).TrimStart('\', '/')
+        $dest = Join-Path $addonStaging $rel
+        $destDir = Split-Path -Parent $dest
+        if (-not (Test-Path -LiteralPath $destDir -PathType Container)) {
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+        }
+        Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+    }
+}
 
 # Copy Media but ONLY .blp files!
 $mediaStaging = Join-Path $addonStaging "Media"

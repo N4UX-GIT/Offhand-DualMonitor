@@ -70,7 +70,7 @@ Core\CanvasChat.lua
 Core\CanvasProfessions.lua
 Core\CanvasPanelMotion.lua
 Core\CanvasMapPresentation.lua
-Core\DaylightMapCompatibility.lua
+Core\Bridges.lua
 Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
@@ -113,3 +113,10 @@ UI\Onboarding.lua
 UI\WhatsNew.lua
 UI\Wizard.lua
 UI\EllesmereLayoutPreview.lua
+# Built-in Bridges
+Bridges\DaylightUI\Core.lua
+Bridges\DaylightUI\Placement.lua
+Bridges\DaylightUI\Scenes.lua
+Bridges\DaylightUI\Map.lua
+Bridges\DaylightUI\Bags.lua
+Bridges\DaylightUI\Init.lua

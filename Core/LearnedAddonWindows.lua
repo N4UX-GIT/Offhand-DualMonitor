@@ -21,17 +21,12 @@ local function ValidName(name)
         and name:match("^[%a_][%w_]*$") ~= nil
 end
 
-local function DaylightEditModeActive()
-    local dui = _G.DaylightUI
-    return type(dui) == "table" and type(dui.Movers) == "table" and dui.Movers.unlocked == true
-end
-
 local function CanInspect()
     return Offhand.isForever and not ConsolePort and not Offhand._displayGeometryTransitionActive
         and not (InCombatLockdown and InCombatLockdown())
         and not (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled())
         and not (EditModeManagerFrame and EditModeManagerFrame:IsShown())
-        and not DaylightEditModeActive()
+        and not (Offhand.Bridges and Offhand.Bridges:IsEditModeActive())
 end
 
 local function Metrics()

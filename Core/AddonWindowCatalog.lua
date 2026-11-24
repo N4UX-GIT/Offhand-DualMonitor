@@ -58,11 +58,6 @@ Offhand.AddonWindowCatalog = {
         worldMap = {position = "addon", close = "native"},
         character = {position = "addon", close = "native"},
     },
-    DaylightUI = {
-        suitePrefix = "daylightui_",
-        settings = {position = "addon", close = "native", learnPlacementFile = "options/panel.lua"},
-        hud = {position = "addon", close = "native"},
-    },
     EllesmereUI = {
         suitePrefix = "ellesmereui",
         hud = {position = "addon", close = "native"},

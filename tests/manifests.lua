@@ -86,7 +86,7 @@ local canvasChatIndex
 local canvasProfessionsIndex
 local canvasPanelMotionIndex
 local canvasMapPresentationIndex
-local daylightMapCompatibilityIndex
+local bridgesIndex
 local canvasPanelLifecycleIndex
 local canvasPanelPlacementIndex
 local canvasIndex
@@ -121,7 +121,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasProfessions.lua" then canvasProfessionsIndex = index end
     if file == "Core/CanvasPanelMotion.lua" then canvasPanelMotionIndex = index end
     if file == "Core/CanvasMapPresentation.lua" then canvasMapPresentationIndex = index end
-    if file == "Core/DaylightMapCompatibility.lua" then daylightMapCompatibilityIndex = index end
+    if file == "Core/Bridges.lua" then bridgesIndex = index end
     if file == "Core/CanvasPanelLifecycle.lua" then canvasPanelLifecycleIndex = index end
     if file == "Core/CanvasPanelPlacement.lua" then canvasPanelPlacementIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
@@ -163,8 +163,8 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasChatIndex + 1 == canvasProfessionsIndex
         and canvasProfessionsIndex + 1 == canvasPanelMotionIndex
         and canvasPanelMotionIndex + 1 == canvasMapPresentationIndex
-        and canvasMapPresentationIndex + 1 == daylightMapCompatibilityIndex
-        and daylightMapCompatibilityIndex + 1 == canvasPanelLifecycleIndex
+        and canvasMapPresentationIndex + 1 == bridgesIndex
+        and bridgesIndex + 1 == canvasPanelLifecycleIndex
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
@@ -192,6 +192,21 @@ for i=2,#tocs do
     assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])
     for j,file in ipairs(main) do assert(file==flavor[j], "Client TOC load order mismatch: "..file) end
 end
+local bridgeStart = #main - 5
+local expectedBridge = {
+    "Bridges/DaylightUI/Core.lua",
+    "Bridges/DaylightUI/Placement.lua",
+    "Bridges/DaylightUI/Scenes.lua",
+    "Bridges/DaylightUI/Map.lua",
+    "Bridges/DaylightUI/Bags.lua",
+    "Bridges/DaylightUI/Init.lua",
+}
+for i, path in ipairs(expectedBridge) do
+    assert(main[bridgeStart + i - 1] == path, "Built-in DaylightUI bridge order mismatch: " .. tostring(main[bridgeStart + i - 1]))
+end
+local foreverText = assert(io.open("Offhand_Forever.toc", "rb")):read("*a")
+assert(foreverText:match("## OptionalDeps:%s*DaylightUI"), "Forever manifest should declare OptionalDeps: DaylightUI for load order")
+assert(not foreverText:match("## Dependencies:"), "Offhand must never require third-party addons via Dependencies")
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")

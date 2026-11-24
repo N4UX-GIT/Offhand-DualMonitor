@@ -41,11 +41,17 @@ addon.UIControls = {StyleSurface = function() end}
 function addon:IsGamepadUIEnabled() return gamepad end
 function addon:Print(text, ...) message = string.format(text, ...) end
 for _, file in ipairs({"Locales/enUS.lua", "Core/WorkspaceRegions.lua", "Core/HUDCompatibility.lua",
-    "Core/CanvasCompatibility.lua", "Core/AddonWindowCatalog.lua", "Core/CanvasAddonEscape.lua",
-    "Core/LearnedAddonWindows.lua",
+    "Core/CanvasCompatibility.lua", "Core/AddonWindowCatalog.lua", "Core/Bridges.lua",
+    "Core/CanvasAddonEscape.lua", "Core/LearnedAddonWindows.lua",
     "UI/AddonWindowSelection.lua"}) do
     assert(loadfile(file))("Offhand", addon)
 end
+addon.API.RegisterGeometryCallback = function() end
+_G.Offhand = addon
+_G.DaylightUI = {Movers = {unlocked = false}}
+_G.SlashCmdList = {}
+assert(loadfile("Bridges/DaylightUI/Core.lua"))("Offhand", addon)
+assert(loadfile("Bridges/DaylightUI/Init.lua"))("Offhand", addon)
 local windows, selection = addon.LearnedAddonWindows, addon.AddonWindowSelection
 
 local function Frame(name, frameParent)

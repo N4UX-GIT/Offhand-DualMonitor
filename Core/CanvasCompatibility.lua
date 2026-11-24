@@ -128,7 +128,7 @@ function Compatibility.GetWorldMapFadeAddon()
     if Compatibility.HasLeatrixMaps() then return "Leatrix_Maps" end
 end
 
-local mapAddons = {"OpenMap", "MapWise", "MapUtils", "Leatrix_Maps", "DaylightUI",
+local mapAddons = {"OpenMap", "MapWise", "MapUtils", "Leatrix_Maps",
     "BlizzMove", "MoveAny", "MoveAnything", "ClassicUIForever"}
 local mapVersionNamespaces = {OpenMap = "OpenMap", MapWise = "MapWiseAPI"}
 
@@ -140,8 +140,10 @@ end
 
 function Compatibility.GetMapIntegrationDiagnostics()
     local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
-    local detected = {}
-    for _, name in ipairs(mapAddons) do
+    local detected, seen = {}, {}
+    local function Report(name)
+        if seen[name] then return end
+        seen[name] = true
         if Compatibility.IsAddonLoaded(name) then
             local namespaceName = mapVersionNamespaces[name]
             local namespace = namespaceName and rawget(_G, namespaceName)
@@ -154,6 +156,8 @@ function Compatibility.GetMapIntegrationDiagnostics()
             detected[#detected + 1] = name .. "=" .. (version or "unknown version")
         end
     end
+    for _, name in ipairs(mapAddons) do Report(name) end
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetMapAddons() or {}) do Report(name) end
     return #detected > 0 and table.concat(detected, " | ") or "none detected"
 end
 

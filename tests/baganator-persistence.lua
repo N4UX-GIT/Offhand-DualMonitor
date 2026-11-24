@@ -939,6 +939,14 @@ assert(UISpecialFrames[2] == "ElvUI_ContainerFrame", "ElvUI must regain Escape h
 ToggleGameMenu(); flush()
 assert(not elv.shown, "Escape must close ElvUI on Mainhand")
 
+-- DaylightUI's bag Escape handling lives in the built-in DaylightUI bridge;
+-- exercise it here through the same registry and services the game uses.
+if not addon.Bridges then assert(loadfile("Core/Bridges.lua"))("Offhand", addon) end
+local daylightBridge = {Offhand = addon}
+assert(loadfile("Bridges/DaylightUI/Bags.lua"))("Offhand", daylightBridge)
+assert(addon.Bridges:Register("DaylightUI", {contract = 1,
+    RefreshBags = function(_, services) daylightBridge.Bags.Refresh(services) end,
+    GetBagFrames = function() return daylightBridge.Bags.GetFrames() end}))
 local daylight = setmetatable({shown=true,x=100,scripts={}}, {__index=bag})
 local daylightProxy = setmetatable({shown=true,x=2000,scripts={}}, {__index=bag})
 local daylightProxyName = "DaylightUIEscape7"
