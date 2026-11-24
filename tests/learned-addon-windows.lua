@@ -396,4 +396,32 @@ for _, t in ipairs(createdTexts) do
     if t == addon.L.LEARN_WINDOW_CARD_DESC then sawDesc = true end
 end
 assert(sawDesc, "Addon windows card must render an inline description")
+
+-- Done re-opens Offhand Settings only when launched from Settings (and never on auto-exit/combat)
+local optionsOpened, optionsClosed = 0, 0
+addon.Options = {
+    Open = function() optionsOpened = optionsOpened + 1 end,
+    Close = function() optionsClosed = optionsClosed + 1 end,
+}
+selection:Stop()
+-- Launched via slash/keybind -> Done must NOT reopen Settings
+windows:Run("")
+toolbar = FindToolbar()
+toolbar.done.scripts.OnClick(toolbar.done)
+assert(optionsOpened == 0, "Done must not open Settings when selection mode was not launched from Settings")
+-- Launched from Settings -> Done reopens Settings
+selection:Toggle(true)
+assert(optionsClosed >= 1)
+toolbar = FindToolbar()
+toolbar.done.scripts.OnClick(toolbar.done)
+assert(optionsOpened == 1, "Done must reopen Settings when selection mode was launched from Settings")
+-- Launched from Settings + combat auto-exit -> must NOT reopen Settings
+selection:Toggle(true)
+toolbar = FindToolbar()
+combat = true
+toolbar.scripts.OnEvent(toolbar, "PLAYER_REGEN_DISABLED")
+combat = false
+assert(optionsOpened == 1, "combat auto-exit must never reopen Settings")
+addon.Options = nil
+
 print("PASS: learned windows confirm identity, restore only placement, yield, and release safely")

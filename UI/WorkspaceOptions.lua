@@ -54,7 +54,7 @@ function UI.Build(tabs,card,options)
         local learnList = Text(learning, "", 12, -descBottom, 628)
         if learnList.SetTextColor then learnList:SetTextColor(0.76, 0.78, 0.84) end
         local learnBtn = Button(learning, L.BINDING_NAME_OFFHAND_LEARN_WINDOW, 12, -(descBottom + 24), 330, function()
-            Offhand.AddonWindowSelection:Toggle()
+            Offhand.AddonWindowSelection:Toggle(true)
         end)
         if Offhand.SetTooltip then
             Offhand:SetTooltip(learnBtn, L.BINDING_NAME_OFFHAND_LEARN_WINDOW, L.LEARN_WINDOW_HELP)

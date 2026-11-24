@@ -49,12 +49,17 @@ local function RemoveButton(frame)
     spare[#spare + 1] = button
 end
 
-function Selection:Stop()
+function Selection:Stop(reopenOptions)
     if not session then return end
+    local shouldReopen = reopenOptions == true and session.openedFromOptions == true
     session = nil
     HideOutlineTooltip()
     for frame in pairs(buttons) do RemoveButton(frame) end
     toolbar:Hide()
+    if shouldReopen and not (InCombatLockdown and InCombatLockdown())
+        and Offhand.Options and Offhand.Options.Open then
+        Offhand.Options:Open()
+    end
 end
 
 local function SameLocation(a, b)
@@ -284,7 +289,7 @@ local function CreateToolbar()
     bar.add:SetPoint("LEFT", bar.next, "RIGHT", 6, 0)
     bar.forget = Button(L["LEARN_WINDOW_BTN_FORGET"], function() Selection:ForgetFocused() end)
     bar.forget:SetPoint("LEFT", bar.add, "RIGHT", 6, 0)
-    bar.done = Button(DONE, function() Selection:Stop() end)
+    bar.done = Button(DONE, function() Selection:Stop(true) end)
     bar.done:SetPoint("BOTTOMRIGHT", -12, 12)
     bar:RegisterEvent("PLAYER_REGEN_DISABLED")
     bar:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -301,7 +306,7 @@ local function CreateToolbar()
     return bar
 end
 
-function Selection:Toggle()
+function Selection:Toggle(fromOptions)
     if session then
         self:Stop()
         return
@@ -327,7 +332,7 @@ function Selection:Toggle()
     toolbar:ClearAllPoints()
     toolbar:SetPoint("TOP", UIParent, "BOTTOMLEFT",
         (metrics.gameLeft + metrics.gameRight) / 2, metrics.gameTop - 12)
-    session = {db = Offhand.db, saved = {}, windows = {}, index = 1}
+    session = {db = Offhand.db, saved = {}, windows = {}, index = 1, openedFromOptions = fromOptions == true}
     toolbar:Show()
     self:Refresh()
 end
