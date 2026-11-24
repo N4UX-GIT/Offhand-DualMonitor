@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s의 새로운 기능"
+L["WHATS_NEW_BETA40"] = "• 내장 DaylightUI 지원으로 DaylightUI의 레이아웃, 잠금 해제 바, 재사용 대기시간 관리자, 장면, 가방, 지도가 Offhand에 맞춰 정렬됩니다.\n• Forever에서 야외 지도가 Offhand에서 캐릭터를 따라가며(블리자드 지도 및 OpenMap) 패널 배치 > 애드온 창에서 서드파티 애드온 창을 선택할 수 있습니다.\n• 외부 지도 및 가방 호환성이 강화되었으며 Offhand 모니터 > 창 동작에서 충돌 안내를 확인할 수 있습니다."
 L["WHATS_NEW_BETA39"] = "• 수동 설정에서 창을 반으로 나누고 Offhand를 왼쪽이나 오른쪽에 놓으세요. 창 높이에 맞추면 세로 공간을 모두 사용할 수 있습니다.\n• 테두리가 보이지 않는 작업 공간을 만들려면 외형 설정에서 테두리와 배경을 모두 칠흑색으로 선택하세요."
 L["WHATS_NEW_BETA38"] = "• Forever에서 지도와 개별 가방을 연 채로 UI를 다시 불러오면 원래 위치에 다시 열립니다. 전투 중에도 작은 지도는 저장한 크기로 열립니다.\n• 단축키 설정 > Offhand에서 큰 지도에 키를 지정하세요. 큰 지도를 닫으면 작은 지도로 돌아갑니다.\n• 프로필에서 다른 캐릭터와 HUD를 공유하거나 캐릭터별로 다른 배치를 선택하세요."
 L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s에서 고급 탭을 벗어나 설정 탭으로 돌아오면 창이 줄어듭니다. 설정에서 두 화면에 걸쳐 표시할 WoW 창을 선택하세요."

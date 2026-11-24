@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "zhCN" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s 更新内容"
+L["WHATS_NEW_BETA40"] = "• 内置 DaylightUI 支持，使 DaylightUI 的布局、解锁栏、冷却管理器、场景、背包与地图与 Offhand 保持对齐。\n• 在 Forever 中，野外地图可在 Offhand 上跟随角色移动（暴雪地图与 OpenMap），并可在 面板布局 > 插件窗口 中选择第三方插件窗口。\n• 增强外部地图与背包兼容性，并在 Offhand 显示器 > 窗口行为 中显示清晰的冲突提示。"
 L["WHATS_NEW_BETA39"] = "• 在手动设置中，将窗口平分并把 Offhand 放在左侧或右侧。选择适应窗口高度即可用满整个窗口高度。\n• 想让工作区看起来没有边框？在外观设置中将边框和画布背景都设为纯黑色。"
 L["WHATS_NEW_BETA38"] = "• 在 Forever 中，打开地图和独立背包后重载界面，它们会回到原位。在战斗中打开小地图面板时也会保留设定的大小。\n• 在按键设置 > Offhand 中为大地图设置快捷键。关闭大地图即可返回紧凑地图。\n• 在配置文件中与其他角色共用界面布局，也可以为每个角色单独选择布局。"
 L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s 从高级选项切回设置时会自动缩小窗口。你也可以在设置中选择要跨屏显示的魔兽窗口。"

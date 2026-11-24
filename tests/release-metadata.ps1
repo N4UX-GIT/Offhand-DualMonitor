@@ -177,7 +177,7 @@ try {
     New-Item -ItemType Directory -Path $packageRoot | Out-Null
     $manifests = @(Get-ChildItem -LiteralPath $root -Filter 'Offhand*.toc' -File)
     if ($manifests.Count -ne 6) { throw 'Expected six addon TOCs for candidate packaging.' }
-    $inputs = @('package.ps1', 'Bindings.xml', 'LICENSE', 'README.md', 'CHANGELOG.md', 'Core', 'UI', 'Locales', 'Media') + $manifests.Name
+    $inputs = @('package.ps1', 'Bindings.xml', 'LICENSE', 'README.md', 'CHANGELOG.md', 'Core', 'UI', 'Locales', 'Media', 'Bridges') + $manifests.Name
     foreach ($name in $inputs) {
         Copy-Item -LiteralPath (Join-Path $root $name) -Destination $packageRoot -Recurse
     }

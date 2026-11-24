@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "deDE" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Neu in Offhand v%s"
+L["WHATS_NEW_BETA40"] = "• Integrierte DaylightUI-Unterstützung hält Layout, Freischaltleiste, Cooldown Manager, Szenen, Taschen und Karte von DaylightUI sauber an Offhand ausgerichtet.\n• Auf Forever folgen Außenkarten auf Offhand deinem Charakter (Blizzard-Karte und OpenMap) und unter Fensterlayout > Addon-Fenster lassen sich Drittanbieter-Fenster auswählen.\n• Robustere Karten- und Taschen-Kompatibilität mit klaren Konflikthinweisen unter Offhand-Monitor > Fensterverhalten."
 L["WHATS_NEW_BETA39"] = "• Wähle in der manuellen Einrichtung zwei gleich große Bereiche mit Offhand links oder rechts. Mit „An Fensterhöhe anpassen“ nutzt du die volle Höhe.\n• Für einen nahtlosen schwarzen Arbeitsbereich wähle unter „Aussehen“ für Rahmen und Hintergrund jeweils „Pechschwarz“."
 L["WHATS_NEW_BETA38"] = "• Auf Forever erscheinen offene Karte und einzelne Taschen nach dem Neuladen wieder an ihrem Platz. Die kompakte Karte behält im Kampf ihre Größe.\n• Lege unter Tastenbelegung > Offhand eine Taste für die große Karte fest. Schließe sie, um zur kompakten Karte zurückzukehren.\n• Unter Profile kannst du ein HUD mit deinen anderen Charakteren teilen oder für jeden ein eigenes wählen."
 L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s verkleinert sich beim Wechsel von Erweitert zu Einrichtung. Dort wählst du auch das WoW-Fenster für beide Bildschirme."

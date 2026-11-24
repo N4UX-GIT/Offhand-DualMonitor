@@ -1,46 +1,36 @@
 <!-- offhand-companion-version: 2.1.9-beta.2 -->
 
-# Offhand Beta 39
+# Offhand Beta 40
 
 This add-on update works with Windows Companion 2.1.9-beta.2.
 
-### Returning to your workspace
+### Built-in DaylightUI support
 
-- On Forever, leave your map, backpack and Character panel open on Offhand when you quit. With window restoration enabled, they return when you log in and span WoW again. Panels you closed stay closed.
-- **Restore Window** can temporarily hide your Offhand panels. **Span WoW Now** brings the open ones back, even if you reloaded the UI while playing on one screen.
-- OpenMap returns to the position and size you chose when you reload with the compact map open on Offhand. Closing it first keeps it closed.
+- Added a built-in, single-folder **DaylightUI Bridge** inside Offhand (no separate addon folder or dependency). DaylightUI's movers, Edit Mode layout (with confirmation prompt and `/ohdaylight apply`), banners, AFK/welcome screens, fishing/crafting/campfire scenes, DataBar, loot rolls, vendor/trainer windows, world map, and bags stay aligned with Offhand's Mainhand monitor.
+- Fixed DaylightUI 2.2.6 unlock mode and Cooldown Manager layout editor placement on mixed-height and L-shaped monitor layouts: the unlock bar pill, folded **Show** tab, and Cooldown Manager toolbar, tray, preview pieces, and snap guides stay inside Mainhand while preserving user-dragged spots on visible monitors.
 
-### Bags and the Game Menu on Forever
+### Forever maps, external addon compatibility & conflict notices
 
-- Outside combat, if you choose to keep Offhand panels open on Escape, pressing Escape with no target opens the Game Menu. Your Blizzard backpack stays visible and any satchel you closed stays closed. This works with both separate and combined bags. Turn the setting off to let Escape close your backpack.
-- If you close the backpack with its X while a separate satchel is open on Offhand, the satchel stays on Offhand. Reload with just the satchel open and it returns to that spot on its own.
-- If you use Baganator, its Single and Category views also stay open while you open and close the Game Menu with Escape.
+- On Forever, leave the Blizzard map open on Offhand as you travel outdoors and it updates to your new zone outside combat (while staying put if you browse another zone). With OpenMap, the outdoor map follows your character smoothly at your chosen zoom; pan away to browse, then middle-click to resume following.
+- Fixed OpenMap `v0.8.13+` drag-sync and snap-back on Escape/`M` when paired with OneForAll, and fortified OpenMap, MapUtils, and MapWise adapters to validate API major versions and schemas instead of pinning exact patch strings.
+- **Offhand Monitor > Window behavior** now shows active external frame owners (`Map`, `Bags`, `Minimap`, `Chat`), and genuine unmitigated conflicts (such as OneForAll moving the World Map ahead of Leatrix Maps, an unsupported OpenMap contract, or multiple active bag addons) display a once-per-session notice out of combat and appear in `/offhand diag`.
 
-### Manual window setup
+### Learned Addon Windows, Questdon & tooltips on Forever
 
-- The first-time guide now explains how to move a window controlled by another add-on. If a window won’t move or keeps jumping back, **Help & Setup** has examples for MoveAny and BlizzMove.
-- The setup wizard and **Display & HUD** now let you pick an even split with Offhand on the left or right. The stacked choices also tell you where Offhand will appear, above or below the game.
-- When calibrating two matching landscape displays, Offhand uses the available window height. If your existing setup leaves a black strip above the game, select **Fit Window Height (Fill)**. You can still choose a fixed aspect ratio or a shorter game view.
-- Recalibrating the same manual window remembers which side you picked, where you put the divider and how you sized the game.
-- On a single ultrawide display, you can keep a narrow workspace beside the game or explicitly choose a 50/50 split. The new side choices and window-height setting are translated in all supported game languages.
-
-### Appearance and other panels
-
-- Pair **Pitch Black** border trim with the **Pitch Black** canvas for a borderless look. Labels and selected controls stay visible. On the **Classic Warcraft** theme, the settings header now matches the softer trim around the window.
-- On Forever, DaylightUI’s Trainer, Spellbook and Talents panels stay within reach when switching between a single window and a span.
-- When you finish reading a book and reload, an empty book window no longer opens on its own. Offhand remembers where you placed the reader for the next time you open a book. Turning pages in a multi-page book on Forever still awaits a live check.
+- Select eligible third-party addon windows to keep on Offhand via **Panel layout > Addon windows > Select addon windows**, **Key Bindings > Offhand**, or `/offhand window` (`list`, `forget <name>`), with click-through outlines, top-edge `+ Add`/`Update` pills, toolbar `Forget`, and automatic return to Settings on `Done`.
+- **Questdon**'s quest book stays open on Offhand when pressing Escape while DonCore dialogs, menus, and album view keep native Escape.
+- World tooltips owned by `UIParent` no longer inherit leftover Offhand workspace clamp insets after hovering bag items with comparison tooltips.
+- Multi-page book turning and close-before-reload persistence are verified live on Forever 1.60.1.71037.
 
 ### Known issues
 
-- On Forever, reopening a separate Blizzard backpack with B during combat after it was restored can still show a yellow interface warning. The backpack opens at its saved spot. B reopens the backpack only.
+- On Forever, reopening a separate Blizzard backpack with `B` during combat after it was restored can still show a yellow interface warning. The backpack opens at its saved spot. `B` reopens the backpack only.
 - When spanning monitors of different sizes, the loading artwork can appear cropped. Your in-game view returns to its assigned display once loading finishes.
-- DaylightUI 2.2.3 can report a Lua error when the window is resized with a trainer list open. The training list stayed visible in our test, and the same error occurred with the Offhand add-on disabled.
 
 ### Community thanks
 
-Beta 39 builds on earlier GitHub contributions from these players and developers.
+Beta 40 includes contributions from these players and developers:
 
-- **@Iceskull7** added the WoW window picker in Companion. [#131](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/131)
-- **@bitwize01 (Frosted)** helped Forever use the right HUD when playing with a controller. **@paramboy (Michele)** helped bring Retail’s XP and reputation bars back onto the game screen. [#18](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/18), [#45](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/45)
-- **@N4UX-GIT** contributed setup guidance, Wine improvements, map and bag controls, and better window placement during combat. Thanks to **@victormolla14** for reporting the Wine issue and **@bitwize01** for helping check the fix. [#19](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/19), [#100](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/100), [#107](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/107), [#128](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/128), [#129](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/129), [#130](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/130)
-- Thanks also to **@dependabot** for maintaining the project’s checks and release tools. [#43](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/43), [#103](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/103), [#104](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/104), [#105](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/105)
+- **Kintrok (`@DCtheGeek`)** contributed the `Core/Bridges.lua` bridge contract and DaylightUI layout bridge in [#136](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/136).
+- **Abysmal Kabal** contributed the Forever tooltip clamp fix, Questdon Escape integration, and upcoming Companion display preview / auto-span / DPI-retry improvements.
+- **@Iceskull7**, **@bitwize01 (Frosted)**, **@paramboy (Michele)**, **@victormolla14**, and **@N4UX-GIT** for ongoing Companion, controller, Retail, Wine, and Forever compatibility work.

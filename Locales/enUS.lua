@@ -14,6 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA40"] = "• Built-in DaylightUI support keeps DaylightUI's layout, unlock bar, Cooldown Manager, scenes, bags, and map aligned with Offhand.\n• On Forever, outdoor maps follow your character on Offhand (Blizzard map and OpenMap) and you can select third-party addon windows under Panel layout > Addon windows.\n• Stronger external map and bag compatibility with clear conflict notices in Offhand Monitor > Window behavior."
 L["WHATS_NEW_BETA39"] = "• Choose your workspace in manual setup. Split the window evenly with Offhand on the left or right. Choose Fit Window Height to use the full height of your window.\n• Give your workspace a borderless look. In Appearance, choose Pitch Black for both the border trim and the canvas background."
 L["WHATS_NEW_BETA38"] = "• On Forever, reload with your map and separate bags open to bring them back where you left them. Open the compact map mid-fight at its saved size.\n• Give the big map its own shortcut in Key Bindings > Offhand. Close it to return to the compact map.\n• Share a HUD with your alts or choose a different layout for each character in Profiles."
 L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s shrinks to fit when you switch from Advanced to Setup. Pick which WoW window to span right from Setup."

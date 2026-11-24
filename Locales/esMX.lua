@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "esMX" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Novedades de Offhand v%s"
+L["WHATS_NEW_BETA40"] = "• La compatibilidad integrada con DaylightUI mantiene su diseño, barra de desbloqueo, administrador de reutilizaciones, escenas, bolsas y mapa alineados con Offhand.\n• En Forever, los mapas exteriores siguen a tu personaje en Offhand (mapa de Blizzard y OpenMap) y puedes elegir ventanas de addons en Diseño de paneles > Ventanas de addons.\n• Mayor compatibilidad con mapas y bolsas externos con avisos claros de conflicto en Monitor Offhand > Comportamiento de ventanas."
 L["WHATS_NEW_BETA39"] = "• En la configuración manual, divide la ventana en dos mitades con Offhand a la izquierda o a la derecha. Ajusta la altura para aprovechar toda la ventana.\n• Para que el borde se funda con el fondo, selecciona negro absoluto para ambos en Apariencia."
 L["WHATS_NEW_BETA38"] = "• En Forever, el mapa y las bolsas individuales abiertos vuelven a su sitio al recargar. El mapa compacto conserva su tamaño en combate.\n• Asigna una tecla al mapa grande en los atajos de Offhand. Ciérralo para volver al mapa compacto.\n• En Perfiles puedes compartir tu interfaz con otros personajes o elegir una distinta para cada uno."
 L["WHATS_NEW_BETA38_COMPANION"] = "Companion %s reduce la ventana al pasar de las opciones avanzadas a la configuración. Allí puedes elegir qué ventana de WoW ampliar."
