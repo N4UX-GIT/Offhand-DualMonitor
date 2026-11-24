@@ -115,7 +115,18 @@ Display choices are persisted by Windows device identity. If a saved display dis
 If a generated Companion topology no longer matches the current window, Offhand
 fails safe to the full current window and preserves the saved workspace layout.
 Manual and FancyZones setups use their confirmed canvas and the selected
-orientation, seam percentage, and aspect ratio.
+orientation, seam percentage, and aspect ratio. After **Span WoW Now**, reload
+the UI once when the layout is new, changed or not yet loaded in WoW. Companion
+writes the layout to a file that WoW reads on startup or UI reload. A restore
+and re-span using the same already-loaded layout can reuse its exact rectangles
+without another reload or calibration.
+
+If WoW shrinks after spanning, follow the **Span failed** warning. Restore the
+window if needed, reload while restored, then click **Span WoW Now** again.
+Reload afterward only if the selected layout is new, changed or not loaded.
+Complete the calibration wizard during initial setup. Repeating it is not a
+normal span or reload step. Continued blur or incorrect centering needs
+diagnostics before making further calibration changes.
 
 An addon update can replace the generated Companion display snapshot. If
 Companion setup is selected, Offhand uses the full window while it waits for
