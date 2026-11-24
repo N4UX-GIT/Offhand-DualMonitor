@@ -50,6 +50,43 @@ if arg[2]~='bootstrap' then
         'Forever must not initiate protected map content rebuilds through SetMapID/ResetZoom')
     canvas:RequestPersistentWorldMapRefocus()
     assert(#pending==0,'Forever must not schedule addon-driven content refocusing')
+    local player, displayed, opened = 1455, 1455, 0
+    local visible = true
+    function map:IsVisible() return visible end
+    function map:IsMaximized() return false end
+    function map:GetMapID() return displayed end
+    IsInInstance=function() return false end
+    C_Map={
+        GetBestMapForUnit=function() return player end,
+        OpenWorldMap=function(id) opened=opened+1; displayed=id end,
+    }
+    canvas:ResetForeverMapZone(true)
+    canvas:RequestPersistentWorldMapRefocus(true)
+    flush() -- player map id becomes available after the first zone event
+    player=1426
+    flush()
+    assert(opened==1 and displayed==1426 and contentCalls==0)
+    canvas:RequestPersistentWorldMapRefocus(true)
+    flush(); flush()
+    assert(opened==1,'same-map notifications must leave the map alone')
+    displayed=999; player=1455
+    canvas:RequestPersistentWorldMapRefocus(true)
+    flush()
+    assert(opened==1 and displayed==999,'respect a different map selected by the player')
+    displayed=1455; player=1426; visible=false
+    canvas:RequestPersistentWorldMapRefocus(true)
+    flush()
+    assert(opened==1,'never open a hidden map')
+    visible=true; displayed=1426; player=1455; owner='OpenMap'
+    canvas:RequestPersistentWorldMapRefocus(true)
+    flush()
+    assert(opened==1,'yield to another map owner')
+    owner=nil; displayed=1455; player=1426
+    canvas:RequestPersistentWorldMapRefocus(true)
+    canvas:ResetForeverMapZone(false)
+    flush()
+    assert(opened==1,'discard requests pending at combat entry or a loading screen')
+    function map:GetMapID() return 1 end
 end
 owner='MoveAny'
 assert(canvas:RepairYieldedWorldMapAnchor(map),'geometry-only bootstrap must remain available')

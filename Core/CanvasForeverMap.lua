@@ -6,6 +6,51 @@ Offhand.CanvasForeverMap = Adapter
 local fadeChecked, releaseFade, loggingOut
 local restoreOpenMapRefresh
 
+local function Finite(value)
+    return not (issecretvalue and issecretvalue(value)) and type(value) == "number"
+        and value > -math.huge and value < math.huge
+end
+
+-- OpenMap's camera glides for 0.4 seconds. A centered camera follows the
+-- player; browsing away pauses follow until the player centers it again.
+function Adapter.UpdateOpenMapFollow(map, state)
+    local api = _G.OpenMapAPI
+    if not api or api.major ~= 1 or not api.GetView or not api.WorldFromMap
+        or not api.ShowWorld or not api.IsStitched or not api.IsStitched()
+        or not C_AddOns or C_AddOns.GetAddOnMetadata("OpenMap", "Version") ~= "v0.8.13"
+        or Offhand.CanvasCompatibility.GetWorldMapExternalOwner() ~= "OpenMap"
+        or Offhand.db.persistentWorkspacePanels == false or InCombatLockdown() or IsInInstance()
+        or not Offhand.Viewport:GetMetrics().isSpanned or not Offhand.Canvas.IsFrameOnWorkspace(map) then
+        state.u = nil
+        return
+    end
+    local id = C_Map.GetBestMapForUnit("player")
+    if not Finite(id) then state.u = nil; return end
+    local position = C_Map.GetPlayerMapPosition(id, "player")
+    if (issecretvalue and issecretvalue(position)) or not position then state.u = nil; return end
+    local x, y = position:GetXY()
+    if not Finite(x) or not Finite(y) then state.u = nil; return end
+    local u, v = api.WorldFromMap(id, x, y)
+    local cu, cv, zoom = api.GetView()
+    if not Finite(u) or not Finite(v) or not Finite(cu) or not Finite(cv)
+        or not Finite(zoom) or zoom <= 0 then state.u = nil; return end
+    if map:IsMouseOver() and IsMouseButtonDown("LeftButton") then state.u = nil; return end
+    local offset = math.max(math.abs(cu-u), math.abs(cv-v)) * zoom
+    if state.u and math.abs(state.zoom-zoom) > 0.00001 then
+        state.u, state.v, state.zoom = cu, cv, zoom
+        return
+    end
+    if state.u and math.max(math.abs(cu-state.u), math.abs(cv-state.v)) * zoom > 0.015 then
+        state.u = nil
+    end
+    if not state.u and offset > 0.015 then return end
+    if offset > 0.0005 then
+        if not api.ShowWorld(u, v) then state.u = nil; return end
+        cu, cv = u, v
+    end
+    state.u, state.v, state.zoom = cu, cv, zoom
+end
+
 local function ReadOpenMapFade()
     if not Offhand.CanvasCompatibility.IsAddonLoaded("OpenMap") then return end
     local module, db = Offhand.CanvasCompatibility.GetOpenMapWorldMapModule()
@@ -755,10 +800,25 @@ function Adapter.Install(Canvas, services)
 
         local pendingWorkspaceDrop
         local combatPlacementRemaining
+        local follow = {}
+        local followElapsed = 0
         local function UpdateHandle(_, elapsed)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
             local maximized = mapShown and map.IsMaximized and map:IsMaximized()
+            if mapShown and not maximized and _G.OpenMapAPI then
+                followElapsed = followElapsed + elapsed
+                if followElapsed >= 0.5 then
+                    followElapsed = 0
+                    if NativeGamepadOwnsMap() or map:IsForbidden() or not map:IsVisible() then
+                        follow.u = nil
+                    else
+                        Adapter.UpdateOpenMapFollow(map, follow)
+                    end
+                end
+            else
+                follow.u, followElapsed = nil, 0
+            end
             if _G.MapWiseAPI and not state.mapWisePositionGuard then InstallMapWisePositionGuard(map, state) end
             if not mapShown then state.mapWiseOpened, state.mapWiseLayout, state.mapWisePlacement = nil, nil, nil end
             QueueForeverWorldMapSettlement(map, state, mapShown and true or false)

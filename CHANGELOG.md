@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- On Forever, leave the Blizzard map open on Offhand as you travel outdoors. Outside combat, it switches to your new zone when you cross the boundary. If you opened a different zone to look something up, it stays there.
+- With OpenMap 0.8.13 on Forever, the outdoor map can follow you smoothly on Offhand at your chosen zoom outside combat. Pan away to browse, then middle-click to follow your character again.
+
 ## [2.1.5-beta.39] - 2026-11-23
 
 ### Returning to your workspace

@@ -1,0 +1,8 @@
+## Interface: 16001
+## AllowLoadGameType: camelot
+## Title: Offhand Zone QA
+## Notes: Local outdoor zone-crossing tests. Type /ohzone watch or /ohzone trial to begin.
+## Version: 1
+## OptionalDeps: Offhand, OpenMap
+## SavedVariablesPerCharacter: OffhandZoneQALog
+Zone.lua
