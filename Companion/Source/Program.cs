@@ -190,7 +190,7 @@ namespace Offhand.Companion
 
     internal static class CompanionDistribution
     {
-        internal const string WebsiteUrl = "https://offhand-wow.onrender.com/";
+        internal const string WebsiteUrl = "https://offhandwow.com/";
         internal const string DiscordUrl = "https://discord.gg/J2P3SM6pAY";
         internal const string CurseForgeUrl = "https://www.curseforge.com/wow/addons/offhand";
 
