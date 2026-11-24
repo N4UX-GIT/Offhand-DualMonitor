@@ -112,32 +112,56 @@ local function watch(frame)
     hooksecurefunc(frame, "SetPoint", redirect)
 end
 
--- The AFK screen (DaylightUI_QoL) covers UIParent with SetAllPoints, which
--- the SetPoint redirect never sees; everything in it hangs from its centre,
--- so it covers the area instead (the whole screen when not spanned).
+-- Full-screen overlays that cover UIParent with SetAllPoints (which the
+-- SetPoint redirect never sees) so their TOP/BOTTOM/CENTER children belong on
+-- the game rectangle instead of spanning into Offhand or L/T-shaped voids.
+local COVERS = { DaylightUIAfkScreen = true, DaylightUICdmEditor = true }
 local covering = false
 local covered = {}
 
-local function cover(frame)
-    if covered[frame] then return end
-    covered[frame] = true
-    hooksecurefunc(frame, "SetAllPoints", function(self, target)
-        if covering or target == area then return end
-        covering = true
-        pcall(function()
-            self:ClearAllPoints()
-            self:SetAllPoints(area)
-        end)
-        covering = false
+local function applyCover(frame)
+    if covering or type(frame) ~= "table" or not frame.SetAllPoints then return end
+    if InCombatLockdown() and frame.IsProtected and frame:IsProtected() then return end
+    local _, rel = frame.GetPoint and frame:GetPoint(1)
+    if rel == area then return end
+    covering = true
+    pcall(function()
+        frame:ClearAllPoints()
+        frame:SetAllPoints(area)
     end)
+    covering = false
 end
 
--- A DaylightUI frame by its name: watched from now on (and the AFK screen
--- covered).
+local function cover(frame)
+    if type(frame) ~= "table" or not frame.SetAllPoints then return end
+    if not covered[frame] then
+        covered[frame] = true
+        if type(hooksecurefunc) == "function" then
+            hooksecurefunc(frame, "SetAllPoints", function(self, target)
+                if covering or target == area then return end
+                if InCombatLockdown() and self.IsProtected and self:IsProtected() then return end
+                covering = true
+                pcall(function()
+                    self:ClearAllPoints()
+                    self:SetAllPoints(area)
+                end)
+                covering = false
+            end)
+        end
+    end
+end
+
+function ns.CoverFrame(frame)
+    cover(frame)
+    applyCover(frame)
+end
+
+-- A DaylightUI frame by its name: watched from now on (and full-screen overlays
+-- covered onto the game area).
 local function adopt(name, frame)
     if BANNERS[name] and type(frame) == "table" then banners[frame] = true end
     watch(frame)
-    if name == "DaylightUIAfkScreen" and type(frame) == "table" and frame.SetAllPoints then cover(frame) end
+    if COVERS[name] and type(frame) == "table" and frame.SetAllPoints then cover(frame) end
 end
 
 if type(hooksecurefunc) == "function" then
@@ -167,7 +191,11 @@ function ns.Sweep()
             if type(name) ~= "string" or string.sub(name, 1, #PREFIX) ~= PREFIX then return end
             adopt(name, current)
             if combat and current:IsProtected() then skipped = true end
-            redirect(current)
+            if COVERS[name] then
+                if current.GetNumPoints and current:GetNumPoints() > 0 then applyCover(current) end
+            else
+                redirect(current)
+            end
         end)
         frame = EnumerateFrames(frame)
     end
@@ -189,12 +217,67 @@ if type(Fade) == "table" and type(Fade.Welcome) == "function" then
     end
 end
 
--- Unlock mode's Lock button (and Snap to grid, which hangs off it).
+-- Unlock mode's Lock bar: DaylightUI 2.2.3+ wraps the buttons in lockButton.bar
+-- (a draggable pill) and adds lockButton.tab (the folded Show tab). Keep the
+-- Lock button attached inside b.bar, place b.bar on the game area when using
+-- its default spot (or if a saved spot lands inside an L/T-shaped dead void),
+-- preserve user-dragged spots on visible monitors, and keep b.tab on the area.
+-- Falls back to moving b directly on older DaylightUI (2.2.1) without b.bar.
+local function hasSavedUnlockBarSpot()
+    local db = DUI.DB
+    if type(db) ~= "table" or type(db.Root) ~= "function" then return false end
+    local ok, root = pcall(db.Root)
+    local spot = ok and type(root) == "table" and root.unlockBarSpot
+    return type(spot) == "table" and type(spot[1]) == "number" and type(spot[2]) == "number"
+end
+
+local function isPointVisible(x, y)
+    local fn = Offhand and Offhand.API and Offhand.API.IsPointVisible
+    if type(fn) == "function" then
+        local ok, visible = pcall(fn, x, y)
+        if ok then return visible == true end
+    end
+    local l, b, r, t = gameRect()
+    return x >= l and x <= r and y >= b and y <= t
+end
+
+local unlockBarHooked = {}
+local unlockBarRedirecting = false
+
+local function redirectUnlockBar(bar)
+    if unlockBarRedirecting or InCombatLockdown() then return end
+    local point, rel, relPoint, x, y = bar:GetPoint(1)
+    if point ~= "TOP" or rel ~= UIParent or relPoint ~= "TOP" then return end
+    if hasSavedUnlockBarSpot() then
+        local _, _, _, _, sw, sh = gameRect()
+        if isPointVisible(sw / 2 + (x or 0), sh + (y or 0)) then return end
+        x, y = 0, -16
+    end
+    unlockBarRedirecting = true
+    pcall(function()
+        bar:ClearAllPoints()
+        bar:SetPoint("TOP", area, "TOP", x or 0, y or -16)
+    end)
+    unlockBarRedirecting = false
+end
+
 if type(DUI.On) == "function" and type(Movers.LockButton) == "function" then
     DUI.On("UnlockChanged", function(unlocked)
         if not unlocked or InCombatLockdown() then return end
         local b = Movers.LockButton()
         if not b then return end
+        if type(b.bar) == "table" and b.bar.SetPoint then
+            if not unlockBarHooked[b.bar] and type(hooksecurefunc) == "function" then
+                unlockBarHooked[b.bar] = true
+                hooksecurefunc(b.bar, "SetPoint", redirectUnlockBar)
+            end
+            redirectUnlockBar(b.bar)
+            if type(b.tab) == "table" and b.tab.SetPoint then
+                watch(b.tab)
+                redirect(b.tab)
+            end
+            return
+        end
         local _, _, _, x, y = b:GetPoint(1)
         b:ClearAllPoints()
         b:SetPoint("TOP", area, "TOP", x or 0, y or -16)

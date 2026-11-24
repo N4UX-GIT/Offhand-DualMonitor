@@ -19,6 +19,7 @@ function ns.RefreshLayout()
     if ns.SceneRefresh then ns.SceneRefresh() end
     if ns.FireRefresh then ns.FireRefresh() end
     if ns.BarRefresh then ns.BarRefresh() end
+    if ns.CdmRefresh then ns.CdmRefresh() end
 end
 
 local function IsLoaded(name)
@@ -61,7 +62,11 @@ end
 
 function bridge:IsEditModeActive()
     local dui = _G.DaylightUI or ns.DUI
-    return type(dui) == "table" and type(dui.Movers) == "table" and dui.Movers.unlocked == true
+    if type(dui) == "table" and type(dui.Movers) == "table" and dui.Movers.unlocked == true then
+        return true
+    end
+    local cdm = _G.DaylightUICdmEditor
+    return type(cdm) == "table" and type(cdm.IsShown) == "function" and cdm:IsShown() == true
 end
 
 function bridge:IdentifyLearnPlacement(frame, name, file)

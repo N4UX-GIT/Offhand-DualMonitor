@@ -371,4 +371,129 @@ ns = Setup({ offhand = {} })
 assert(DaylightUI.Movers.Register == env.register and _G.OffhandDaylightUIArea == nil)
 assert(SlashCmdList.OFFHANDDAYLIGHTUI == nil and #env.addon.Bridges:List() == 0)
 
-print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3 Replace + 2.2.1 fallback, game area, movers, redirects, rolls, staleness, and legacy stand-down")
+-- ---------------------------------------------------------------------
+-- DaylightUI 2.2.6 Unlock bar (pill + tab) & Cooldown Manager on L-shaped span
+-- ---------------------------------------------------------------------
+W, H = 4000, 2560
+local lShapeRoot = {}
+local lShapeCdmOpen = false
+local lShapeGuides = {}
+local lShapeChooser
+ns = Setup({ before = { function()
+    env.addon.MainhandGeometry = { GetCurrentRect = function()
+        return { left = 1440, bottom = 6, right = 4000, top = 1446, width = 2560, height = 1440,
+            screenWidth = 4000, screenHeight = 2560, isSpanned = true }
+    end }
+    env.addon.Viewport = { GetMetrics = function()
+        return { isSpanned = true, workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 1440, workspaceTop = 2560 }
+    end }
+    DaylightUI.DB = { Root = function() return lShapeRoot end }
+    env.cdmEditor = {
+        IsOpen = function() return lShapeCdmOpen end,
+        Cursor = function() return 720, -554 end,
+        Chooser = function() return lShapeChooser end,
+        Draw = function() end,
+    }
+    env.cdmTether = {
+        PointAt = function() return 720, -554 end,
+    }
+    local actionBars = { enabled = true, ns = { CdmEditor = env.cdmEditor, CdmTether = env.cdmTether } }
+    local origGetModule = DaylightUI.GetModule
+    DaylightUI.GetModule = function(self, name)
+        if name == "ActionBars" then return actionBars end
+        return origGetModule(self, name)
+    end
+    DaylightUI.Movers.FrameRects = function()
+        return {
+            { l = 2400, r = 2600, b = 500, t = 560 },
+            { l = 2000, r = 2000, b = 1280, t = 1280 },
+        }
+    end
+    DaylightUI.Movers.ShowGuides = function(gx, gy) lShapeGuides = { gx, gy } end
+end } })
+area = _G.OffhandDaylightUIArea
+env.addon.Bridges:Refresh("layout")
+
+-- Unlock bar pill (2.2.6): keeps Lock button attached to bar, redirects bar & tab onto area
+local bar = CreateFrame("Frame", nil, UIParent)
+bar:SetPoint("TOP", UIParent, "TOP", 0, -16)
+local tab = CreateFrame("Frame", nil, UIParent)
+tab:SetPoint("TOP", UIParent, "TOP", 0, -4)
+local lockBtn = CreateFrame("Frame", nil, bar)
+lockBtn:SetPoint("LEFT", bar, "LEFT", 8, 0)
+lockBtn.bar, lockBtn.tab = bar, tab
+DaylightUI.Movers.LockButton = function() return lockBtn end
+env.on.UnlockChanged(true)
+local lp, lrel, lrp, lx, ly = PointOf(lockBtn)
+assert(lp == "LEFT" and lrel == bar and lrp == "LEFT" and lx == 8 and ly == 0,
+    "Lock button must stay anchored inside b.bar on DaylightUI 2.2.6")
+local bp, brel, brp, bx, by = PointOf(bar)
+assert(bp == "TOP" and brel == area and brp == "TOP" and bx == 0 and by == -16,
+    "default unlock bar must anchor to game area TOP (0, -16)")
+local tp, trel, trp, tx, ty = PointOf(tab)
+assert(tp == "TOP" and trel == area and trp == "TOP" and tx == 0 and ty == -4,
+    "folded Show tab must anchor to game area TOP (0, -4)")
+
+-- Dragged unlock bar onto Mainhand or Offhand stays at exact UIParent spot; dead-void spot is rescued
+lShapeRoot.unlockBarSpot = { 720, -1660 } -- (2720, 900) inside Mainhand
+bar:SetPoint("TOP", UIParent, "TOP", 720, -1660)
+bp, brel, brp, bx, by = PointOf(bar)
+assert(brel == UIParent and bx == 720 and by == -1660,
+    "unlock bar dragged onto Mainhand must keep its exact UIParent drop position")
+lShapeRoot.unlockBarSpot = { -1280, -560 } -- (720, 2000) inside Offhand
+bar:SetPoint("TOP", UIParent, "TOP", -1280, -560)
+bp, brel, brp, bx, by = PointOf(bar)
+assert(brel == UIParent and bx == -1280 and by == -560,
+    "unlock bar dragged onto Offhand must keep its exact UIParent drop position")
+lShapeRoot.unlockBarSpot = { 0, -16 } -- (2000, 2544) inside L-shaped void above Mainhand!
+bar:SetPoint("TOP", UIParent, "TOP", 0, -16)
+bp, brel, brp, bx, by = PointOf(bar)
+assert(brel == area and bx == 0 and by == -16,
+    "unlock bar saved in L-shaped dead void must rescue to game area TOP (0, -16)")
+lShapeRoot.unlockBarSpot = nil
+
+-- Legacy 2.2.1 Lock button without b.bar still anchors to area
+local legacyBtn = CreateFrame("Frame", nil, UIParent)
+legacyBtn:SetPoint("TOP", UIParent, "TOP", 0, -16)
+DaylightUI.Movers.LockButton = function() return legacyBtn end
+env.on.UnlockChanged(true)
+lp, lrel, lrp, lx, ly = PointOf(legacyBtn)
+assert(lp == "TOP" and lrel == area and lrp == "TOP" and lx == 0 and ly == -16,
+    "legacy 2.2.1 standalone Lock button must still anchor to game area")
+
+-- Cooldown Manager editor overlay, Cursor, Tether.PointAt, FrameRects, ShowGuides, Chooser, IsEditModeActive
+local cdmOverlay = CreateFrame("Frame", "DaylightUICdmEditor", UIParent)
+cdmOverlay:SetAllPoints(UIParent)
+assert(cdmOverlay.all == area, "DaylightUICdmEditor must cover the game area so pill/banner/tray stay on Mainhand")
+cdmOverlay.shown = true
+function cdmOverlay:IsShown() return self.shown end
+assert(env.addon.Bridges:IsEditModeActive() == true, "IsEditModeActive must pause generic selection during CDM editor")
+cdmOverlay.shown = false
+assert(env.addon.Bridges:IsEditModeActive() == false)
+
+local cx, cy = env.cdmEditor.Cursor()
+assert(cx == 0 and cy == 0, "CdmEditor.Cursor must shift from UIParent center to Mainhand center")
+local tx2, ty2 = env.cdmTether.PointAt()
+assert(tx2 == 0 and ty2 == 0, "CdmTether.PointAt must shift from UIParent center to Mainhand center")
+local rects = DaylightUI.Movers.FrameRects()
+assert(rects[1].l == 2400 - 720 and rects[1].r == 2600 - 720 and rects[1].b == 500 + 554 and rects[1].t == 560 + 554,
+    "Movers.FrameRects must shift frame rects into CdmEditor's Mainhand offset space")
+assert(rects[2].l == 2000 and rects[2].r == 2000 and rects[2].b == 1280 and rects[2].t == 1280,
+    "Movers.FrameRects center crosshair must map to Mainhand center")
+lShapeCdmOpen = false
+DaylightUI.Movers.ShowGuides(1680, 1054)
+assert(lShapeGuides[1] == 1680 and lShapeGuides[2] == 1054,
+    "ShowGuides must stay unshifted while CDM editor is closed")
+lShapeCdmOpen = true
+DaylightUI.Movers.ShowGuides(1680, 1054)
+assert(lShapeGuides[1] == 2400 and lShapeGuides[2] == 500,
+    "ShowGuides must shift back to screen coordinates while CDM editor is open")
+
+lShapeChooser = CreateFrame("Frame", nil, cdmOverlay)
+lShapeChooser:SetPoint("TOP", cdmOverlay, "CENTER", 0, -700)
+env.cdmEditor.Draw()
+local chp, chrel, chrp, chx, chy = PointOf(lShapeChooser)
+assert(chp == "TOP" and chrel == cdmOverlay and chrp == "CENTER" and chx == 0 and chy == -720 + 136,
+    "CDM Icon/Bar chooser must clamp inside game area height when clicking bottom tray spells")
+
+print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3/2.2.6 unlock bar & CDM editor, game area, movers, redirects, rolls, staleness, and legacy stand-down")

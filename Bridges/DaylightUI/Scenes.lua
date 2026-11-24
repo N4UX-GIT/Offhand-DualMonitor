@@ -363,3 +363,126 @@ if type(Followers) == "table" and type(Followers.Away) == "function" and type(Fo
         return home(g, ...)
     end
 end
+
+-- ---------------------------------------------------------------------
+-- The Cooldown Manager layout editor: on the game rectangle.
+-- ---------------------------------------------------------------------
+-- DaylightUI_ActionBars (CdmEditor.lua) covers UIParent with SetAllPoints
+-- on DaylightUICdmEditor (which Placement.lua redirects onto area). Its live
+-- layout frame DaylightUICdmLayout1/2 is already centered on area by the
+-- SetPoint redirect, so both live pieces and editor previews share area's
+-- center. Cursor(), Tether.PointAt(), FrameRects() and ShowGuides() read
+-- UIParent's center directly, so translate them by pointDelta("CENTER")
+-- so dragging, dropping, chooser popups, tethering and snap guides align
+-- pixel-for-pixel with Mainhand.
+
+local function cdmModules()
+    if type(DUI.GetModule) ~= "function" then return nil end
+    local ok, mod = pcall(DUI.GetModule, DUI, "ActionBars")
+    local ab = ok and type(mod) == "table" and type(mod.ns) == "table" and mod.ns or nil
+    if not ab then return nil end
+    return ab.CdmEditor, ab.CdmTether
+end
+
+local cdmEditorWrapped, cdmTetherWrapped, cdmMoversWrapped = false, false, false
+local cdmChooserHooked = {}
+local cdmChooserClamping = false
+
+local function clampChooser(chooser)
+    if cdmChooserClamping or InCombatLockdown() then return end
+    local point, rel, relPoint, x, y = chooser:GetPoint(1)
+    if point ~= "TOP" or rel ~= _G.DaylightUICdmEditor or relPoint ~= "CENTER"
+        or type(x) ~= "number" or type(y) ~= "number" then return end
+    local l, b, r, t = gameRect()
+    local aw, ah = r - l, t - b
+    if type(aw) ~= "number" or aw <= 0 or type(ah) ~= "number" or ah <= 0 then return end
+    local hw, hh = aw / 2, ah / 2
+    local cx = math.max(-hw + 130, math.min(x, hw - 130))
+    local cy = math.max(-hh + 136, math.min(y, hh - 34))
+    if math.abs(cx - x) < 0.5 and math.abs(cy - y) < 0.5 then return end
+    cdmChooserClamping = true
+    pcall(function()
+        chooser:ClearAllPoints()
+        chooser:SetPoint("TOP", rel, "CENTER", cx, cy)
+    end)
+    cdmChooserClamping = false
+end
+
+function ns.CdmRefresh()
+    local overlay = _G.DaylightUICdmEditor
+    if type(overlay) == "table" and overlay.SetAllPoints and ns.CoverFrame then
+        pcall(ns.CoverFrame, overlay)
+    end
+    local Ed, Tether = cdmModules()
+    if type(Ed) == "table" and not cdmEditorWrapped then
+        cdmEditorWrapped = true
+        if type(Ed.Cursor) == "function" then
+            local cursor = Ed.Cursor
+            Ed.Cursor = function(...)
+                local x, y = cursor(...)
+                if type(x) ~= "number" or type(y) ~= "number" then return x, y end
+                local dx, dy = ns.pointDelta("CENTER")
+                return x - dx, y - dy
+            end
+        end
+        if type(Ed.Draw) == "function" then
+            local draw = Ed.Draw
+            Ed.Draw = function(...)
+                local a, b, c = draw(...)
+                local ch = type(Ed.Chooser) == "function" and Ed.Chooser() or nil
+                if type(ch) == "table" and ch.SetPoint then
+                    if not cdmChooserHooked[ch] and type(hooksecurefunc) == "function" then
+                        cdmChooserHooked[ch] = true
+                        hooksecurefunc(ch, "SetPoint", clampChooser)
+                    end
+                    clampChooser(ch)
+                end
+                return a, b, c
+            end
+        end
+    end
+    if type(Tether) == "table" and not cdmTetherWrapped then
+        cdmTetherWrapped = true
+        if type(Tether.PointAt) == "function" then
+            local pointAt = Tether.PointAt
+            Tether.PointAt = function(...)
+                local x, y = pointAt(...)
+                if type(x) ~= "number" or type(y) ~= "number" then return x, y end
+                local dx, dy = ns.pointDelta("CENTER")
+                return x - dx, y - dy
+            end
+        end
+    end
+    if type(Ed) == "table" and type(Movers) == "table" and not cdmMoversWrapped then
+        cdmMoversWrapped = true
+        if type(Movers.FrameRects) == "function" then
+            local frameRects = Movers.FrameRects
+            Movers.FrameRects = function(...)
+                local out = frameRects(...)
+                if type(out) ~= "table" then return out end
+                local dx, dy = ns.pointDelta("CENTER")
+                if dx == 0 and dy == 0 then return out end
+                for _, r in ipairs(out) do
+                    if type(r) == "table" and type(r.l) == "number" and type(r.r) == "number"
+                        and type(r.b) == "number" and type(r.t) == "number"
+                        and (r.r > r.l or r.t > r.b) then
+                        r.l, r.r = r.l - dx, r.r - dx
+                        r.b, r.t = r.b - dy, r.t - dy
+                    end
+                end
+                return out
+            end
+        end
+        if type(Movers.ShowGuides) == "function" then
+            local showGuides = Movers.ShowGuides
+            Movers.ShowGuides = function(gx, gy, ...)
+                if type(Ed.IsOpen) == "function" and Ed.IsOpen() then
+                    local dx, dy = ns.pointDelta("CENTER")
+                    if type(gx) == "number" then gx = gx + dx end
+                    if type(gy) == "number" then gy = gy + dy end
+                end
+                return showGuides(gx, gy, ...)
+            end
+        end
+    end
+end

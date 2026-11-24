@@ -174,6 +174,25 @@ assert(addon.API.GetGameRect() == liveRect, "the current Mainhand rect must be r
 addon.MainhandGeometry = {GetCurrentRect = function() error("not ready") end}
 assert(addon.API.GetGameRect().right == width, "a failing geometry must fall back to the screen")
 
+-- IsPointVisible (L-shaped and multi-workspace void detection)
+addon = Load()
+addon.MainhandGeometry = {GetCurrentRect = function()
+    return {left = 1440, bottom = 6, right = 4000, top = 1446, width = 2560, height = 1440,
+        screenWidth = 4000, screenHeight = 2560, isSpanned = true}
+end}
+addon.Viewport = {GetMetrics = function()
+    return {isSpanned = true, workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 1440, workspaceTop = 2560}
+end}
+assert(addon.API.IsPointVisible(2720, 726) == true, "Mainhand point must be visible")
+assert(addon.API.IsPointVisible(720, 2000) == true, "Offhand workspace point must be visible")
+assert(addon.API.IsPointVisible(2000, 2544) == false, "L-shaped void above Mainhand must not be visible")
+assert(addon.API.IsPointVisible("bad", 10) == false and addon.API.IsPointVisible(0 / 0, 10) == false)
+addon.Viewport = {GetMetrics = function()
+    return {isSpanned = true, workspaceRegions = {{x = 1280, y = 1440, width = 2560, height = 1440}}}
+end}
+assert(addon.API.IsPointVisible(2560, 2000) == true, "point inside workspaceRegions must be visible")
+assert(addon.API.IsPointVisible(100, 2000) == false, "T-shaped top-left void must not be visible")
+
 -- OwnsWorldMapPlacement
 local state
 local function Reset()

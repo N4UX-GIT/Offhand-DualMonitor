@@ -217,6 +217,35 @@ function Offhand.API.GetGameRect()
     }
 end
 
+-- True when (x, y) in UIParent units from bottom-left lands inside Mainhand
+-- or any active Offhand workspace region (false inside L/T-shaped dead voids).
+function Offhand.API.IsPointVisible(x, y)
+    if type(x) ~= "number" or type(y) ~= "number"
+        or x ~= x or y ~= y or math.abs(x) == math.huge or math.abs(y) == math.huge then
+        return false
+    end
+    local rect = Offhand.API.GetGameRect()
+    if x >= rect.left and x <= rect.right and y >= rect.bottom and y <= rect.top then
+        return true
+    end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    if type(metrics) ~= "table" or not metrics.isSpanned then return false end
+    if type(metrics.workspaceRegions) == "table" then
+        for _, r in ipairs(metrics.workspaceRegions) do
+            if type(r) == "table" and type(r.x) == "number" and type(r.y) == "number"
+                and type(r.width) == "number" and type(r.height) == "number"
+                and x >= r.x and x <= r.x + r.width and y >= r.y and y <= r.y + r.height then
+                return true
+            end
+        end
+        return false
+    end
+    return type(metrics.workspaceLeft) == "number" and type(metrics.workspaceRight) == "number"
+        and type(metrics.workspaceBottom) == "number" and type(metrics.workspaceTop) == "number"
+        and x >= metrics.workspaceLeft and x <= metrics.workspaceRight
+        and y >= metrics.workspaceBottom and y <= metrics.workspaceTop
+end
+
 -- Whether Offhand is placing the compact world map itself right now: it is
 -- enabled and spanned, may manage panels, has a saved map position, and no
 -- other map addon owns the geometry. A bridge for an addon with its own map
