@@ -39,8 +39,15 @@ namespace Offhand.Companion
                 mainhand, "DISPLAY1", split, false, displays);
         }
         [STAThread]
-        internal static void Main()
+        internal static void Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--test-client-window")
+            {
+                ClientSelectionTest.ShowTestWindow();
+                return;
+            }
+            ClientSelectionTest.Main();
+            ClientSelectionTest.NativeResolution();
             ActivePathCases();
             FeedbackCases();
             var pair = Pair();
