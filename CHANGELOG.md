@@ -4,8 +4,11 @@
 
 - On Forever, leave the Blizzard map open on Offhand as you travel outdoors. Outside combat, it switches to your new zone when you cross the boundary. If you opened a different zone to look something up, it stays there.
 - With OpenMap 0.8.13 on Forever, the outdoor map can follow you smoothly on Offhand at your chosen zoom outside combat. Pan away to browse, then middle-click to follow your character again.
-- On Forever, remember placement for eligible third-party addon windows on Offhand using **Panel layout > Addon windows > Select addon windows**, the new bindings under **Key Bindings > Offhand**, or `/offhand window` (`list`, `forget <name>`). Backed by the 15-provider Forever addon window catalog (automated fixtures pass; live Forever client QA pending before Beta 40 release).
+- On Forever, remember placement for eligible third-party addon windows on Offhand using **Panel layout > Addon windows > Select addon windows**, the new bindings under **Key Bindings > Offhand**, or `/offhand window` (`list`, `forget <name>`). Backed by the 16-provider Forever addon window catalog (automated fixtures pass; live Forever client QA pending before Beta 40 release).
 - Confirmed multi-page book turning and close-before-reload persistence live on Forever 1.60.1.71037.
+- On Forever, world tooltips owned by `UIParent` no longer inherit leftover Offhand workspace clamp insets after hovering bag items with comparison tooltips (contributed by **Abysmal Kabal**).
+- On Forever, **Questdon**'s quest book (`QuestdonQuestBook`) now stays open on Offhand when pressing Escape while DonCore dialogs, menus, and album view keep native Escape (contributed by **Abysmal Kabal**, integrated via the addon window catalog).
+- Windows Companion (next Companion build): added a to-scale display preview to **Display Diagnostics**, allowed custom layouts to auto-span after one verified manual span on the same monitors, and extended the post-DPI-change span retry to all span paths and scale decreases (contributed by **Abysmal Kabal**).
 
 ## [2.1.5-beta.39] - 2026-11-23
 
