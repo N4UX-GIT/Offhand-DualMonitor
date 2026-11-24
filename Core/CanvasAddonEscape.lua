@@ -4,11 +4,20 @@
 local _, Offhand = ...
 local Adapter = {}
 Offhand.CanvasAddonEscape = Adapter
-local catalog = Offhand.AddonWindowCatalog
+local catalog = Offhand.AddonWindowCatalog or {}
 local states = setmetatable({}, {__mode="k"})
 local MAX_SPECIAL, MAX_ROOTS = 256, 64
 local openerHooks = setmetatable({}, {__mode="k"})
 local donGameplayAddons = {LeveldonPanel = "Leveldon", DonMapArrow = "DonMap"}
+-- DonCore (shared by Questdon, Leveldon, DonMap) adds every Kit.Window it makes
+-- to UISpecialFrames. Questdon's quest book is a workspace panel; DonCore's
+-- shared options window is already handled via DonCoreOptions. Its dialogs,
+-- menus, the album view and the way box keep closing with Escape; the Leveldon
+-- guide, the quest list and the arrows are never registered. Verified against
+-- Questdon 1.7.0, Leveldon 0.3.4-beta and DonMap 1.3.6 (Libs/DonCore/Kit.lua).
+local donWindows = {
+    QuestdonQuestBook = {owner = "Questdon", role = "questBook"},
+}
 -- Also used during profile migration, when the guide may not be loaded.
 Adapter.restedXPFrames = {RXPFrame = true, RXPItemFrame = true}
 
@@ -99,6 +108,14 @@ local function Identify(frame, name)
     end
     local source = Source(frame)
     if not source then return nil end
+    local don = donWindows[name]
+    if don then
+        -- Kit.Window's own shape: a header and a close button; any addon's copy of DonCore
+        if not (source:find("/libs/doncore/kit.lua:", 1, true) and type(frame.header) == "table"
+            and type(frame.close) == "table") then return nil end
+        if Loaded(don.owner) then return don.owner, don.role end
+        return nil
+    end
     if name:match("^PlatynatorCustomiseDialog[%w_]+$") and Loaded("Platynator")
         and source:find("/platynator/customisedialog/main.lua:", 1, true)
         and frame.Tabs and frame.CloseButton then return "Platynator", "settings" end
@@ -148,6 +165,7 @@ local function InstallOpeners()
             end
         end
     end
+    Observe(SlashCmdList, "DONCORE")
     Observe(_G, "Platynator_AddonCompartmentCallback")
     Observe(Offhand.Options, "Open")
     Observe(DonOptions(), "Open")
@@ -172,7 +190,7 @@ local function ObserveRoot(frame, state)
             state.scripts[key] = true
         end
     end
-    if state.owner == "Leveldon" and not state.scripts.headerDrag then
+    if (state.owner == "Leveldon" or donWindows[state.name]) and not state.scripts.headerDrag then
         local header = frame.header
         if header and header.GetParent and header:GetParent() == frame and header.HookScript
             and not (header.IsForbidden and header:IsForbidden())
@@ -201,7 +219,7 @@ function Adapter:GetCloseButtons(frame)
     if state.owner == "Platynator" then return {frame.CloseButton} end
     if state.owner == "ForeverDungeonJournal" then return {frame.closeButton} end
     if state.owner == "Offhand" then return {frame.workspaceCloseButton} end
-    if state.owner == "Leveldon" then return {frame.close} end
+    if state.owner == "Leveldon" or donWindows[state.name] then return {frame.close} end
     if state.owner == "Leatrix_Sounds" then return {frame.cb} end
     if frame.c then return {frame.c} end
     -- Maps/Plus main X buttons are anonymous helper-created children. Inspect

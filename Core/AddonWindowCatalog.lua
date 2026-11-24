@@ -16,7 +16,10 @@ Offhand.AddonWindowCatalog = {
         settings = {position = "addon", close = "workspace-special-windows", opener = "Leatrix_Sounds"},
     },
     Leveldon = {
-        settings = {position = "addon", close = "workspace-special-windows"},
+        settings = {position = "addon", close = "workspace-special-windows", opener = "LEVELDON"},
+    },
+    Questdon = {
+        questBook = {position = "addon", close = "workspace-special-windows", opener = "QUESTDON"},
     },
     Platynator = {
         settings = {position = "addon", close = "workspace-special-windows", opener = "Platynator",
