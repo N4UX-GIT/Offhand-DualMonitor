@@ -2598,6 +2598,7 @@ function Options:CreateFloatingPanel()
             local function RestackPanels()
                 RestackTab(workspaceTab, panelCards)
             end
+            if workspace.learning then workspace.learning.onSizingChanged = RestackPanels end
             workspace.routing.onSizingChanged = RestackPanels
             if workspace.sizing then
                 workspace.sizing.onSizingChanged = function(expanded)

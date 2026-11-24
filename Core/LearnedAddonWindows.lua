@@ -300,17 +300,23 @@ function Windows:RememberSelection(selection)
     return ok and saved
 end
 
+function Windows:ListNames()
+    local records = Offhand.db and Offhand.db.learnedAddonWindows
+    local names = {}
+    for key, record in pairs(type(records) == "table" and records or {}) do
+        if ValidName(key) and ValidRecord(record) then names[#names + 1] = key end
+    end
+    table.sort(names)
+    return names
+end
+
 function Windows:Run(input)
     local L = Offhand.L
     local action, name = (input or ""):match("^(%S*)%s*(.-)%s*$")
     action = (action or ""):lower()
     local records = Offhand.db and Offhand.db.learnedAddonWindows
     if action == "list" then
-        local names = {}
-        for key, record in pairs(type(records) == "table" and records or {}) do
-            if ValidName(key) and ValidRecord(record) then names[#names + 1] = key end
-        end
-        table.sort(names)
+        local names = self:ListNames()
         Offhand:Print(L["LEARN_WINDOW_LIST"], #names > 0 and table.concat(names, ", ") or NONE)
     elseif action == "forget" and ValidName(name) then
         if type(records) == "table" and records[name] then

@@ -278,4 +278,71 @@ replacement.points[1][4], replacement.shown = 1200, true
 metrics.workspaceRegions[2] = nil
 windows:Refresh()
 assert(replacement:GetLeft() == 1200, "do not redirect into a different workspace if the saved display is absent")
+frame.shown = false
+replacement.shown = false
+windows:Refresh()
+replacement.points[1][4], replacement.points[1][5] = 1200, 1000
+windows:Run("forget ExampleConfigFrame")
+selection:Stop()
+windows:Run("")
+toolbar = FindToolbar()
+assert(toolbar and toolbar.hint.text == addon.L.LEARN_WINDOW_NO_TARGET
+    and toolbar.focusText.text == addon.L.LEARN_WINDOW_FOCUS_NONE,
+    "empty selection mode must explain eligibility and show zero eligible windows")
+replacement.shown = true
+selection:Refresh()
+assert(toolbar.hint.text == addon.L.LEARN_WINDOW_MODE_HELP
+    and toolbar.focusText.text:find("ExampleAddon", 1, true)
+    and toolbar.focusText.text:find("ExampleConfigFrame", 1, true),
+    "eligible selection mode must show instructions and the focused addon/frame")
+selection:Stop()
+assert(#windows:ListNames() == 0, "ListNames must return empty when no windows are remembered")
+
+-- Verify Panel layout > Addon windows card description and multi-paragraph ? help
+local cardCalls, createdTexts = {}, {}
+local function MockWidget()
+    local w = {}
+    local function Noop() end
+    function w:CreateFontString()
+        local fs = {SetPoint = Noop, SetJustifyH = Noop, SetWidth = Noop, SetHeight = Noop,
+            SetWordWrap = Noop, SetTextColor = Noop, ClearAllPoints = Noop, SetJustifyV = Noop}
+        function fs:SetText(v) self.text = v; createdTexts[#createdTexts + 1] = v end
+        return setmetatable(fs, {__index = function() return Noop end})
+    end
+    function w:CreateTexture() return setmetatable({}, {__index = function() return Noop end}) end
+    function w:GetFontString() return self:CreateFontString() end
+    return setmetatable(w, {__index = function() return Noop end})
+end
+local mockWorkspace = {
+    isForever = true,
+    db = addon.db,
+    L = addon.L,
+    LearnedAddonWindows = windows,
+    AddonWindowSelection = selection,
+    WorkspaceProfiles = {List = function() return {{id = "default", name = "Default"}}, "default" end},
+    WorkspaceRouting = {GetGroups = function() return {} end},
+    WorkspaceScaleControls = nil,
+    UIControls = {
+        CreateFrame = MockWidget,
+        FitCompactParagraph = function() return 28 end,
+    },
+}
+assert(loadfile("UI/WorkspaceOptions.lua"))("Offhand", mockWorkspace)
+local function MockCard(_, title, _, ...)
+    cardCalls[title] = {...}
+    return MockWidget()
+end
+local built = mockWorkspace.WorkspaceOptions.Build({panels = MockWidget(), appearance = MockWidget(), profiles = MockWidget()}, MockCard, {})
+assert(built.learning ~= nil, "Forever WorkspaceOptions must build the Addon windows card")
+local helpParas = cardCalls[addon.L.LEARN_WINDOW_MODE_TITLE]
+assert(helpParas and #helpParas == 3
+    and helpParas[1] == addon.L.LEARN_WINDOW_HELP_OVERVIEW
+    and helpParas[2] == addon.L.LEARN_WINDOW_HELP_STEPS
+    and helpParas[3] == addon.L.LEARN_WINDOW_HELP_ELIGIBLE,
+    "Addon windows ? help must provide overview, selection steps, and eligibility rules")
+local sawDesc = false
+for _, t in ipairs(createdTexts) do
+    if t == addon.L.LEARN_WINDOW_CARD_DESC then sawDesc = true end
+end
+assert(sawDesc, "Addon windows card must render an inline description")
 print("PASS: learned windows confirm identity, restore only placement, yield, and release safely")
