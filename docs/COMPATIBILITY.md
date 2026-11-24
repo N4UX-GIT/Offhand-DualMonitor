@@ -49,9 +49,15 @@ freshness check fails until the affected cases are rerun. Updating fingerprints
 without a new matching live run does not renew evidence. Deferred cases remain
 deferred even when the fingerprints match.
 
-The November 21 native backpack receipt records the packaged runtime at
-`b46c4b1` on Forever 71037. Check a later combined candidate against its
-own runtime before promoting these results.
+The November 23 release receipts (`tests/compatibility/forever-native-real-escape.json`
+and `tests/compatibility/forever-workspace-restart.json`) record Beta 39 on
+Forever `1.60.1.71037` with Store Companion `2.1.9-beta.2`. On the Beta 40
+candidate (which adds Forever outdoor map zone following and Learned Addon
+Windows), both receipts are currently stale on changed runtime files and
+require a fresh live run before promotion (`--require-fresh-live`).
+Outdoor zone map following (native Blizzard map + OpenMap 0.8.13) and
+multi-page book turning have separate Nov 24 live runs on Forever `1.60.1.71037`
+([MAP-ZONE-FOLLOW-QA.md](MAP-ZONE-FOLLOW-QA.md) and the book section below).
 
 ## Workspace restoration after a full restart
 
