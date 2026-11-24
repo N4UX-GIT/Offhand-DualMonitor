@@ -53,7 +53,7 @@ Offhand.companionDownloadUrl = Offhand.companionStoreUrl
 -- The addon only links to Microsoft's documentation. It does not inspect or
 -- depend on PowerToys; FancyZones is one optional way to place the WoW window.
 Offhand.powerToysDownloadUrl = "https://aka.ms/getPowerToys"
-Offhand.websiteUrl = "https://offhand-wow.onrender.com/"
+Offhand.websiteUrl = "https://offhandwow.com/"
 Offhand.discordUrl = "https://discord.gg/J2P3SM6pAY"
 Offhand.modules = {}
 Offhand.callbacks = {}

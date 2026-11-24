@@ -1029,7 +1029,7 @@ L["HELP_EDIT_MODE_TITLE"] = "Protected HUD and Blizzard Edit Mode"
 L["HELP_COLD_LAUNCH_BODY"] = "Companion: restore the intended span before checking workspace panels. Leave it running if you want automatic spanning or active display recovery; Restore Window returns to an ordinary window.\n\nFancyZones: snap WoW into the saved zone if it was not restored. Manual: reproduce the remembered window size and placement. Remember Current Window should only be used after a visual check.\n\nAfter setup changes, exit normally and relaunch once. Verify the span, workspace panels and intended HUD layout. Do not delete settings or rebuild layouts just because the window has not been placed yet."
 
 
-L["COMPANION_DOWNLOAD_LINK_TEXT"] = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhand-wow.onrender.com/companion.html and through the official GitHub releases."
+L["COMPANION_DOWNLOAD_LINK_TEXT"] = "The Companion App automates a pixel-perfect, borderless span across multiple monitors.\n\nRecommended for Windows: copy the Microsoft Store address below. Portable and Linux/Wine options remain available at offhandwow.com/companion.html and through the official GitHub releases."
 
 -- Custom workspace options.
 L["WORKSPACE_PANEL_TOO_LARGE"] = "Este painel não cabe nesta área de trabalho. Use Mainhand ou uma área de trabalho maior."

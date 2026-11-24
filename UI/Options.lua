@@ -165,7 +165,7 @@ for _, link in ipairs({
     { key = "OFFHAND_WEBSITE_LINK", text = "WEBSITE_LINK_TEXT", url = Offhand.websiteUrl },
     { key = "OFFHAND_DISCORD_LINK", text = "DISCORD_LINK_TEXT", url = Offhand.discordUrl },
     { key = "OFFHAND_STUDIO_LINK", text = "USER_MEDIA_STUDIO_LINK_TEXT",
-        url = (Offhand.websiteUrl or "https://offhand-wow.onrender.com/") .. "background-studio.html" },
+        url = (Offhand.websiteUrl or "https://offhandwow.com/") .. "background-studio.html" },
 }) do
     local url = link.url
     StaticPopupDialogs[link.key] = {

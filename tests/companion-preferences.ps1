@@ -195,7 +195,7 @@ try {
     if ($addonOptions -notmatch 'local COMPANION_DOWNLOAD_URL = Offhand\.companionDownloadUrl' -or
         $addonOptions -notmatch 'text = L\["COMPANION_DOWNLOAD_LINK_TEXT"\]' -or
         $englishLocale -notmatch 'Recommended for Windows: copy the Microsoft Store address below' -or
-        $englishLocale -notmatch 'offhand-wow\.onrender\.com/companion\.html') {
+        $englishLocale -notmatch 'offhandwow\.com/companion\.html') {
         throw 'The addon options must recommend the Microsoft Store Companion URL.'
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw

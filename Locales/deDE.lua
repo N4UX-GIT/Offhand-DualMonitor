@@ -1028,7 +1028,7 @@ L["HELP_EDIT_MODE_TITLE"] = "Geschütztes HUD und Blizzard-Bearbeitungsmodus"
 L["HELP_COLD_LAUNCH_BODY"] = "Companion: Stelle die gewünschte Erweiterung vor der Fensterprüfung wieder her. Lass Companion für automatisches Erweitern oder aktive Bildschirmwiederherstellung laufen. „Restore Window“ stellt ein normales Fenster her.\n\nFancyZones: Ziehe WoW gegebenenfalls in die gespeicherte Zone. Manuell: Stelle Größe und Platzierung wieder her. Merke das aktuelle Fenster nur nach Sichtprüfung.\n\nBeende WoW nach Einrichtungsänderungen normal und starte einmal neu. Prüfe Erweiterung, Fenster und HUD. Lösche Einstellungen oder baue Layouts nicht allein deshalb neu auf, weil das Fenster noch nicht platziert wurde."
 
 
-L["COMPANION_DOWNLOAD_LINK_TEXT"] = "Die Companion-App spannt das Spiel automatisch pixelgenau und randlos über mehrere Monitore.\n\nFür Windows empfohlen: Kopiere die unten stehende Microsoft-Store-Adresse. Portable Versionen und Optionen für Linux/Wine findest du weiterhin auf offhand-wow.onrender.com/companion.html und in den offiziellen GitHub-Veröffentlichungen."
+L["COMPANION_DOWNLOAD_LINK_TEXT"] = "Die Companion-App spannt das Spiel automatisch pixelgenau und randlos über mehrere Monitore.\n\nFür Windows empfohlen: Kopiere die unten stehende Microsoft-Store-Adresse. Portable Versionen und Optionen für Linux/Wine findest du weiterhin auf offhandwow.com/companion.html und in den offiziellen GitHub-Veröffentlichungen."
 
 -- Custom workspace options.
 L["WORKSPACE_PANEL_TOO_LARGE"] = "Dieses Fenster passt nicht in diesen Arbeitsbereich. Verwenden Sie Mainhand oder einen größeren Arbeitsbereich."
