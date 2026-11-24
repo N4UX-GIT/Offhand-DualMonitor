@@ -465,9 +465,64 @@ assert(duiSocial:IsShown() and socialGame:IsShown(), "DaylightUISocial must reop
 assert(duiBook:IsShown() and bookGame:IsShown() and duiBook.current == "talents", "DaylightUIBook must reopen on saved talents tab")
 assert(duiCraft:IsShown() and craftGame:IsShown(), "DaylightUICraft must reopen alongside all other windows")
 
--- Explicit close clears that window from openWindows
+-- Explicit close clears that window from openWindows (after sessionReady)
 Feel.Close(duiSocial)
 assert(savedWins.social == nil, "Explicit close must clear saved window state")
+
+-- =====================================================================
+-- TEST 3b (Live reload startup race): Refresh("layout") / Refresh("tick") /
+-- RefreshBags() firing BEFORE RestoreWorkspaceState() on a fresh /reload must
+-- NEVER wipe persisted openBags or openWindows!
+-- =====================================================================
+-- Simulate fresh addon load after /reload (all frames start hidden, hooks fresh)
+duiBag:Hide(); bagOpenClose.held = nil; bagOpenClose.holdCalls = 0
+duiChar:Hide(); charGame:Hide()
+duiSocial:Hide(); socialGame:Hide()
+duiBook:Hide(); bookGame:Hide(); duiBook.current = nil
+duiCraft:Hide(); craftGame:Hide()
+slots.left, slots.center = nil, nil
+duiBag.hooked = {}
+for _, b in pairs(wmBars) do b.hooked = {} end
+WindowMove.Forget = function(name) wmSpots[name] = nil end
+Feel._offhandLifecycleWrapped = nil
+
+_G.OffhandDB.bridges.DaylightUI.openBags = true
+_G.OffhandDB.bridges.DaylightUI.openWindows = {
+    character = "character",
+    social = "friends",
+    book = "talents",
+    craft = true,
+}
+
+LoadChunk("Bridges/DaylightUI/Bags.lua", "Offhand", Offhand)
+LoadChunk("Bridges/DaylightUI/Windows.lua", "Offhand", Offhand)
+LoadChunk("Bridges/DaylightUI/Init.lua", "Offhand", Offhand)
+
+-- Fire every pre-restore startup pass that runs during PLAYER_LOGIN + ApplyFullLayout + 0.5s ticker
+Offhand.Bridges:Refresh("layout")
+Offhand.Bridges:Refresh("tick")
+Offhand.Bridges:RefreshBags(bagServices)
+Offhand.Bridges:Refresh("layout")
+
+assert(_G.OffhandDB.bridges.DaylightUI.openBags == true,
+    "Startup Refresh/Tick before RestoreWorkspaceState must NEVER wipe openBags")
+local preRestoreWins = _G.OffhandDB.bridges.DaylightUI.openWindows
+assert(preRestoreWins.character == "character" and preRestoreWins.social == "friends"
+    and preRestoreWins.book == "talents" and preRestoreWins.craft == true,
+    "Startup Refresh/Tick before RestoreWorkspaceState must NEVER wipe openWindows")
+
+-- Now run RestoreWorkspaceState as Init.lua:1659 does
+Offhand.Bridges:RestoreWorkspaceState("reload")
+FlushTimers()
+assert(bagOpenClose.holdCalls == 1 and duiBag:IsShown(), "DaylightUIBag must reopen after pre-restore startup passes")
+assert(duiChar:IsShown() and duiSocial:IsShown() and duiBook:IsShown() and duiCraft:IsShown(),
+    "All 4 DaylightUI replacement windows must reopen after pre-restore startup passes")
+
+-- Once restore settles (sessionReady == true), explicit closes must clear state again
+duiBag:Hide()
+Feel.Close(duiChar)
+assert(_G.OffhandDB.bridges.DaylightUI.openBags == nil, "Explicit bag close after restore must clear openBags")
+assert(_G.OffhandDB.bridges.DaylightUI.openWindows.character == nil, "Explicit window close after restore must clear openWindows")
 
 -- =====================================================================
 -- TEST 4 (Bug B3): DaylightUI_Skins WindowMove drag sync & Forget

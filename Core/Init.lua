@@ -1559,10 +1559,12 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         if not preserveWorkspaceSnapshot and Offhand.Canvas and Offhand.Canvas.FinalizeForeverNativeBagStateForTransition then
             Offhand.Canvas:FinalizeForeverNativeBagStateForTransition()
         end
-        if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
+        if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.restoreWorkspaceOnReload ~= false then
             if Offhand.Bridges and Offhand.Bridges.CaptureWorkspaceState then
                 Offhand.Bridges:CaptureWorkspaceState()
             end
+        end
+        if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             if Offhand.CanvasBackpackState and Offhand.Canvas then
                 Offhand.CanvasBackpackState.CaptureSeparateBagsForReload(Offhand.Canvas)
             end

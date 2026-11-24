@@ -16,7 +16,7 @@ ns.Bags = Bags
 local escapeProxy, held, hookedOpenClose
 local latest              -- the services table of the latest Refresh
 local hookedBagFrames = setmetatable({}, { __mode = "k" })
-local transitioning, singleScreenPaused, restoring = false, false, false
+local transitioning, singleScreenPaused, restoring, sessionReady = false, false, false, false
 
 local function IsAddOnLoaded(name)
     local checker = C_AddOns and C_AddOns.IsAddOnLoaded or _G.IsAddOnLoaded
@@ -65,7 +65,7 @@ local function SyncOpenState(frame)
     if type(db) ~= "table" then return end
     if IsBagVisiblyOpen(frame) and IsOnWorkspace(frame) then
         db.openBags = true
-    else
+    elseif sessionReady then
         db.openBags = nil
     end
 end
@@ -75,7 +75,7 @@ local function HookBagVisibility(frame)
     hookedBagFrames[frame] = true
     frame:HookScript("OnShow", function(self) SyncOpenState(self) end)
     frame:HookScript("OnHide", function(self)
-        if transitioning or singleScreenPaused or restoring or not IsSpanned() then return end
+        if not sessionReady or transitioning or singleScreenPaused or restoring or not IsSpanned() then return end
         local db = ns.DB and ns.DB()
         if type(db) == "table" then db.openBags = nil end
     end)
@@ -106,6 +106,7 @@ function Bags.PrepareSingleScreenRecovery()
     if IsBagVisiblyOpen(frame) and IsOnWorkspace(frame) then
         if type(db) == "table" then db.openBags = true end
         singleScreenPaused = true
+        sessionReady = false
         if not InCombatLockdown() and type(openClose.CloseAll) == "function" then
             held = nil
             pcall(openClose.CloseAll)
@@ -116,43 +117,48 @@ end
 function Bags.RestoreWorkspaceState()
     transitioning = false
     singleScreenPaused = false
-    if InCombatLockdown() or not IsSpanned() or not PersistenceEnabled() then return end
-    local db = ns.DB and ns.DB()
-    if type(db) ~= "table" or not db.openBags then return end
-    restoring = true
-    local function finish()
-        restoring = false
-        local frame = GetBagContext()
-        if frame then SyncOpenState(frame) end
+    if restoring then return end
+    if InCombatLockdown() or not IsSpanned() then return end
+    if not PersistenceEnabled() then
+        sessionReady = true
+        return
     end
+    local db = ns.DB and ns.DB()
+    if type(db) ~= "table" or not db.openBags then
+        sessionReady = true
+        return
+    end
+    restoring = true
     local function reopen()
-        if InCombatLockdown() or not IsSpanned() or not PersistenceEnabled() then
+        if InCombatLockdown() or not IsSpanned() then
             restoring = false
+            return
+        end
+        if not PersistenceEnabled() then
+            restoring = false
+            sessionReady = true
             return
         end
         local currentDB = ns.DB and ns.DB()
         if type(currentDB) ~= "table" or not currentDB.openBags then
             restoring = false
+            sessionReady = true
             return
         end
         local frame, openClose = GetBagContext()
         if not frame or not openClose or type(openClose.Hold) ~= "function" then
             restoring = false
+            sessionReady = true
             return
         end
         HookBagVisibility(frame)
         if not IsBagVisiblyOpen(frame) then
-            local left = frame.GetLeft and frame:GetLeft()
-            if type(left) == "number" and not IsOnWorkspace(frame) then
-                currentDB.openBags = nil
-                restoring = false
-                return
-            end
             held = openClose
             pcall(openClose.Hold)
         end
         local function verify()
             restoring = false
+            sessionReady = true
             if latest then Bags.Refresh(latest) end
             if IsBagVisiblyOpen(frame) and not IsOnWorkspace(frame) then
                 if type(openClose.CloseAll) == "function" and not InCombatLockdown() then
@@ -165,16 +171,15 @@ function Bags.RestoreWorkspaceState()
             end
         end
         if C_Timer and C_Timer.After then
-            C_Timer.After(0.15, verify)
+            C_Timer.After(0.25, verify)
         else
             verify()
         end
     end
     if C_Timer and C_Timer.After then
-        C_Timer.After(0.60, reopen)
+        C_Timer.After(0.30, reopen)
     else
         reopen()
-        finish()
     end
 end
 

@@ -266,6 +266,10 @@ local MANAGED_WINDOWS = {
         end,
         page = function(f) return f and f.current or "character" end,
         open = function()
+            local follow = DUI and DUI.Char and DUI.Char.Follow
+            if type(follow) == "table" and not follow.parked and type(follow.Park) == "function" then
+                pcall(follow.Park)
+            end
             local g = _G.CharacterFrame
             if g and g.IsShown and g:IsShown() then return true end
             if type(ToggleCharacter) == "function" then
@@ -395,13 +399,23 @@ local MANAGED_WINDOWS = {
             if savedPage == "talents" and PlayerSpellsUtil and type(PlayerSpellsUtil.ToggleClassTalentOrSpecFrame) == "function" then
                 pcall(PlayerSpellsUtil.ToggleClassTalentOrSpecFrame)
                 return true
+            elseif savedPage == "talents" and type(ToggleTalentFrame) == "function" then
+                pcall(ToggleTalentFrame)
+                return true
             elseif PlayerSpellsUtil and type(PlayerSpellsUtil.ToggleSpellBookFrame) == "function" then
                 pcall(PlayerSpellsUtil.ToggleSpellBookFrame)
                 return true
             elseif type(ToggleSpellBookFrame) == "function" then
                 pcall(ToggleSpellBookFrame)
                 return true
+            elseif type(ToggleSpellBook) == "function" then
+                pcall(ToggleSpellBook, BOOKTYPE_SPELL or "spell")
+                return true
             elseif type(ShowUIPanel) == "function" and g then
+                if type(g.SetTab) == "function" then
+                    local tabID = savedPage == "talents" and (g.talentTabID or 2) or (g.spellBookTabID or 3)
+                    pcall(g.SetTab, g, tabID)
+                end
                 pcall(ShowUIPanel, g)
                 return true
             end
@@ -439,7 +453,14 @@ local MANAGED_WINDOWS = {
                 pcall(ToggleProfessionsBook)
                 return true
             end
+            if type(ToggleSpellBook) == "function" and BOOKTYPE_PROFESSION then
+                pcall(ToggleSpellBook, BOOKTYPE_PROFESSION)
+                if g and g.IsShown and g:IsShown() then return true end
+            end
             if type(ShowUIPanel) == "function" and g then
+                if type(g.BookPage) == "table" and type(g.BookPage.Show) == "function" then
+                    pcall(g.BookPage.Show, g.BookPage)
+                end
                 pcall(ShowUIPanel, g)
                 return true
             end
@@ -455,7 +476,7 @@ local MANAGED_WINDOWS = {
 local byKey = {}
 for _, desc in ipairs(MANAGED_WINDOWS) do byKey[desc.key] = desc end
 
-local transitioning, singleScreenPaused, restoring = false, false, false
+local transitioning, singleScreenPaused, restoring, sessionReady = false, false, false, false
 
 local function GetOpenWindowsStore(create)
     local db = ns.DB and ns.DB()
@@ -482,7 +503,7 @@ local function InstallLifecycleHooks()
         local origClose = Feel.Close
         function Feel.Close(frame, ...)
             local desc = DescriptorForFrame(frame)
-            if desc and not transitioning and not singleScreenPaused and not restoring and IsSpanned() then
+            if desc and sessionReady and not transitioning and not singleScreenPaused and not restoring and IsSpanned() then
                 local store = GetOpenWindowsStore(false)
                 if store then store[desc.key] = nil end
             end
@@ -493,14 +514,15 @@ end
 
 local function SyncManagedWindows(preserveMissing)
     if not IsSpanned() then return end
-    if not preserveMissing and (transitioning or singleScreenPaused or restoring) then return end
+    local keepMissing = preserveMissing or not sessionReady
+    if not keepMissing and (transitioning or singleScreenPaused or restoring) then return end
     local store = GetOpenWindowsStore(true)
     if not store then return end
     for _, desc in ipairs(MANAGED_WINDOWS) do
         local f = desc.frame()
         if f and IsDaylightWindowOpen(f) and IsOnWorkspace(f) then
             store[desc.key] = desc.page and desc.page(f) or true
-        elseif not preserveMissing then
+        elseif not keepMissing then
             store[desc.key] = nil
         end
     end
@@ -623,7 +645,10 @@ function Windows.PrepareSingleScreenRecovery()
             if not InCombatLockdown() and desc.close then desc.close() end
         end
     end
-    if closedAny then singleScreenPaused = true end
+    if closedAny then
+        singleScreenPaused = true
+        sessionReady = false
+    end
 end
 
 function Windows.RestoreWorkspaceState()
@@ -631,25 +656,39 @@ function Windows.RestoreWorkspaceState()
     singleScreenPaused = false
     InstallRoomGuard()
     InstallLifecycleHooks()
-    if InCombatLockdown() or not IsSpanned() or not PersistenceEnabled() then return end
+    if restoring then return end
+    if InCombatLockdown() or not IsSpanned() then return end
+    if not PersistenceEnabled() then
+        sessionReady = true
+        return
+    end
     local store = GetOpenWindowsStore(false)
-    if not store then return end
+    if not store then
+        sessionReady = true
+        return
+    end
     local queue = {}
     for _, desc in ipairs(MANAGED_WINDOWS) do
         if store[desc.key] ~= nil then
             queue[#queue + 1] = { desc = desc, page = store[desc.key] }
         end
     end
-    if #queue == 0 then return end
+    if #queue == 0 then
+        sessionReady = true
+        return
+    end
     restoring = true
     local remaining = #queue
     for index, item in ipairs(queue) do
         local desc = item.desc
-        local delay = 0.55 + (index - 1) * 0.25
+        local delay = 0.25 + (index - 1) * 0.25
         local function runRestore()
             local function doneOne()
                 remaining = remaining - 1
-                if remaining <= 0 then restoring = false end
+                if remaining <= 0 then
+                    restoring = false
+                    sessionReady = true
+                end
             end
             if InCombatLockdown() or not IsSpanned() or not PersistenceEnabled() then
                 doneOne()
@@ -666,7 +705,7 @@ function Windows.RestoreWorkspaceState()
                 return
             end
             desc.open(item.page)
-            if desc.hidden and index < #queue then
+            if desc.hidden then
                 VacateHiddenPanelSlot(desc.game())
             end
             local function settle()
@@ -678,7 +717,7 @@ function Windows.RestoreWorkspaceState()
                 doneOne()
             end
             if C_Timer and C_Timer.After then
-                C_Timer.After(0.05, settle)
+                C_Timer.After(0.25, settle)
             else
                 settle()
             end

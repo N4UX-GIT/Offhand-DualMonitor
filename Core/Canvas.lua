@@ -1011,7 +1011,6 @@ function Canvas:RestorePersistentFrames(mode)
         self:RelinquishForeverProfessionsPanels()
     end
     if Offhand.db.restoreWorkspaceOnReload == false then return end
-    if not Offhand.db.savedWorkspacePositions then return end
     if InCombatLockdown() then
         if Offhand.RunOrQueueCombat and not self.persistentRestorePending then
             self.persistentRestorePending = true
@@ -1022,6 +1021,10 @@ function Canvas:RestorePersistentFrames(mode)
         end
         return
     end
+    if Offhand.Bridges and Offhand.Bridges.RestoreWorkspaceState then
+        Offhand.Bridges:RestoreWorkspaceState(mode)
+    end
+    if not Offhand.db.savedWorkspacePositions then return end
 
     local restoreMap = mode == "reload" or self.workspaceRestorePending
     if self.workspaceRestorePending then
@@ -1032,9 +1035,6 @@ function Canvas:RestorePersistentFrames(mode)
     end
     if Offhand.BagPersistence and Offhand.BagPersistence.ResumeWhenWorkspaceReady then
         Offhand.BagPersistence:ResumeWhenWorkspaceReady()
-    end
-    if Offhand.Bridges and Offhand.Bridges.RestoreWorkspaceState then
-        Offhand.Bridges:RestoreWorkspaceState(mode)
     end
     
     local hasBag = false
