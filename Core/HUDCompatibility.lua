@@ -145,7 +145,12 @@ end
 -- DaylightUI lends these native panels back for some views. Check the
 -- current parent on every placement, including delayed repairs after a span.
 function Offhand.IsDaylightParkedPanel(frame)
-    if not Offhand.isForever or not frame or
+    if not frame then return false end
+    if Offhand.Bridges and Offhand.Bridges.IsParkedNativePanel
+        and Offhand.Bridges:IsParkedNativePanel(frame) then
+        return true
+    end
+    if not Offhand.isForever or
         (frame ~= _G.PlayerSpellsFrame and frame ~= _G.ClassTrainerFrame) then return false end
     local win = _G.DaylightUI and _G.DaylightUI.Win
     local followers = win and win.Followers

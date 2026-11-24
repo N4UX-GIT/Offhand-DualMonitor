@@ -15,6 +15,8 @@ ns.Bags = Bags
 
 local escapeProxy, held, hookedOpenClose
 local latest              -- the services table of the latest Refresh
+local hookedBagFrames = setmetatable({}, { __mode = "k" })
+local transitioning, singleScreenPaused, restoring = false, false, false
 
 local function IsAddOnLoaded(name)
     local checker = C_AddOns and C_AddOns.IsAddOnLoaded or _G.IsAddOnLoaded
@@ -23,16 +25,169 @@ local function IsAddOnLoaded(name)
     return ok and loaded == true
 end
 
-function Bags.Refresh(services)
-    if InCombatLockdown() or type(debugstack) ~= "function" then return end
-    if type(services) ~= "table" then return end
-    latest = services
+local function IsSpanned()
+    local api = Offhand and Offhand.API
+    local rect = api and type(api.GetGameRect) == "function" and api.GetGameRect()
+    return type(rect) == "table" and rect.isSpanned == true
+end
+
+local function IsOnWorkspace(frame)
+    local api = Offhand and Offhand.API
+    if not frame or not api or type(api.IsFrameOnWorkspace) ~= "function" then return false end
+    return api.IsFrameOnWorkspace(frame) == true
+end
+
+local function PersistenceEnabled()
+    local api = Offhand and Offhand.API
+    if not api or type(api.IsWorkspacePersistenceEnabled) ~= "function" then return true end
+    return api.IsWorkspacePersistenceEnabled() == true
+end
+
+local function GetBagContext()
     local vendor = IsAddOnLoaded("DaylightUI_Bags") and _G.DaylightUI
     local module = vendor and vendor.GetModule and vendor:GetModule("Bags")
     local namespace = module and module.enabled and module.ns
     local frame = namespace and namespace.window
     local openClose = namespace and namespace.OpenClose
-    local proxy = frame and frame == _G.DaylightUIBag and frame.__duiEsc
+    if frame and frame == _G.DaylightUIBag and type(openClose) == "table" then
+        return frame, openClose
+    end
+    return nil, nil
+end
+
+local function IsBagVisiblyOpen(frame)
+    return frame ~= nil and frame.IsShown and frame:IsShown() == true and not frame.__duiVanishing
+end
+
+local function SyncOpenState(frame)
+    if transitioning or singleScreenPaused or restoring or not IsSpanned() then return end
+    local db = ns.DB and ns.DB()
+    if type(db) ~= "table" then return end
+    if IsBagVisiblyOpen(frame) and IsOnWorkspace(frame) then
+        db.openBags = true
+    else
+        db.openBags = nil
+    end
+end
+
+local function HookBagVisibility(frame)
+    if not frame or hookedBagFrames[frame] or type(frame.HookScript) ~= "function" then return end
+    hookedBagFrames[frame] = true
+    frame:HookScript("OnShow", function(self) SyncOpenState(self) end)
+    frame:HookScript("OnHide", function(self)
+        if transitioning or singleScreenPaused or restoring or not IsSpanned() then return end
+        local db = ns.DB and ns.DB()
+        if type(db) == "table" then db.openBags = nil end
+    end)
+end
+
+function Bags.Tick()
+    local frame = GetBagContext()
+    if not frame then return end
+    HookBagVisibility(frame)
+    SyncOpenState(frame)
+end
+
+function Bags.CaptureWorkspaceState()
+    transitioning = true
+    local frame = GetBagContext()
+    if not frame or not IsSpanned() then return end
+    local db = ns.DB and ns.DB()
+    if type(db) ~= "table" then return end
+    if IsBagVisiblyOpen(frame) and IsOnWorkspace(frame) then
+        db.openBags = true
+    end
+end
+
+function Bags.PrepareSingleScreenRecovery()
+    local frame, openClose = GetBagContext()
+    if not frame or not openClose then return end
+    local db = ns.DB and ns.DB()
+    if IsBagVisiblyOpen(frame) and IsOnWorkspace(frame) then
+        if type(db) == "table" then db.openBags = true end
+        singleScreenPaused = true
+        if not InCombatLockdown() and type(openClose.CloseAll) == "function" then
+            held = nil
+            pcall(openClose.CloseAll)
+        end
+    end
+end
+
+function Bags.RestoreWorkspaceState()
+    transitioning = false
+    singleScreenPaused = false
+    if InCombatLockdown() or not IsSpanned() or not PersistenceEnabled() then return end
+    local db = ns.DB and ns.DB()
+    if type(db) ~= "table" or not db.openBags then return end
+    restoring = true
+    local function finish()
+        restoring = false
+        local frame = GetBagContext()
+        if frame then SyncOpenState(frame) end
+    end
+    local function reopen()
+        if InCombatLockdown() or not IsSpanned() or not PersistenceEnabled() then
+            restoring = false
+            return
+        end
+        local currentDB = ns.DB and ns.DB()
+        if type(currentDB) ~= "table" or not currentDB.openBags then
+            restoring = false
+            return
+        end
+        local frame, openClose = GetBagContext()
+        if not frame or not openClose or type(openClose.Hold) ~= "function" then
+            restoring = false
+            return
+        end
+        HookBagVisibility(frame)
+        if not IsBagVisiblyOpen(frame) then
+            local left = frame.GetLeft and frame:GetLeft()
+            if type(left) == "number" and not IsOnWorkspace(frame) then
+                currentDB.openBags = nil
+                restoring = false
+                return
+            end
+            held = openClose
+            pcall(openClose.Hold)
+        end
+        local function verify()
+            restoring = false
+            if latest then Bags.Refresh(latest) end
+            if IsBagVisiblyOpen(frame) and not IsOnWorkspace(frame) then
+                if type(openClose.CloseAll) == "function" and not InCombatLockdown() then
+                    held = nil
+                    pcall(openClose.CloseAll)
+                end
+                if type(currentDB) == "table" then currentDB.openBags = nil end
+            else
+                SyncOpenState(frame)
+            end
+        end
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.15, verify)
+        else
+            verify()
+        end
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.60, reopen)
+    else
+        reopen()
+        finish()
+    end
+end
+
+function Bags.Refresh(services)
+    if InCombatLockdown() or type(debugstack) ~= "function" then return end
+    if type(services) ~= "table" then return end
+    latest = services
+    local frame, openClose = GetBagContext()
+    if frame then
+        HookBagVisibility(frame)
+        SyncOpenState(frame)
+    end
+    local proxy = frame and frame.__duiEsc
     local name = proxy and proxy:GetName()
     local previous = escapeProxy
     if previous and previous ~= proxy then

@@ -61,7 +61,7 @@ using Timer = System.Windows.Forms.Timer;
 #endif
 #if UI_PREVIEW
 [assembly: AssemblyFileVersion("2.1.9.8005")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.2")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.3")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.9.2")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.2")]
+[assembly: AssemblyFileVersion("2.1.9.3")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.3")]
 #endif
 
 namespace Offhand.Companion
@@ -4908,7 +4908,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.9-beta.2";
+        internal const string BaseVersion = "2.1.9-beta.3";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 5";
@@ -7643,9 +7643,10 @@ namespace Offhand.Companion
             {
                 if (whatsNew)
                 {
-                    AppendHelpSection(guide, sectionFont, "More room on your desktop",
-                        "Expand the sections you need in Advanced. Switch back to Setup and the Companion shrinks to fit. Your sections are still expanded when you return.",
-                        "Running two WoW clients? Use the WoW client list on Setup to choose which window to span.");
+                    AppendHelpSection(guide, sectionFont, "What's new in 2.1.9-beta.3 (contributed by Abysmal Kabal)",
+                        "Display Diagnostics now draws a to-scale display preview of your Windows monitor arrangement, showing Mainhand, Workspace regions, and display numbers across side-by-side, stacked, or mixed-DPI setups.",
+                        "Custom workspace layouts now support automatic spanning on WoW launch after one verified manual span on the same monitors.",
+                        "Spanning now retries automatically after Windows DPI or display-scale changes across every span path, including scale decreases.");
                     AppendHelpSection(guide, sectionFont, "Your saved setup",
                         "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
                     AppendHelpSection(guide, sectionFont, "If something looks wrong",

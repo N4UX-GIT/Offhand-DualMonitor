@@ -168,6 +168,9 @@ function Placement.InstallSingleScreen(Canvas, services)
                 end
             end
         end
+        if Offhand.Bridges and Offhand.Bridges.PrepareSingleScreenRecovery then
+            Offhand.Bridges:PrepareSingleScreenRecovery(metrics)
+        end
     end
 
     function Canvas:PlaceForSingleScreenRecovery(frame, metrics)

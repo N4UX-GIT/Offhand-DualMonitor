@@ -21,7 +21,7 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## Version:%s*2%.1%.5"), "Matching 2.1.5 addon version missing: " .. toc)
     assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.40[ \t]*\r?\n"), "Pre-Release Beta 40 addon marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Version:[ \t]*2%.1%.9[ \t]*\r?\n"), "Matching Companion version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*beta%.2[ \t]*\r?\n"), "Companion beta release marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*beta%.3[ \t]*\r?\n"), "Companion beta release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.40[ \t]*\r?\n"), "Pre-Release Beta 40 addon marker missing: " .. toc)
@@ -192,13 +192,14 @@ for i=2,#tocs do
     assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])
     for j,file in ipairs(main) do assert(file==flavor[j], "Client TOC load order mismatch: "..file) end
 end
-local bridgeStart = #main - 5
+local bridgeStart = #main - 6
 local expectedBridge = {
     "Bridges/DaylightUI/Core.lua",
     "Bridges/DaylightUI/Placement.lua",
     "Bridges/DaylightUI/Scenes.lua",
     "Bridges/DaylightUI/Map.lua",
     "Bridges/DaylightUI/Bags.lua",
+    "Bridges/DaylightUI/Windows.lua",
     "Bridges/DaylightUI/Init.lua",
 }
 for i, path in ipairs(expectedBridge) do

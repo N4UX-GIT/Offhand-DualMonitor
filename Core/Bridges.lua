@@ -140,6 +140,50 @@ function Bridges:CanLearnPlacement(frame, name, owner, file)
     return type(entry) == "table" and entry.learnPlacementFile == file or false
 end
 
+-- Snapshot any bridge-owned workspace open state before reload/logout.
+function Bridges:CaptureWorkspaceState()
+    for _, id in ipairs(order) do Call(id, "CaptureWorkspaceState") end
+end
+
+-- Restore bridge-owned workspace open state once the span is active.
+function Bridges:RestoreWorkspaceState(mode)
+    for _, id in ipairs(order) do Call(id, "RestoreWorkspaceState", mode) end
+end
+
+-- Pause/hide bridge-owned workspace windows during single-screen recovery
+-- without discarding their workspace open intent.
+function Bridges:PrepareSingleScreenRecovery(metrics)
+    for _, id in ipairs(order) do Call(id, "PrepareSingleScreenRecovery", metrics) end
+end
+
+-- True when a bridge currently parks this native Blizzard panel out of sight
+-- under its own holder so Offhand's core must leave its anchor/visibility alone.
+function Bridges:IsParkedNativePanel(frame)
+    if not frame then return false end
+    for _, id in ipairs(order) do
+        local ok, parked = Call(id, "IsParkedNativePanel", frame)
+        if ok and parked == true then return true end
+    end
+    return false
+end
+
+-- Optional HUD alignment/reset actions offered by active bridges for Offhand's
+-- Settings panel, keeping bridge-specific UI text out of core options code.
+function Bridges:GetHUDLayoutActions()
+    local actions = {}
+    for _, id in ipairs(order) do
+        local ok, list = Call(id, "GetHUDLayoutActions")
+        if ok and type(list) == "table" then
+            for _, entry in ipairs(list) do
+                if type(entry) == "table" and type(entry.id) == "string" and entry.id ~= "" then
+                    actions[#actions + 1] = entry
+                end
+            end
+        end
+    end
+    return actions
+end
+
 -- Addon names whose versions belong in the map integration diagnostics.
 function Bridges:GetMapAddons()
     local names, seen = {}, {}
@@ -294,4 +338,96 @@ function Offhand.API.GetGroupLootSpot(height)
     end
     return (rect.left + rect.right) / 2,
         rect.bottom + 190 * hud + (type(height) == "number" and height or 100) / 2
+end
+
+-- Active Offhand workspace monitor rectangles in UIParent units from
+-- bottom-left. Empty when Offhand is disabled or the client is not spanned.
+function Offhand.API.GetWorkspaceRects()
+    local rects = {}
+    if not Offhand.db or not Offhand.db.enabled then return rects end
+    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
+    if type(metrics) ~= "table" or not metrics.isSpanned then return rects end
+    if type(metrics.workspaceRegions) == "table" and #metrics.workspaceRegions > 0 then
+        for _, r in ipairs(metrics.workspaceRegions) do
+            if type(r) == "table" and type(r.x) == "number" and type(r.y) == "number"
+                and type(r.width) == "number" and type(r.height) == "number"
+                and r.width > 0 and r.height > 0 then
+                rects[#rects + 1] = {
+                    id = r.id,
+                    left = r.x, bottom = r.y,
+                    right = r.x + r.width, top = r.y + r.height,
+                    width = r.width, height = r.height,
+                }
+            end
+        end
+        return rects
+    end
+    if type(metrics.workspaceLeft) == "number" and type(metrics.workspaceRight) == "number"
+        and type(metrics.workspaceBottom) == "number" and type(metrics.workspaceTop) == "number"
+        and metrics.workspaceRight > metrics.workspaceLeft and metrics.workspaceTop > metrics.workspaceBottom then
+        rects[1] = {
+            id = "WORKSPACE",
+            left = metrics.workspaceLeft, bottom = metrics.workspaceBottom,
+            right = metrics.workspaceRight, top = metrics.workspaceTop,
+            width = metrics.workspaceRight - metrics.workspaceLeft,
+            height = metrics.workspaceTop - metrics.workspaceBottom,
+        }
+    end
+    return rects
+end
+
+-- True when frame's current center sits on an active Offhand workspace monitor.
+function Offhand.API.IsFrameOnWorkspace(frame)
+    if not frame or type(frame) ~= "table" then return false end
+    if Offhand.Canvas and type(Offhand.Canvas.IsFrameOnWorkspace) == "function" then
+        local ok, onWorkspace = pcall(Offhand.Canvas.IsFrameOnWorkspace, frame)
+        if ok then return onWorkspace == true end
+    end
+    local rects = Offhand.API.GetWorkspaceRects()
+    if #rects == 0 then return false end
+    local ok, cx, cy = pcall(function()
+        if frame.IsForbidden and frame:IsForbidden() then return nil end
+        local left, bottom = frame.GetLeft and frame:GetLeft(), frame.GetBottom and frame:GetBottom()
+        local w, h = frame.GetWidth and frame:GetWidth(), frame.GetHeight and frame:GetHeight()
+        if type(left) ~= "number" or type(bottom) ~= "number" or type(w) ~= "number" or type(h) ~= "number" then
+            return nil
+        end
+        local fs = (frame.GetEffectiveScale and frame:GetEffectiveScale()) or 1
+        local ps = (UIParent and UIParent.GetEffectiveScale and UIParent:GetEffectiveScale()) or 1
+        if fs <= 0 or ps <= 0 then return nil end
+        local k = fs / ps
+        return (left + w / 2) * k, (bottom + h / 2) * k
+    end)
+    if not ok or type(cx) ~= "number" or type(cy) ~= "number" then return false end
+    for _, r in ipairs(rects) do
+        if cx >= r.left and cx <= r.right and cy >= r.bottom and cy <= r.top then return true end
+    end
+    return false
+end
+
+-- True when Offhand is configured to keep and restore Offhand workspace panels
+-- across Escape and UI reloads.
+function Offhand.API.IsWorkspacePersistenceEnabled()
+    local db = Offhand.db
+    return type(db) == "table" and db.enabled == true
+        and db.persistentWorkspacePanels ~= false
+        and db.restoreWorkspaceOnReload ~= false
+end
+
+-- Notify Offhand after a bridged addon's drag bar moves a standard Blizzard
+-- panel so Offhand records workspace/Mainhand ownership and reload open state.
+function Offhand.API.NotifyExternalPanelMoved(frame)
+    local canvas = Offhand.Canvas
+    if not canvas or type(canvas.RecordExternalPanelDrag) ~= "function" then return false end
+    local ok, recorded = pcall(canvas.RecordExternalPanelDrag, canvas, frame)
+    return ok and recorded == true
+end
+
+-- Clear Offhand's workspace ownership for a standard Blizzard panel when a
+-- bridged addon resets that panel back to Blizzard's default anchor.
+function Offhand.API.ForgetExternalWorkspacePanel(name)
+    local canvas = Offhand.Canvas
+    if not canvas or type(canvas.ForgetExternalWorkspacePanel) ~= "function" then return false end
+    local ok, cleared = pcall(canvas.ForgetExternalWorkspacePanel, canvas, name)
+    return ok and cleared == true
 end

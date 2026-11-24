@@ -2,7 +2,7 @@
 -- catalog/edit-mode bridge integration, legacy stand-down, and inert load.
 
 local DIR = "Bridges/DaylightUI/"
-local FILES = { "Core.lua", "Placement.lua", "Scenes.lua", "Map.lua", "Bags.lua", "Init.lua" }
+local FILES = { "Core.lua", "Placement.lua", "Scenes.lua", "Map.lua", "Bags.lua", "Windows.lua", "Init.lua" }
 
 local function ReadFile(path)
     local h = assert(io.open(path, "rb"), "missing " .. path)
@@ -496,4 +496,17 @@ local chp, chrel, chrp, chx, chy = PointOf(lShapeChooser)
 assert(chp == "TOP" and chrel == cdmOverlay and chrp == "CENTER" and chx == 0 and chy == -720 + 136,
     "CDM Icon/Bar chooser must clamp inside game area height when clicking bottom tray spells")
 
-print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3/2.2.6 unlock bar & CDM editor, game area, movers, redirects, rolls, staleness, and legacy stand-down")
+-- Bridge HUD alignment & reset actions for Offhand Settings
+local resetAllCalls = 0
+DaylightUI.Movers.ResetAll = function() resetAllCalls = resetAllCalls + 1 end
+local hudActions = env.addon.Bridges:GetHUDLayoutActions()
+assert(type(hudActions) == "table" and #hudActions == 1 and hudActions[1].id == "DaylightUI",
+    "DaylightUI bridge must expose HUD alignment actions when layout support is active")
+assert(type(hudActions[1].onPrimary) == "function" and type(hudActions[1].onSecondary) == "function")
+hudActions[1].onSecondary()
+assert(StaticPopupDialogs.OFFHAND_DAYLIGHTUI_RESET_MOVERS and StaticPopupDialogs.OFFHAND_DAYLIGHTUI_RESET_MOVERS.OnAccept,
+    "Reset DaylightUI positions action must open confirmation popup")
+StaticPopupDialogs.OFFHAND_DAYLIGHTUI_RESET_MOVERS.OnAccept()
+assert(resetAllCalls == 1, "Confirming Reset DaylightUI positions must call DaylightUI.Movers.ResetAll()")
+
+print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3/2.2.6 unlock bar & CDM editor, HUD actions, game area, movers, redirects, rolls, staleness, and legacy stand-down")

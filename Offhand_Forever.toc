@@ -7,7 +7,7 @@
 ## X-Offhand-Release: beta.40
 ## X-Offhand-Addon-Release: beta.40
 ## X-Offhand-Companion-Version: 2.1.9
-## X-Offhand-Companion-Release: beta.2
+## X-Offhand-Companion-Release: beta.3
 ## X-Offhand-Companion-Protocol: 1
 ## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Max-Workspaces: 3
@@ -121,4 +121,5 @@ Bridges\DaylightUI\Placement.lua
 Bridges\DaylightUI\Scenes.lua
 Bridges\DaylightUI\Map.lua
 Bridges\DaylightUI\Bags.lua
+Bridges\DaylightUI\Windows.lua
 Bridges\DaylightUI\Init.lua

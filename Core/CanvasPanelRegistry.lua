@@ -34,6 +34,10 @@ local knownPanelLoadAddons = {
     CommunitiesFrame = "Blizzard_Communities",
     GuildFrame = "Blizzard_GuildUI",
     WeeklyRewardsFrame = "Blizzard_WeeklyRewards",
+    SocialUIFrame = "Blizzard_SocialUI",
+    LFGParentFrame = "Blizzard_GroupFinder_VanillaStyle",
+    LegacySystemFrame = "Blizzard_LegacySystem",
+    TimeManagerFrame = "Blizzard_TimeManager",
 }
 
 -- These frames may retain positions, but their visibility depends on an NPC,

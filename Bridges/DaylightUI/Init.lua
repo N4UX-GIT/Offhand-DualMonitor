@@ -41,11 +41,58 @@ local bridge = {
 
 function bridge:Refresh(reason)
     if ns.Map then ns.Map:Refresh() end
+    if ns.Bags and ns.Bags.Tick then ns.Bags.Tick() end
+    if ns.Windows and ns.Windows.Refresh then ns.Windows.Refresh(reason) end
     ns.RefreshLayout()
 end
 
 function bridge:RefreshBags(services)
     if ns.Bags then ns.Bags.Refresh(services) end
+end
+
+function bridge:CaptureWorkspaceState()
+    if ns.Bags and ns.Bags.CaptureWorkspaceState then ns.Bags.CaptureWorkspaceState() end
+    if ns.Windows and ns.Windows.CaptureWorkspaceState then ns.Windows.CaptureWorkspaceState() end
+end
+
+function bridge:RestoreWorkspaceState(mode)
+    if ns.Bags and ns.Bags.RestoreWorkspaceState then ns.Bags.RestoreWorkspaceState(mode) end
+    if ns.Windows and ns.Windows.RestoreWorkspaceState then ns.Windows.RestoreWorkspaceState(mode) end
+end
+
+function bridge:PrepareSingleScreenRecovery(metrics)
+    if ns.Bags and ns.Bags.PrepareSingleScreenRecovery then ns.Bags.PrepareSingleScreenRecovery(metrics) end
+    if ns.Windows and ns.Windows.PrepareSingleScreenRecovery then ns.Windows.PrepareSingleScreenRecovery(metrics) end
+end
+
+function bridge:IsParkedNativePanel(frame)
+    return ns.Windows and ns.Windows.IsParkedNativePanel(frame) or false
+end
+
+function bridge:GetHUDLayoutActions()
+    if not ns.layout then return nil end
+    local stale = ns.layoutStale and ns.layoutStale() or false
+    local status = stale
+        and "DaylightUI Edit Mode layout is set for a different screen area. Align it to move action bars and HUD onto Mainhand."
+        or "DaylightUI Edit Mode layout is aligned to Mainhand."
+    return {
+        {
+            id = "DaylightUI",
+            title = "DaylightUI HUD Alignment",
+            status = status,
+            stale = stale,
+            primaryLabel = "Align DaylightUI HUD",
+            primaryTooltip = "Rebuilds DaylightUI's Edit Mode layout for Offhand's Mainhand area and reloads the UI (same as /ohdaylight apply).",
+            onPrimary = function()
+                if ns.Ask then ns.Ask() end
+            end,
+            secondaryLabel = "Reset DaylightUI positions",
+            secondaryTooltip = "Resets manually dragged DaylightUI frame positions back to their Mainhand defaults (same as /dui reset).",
+            onSecondary = function()
+                if ns.ResetMovers then ns.ResetMovers() end
+            end,
+        },
+    }
 end
 
 function bridge:GetDiagnostics()
@@ -94,6 +141,9 @@ end
 events:SetScript("OnEvent", function(_, event, name)
     if event == "ADDON_LOADED" then
         if name == ADDON_NAME or name == "Offhand" then ns.DB() end
+        if ns.Windows and ns.Windows.Refresh and C_Timer and C_Timer.After then
+            C_Timer.After(0, function() ns.Windows.Refresh("addon") end)
+        end
         if name ~= ADDON_NAME and name ~= "Offhand" then return end
     elseif event == "PLAYER_LOGIN" then
         if ns.legacy then
@@ -134,6 +184,9 @@ SlashCmdList.OFFHANDDAYLIGHTUI = function(msg)
     if msg == "apply" then
         if ns.Ask then ns.Ask() end
         return
+    elseif msg == "reset" then
+        if ns.ResetMovers then ns.ResetMovers() end
+        return
     end
     ns.Refresh()
     local l, b, r, t, sw, sh = ns.gameRect()
@@ -149,5 +202,5 @@ SlashCmdList.OFFHANDDAYLIGHTUI = function(msg)
                 or (ns.rollSpot and ns.rollSpot(100)) and "Offhand's spot on the game area" or "DaylightUI's own spot"))
         end
     end
-    Print("/ohdaylight apply - rebuild DaylightUI's Edit Mode layout for the game area and reload")
+    Print("/ohdaylight apply - align DaylightUI's Edit Mode layout for the game area and reload | /ohdaylight reset - reset frame positions")
 end

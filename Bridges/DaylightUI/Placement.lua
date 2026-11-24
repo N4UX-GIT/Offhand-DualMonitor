@@ -422,6 +422,34 @@ local function Ask()
 end
 ns.Ask = Ask
 
+local function ResetMoversNow()
+    if InCombatLockdown() then
+        Print("can't reset DaylightUI frame positions in combat.")
+        return
+    end
+    Refresh()
+    if type(Movers) == "table" and type(Movers.ResetAll) == "function" then
+        local ok, err = pcall(Movers.ResetAll)
+        if not ok then
+            Print("couldn't reset DaylightUI frame positions: " .. tostring(err) .. ".")
+            return
+        end
+        if ns.FlushDB then ns.FlushDB() end
+        Print("DaylightUI frame positions reset to Mainhand defaults.")
+    end
+end
+
+local function AskResetMovers()
+    StaticPopupDialogs.OFFHAND_DAYLIGHTUI_RESET_MOVERS = StaticPopupDialogs.OFFHAND_DAYLIGHTUI_RESET_MOVERS or {
+        text = "Reset all manually dragged DaylightUI frame positions back to their Mainhand defaults? (Equivalent to /dui reset.)",
+        button1 = RESET or "Reset", button2 = CANCEL or "Cancel",
+        OnAccept = ResetMoversNow,
+        timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
+    }
+    StaticPopup_Show("OFFHAND_DAYLIGHTUI_RESET_MOVERS")
+end
+ns.ResetMovers = AskResetMovers
+
 -- Once in the world and the rectangle has stopped changing (Offhand sets
 -- the UI's scale as it starts): ask, once a session.
 local asked, checking = false, false
