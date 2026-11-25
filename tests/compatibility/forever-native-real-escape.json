@@ -1,42 +1,39 @@
 {
   "schema": 1,
   "hash_mode": "utf8-lf",
-  "id": "forever-native-bag-real-escape-20261123",
+  "id": "forever-native-bag-real-escape-20261125",
   "client": "Forever 1.60.1.71037",
-  "scope": "Native separate backpack on Offhand, real trainer gossip, ordinary player inspection and early-shown player inspection on a mixed-height span",
-  "recorded_at": "2026-11-23",
+  "scope": "Native separate backpack on Offhand with Escape during trainer gossip, ordinary player inspection and early-shown Inspect",
+  "recorded_at": "2026-11-25",
   "cases": [
-    "NPC conversation closes on first Escape while bag stays on Offhand; second Escape clears target",
-    "Player inspection closes on first Escape while bag stays on Offhand; second Escape clears target",
-    "Early-shown Inspect outside the native slots and special-window list closes first on Offhand, preserving the selected player and separate backpack"
+    "Owner confirmed the native separate-backpack Escape gate, including trainer gossip, ordinary player inspection and early-shown Inspect."
   ],
   "providers": {
-    "OneForAll": "6.2.13",
-    "Offhand": "2.1.5-beta.39",
-    "Companion": "Store 2.1.9-beta.2"
+    "Offhand": "2.1.5-beta.40",
+    "Companion": "2.1.9-beta.3 (version recorded in the installed topology file)"
   },
   "deferred": [
     "flight paths",
     "in-combat Escape",
     "equipped bags 1-4"
   ],
-  "evidence": "docs/FOREVER-BETA39-RELEASE-QA.md",
+  "evidence": "docs/COMPATIBILITY.md",
   "source_fingerprints": {
-    "Core/BagPersistence.lua": "ddf2611f7ac1fc826c895b1ddc57e8757529a9c706dbf7edf6a23182f0539051",
-    "Core/CanvasAddonEscape.lua": "eff78212f8ee5802389f297726b506dbe8f80eac0cf22b07c34286ab880de25f",
-    "Core/CanvasForeverBags.lua": "27b0c27442cd4c28fc6b004a2cf394f0d66063f33f42de7f916221ec4dba71e3",
-    "Core/HUDCompatibility.lua": "28900c05e1b48af20d6d23ac7c0763a51b683d7dfac833515e89b93f96a53e00",
-    "Core/Canvas.lua": "a0f148929a65b13899e3f906ce0c59d3eb0cad2fe35200ef810808e302473758",
+    "Core/BagPersistence.lua": "291ac6230a4c827226c38c513601ee957f8e734562caecfbd9336854ed507a76",
+    "Core/CanvasAddonEscape.lua": "f4198a7c4e1ab2c546809a50f09bf33207765529241cfbc29b7dad424bfbe3dd",
+    "Core/CanvasForeverBags.lua": "01342bcb2d95a17516231eebcd032839fbc288fb16b7aee2d47c667d153c3a33",
+    "Core/HUDCompatibility.lua": "74ae99bcaa485bbfc5ade66517c69501f0c869c46adb9438099a463582626ddd",
+    "Core/Canvas.lua": "53e13138e78f494541117a60e526f10922dc07a98385b6a4dd5cc6059be28ba2",
     "Core/CanvasBackpackState.lua": "8f8c0407bb33ff8c1aaa0ac88e3ba661ba1a315a72606c24a014ae177158be15",
-    "Core/CanvasCompatibility.lua": "77ba4d750bafb6de54fcb092e918bf755fc240a6618eebddcb453a812e4528da",
+    "Core/CanvasCompatibility.lua": "ddac724f554eca7c12d77786916d235b94a80408eb67bc75aa7941ec7c0da486",
     "Core/CanvasPanelLifecycle.lua": "d851e1bf27ec8beacccf6d6149e58b98fdef84cce31c9d87c11a35fa4d75a29a",
-    "Core/CanvasPanelPlacement.lua": "c94c2a93e2f6b80bee08651508e495fb75eafc2f3ab23d3e53471ac0266bd68f",
-    "Core/CanvasPanelRegistry.lua": "afcb2d138472a75fe1d93f25bcd1d6b991c46f2797abefdd5df3055547907a86",
+    "Core/CanvasPanelPlacement.lua": "10c1b3ca90693a7b3d1288cb413110de85a02d204748d31a8bf7cabba95109f1",
+    "Core/CanvasPanelRegistry.lua": "ce271b4532331d9a4047ed831b5869e35c1aaa9417b418b0309291e6f1373e02",
     "Core/CanvasPersistence.lua": "f50c773f4375e93e48a1e36e87a52b2410a5f73359346e58e355c54ac6acd360",
     "Core/WorkspaceBehavior.lua": "c362bcef96b2ba646595a6539c7c93b4dbe6ac042c7776362d4db9d1324ebe61",
     "Core/MenuPlacement.lua": "873c2e0b94bf6b6c4384a10839d1670244b3a35008280d960a77c2a647b675a4",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
-    "Core/Init.lua": "7e69fb81f6ab7f6332629320754a82d0145da60f1a34ed7b2830fd1be579b969"
+    "Core/Init.lua": "ffc860cc78a59f8b3f79740d8f6b83c53abb5c318e31487800e927f2a57f6524"
   },
-  "integration_note": "Measured on the installed release candidate before final packaging. Earlier November 21 package evidence remains in its dated QA report."
+  "integration_note": "Live pass reported by the release owner. The installed runtime was checked against the release ZIP and candidate 4b59c0fe70c90687025af6318b4bbe52dcdb6534 after confirmation. The November 23 results are documented in docs/FOREVER-BETA39-RELEASE-QA.md."
 }

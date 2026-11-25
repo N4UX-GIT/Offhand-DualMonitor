@@ -3,43 +3,42 @@
   "hash_mode": "utf8-lf",
   "id": "forever-workspace-restart",
   "client": "Forever 1.60.1.71037",
-  "scope": "Moonweaver, full client exit with three panels on Offhand, Battle.net relaunch, single-window login followed by Companion span",
-  "recorded_at": "2026-11-23",
+  "scope": "Full client exit, Battle.net relaunch, single-window login followed by Companion span and workspace restoration",
+  "recorded_at": "2026-11-25",
   "cases": [
-    "The map, combined backpack and Character were visible on Offhand at quit and stayed hidden on one screen after login.",
-    "Applying the span reopened all three on Offhand within two seconds. Social stayed closed.",
-    "BugSack recorded zero errors in the quit and cold-login sessions.",
-    "In a second run with OpenMap disabled and separate bags, a Battle.net relaunch after a disconnect opened a single window. The native map, backpack and satchel returned to their exact pre-exit bounds after spanning, with zero errors."
+    "Owner confirmed the full-exit, Battle.net relaunch, single-window login and span gate for workspace restoration, including the native-map and separate-bag variant in the handoff."
   ],
   "providers": {
-    "OpenMap": "0.8.10",
-    "Bags": "Blizzard combined and separate",
-    "Companion": "Store 2.1.9-beta.2"
+    "Offhand": "2.1.5-beta.40",
+    "Companion": "2.1.9-beta.3 (version recorded in the installed topology file)"
   },
   "deferred": [
     "full restart with span already active at login"
   ],
-  "evidence": "docs/FOREVER-BETA39-RELEASE-QA.md",
+  "evidence": "docs/COMPATIBILITY.md",
   "source_fingerprints": {
-    "Core/BagPersistence.lua": "ddf2611f7ac1fc826c895b1ddc57e8757529a9c706dbf7edf6a23182f0539051",
-    "Core/Canvas.lua": "a0f148929a65b13899e3f906ce0c59d3eb0cad2fe35200ef810808e302473758",
+    "Core/BagPersistence.lua": "291ac6230a4c827226c38c513601ee957f8e734562caecfbd9336854ed507a76",
+    "Core/Canvas.lua": "53e13138e78f494541117a60e526f10922dc07a98385b6a4dd5cc6059be28ba2",
     "Core/CanvasBackpackState.lua": "8f8c0407bb33ff8c1aaa0ac88e3ba661ba1a315a72606c24a014ae177158be15",
-    "Core/CanvasCompatibility.lua": "77ba4d750bafb6de54fcb092e918bf755fc240a6618eebddcb453a812e4528da",
-    "Core/CanvasForeverBags.lua": "27b0c27442cd4c28fc6b004a2cf394f0d66063f33f42de7f916221ec4dba71e3",
-    "Core/CanvasForeverMap.lua": "0f938cd0949767d15c57c1dea3f4ea517431dd816f88c6cdd2c7f7783a5f9c19",
+    "Core/CanvasCompatibility.lua": "ddac724f554eca7c12d77786916d235b94a80408eb67bc75aa7941ec7c0da486",
+    "Core/CanvasForeverBags.lua": "01342bcb2d95a17516231eebcd032839fbc288fb16b7aee2d47c667d153c3a33",
+    "Core/CanvasForeverMap.lua": "1d74bca9edab572f830a6f19c134bdf7a0d96b292469c5cc2ae1a176673552eb",
     "Core/CanvasFrameState.lua": "09b7e66553cf049fb6d6050e2f5fbd4aae14537e8f5c1f191e04882f773be627",
-    "Core/CanvasMapPresentation.lua": "bab7d581aa61a9b661d689391be46c4e244430db400514bd8a7684f8606b8632",
+    "Core/CanvasMapPresentation.lua": "efdf557cc3e3a2d513394e989943ff6edcb3dad136dd87f46522fb91d7ede807",
     "Core/CanvasPanelLifecycle.lua": "d851e1bf27ec8beacccf6d6149e58b98fdef84cce31c9d87c11a35fa4d75a29a",
     "Core/CanvasPanelMotion.lua": "9ccdb12afe6ab9fec7539b37d59cbcde3b7aa9c02e570b057894aa8270301bfa",
-    "Core/CanvasPanelPlacement.lua": "c94c2a93e2f6b80bee08651508e495fb75eafc2f3ab23d3e53471ac0266bd68f",
-    "Core/CanvasPanelRegistry.lua": "afcb2d138472a75fe1d93f25bcd1d6b991c46f2797abefdd5df3055547907a86",
+    "Core/CanvasPanelPlacement.lua": "10c1b3ca90693a7b3d1288cb413110de85a02d204748d31a8bf7cabba95109f1",
+    "Core/CanvasPanelRegistry.lua": "ce271b4532331d9a4047ed831b5869e35c1aaa9417b418b0309291e6f1373e02",
     "Core/CanvasPersistence.lua": "f50c773f4375e93e48a1e36e87a52b2410a5f73359346e58e355c54ac6acd360",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
-    "Core/Config.lua": "60349950620f8f9d388b7fe4b61057f16ed50df883fe5b811cd89206bb41f098",
-    "Core/Init.lua": "7e69fb81f6ab7f6332629320754a82d0145da60f1a34ed7b2830fd1be579b969",
+    "Core/Config.lua": "5595af0c1830d264ac13112f030d7ff8aae5f6fae032a6f784f2c7d14f6f9126",
+    "Core/Init.lua": "ffc860cc78a59f8b3f79740d8f6b83c53abb5c318e31487800e927f2a57f6524",
     "Core/ManualCanvas.lua": "2b2c60e1af07ad93b0240e527b21164c1413c74beffe62993cd2a16edb141a22",
     "Core/TopologyDetection.lua": "982b61683c53cf7393a82e061a9d1bc9f9fd8ba035a1bcda8ee977e1897441cc",
     "Core/Viewport.lua": "1684a00f0721c4ef702c66e12a3b7d2dfa113367876f6204ddae3ede9065638d",
-    "Core/WorkspaceRouting.lua": "98445db6d02da61b36adacb30a4afca35081fb42d51b7cf535f88d822d5bf3ac"
-  }
+    "Core/WorkspaceRouting.lua": "98445db6d02da61b36adacb30a4afca35081fb42d51b7cf535f88d822d5bf3ac",
+    "Bridges/DaylightUI/Bags.lua": "f272ab42437501ca408c24c33e9932f884bfd80b24760fe85f5ce0d58002fc6d",
+    "Bridges/DaylightUI/Windows.lua": "158e313a9920436b92ea06291b7e7000feb70986563dd1c2e2991bc19b06ec9e"
+  },
+  "integration_note": "Live pass reported by the release owner. The installed runtime was checked against the release ZIP and candidate 4b59c0fe70c90687025af6318b4bbe52dcdb6534 after confirmation. The November 23 results are documented in docs/FOREVER-BETA39-RELEASE-QA.md."
 }
