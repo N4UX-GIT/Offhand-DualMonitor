@@ -129,7 +129,7 @@ end
 
 function Canvas:UpdateLayout()
     if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
-    if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
+    if Offhand.Bridges then Offhand.Bridges:Refresh("layout") end
     if not rootCanvas then self:CreateFrames() end
 
     local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
@@ -227,8 +227,8 @@ function Canvas:GetCompatibilityDiagnostics(compact)
         compact,
         self._lastLeatrixCoordinateFontRefreshCount
     )
-    local daylight = Offhand.DaylightMapCompatibility and Offhand.DaylightMapCompatibility:GetDiagnostics()
-    if daylight then report = report .. " | " .. daylight end
+    local bridges = Offhand.Bridges and Offhand.Bridges:GetDiagnostics()
+    if bridges then report = report .. " | " .. bridges end
     local procDoc = Offhand.ProcDocCompatibility
     if procDoc then report = report .. " | ProcDocCenter=" .. (procDoc.status or "inactive") end
     return report
@@ -772,6 +772,7 @@ assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before
 function Canvas:UpdatePersistenceBehavior()
     if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
     if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
+    if Offhand.Bridges then Offhand.Bridges:Refresh("persistence") end
     if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
         Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
     end
@@ -1011,7 +1012,6 @@ function Canvas:RestorePersistentFrames(mode)
         self:RelinquishForeverProfessionsPanels()
     end
     if Offhand.db.restoreWorkspaceOnReload == false then return end
-    if not Offhand.db.savedWorkspacePositions then return end
     if InCombatLockdown() then
         if Offhand.RunOrQueueCombat and not self.persistentRestorePending then
             self.persistentRestorePending = true
@@ -1022,6 +1022,10 @@ function Canvas:RestorePersistentFrames(mode)
         end
         return
     end
+    if Offhand.Bridges and Offhand.Bridges.RestoreWorkspaceState then
+        Offhand.Bridges:RestoreWorkspaceState(mode)
+    end
+    if not Offhand.db.savedWorkspacePositions then return end
 
     local restoreMap = mode == "reload" or self.workspaceRestorePending
     if self.workspaceRestorePending then
@@ -1240,6 +1244,9 @@ function Canvas:RestorePersistentFrames(mode)
         C_Timer.After(2, function()
             if Offhand.db and Offhand.db.enabled then
                 Canvas:RepairShownWorkspacePanels()
+                if Compatibility and Compatibility.NotifyActiveConflicts then
+                    Compatibility.NotifyActiveConflicts()
+                end
             end
         end)
     end
@@ -1287,6 +1294,45 @@ IsFrameOnWorkspace = function(frame)
     local centerY = (y * scaleFactor) + (height / 2)
     return centerX >= m.workspaceLeft and centerX <= m.workspaceRight
         and centerY >= m.workspaceBottom and centerY <= m.workspaceTop
+end
+Canvas.IsFrameOnWorkspace = IsFrameOnWorkspace
+
+function Canvas:RecordExternalPanelDrag(frame)
+    if InCombatLockdown() or not Offhand.db or not Offhand.db.enabled or not frame then return false end
+    if not CanManagePanelsFromAddon() or not IsSpannedLayoutActive() then return false end
+    if frame.IsForbidden and frame:IsForbidden() then return false end
+    local name = frame.GetName and frame:GetName()
+    if not name or (nonMovableSystemPanels and nonMovableSystemPanels[name]) then return false end
+    if IsContextBoundPanel(name) or IsForeverEditModeFrame(frame, name) then return false end
+    if Offhand.Bridges and Offhand.Bridges.IsParkedNativePanel
+        and Offhand.Bridges:IsParkedNativePanel(frame) then
+        return false
+    end
+    if IsUnsafeForPanelMutation(frame, name) then return false end
+    OnPanelDragStop(frame, true)
+    return true
+end
+
+function Canvas:ForgetExternalWorkspacePanel(name)
+    if type(name) ~= "string" or name == "" or not Offhand.db then return false end
+    local hadWorkspace = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name] ~= nil
+    local hadMain = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name] ~= nil
+    local hadOpen = Offhand.db.openWorkspacePanels and Offhand.db.openWorkspacePanels[name] ~= nil
+    if not (hadWorkspace or hadMain or hadOpen) then return false end
+    if Offhand.db.savedWorkspacePositions then Offhand.db.savedWorkspacePositions[name] = nil end
+    if Offhand.db.savedMainPositions then Offhand.db.savedMainPositions[name] = nil end
+    if Offhand.db.openWorkspacePanels then Offhand.db.openWorkspacePanels[name] = nil end
+    if Offhand.ForeverPersistence and Offhand.ForeverPersistence.ClearPosition then
+        Offhand.ForeverPersistence:ClearPosition(name)
+    end
+    local frame = _G[name]
+    if frame and not InCombatLockdown() and not (frame.IsForbidden and frame:IsForbidden()) then
+        if RemodalizePanel then pcall(RemodalizePanel, frame) end
+        if RegisterSpecialFrame then pcall(RegisterSpecialFrame, name) end
+    end
+    SaveOpenWorkspacePanels()
+    SaveForeverPanelOwnership()
+    return true
 end
 
 EvictWorkspacePanelSlot, DemodalizePanel, RemodalizePanel = Offhand.CanvasPanelLifecycle.InstallModality(Canvas, {
@@ -1527,7 +1573,16 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
                 and Offhand.db.savedMainPositions[name]
                 or Offhand.db.savedWorkspacePositions[name]
             local placement = GetPanelPhysicalPlacement(frame)
-            if not PlacementMatchesPosition(placement, position) then
+            local needsSlotEviction = not isMainhand
+                and Offhand.db.persistentWorkspacePanels ~= false
+                and (Offhand.db.independentWorkspacePanels or frame == _G.WorldMapFrame)
+                and Offhand.CanvasPanelLifecycle
+                and Offhand.CanvasPanelLifecycle.OccupiesPanelSlot
+                and Offhand.CanvasPanelLifecycle.OccupiesPanelSlot(frame)
+                and not PanelRegistry.RequiresNativePanelRegistration(name)
+                and not IsForeverProfessionsPanel(frame, name)
+                and not IsBackpackRoot(name)
+            if not PlacementMatchesPosition(placement, position) or needsSlotEviction then
                 NotePanelControllerActivity(name, "generic", "peer-repair")
                 RestoreWorkspacePosition(frame)
             end
@@ -2806,10 +2861,11 @@ function Offhand:InitializeCanvas()
 
     if Offhand.isForever and C_Timer and C_Timer.NewTicker and not Canvas.foreverPositionTicker then
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
-            if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
+            if Offhand.Bridges then Offhand.Bridges:Refresh("tick") end
             if Offhand._displayGeometryTransitionActive then return end
             if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
             if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
+            if Offhand.LearnedAddonWindows then Offhand.LearnedAddonWindows:Refresh() end
             Canvas:RetryMissingExperimentalForeverProfessionsMovement()
             Canvas:MonitorDetachedChatSettingsPresentation()
             local editModeShown = EditModeManagerFrame and EditModeManagerFrame.IsShown

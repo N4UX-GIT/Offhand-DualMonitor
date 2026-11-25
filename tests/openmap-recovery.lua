@@ -68,8 +68,8 @@ addon.isForever=false; Refuses("unavailable"); addon.isForever=true
 addon.db.enabled=false; Refuses("unavailable"); addon.db.enabled=true
 for _, value in ipairs({"MoveAny", "ClassicUIForever", "LeatrixMaps"}) do owner=value; Refuses("unavailable") end
 owner="OpenMap"
-OpenMap.version="v0.7.6-beta"; Refuses("unavailable"); OpenMap.version="v0.7.5-beta"
-OpenMapAPI.version=5; Refuses("unavailable"); OpenMapAPI.version=4
+OpenMapAPI.major=2; Refuses("unavailable"); OpenMapAPI.major=1
+OpenMapAPI.version=3; Refuses("unavailable"); OpenMapAPI.version=4
 OpenMapAPI.IsStitched=function() return false end; Refuses("unavailable")
 OpenMapAPI.IsStitched=function() return true end
 OpenMapDB.worldmap={}; Refuses("unavailable"); OpenMapDB.worldmap=db
@@ -127,9 +127,9 @@ local workspace, refreshes = false, 0
 addon.Canvas = {IsFrameOnWorkspace=function(frame) return frame==map and workspace end}
 module.enabled = true
 module.RefreshExtras = function() refreshes=refreshes+1 end
-for _, version in ipairs({"v0.8.8", "v0.8.9", "v0.8.10"}) do
+for _, version in ipairs({"v0.8.8", "v0.8.9", "v0.8.10", "v0.8.13", "v0.8.14", "v0.9.0"}) do
     OpenMap.version = version
-    assert(recovery:Run(true), "reviewed OpenMap version cannot move to Offhand: "..version)
+    assert(recovery:Run(true), "compatible OpenMap version cannot move to Offhand: "..version)
     map:SetPoint("CENTER",UIParent,"CENTER",0,0)
     assert(map.point[4]==4200 and map.point[5]==2552
         and db.windowSize==oldSize and db.windowScale==oldScale,
@@ -138,17 +138,21 @@ for _, version in ipairs({"v0.8.8", "v0.8.9", "v0.8.10"}) do
     workspace, db.moveFade = true, .5
     local before = refreshes
     mapAdapter.UpdateMovementFade(map, true)
-    assert(db.moveFade==0, "reviewed OpenMap version kept its movement fade: "..version)
+    assert(db.moveFade==0, "compatible OpenMap version kept its movement fade: "..version)
     workspace = false
     mapAdapter.UpdateMovementFade(map, true)
     assert(db.moveFade==.5 and refreshes==before+1,
         "leaving Offhand must restore the owner's fade: "..version)
 end
-OpenMap.version = "v0.8.11"
+-- Additive OpenMapAPI.version bump within major 1 stays compatible; major 2 stands down
+OpenMapAPI.version = 5
+assert(recovery:Run(true), "additive OpenMapAPI v1.5 bump must remain supported when schema matches")
+OpenMapAPI.major = 2
 Refuses("unavailable")
 workspace = true
 mapAdapter.UpdateMovementFade(map, true)
-assert(db.moveFade==.5, "an unreviewed version must keep its movement fade")
+assert(db.moveFade==.5, "a breaking OpenMap major version must keep its movement fade")
+OpenMapAPI.major, OpenMapAPI.version = 1, 4
 
 -- Native movement can be driven by another title surface, bypassing OpenMap's
 -- Save callback. The next vendor panel pass must retain the released point.
@@ -165,7 +169,7 @@ function map:StartMoving() end
 function map:StopMovingOrSizing()
     if self.drop then self.point = self.drop end
 end
-OpenMap.version = "v0.8.9"
+OpenMap.version = "v0.8.13"
 recovery:ObserveUserDrag(map)
 recovery:ObserveUserDrag(map)
 assert(installedHooks == 2, "drag observation must be installed once")
@@ -177,12 +181,19 @@ local function Drag(drop)
     map:StopMovingOrSizing()
 end
 local oldWrites = writes
-Drag({"LEFT", nil, "LEFT", 33, 312})
-assert(db.window[1]=="LEFT" and db.window[2]=="LEFT" and db.window[3]==33 and db.window[4]==312)
+Drag({"TOPLEFT", UIParent, "BOTTOMLEFT", 8, 779})
+assert(db.window[1]=="TOPLEFT" and db.window[2]=="BOTTOMLEFT" and db.window[3]==8 and db.window[4]==779,
+    "OpenMap v0.8.13 drag observation must sync third-party StartMoving/StopMoving drops into db.window")
 assert(writes==oldWrites, "saving a drag must not reposition the native map")
+map:SetPoint("TOPLEFT",UIParent,"BOTTOMLEFT",19,1920)
+assert(map.point[1]=="TOPLEFT" and map.point[3]=="BOTTOMLEFT" and map.point[4]==8 and map.point[5]==779,
+    "an OpenMap reflow after Escape/M must keep the dropped anchor")
+-- Also verify moving into Mainhand survives a reflow
+Drag({"LEFT", nil, "LEFT", 1800, 312})
+assert(db.window[1]=="LEFT" and db.window[2]=="LEFT" and db.window[3]==1800 and db.window[4]==312)
 map:SetPoint("TOPLEFT",UIParent,"TOPLEFT",45,-50)
-assert(map.point[1]=="LEFT" and map.point[3]=="LEFT" and map.point[4]==33 and map.point[5]==312,
-    "an OpenMap reflow must keep the dropped anchor")
+assert(map.point[1]=="LEFT" and map.point[3]=="LEFT" and map.point[4]==1800 and map.point[5]==312,
+    "a Mainhand drop must also survive an OpenMap reflow")
 local savedDrag = db.window
 map.drop = {"LEFT", nil, "LEFT", 200, 312}
 map:StopMovingOrSizing()

@@ -1077,7 +1077,7 @@ function Offhand:InitializeConfig()
         OffhandDB.profiles = {}
         OffhandDB.profiles["Default"] = {}
         for k, v in pairs(OffhandDB) do
-            if k ~= "profiles" and k ~= "onboarding" and k ~= "compatibility" and k ~= "lastSeenRelease" then
+            if k ~= "profiles" and k ~= "onboarding" and k ~= "compatibility" and k ~= "lastSeenRelease" and k ~= "bridges" then
                 OffhandDB.profiles["Default"][k] = v
                 OffhandDB[k] = nil
             end

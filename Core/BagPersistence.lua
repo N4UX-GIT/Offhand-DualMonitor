@@ -294,9 +294,28 @@ local function PreserveBetterBagsBackpack()
 end
 
 local function IsGameMenuBagClose(stack)
-    return stack:find("Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua", 1, true)
+    return type(stack) == "string"
+        and stack:find("Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua", 1, true)
         and (stack:find("in function 'CloseAllBags'", 1, true)
             or stack:find("in function 'GameMenuFrame_Show'", 1, true))
+end
+
+local function IsSettingsBagClose(stack)
+    if type(stack) ~= "string" then return false end
+    if stack:find("Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua", 1, true)
+        and (stack:find("in function 'ShowUIPanel'", 1, true)
+            or stack:find("in function 'CloseAllBags'", 1, true)
+            or stack:find("in function 'CloseAllWindows'", 1, true)
+            or stack:find("in function 'ToggleAllBags'", 1, true)) then
+        return true
+    end
+    if stack:find("Blizzard_GameMenu/", 1, true)
+        and (stack:find("in function 'CloseAllBags'", 1, true)
+            or stack:find("in function 'CloseAllWindows'", 1, true)
+            or stack:find("in function 'ShowUIPanel'", 1, true)) then
+        return true
+    end
+    return false
 end
 
 local function CanSuppressVendorBagClose(frame, proxy)
@@ -304,6 +323,25 @@ local function CanSuppressVendorBagClose(frame, proxy)
         and not InCombatLockdown() and not InputReserved() and TrackEnabled() and IsSpanned()
         and CanOpenBagsFromAddon() and frame:IsVisible() and Offhand.Canvas.IsFrameOnWorkspace(frame)
 end
+
+-- Bag Escape helpers handed to bridge modules and addons (docs/BRIDGES.md).
+local bridgeBagServices = {
+    UpdateEscapeRegistration = function(frame, name, supported, parent, proxy)
+        return UpdateBagEscapeRegistration(frame, name, supported, parent, proxy)
+    end,
+    IsEscapeRegistered = function(registration)
+        return Bags.escapeRegistrations[registration] ~= nil
+    end,
+    CanSuppressVendorClose = function(frame, proxy)
+        return CanSuppressVendorBagClose(frame, proxy) and true or false
+    end,
+    IsGameMenuBagClose = function(stack)
+        return IsGameMenuBagClose(stack) and true or false
+    end,
+    IsSettingsBagClose = function(stack)
+        return IsSettingsBagClose(stack) and true or false
+    end,
+}
 
 local function RefreshBagSmithEscape()
     local frame = _G.BagSmithFrame
@@ -377,10 +415,7 @@ local function RefreshElvUIEscape()
         vendor.CloseAllBags = function(self, ...)
             if self == vendor and CanSuppressVendorBagClose(frame) then
                 local stack = debugstack(2, 24, 0)
-                if IsGameMenuBagClose(stack)
-                    or (stack:find("Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua", 1, true)
-                        and stack:find("Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua", 1, true)
-                        and stack:find("in function 'ShowUIPanel'", 1, true)) then return end
+                if IsGameMenuBagClose(stack) or IsSettingsBagClose(stack) then return end
             end
             Bags.elvUIBackpackCleared = nil
             return vendorClose(self, ...)
@@ -397,56 +432,6 @@ local function RefreshElvUIEscape()
     if UpdateBagEscapeRegistration(frame, "ElvUI_ContainerFrame", vendor.BagFrame == frame, parent) then
         ClearElvUINativeBags(frame)
     end
-end
-
-local function RefreshDaylightBagEscape()
-    if InCombatLockdown() or type(debugstack) ~= "function" then return end
-    local vendor = IsAddOnLoadedCompat("DaylightUI_Bags") and _G.DaylightUI
-    local module = vendor and vendor.GetModule and vendor:GetModule("Bags")
-    local namespace = module and module.enabled and module.ns
-    local frame = namespace and namespace.window
-    local openClose = namespace and namespace.OpenClose
-    local proxy = frame and frame == _G.DaylightUIBag and frame.__duiEsc
-    local name = proxy and proxy:GetName()
-    local previous = Bags.daylightEscapeProxy
-    if previous and previous ~= proxy then
-        UpdateBagEscapeRegistration(previous, previous:GetName(), false)
-    end
-    Bags.daylightEscapeProxy = proxy
-    if not name or not name:match("^DaylightUIEscape%d+$") or not openClose
-        or type(openClose.Follow) ~= "function" or type(openClose.AnyOpen) ~= "function"
-        or type(openClose.GameWindows) ~= "function" or type(openClose.CloseGame) ~= "function" then return end
-
-    local parked = openClose.hidden
-    local supported = parked and not parked:IsShown() and not frame.__duiVanishing
-        and (not openClose.held or Bags.daylightHeld == openClose)
-    UpdateBagEscapeRegistration(frame, name, supported, nil, proxy)
-    if not Bags.escapeRegistrations[proxy] or openClose.held or not openClose.AnyOpen() then return end
-    for _, container in ipairs(openClose.GameWindows()) do
-        if container:IsShown() and container:GetParent() ~= parked then
-            UpdateBagEscapeRegistration(frame, name, false, nil, proxy)
-            return
-        end
-    end
-    if Bags.daylightOpenClose ~= openClose then
-        Bags.daylightOpenClose = openClose
-        local follow = openClose.Follow
-        openClose.Follow = function(...)
-            if Bags.daylightHeld == openClose and not openClose.held then
-                if CanSuppressVendorBagClose(frame, proxy) and IsGameMenuBagClose(debugstack(2, 24, 0)) then
-                    openClose.held = true
-                else
-                    Bags.daylightHeld = nil
-                end
-            end
-            return follow(...)
-        end
-    end
-    -- Use DaylightUI's held-bag mode so Blizzard sees the parked bags closed.
-    -- Its normal toggle releases the hold and closes any bags opened by B.
-    Bags.daylightHeld = openClose
-    openClose.held = true
-    openClose.CloseGame()
 end
 
 local function RefreshEllesmereBagEscape()
@@ -779,7 +764,7 @@ function Bags:Capture()
         RefreshBetterBagsEscape()
         RefreshBagSmithEscape()
         RefreshElvUIEscape()
-        RefreshDaylightBagEscape()
+        if Offhand.Bridges then Offhand.Bridges:RefreshBags(bridgeBagServices) end
         RefreshEllesmereBagEscape()
     end
     if self.paused or self.restoring or self.escapePending or not Offhand.db

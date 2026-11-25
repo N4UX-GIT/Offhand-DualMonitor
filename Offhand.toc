@@ -3,16 +3,16 @@
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.5
-## X-Offhand-Release: beta.39
-## X-Offhand-Addon-Release: beta.39
+## X-Offhand-Release: beta.40
+## X-Offhand-Addon-Release: beta.40
 ## X-Offhand-Companion-Version: 2.1.9
-## X-Offhand-Companion-Release: beta.2
+## X-Offhand-Companion-Release: beta.3
 ## X-Offhand-Companion-Protocol: 1
 ## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Max-Workspaces: 3
 ## X-Offhand-Companion-Min-Version: 2.1.2-beta.19
 ## X-Offhand-Manifest: Generic
-## X-Website: https://offhand-wow.onrender.com/
+## X-Website: https://offhandwow.com/
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
 ## LoadSavedVariablesFirst: 1
 ## SavedVariables: OffhandDB
@@ -56,6 +56,7 @@ Core\HUDRecovery.lua
 Core\HUDTransientFrames.lua
 Core\SeamRedirect.lua
 Core\PanelMotion.lua
+Core\AddonWindowCatalog.lua
 Core\CanvasAddonEscape.lua
 Core\CanvasKerzoQuestLog.lua
 Core\CanvasCompatibility.lua
@@ -69,10 +70,11 @@ Core\CanvasChat.lua
 Core\CanvasProfessions.lua
 Core\CanvasPanelMotion.lua
 Core\CanvasMapPresentation.lua
-Core\DaylightMapCompatibility.lua
+Core\Bridges.lua
 Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
+Core\LearnedAddonWindows.lua
 Core\WorkspaceBehavior.lua
 Core\WorkspaceToggleKeys.lua
 Core\WorkspaceChrome.lua
@@ -102,6 +104,7 @@ UI\Controls.lua
 UI\WorkspaceScaleControls.lua
 UI\OptionsActions.lua
 UI\WorkspaceOptions.lua
+UI\AddonWindowSelection.lua
 UI\Options.lua
 UI\SetupVisuals.lua
 UI\DisplayIdentify.lua
@@ -110,3 +113,11 @@ UI\Onboarding.lua
 UI\WhatsNew.lua
 UI\Wizard.lua
 UI\EllesmereLayoutPreview.lua
+# Built-in Bridges
+Bridges\DaylightUI\Core.lua
+Bridges\DaylightUI\Placement.lua
+Bridges\DaylightUI\Scenes.lua
+Bridges\DaylightUI\Map.lua
+Bridges\DaylightUI\Bags.lua
+Bridges\DaylightUI\Windows.lua
+Bridges\DaylightUI\Init.lua

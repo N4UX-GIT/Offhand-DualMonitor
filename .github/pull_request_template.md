@@ -34,6 +34,33 @@ Target addon release:
 
 Affected issue IDs:
 
+## Runtime regression checks
+
+For a private addon test ZIP, run
+`./package.ps1 -AddonOnly -Version <base-version> -CandidateId <test-id>`.
+Use a new ID for changed contents. The candidate ID appears in the AddOn List
+and `/offhand diag`.
+
+For a UI or compatibility fix, record the test ZIP name and SHA-256, the loaded
+candidate ID for a tester build, and the client/build, Companion version,
+topology, and affected addon versions. To reproduce an upgrade, replace the
+addon folder using the exact ZIP and keep the existing SavedVariables.
+
+Record one result per relevant scenario, with the exact actions, expected and
+observed behavior, and a link to the capture or reporter reply. When placement
+behavior differs by display, record Mainhand and Offhand separately. Cover the
+reported native interaction and any affected close, reopen, and reload paths.
+For a vendor and bag interaction, test a bag the player opened and a bag the
+vendor opened. Exercise the relevant dismissal methods during the interaction.
+
+| Scenario and starting placement | Actions and expected result | Observed result | Evidence |
+| --- | --- | --- | --- |
+| | | Pass / Fail / Pending | |
+
+Use the matched client run or reporter result to mark a scenario verified. List
+any untested or still-failing path under Remaining validation. Keep automated
+checks, local live results, and reporter results identifiable in the record.
+
 ## Ownership and compatibility
 
 Run `python scripts/check-compatibility.py` for the portable addon checks.

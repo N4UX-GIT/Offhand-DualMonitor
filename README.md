@@ -12,7 +12,7 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhandwow.com/companion.html)
 </div>
 
-Offhand Beta 39 pairs with Windows Companion 2.1.9-beta.2. See the [changelog](CHANGELOG.md) for changes and contributor credits.
+Offhand Beta 40 pairs with Windows Companion 2.1.9-beta.3. See the [changelog](CHANGELOG.md) for changes and contributor credits.
 
 ---
 
@@ -115,7 +115,18 @@ Display choices are persisted by Windows device identity. If a saved display dis
 If a generated Companion topology no longer matches the current window, Offhand
 fails safe to the full current window and preserves the saved workspace layout.
 Manual and FancyZones setups use their confirmed canvas and the selected
-orientation, seam percentage, and aspect ratio.
+orientation, seam percentage, and aspect ratio. After **Span WoW Now**, reload
+the UI once when the layout is new, changed or not yet loaded in WoW. Companion
+writes the layout to a file that WoW reads on startup or UI reload. A restore
+and re-span using the same already-loaded layout can reuse its exact rectangles
+without another reload or calibration.
+
+If WoW shrinks after spanning, follow the **Span failed** warning. Restore the
+window if needed, reload while restored, then click **Span WoW Now** again.
+Reload afterward only if the selected layout is new, changed or not loaded.
+Complete the calibration wizard during initial setup. Repeating it is not a
+normal span or reload step. Continued blur or incorrect centering needs
+diagnostics before making further calibration changes.
 
 An addon update can replace the generated Companion display snapshot. If
 Companion setup is selected, Offhand uses the full window while it waits for
@@ -184,6 +195,7 @@ Offhand leaves the Edit Mode manager and protected HUD frames entirely under Bli
 | /offhand or /oh | Opens the configuration dashboard. |
 | /offhand wizard | Launches the interactive setup wizard. |
 | /offhand whatsnew | Reopens the release highlights and Companion update links shown after an addon update. |
+| /offhand window | Toggles Forever addon window selection mode (`list`, `forget <name>`, `next`, `add`, `done`). |
 | /offhand gather | Rescues any off-screen windows and pulls them back to your Mainhand Monitor. |
 | /offhand diag | Prints a support snapshot for versions, display geometry, persistence, Edit Mode, and map ownership. |
 | /offhand diag full | Prints the support report: topology, setup progress, persistence revisions, HUD fitting, and relevant chat anchors/snapping. Does not start a capture. |

@@ -350,9 +350,35 @@ function Adapter.Install(Canvas, services)
             math.max(minY, math.min(targetY, maxY)), frameScale, parentScale, fitFallback
     end
 
+    -- StartMoving sets WoW's user-placed flag, which persists ContainerFrame1
+    -- into layout-local.txt with FrameLevel: 1 on reload/logout and leaves its
+    -- FlatPanelBackgroundTemplate (Bg) drawn over the bag slots on the next
+    -- session. Clear the cache flag out of combat and heal any stale Bg level.
+    local function RepairForeverNativeBagLayering(frame)
+        if not frame or IsCombatRestricted() then return end
+        if HasFlag(frame, "IsForbidden", false) and frame.SetUserPlaced
+            and (not frame.IsUserPlaced or HasFlag(frame, "IsUserPlaced", true)) then
+            pcall(frame.SetUserPlaced, frame, false)
+        end
+        local bg = frame.Bg
+        if bg and HasFlag(frame, "IsForbidden", false) and HasFlag(frame, "IsProtected", false)
+            and HasFlag(bg, "IsForbidden", false) and HasFlag(bg, "IsProtected", false)
+            and type(frame.GetFrameLevel) == "function"
+            and type(bg.GetFrameLevel) == "function" and type(bg.SetFrameLevel) == "function" then
+            local okF, frameLevel = pcall(frame.GetFrameLevel, frame)
+            local okB, bgLevel = pcall(bg.GetFrameLevel, bg)
+            if okF and okB and IsPlainValue(frameLevel) and IsPlainValue(bgLevel)
+                and type(frameLevel) == "number" and type(bgLevel) == "number"
+                and bgLevel > frameLevel then
+                pcall(bg.SetFrameLevel, bg, frameLevel)
+            end
+        end
+    end
+
     -- This restore deliberately bypasses the generic panel lifecycle. It does not
-    -- demodalize the bag, change UIPanel metadata, call SetUserPlaced, or run any
-    -- Blizzard bag function. Keeping the mutation to the root anchor is the key
+    -- demodalize the bag, change UIPanel metadata, or run any Blizzard bag
+    -- function. Keeping mutations to the root anchor (plus clearing the stale
+    -- user-placed layout cache flag and Bg layer out of combat) preserves the
     -- isolation boundary for protected item-button clicks on Forever.
     local function RestoreForeverNativeBagRoot(frame, state)
         if not Offhand.isForever
@@ -360,6 +386,7 @@ function Adapter.Install(Canvas, services)
             or not frame.IsShown or not frame:IsShown() then return false end
         local inCombat = IsCombatRestricted()
         if inCombat and not CanRepairCombatAnchor(frame, state, Offhand.db.keepBagToggleOpen) then return false end
+        if not inCombat then RepairForeverNativeBagLayering(frame) end
         local position, onWorkspace = GetForeverNativeBagSavedPosition(frame)
         if inCombat then
             -- Never invent or capture placement during combat. Read geometry
@@ -471,6 +498,9 @@ function Adapter.Install(Canvas, services)
         local width = ((frame.GetWidth and frame:GetWidth()) or 192) * physicalScale
         local height = ((frame.GetHeight and frame:GetHeight()) or 192) * physicalScale
         local onWorkspace=IsFrameOnWorkspace(frame)
+        if frame.SetUserPlaced and HasFlag(frame, "IsForbidden", false) then
+            pcall(frame.SetUserPlaced, frame, false)
+        end
         local sizing=Offhand.WorkspaceScale
         if sizing then
             if not sizing:Apply(frame,onWorkspace,metrics) then return false end

@@ -86,7 +86,8 @@ function Compatibility.HasCustomBagAddon()
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
         or _G.ArkInventory or _G.BetterBags or _G.Inventorian
         or _G.ElvUI or _G.Tukui then return true end
-    if Compatibility.IsAddonPresent("BetterBags") then return true end
+    if Compatibility.IsAddonPresent("BetterBags") or Compatibility.IsAddonPresent("Bagnaros") then return true end
+    if Offhand.Bridges and Offhand.Bridges.HasCustomBag and Offhand.Bridges:HasCustomBag() then return true end
     if Compatibility.GetBagSmithParkingParent() then return true end
     -- Combined mode can exist without an individual backpack root. Either
     -- native root is sufficient; explicit replacement owners above still win.
@@ -144,7 +145,12 @@ end
 -- DaylightUI lends these native panels back for some views. Check the
 -- current parent on every placement, including delayed repairs after a span.
 function Offhand.IsDaylightParkedPanel(frame)
-    if not Offhand.isForever or not frame or
+    if not frame then return false end
+    if Offhand.Bridges and Offhand.Bridges.IsParkedNativePanel
+        and Offhand.Bridges:IsParkedNativePanel(frame) then
+        return true
+    end
+    if not Offhand.isForever or
         (frame ~= _G.PlayerSpellsFrame and frame ~= _G.ClassTrainerFrame) then return false end
     local win = _G.DaylightUI and _G.DaylightUI.Win
     local followers = win and win.Followers
@@ -223,7 +229,7 @@ end
 
 -- Only automatic popup redirection yields here. Explicit workspace movement
 -- and each vendor's own position persistence keep their existing policies.
-function Compatibility.ShouldPreservePopupPosition(frame, name)
+function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
     if not frame then return false end
     -- This full-screen parent derives its rectangle from both UIParent corners.
     -- Moving it like a popup leaves Blizzard's separate bags without a rectangle.
@@ -253,6 +259,9 @@ function Compatibility.ShouldPreservePopupPosition(frame, name)
     local bags = Offhand.BagPersistence
     if bags and bags.IsBaganatorBackpackRoot and bags.IsBaganatorBackpackRoot(frame, name) then return true end
     if Compatibility.GetRestedXPGuideFrame() == frame then return true end
+    if allowUserPlaced then return false end
+    local learned = Offhand.LearnedAddonWindows
+    if learned and learned:OwnsPosition(frame, name) then return true end
     if type(frame.IsUserPlaced) == "function" then
         local ok, placed = pcall(frame.IsUserPlaced, frame)
         if not ok or not IsOrdinaryPopupValue(placed) or placed ~= false then return true end

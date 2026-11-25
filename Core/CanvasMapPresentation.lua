@@ -246,8 +246,54 @@ function Map.InstallBehavior(Canvas, services)
         return false
     end
 
-    function Canvas:RequestPersistentWorldMapRefocus()
-        if Offhand.isForever then return end
+    local previousZone, zoneGeneration = nil, 0
+    local function ReadMapID(id)
+        if issecretvalue and issecretvalue(id) then return end
+        if type(id) == "number" and id > 0 then return id end
+    end
+
+    function Canvas:ResetForeverMapZone(inWorld)
+        zoneGeneration = zoneGeneration + 1
+        previousZone = nil
+        if inWorld and not InCombatLockdown() and C_Map and C_Map.GetBestMapForUnit then
+            previousZone = ReadMapID(C_Map.GetBestMapForUnit("player"))
+        end
+    end
+
+    local function RequestForeverZone()
+        if not (C_Timer and C_Timer.After and C_Map and C_Map.GetBestMapForUnit and C_Map.OpenWorldMap)
+            or InCombatLockdown() then return end
+        zoneGeneration = zoneGeneration + 1
+        local ticket = zoneGeneration
+        local function Sample(retried)
+            if ticket ~= zoneGeneration or InCombatLockdown() then return end
+            local current = ReadMapID(C_Map.GetBestMapForUnit("player"))
+            if not current or current == previousZone then
+                if not retried then C_Timer.After(1, function() Sample(true) end) end
+                return
+            end
+            local old = previousZone
+            previousZone = current
+            if not old or not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false
+                or GetWorldMapExternalOwner() or OpenMapAPI
+                or (Compatibility.GetWorldMapFadeAddon and Compatibility.GetWorldMapFadeAddon())
+                or IsInInstance() or Map.IsNativeGamepadOwned(Canvas) then return end
+            local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+            local map = WorldMapFrame
+            if metrics and metrics.isSpanned and map and not map:IsForbidden() and map:IsVisible()
+                and not map:IsMaximized() and IsFrameOnWorkspace(map) and ReadMapID(map:GetMapID()) == old then
+                -- Blizzard handles WORLD_MAP_OPEN and owns the quest pin refresh.
+                C_Map.OpenWorldMap(current)
+            end
+        end
+        C_Timer.After(0.5, Sample)
+    end
+
+    function Canvas:RequestPersistentWorldMapRefocus(zoneChanged)
+        if Offhand.isForever then
+            if zoneChanged then RequestForeverZone() end
+            return
+        end
         if not C_Timer or not C_Timer.After then return end
         self._mapZoneRefocusGeneration = (self._mapZoneRefocusGeneration or 0) + 1
         local generation = self._mapZoneRefocusGeneration
@@ -357,7 +403,7 @@ function Map.InstallConfiguration(Canvas, services)
     end
 
     function Canvas:ConfigureWorldMap(destination)
-        if Offhand.DaylightMapCompatibility then Offhand.DaylightMapCompatibility:Refresh() end
+        if Offhand.Bridges then Offhand.Bridges:Refresh("map") end
         -- Canvas scale/fader/settlement belongs to keyboard workspace mode.
         -- The Gamepad adapter is the sole root-position writer in native UI.
         if Map.IsNativeGamepadOwned(self) then return end

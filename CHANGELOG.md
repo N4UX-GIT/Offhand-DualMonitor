@@ -1,5 +1,50 @@
 # Changelog
 
+## Unreleased
+
+## [2.1.5-beta.40] - 2026-11-24
+
+Paired with **Windows Companion 2.1.9-beta.3**.
+
+### Built-in DaylightUI support, HUD alignment & persistence
+
+- Added the `Core/Bridges.lua` bridge contract (`Offhand.API` v1) and a built-in, single-folder **DaylightUI Bridge** (`Bridges/DaylightUI/`, zero extra addon folder or dependency) that keeps DaylightUI's movers, Edit Mode layout (with confirmation prompt and `/ohdaylight apply`, supporting DaylightUI 2.2.3+ `EditMode.Replace` and 2.2.1 fallback), banners, AFK/welcome screens, fishing/crafting/campfire scenes, DataBar, loot rolls, vendor/trainer windows, world map, and bags aligned with Offhand's Mainhand monitor (contributed by **Kintrok / `@DCtheGeek`** in PR #136, adapted into the base Offhand addon).
+- Added lightweight **DaylightUI HUD Alignment** actions directly in **Offhand Monitor > Recovery & Preview** (visible only when DaylightUI is loaded): **Align DaylightUI HUD** (`/ohdaylight apply`) and **Reset DaylightUI positions** (`/ohdaylight reset`) with alignment status.
+- Fixed DaylightUI 2.2.6 unlock mode and Cooldown Manager alignment on L-shaped and mixed-height spans: the draggable unlock bar pill and folded **Show** tab anchor cleanly to Mainhand without detaching the **Lock** button, user-dragged spots on visible monitors are preserved while dead-void spots are rescued, and the Cooldown Manager layout editor (`DaylightUICdmEditor`) covers Mainhand with aligned cursor, tether, snap, and chooser coordinates.
+- Confined DaylightUI's `Win.Room` side-by-side window slides to each window's own monitor so opening Spellbook, Professions, Talents, or Social over an open Offhand panel no longer shunts that panel across the monitor seam into Mainhand.
+- Added reload/restart and single-screen recovery persistence for **DaylightUI** on Offhand: `DaylightUIBag` reopens taint-free with Escape protection preserved, DaylightUI replacement windows (`Character`, `Social`, `Spellbook/Talents`, `Professions`, `Group Finder`, `Legacy`) persist and reopen together without slot eviction, and standard Blizzard panels moved via `DaylightUI_Skins` `WindowMove` (`Collections`, `Macros`, `Achievements`, `Encounter Journal`, `Communities`, etc.) sync cleanly with Offhand workspace persistence.
+
+### Windows Companion 2.1.9-beta.3
+
+- Added a to-scale display preview to **Display Diagnostics** showing Mainhand, workspace regions, and display numbers across side-by-side, stacked, and mixed-DPI layouts (contributed by **Abysmal Kabal**).
+- Allowed custom workspace layouts to auto-span on WoW launch after one verified manual span on the same monitors (contributed by **Abysmal Kabal**).
+- Extended post-DPI-change span retry to all span paths and display-scale decreases (contributed by **Abysmal Kabal**).
+
+### Forever maps, bags, external addon compatibility & conflict notices
+
+- On Forever, fixed a regression where dragging the separate Blizzard backpack (`ContainerFrame1`) left it marked user-placed in `layout-local.txt` (`FrameLevel: 1`), causing its background (`Bg`) to draw a grey translucent overlay over backpack slots after reload/restart. Offhand now clears the stale layout-cache flag out of combat and heals any inverted `Bg` frame level automatically.
+- On Forever, leave the Blizzard map open on Offhand as you travel outdoors. Outside combat, it switches to your new zone when you cross the boundary. If you opened a different zone to look something up, it stays there.
+- With OpenMap on Forever, the outdoor map can follow you smoothly on Offhand at your chosen zoom outside combat. Pan away to browse, then middle-click to follow your character again.
+- Fortified external map and bag contracts against future addon updates: OpenMap (`v0.8.13+` / `api.major == 1`), MapUtils (`v1.x`), and MapWise (`v2.x`) now validate API major versions and runtime schemas instead of pinning exact patch numbers, preventing map snap-back on Escape or `M` after minor updates. Added `Bridges:HasCustomBag()` and Bagnaros detection to bag compatibility.
+- Added lean, zero-bloat ownership and conflict visibility: **Offhand Monitor > Window behavior** lists active external owners (`Map`, `Bags`, `Minimap`, `Chat`), while genuine unmitigated conflicts (such as OneForAll moving the World Map ahead of Leatrix Maps, an unsupported OpenMap contract, or multiple active bag addons) print once per session out of combat and appear in `/offhand diag`.
+
+### Learned Addon Windows, Questdon & tooltips on Forever
+
+- On Forever, remember placement for eligible third-party addon windows on Offhand using **Panel layout > Addon windows > Select addon windows**, the new bindings under **Key Bindings > Offhand**, or `/offhand window` (`list`, `forget <name>`). Backed by the Forever addon window catalog with click-through window outlines, top-edge `+ Add`/`Update` pill, toolbar `Forget`, and automatic return to Settings on `Done`.
+- On Forever, **Questdon**'s quest book (`QuestdonQuestBook`) now stays open on Offhand when pressing Escape while DonCore dialogs, menus, and album view keep native Escape (contributed by **Abysmal Kabal**, integrated via the addon window catalog).
+- On Forever, world tooltips owned by `UIParent` no longer inherit leftover Offhand workspace clamp insets after hovering bag items with comparison tooltips (contributed by **Abysmal Kabal**).
+- Confirmed multi-page book turning and close-before-reload persistence live on Forever 1.60.1.71037.
+
+### Community thanks
+
+- **Kintrok (`@DCtheGeek`)** — `Core/Bridges.lua` bridge contract and built-in DaylightUI layout bridge ([#136](https://github.com/N4UX-GIT/Offhand-DualMonitor/pull/136)).
+- **Abysmal Kabal** — Windows Companion 2.1.9-beta.3 display preview, custom layout auto-span, and DPI-change span retry; Forever world tooltip clamp fix; Questdon Escape compatibility.
+
+### Known issues
+
+- On Forever, reopening a separate Blizzard backpack with `B` during combat after it was restored can still show a yellow interface warning. The backpack opens at its saved spot. `B` reopens the backpack only.
+- When spanning monitors of different sizes, the loading artwork can appear cropped. Your in-game view returns to its assigned display once loading finishes.
+
 ## [2.1.5-beta.39] - 2026-11-23
 
 ### Returning to your workspace

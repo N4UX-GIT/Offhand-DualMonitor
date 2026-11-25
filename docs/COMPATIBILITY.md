@@ -49,9 +49,15 @@ freshness check fails until the affected cases are rerun. Updating fingerprints
 without a new matching live run does not renew evidence. Deferred cases remain
 deferred even when the fingerprints match.
 
-The November 21 native backpack receipt records the packaged runtime at
-`b46c4b1` on Forever 71037. Check a later combined candidate against its
-own runtime before promoting these results.
+The November 25 release receipts (`tests/compatibility/forever-native-real-escape.json`
+and `tests/compatibility/forever-workspace-restart.json`) record Beta 40 (`4b59c0f`) on
+Forever `1.60.1.71037` with Companion `2.1.9-beta.3`, DaylightUI `2.2.6`, OpenMap `0.8.13`,
+and OneForAll `6.2.16` ([FOREVER-BETA40-RELEASE-QA.md](FOREVER-BETA40-RELEASE-QA.md)).
+Earlier Beta 39 receipts and measurements remain archived in
+[FOREVER-BETA39-RELEASE-QA.md](FOREVER-BETA39-RELEASE-QA.md).
+Outdoor zone map following (native Blizzard map + OpenMap 0.8.13) and
+multi-page book turning also have separate Nov 24 live runs on Forever `1.60.1.71037`
+([MAP-ZONE-FOLLOW-QA.md](MAP-ZONE-FOLLOW-QA.md) and the book section below).
 
 ## Workspace restoration after a full restart
 
@@ -186,6 +192,8 @@ progress and raid encounters remain outside this measurement.
 
 The [Discord book report](https://discord.com/channels/1491522138371391691/1573966761651470457) did not specify the WoW flavor or build. Before the correction, the Lua panel fixture reproduced both the lost native reading interaction after a workspace drag and an empty reader reopening from a stale saved flag. The archived Blizzard 9.2.7 ItemTextFrame XML calls CloseItemText on hide. The corrected fixture keeps the native panel slot and saved position, clears the old open flag and waits for the next book interaction. The lifecycle fixture also checks logout while the reader is visible.
 
-Live acceptance on the affected client is pending. Open a multi-page book, drag it to Offhand, turn the page, close it and reopen it. Reload with the book open. The empty reader should stay closed and a fresh interaction should open the book at the saved location. Check BugSack after the run.
+**Passed on Forever 1.60.1.71037 on 24 November 2026.** Moonweaver opened *Bloody Note* in Shen'dar Highlands with the Companion span active. Page one and the Next button were visible on Mainhand. The player dragged the title onto Offhand, confirmed that turning the page changed the text, then closed and reopened the note at its saved spot. BugSack had zero entries in session 1014.
 
-On Moonweaver in Forever 1.60.1.71037, using the installed development add-on and Store Companion 2.1.9-beta.2, a local observer supplied an old open flag and a workspace position to the production reload-restore routine on the spanned client. The reader stayed hidden, the flag cleared, and the same position record survived. The observer restored the pre-test position and the saved trace recorded zero current-session BugSack errors. The inventory scan found no readable items in 31 occupied slots. Opening, dragging, paging and reopening a server-backed book still require a readable item or an accessible world book.
+The player reloaded with the note open. At 04:20:04 the observer found the reader hidden, its open flag clear and its saved position intact at (705.52, 980.38) in workspace coordinates. After the player interacted with the note again, the 04:20:13 sample showed page one visible on Offhand with the same saved position. BugSack recorded zero entries in session 1015. The installed addon matched the checkout with runtime commit `8f7cef2`. The note was left open.
+
+An earlier Forever check with Store Companion 2.1.9-beta.2 also exercised migration of a stale open flag. A local observer supplied the flag and a workspace position to the reload routine. The routine cleared the flag, kept the reader hidden and retained the position, with zero current-session BugSack errors.

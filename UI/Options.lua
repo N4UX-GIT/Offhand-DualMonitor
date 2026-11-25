@@ -165,7 +165,7 @@ for _, link in ipairs({
     { key = "OFFHAND_WEBSITE_LINK", text = "WEBSITE_LINK_TEXT", url = Offhand.websiteUrl },
     { key = "OFFHAND_DISCORD_LINK", text = "DISCORD_LINK_TEXT", url = Offhand.discordUrl },
     { key = "OFFHAND_STUDIO_LINK", text = "USER_MEDIA_STUDIO_LINK_TEXT",
-        url = (Offhand.websiteUrl or "https://offhand-wow.onrender.com/") .. "background-studio.html" },
+        url = (Offhand.websiteUrl or "https://offhandwow.com/") .. "background-studio.html" },
 }) do
     local url = link.url
     StaticPopupDialogs[link.key] = {
@@ -184,6 +184,9 @@ _G.BINDING_NAME_OFFHAND_TOGGLE_EXPANDED_MAP = L["BINDING_NAME_OFFHAND_TOGGLE_EXP
 _G.BINDING_NAME_OFFHAND_TOGGLE_SETTINGS = L["BINDING_NAME_OFFHAND_TOGGLE_SETTINGS"]
 _G.BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS =
     L["BINDING_NAME_OFFHAND_TOGGLE_GAMEPAD_UI_FOCUS"]
+_G.BINDING_NAME_OFFHAND_LEARN_WINDOW = L["BINDING_NAME_OFFHAND_LEARN_WINDOW"]
+_G.BINDING_NAME_OFFHAND_WINDOW_NEXT = L["BINDING_NAME_OFFHAND_WINDOW_NEXT"]
+_G.BINDING_NAME_OFFHAND_WINDOW_ADD = L["BINDING_NAME_OFFHAND_WINDOW_ADD"]
 
 function Options:CreateMainhandHUDLayout(options)
     if Offhand.Mainhand and Offhand.Mainhand.CreateOrUpdateEditModeLayout then
@@ -1225,7 +1228,12 @@ function Options:CreateFloatingPanel()
             local function AddKeepOpenCheck(key, label)
                 local check = CreateNativeCheckbox(card2_1, L[label],
                     function() return Offhand.db and Offhand.db[key] == true end,
-                    function(value) Offhand.db[key] = value == true end)
+                    function(value)
+                        Offhand.db[key] = value == true
+                        if Offhand.WorkspaceToggleKeys and Offhand.WorkspaceToggleKeys.Refresh then
+                            Offhand.WorkspaceToggleKeys:Refresh()
+                        end
+                    end)
                 keepOpenChecks[#keepOpenChecks + 1] = {check = check, key = key}
             end
             AddKeepOpenCheck("keepMapToggleOpen", "KEEP_MAP_TOGGLE_OPEN")
@@ -1696,26 +1704,121 @@ function Options:CreateFloatingPanel()
         autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
     end
 
+    local ellesmereCaption, ellesmerePreview
     if transfer and transfer.ShowPreview then
-        local caption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        caption:SetPoint("BOTTOMLEFT", recoveryCard, "BOTTOMLEFT", 12, 14)
-        caption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
-        caption:SetJustifyH("LEFT")
-        caption:SetWordWrap(true)
-        caption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
-        local preview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
-        preview:SetSize(220, 26)
-        preview:SetPoint("BOTTOMLEFT", caption, "TOPLEFT", 0, 6)
-        preview:SetText(L["ELLESMERE_HUD_VISUAL"])
-        preview:SetScript("OnClick", function()
+        ellesmereCaption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        ellesmereCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+        ellesmereCaption:SetJustifyH("LEFT")
+        ellesmereCaption:SetWordWrap(true)
+        ellesmereCaption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
+        ellesmerePreview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        ellesmerePreview:SetSize(220, 26)
+        ellesmerePreview:SetText(L["ELLESMERE_HUD_VISUAL"])
+        ellesmerePreview:SetScript("OnClick", function()
             if IsIntegrationActive("EllesmereUI") then transfer:ShowPreview() end
         end)
-        function recoveryCard.RefreshIntegration(show)
-            SetShown(caption, show)
-            SetShown(preview, show)
-            local height = show and 48 + Controls.MeasureWrappedText(caption, caption:GetText(), 638) or 0
-            ResizeMonitorCard(recoveryCard, recoveryHeight + height)
+    end
+
+    local bridgeHUDRows = {}
+    local function AttachBridgeActionTooltip(button, titleFn, bodyFn)
+        button:SetScript("OnEnter", function(self)
+            local title = titleFn and titleFn()
+            local body = bodyFn and bodyFn()
+            if not GameTooltip or (not title and not body) then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if title then GameTooltip:SetText(title, 1, 0.82, 0) end
+            if body then GameTooltip:AddLine(body, 1, 1, 1, true) end
+            GameTooltip:Show()
+        end)
+        button:SetScript("OnLeave", function()
+            if GameTooltip then GameTooltip:Hide() end
+        end)
+    end
+
+    function recoveryCard.RefreshIntegration(showEllesmere)
+        local extraHeight = 0
+        if ellesmerePreview and ellesmereCaption then
+            SetShown(ellesmerePreview, showEllesmere)
+            SetShown(ellesmereCaption, showEllesmere)
+            if showEllesmere then
+                local topOffset = -(recoveryHeight + extraHeight)
+                ellesmerePreview:ClearAllPoints()
+                ellesmerePreview:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, topOffset)
+                ellesmereCaption:ClearAllPoints()
+                ellesmereCaption:SetPoint("TOPLEFT", ellesmerePreview, "BOTTOMLEFT", 0, -6)
+                ellesmereCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+                extraHeight = extraHeight + 48 + Controls.MeasureWrappedText(
+                    ellesmereCaption, ellesmereCaption:GetText(), 638)
+            end
         end
+
+        local actions = Offhand.Bridges and Offhand.Bridges.GetHUDLayoutActions
+            and Offhand.Bridges:GetHUDLayoutActions() or {}
+        for i, entry in ipairs(actions) do
+            local row = bridgeHUDRows[i]
+            if not row then
+                row = {}
+                row.primary = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+                row.primary:SetSize(210, 26)
+                row.secondary = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+                row.secondary:SetSize(210, 26)
+                row.status = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+                row.status:SetJustifyH("LEFT")
+                row.status:SetWordWrap(true)
+                AttachBridgeActionTooltip(row.primary,
+                    function() return row.entry and row.entry.title end,
+                    function() return row.entry and row.entry.primaryTooltip end)
+                AttachBridgeActionTooltip(row.secondary,
+                    function() return row.entry and row.entry.title end,
+                    function() return row.entry and row.entry.secondaryTooltip end)
+                row.primary:SetScript("OnClick", function()
+                    if row.entry and type(row.entry.onPrimary) == "function" then
+                        row.entry.onPrimary()
+                    end
+                end)
+                row.secondary:SetScript("OnClick", function()
+                    if row.entry and type(row.entry.onSecondary) == "function" then
+                        row.entry.onSecondary()
+                    end
+                end)
+                bridgeHUDRows[i] = row
+            end
+            row.entry = entry
+            local topOffset = -(recoveryHeight + extraHeight)
+            row.primary:ClearAllPoints()
+            row.primary:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, topOffset)
+            row.primary:SetText(entry.primaryLabel or "")
+            SetShown(row.primary, type(entry.onPrimary) == "function")
+
+            local hasSecondary = type(entry.onSecondary) == "function" and type(entry.secondaryLabel) == "string"
+            row.secondary:ClearAllPoints()
+            row.secondary:SetPoint("LEFT", row.primary, "RIGHT", 8, 0)
+            row.secondary:SetText(entry.secondaryLabel or "")
+            SetShown(row.secondary, hasSecondary)
+
+            local statusText = entry.status or ""
+            if entry.stale and statusText ~= "" then
+                statusText = "|cffffcc44" .. statusText .. "|r"
+            end
+            row.status:ClearAllPoints()
+            row.status:SetPoint("TOPLEFT", row.primary, "BOTTOMLEFT", 0, -6)
+            row.status:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+            row.status:SetText(statusText)
+            SetShown(row.status, statusText ~= "")
+
+            local statusHeight = statusText ~= ""
+                and Controls.MeasureWrappedText(row.status, entry.status or "", 638) or 0
+            extraHeight = extraHeight + 44 + statusHeight
+        end
+        for i = #actions + 1, #bridgeHUDRows do
+            local row = bridgeHUDRows[i]
+            row.entry = nil
+            SetShown(row.primary, false)
+            SetShown(row.secondary, false)
+            SetShown(row.status, false)
+        end
+
+        ResizeMonitorCard(recoveryCard, recoveryHeight + extraHeight)
     end
 
     local procDocCheck = CreateNativeCheckbox(alertsCard, L["PROCDOC_MAINHAND"],
@@ -1748,7 +1851,29 @@ function Options:CreateFloatingPanel()
         local minimapAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
         local key = bagAddon and (minimapAddon and "COMPAT_BOTH" or "COMPAT_BAGS")
             or (minimapAddon and "COMPAT_MINIMAP" or "COMPAT_AUTO")
-        compatDesc:SetText(L[key])
+        local compatLines = { L[key] }
+        local compat = Offhand.CanvasCompatibility
+        if compat and compat.GetActiveExternalOwners then
+            local owners = compat.GetActiveExternalOwners()
+            local parts = {}
+            if owners.map then parts[#parts + 1] = (L["LOCK_WORKSPACE_MAP"] or "Map") .. ": " .. owners.map end
+            if owners.bags then parts[#parts + 1] = (L["LOCK_WORKSPACE_BAGS"] or "Bags") .. ": " .. table.concat(owners.bags, ", ") end
+            if owners.minimap then parts[#parts + 1] = "Minimap: " .. owners.minimap end
+            if owners.chat then parts[#parts + 1] = "Chat: " .. table.concat(owners.chat, ", ") end
+            if #parts > 0 and L["COMPAT_EXTERNAL_OWNERS"] then
+                compatLines[#compatLines + 1] = string.format(L["COMPAT_EXTERNAL_OWNERS"], table.concat(parts, " | "))
+            end
+        end
+        if compat and compat.GetOwnershipConflicts and compat.FormatConflictMessage then
+            local conflicts = compat.GetOwnershipConflicts()
+            for _, conflict in ipairs(conflicts) do
+                local msg = compat.FormatConflictMessage(conflict)
+                if msg then compatLines[#compatLines + 1] = "|cffffcc44" .. msg .. "|r" end
+            end
+        end
+        local compatText = table.concat(compatLines, "\n")
+        compatDesc:SetText(compatText)
+        ResizeMonitorCard(card2_2, math.max(374, 336 + Controls.MeasureWrappedText(compatDesc, compatText, 530) + 14))
     end
 
     local lockSupported = SupportsWindowLock()
@@ -2591,9 +2716,11 @@ function Options:CreateFloatingPanel()
                 panels = workspaceTab, appearance = tab3, profiles = tab4,
             }, CreateCard, Options)
             local panelCards = {workspace.routing, workspace.sizing}
+            if workspace.learning then table.insert(panelCards, 1, workspace.learning) end
             local function RestackPanels()
                 RestackTab(workspaceTab, panelCards)
             end
+            if workspace.learning then workspace.learning.onSizingChanged = RestackPanels end
             workspace.routing.onSizingChanged = RestackPanels
             if workspace.sizing then
                 workspace.sizing.onSizingChanged = function(expanded)

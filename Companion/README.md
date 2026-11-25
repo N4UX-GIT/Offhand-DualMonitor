@@ -239,9 +239,10 @@ which should become the workspace.
 ## Forever SavedVariables recovery
 
 The Companion remembers the last detected WoW installation. When that client
-closes—or when the Companion starts from the installed addon's `Companion`
-folder while WoW is already closed—it finds the newest valid account-wide and
-character-specific `Offhand.lua` files under that installation's `WTF` folder.
+closes, or when the Companion starts from the installed addon's `Companion`
+folder while WoW is already closed, it finds the newest valid account-wide
+`Offhand.lua` and the valid character files belonging to that account under
+that installation's `WTF` folder.
 It atomically generates `Core\ForeverState.lua`, retaining the previous copy as
 `ForeverState.lua.bak`. The generated Lua is guarded to interface versions
 16000–16999, so it is inert on other WoW clients.
@@ -254,9 +255,21 @@ Each reload advances a revision stored in both the ordinary SavedVariables table
 and the fallback. If Forever loads that revision normally, the standard table is
 authoritative and the fallback stands down automatically; this makes the recovery
 path compatible with a future client-side fix. With multiple
-accounts or characters, the most recently written valid account snapshot and
-the most recently written valid character snapshot belonging to that account
-are selected.
+accounts or characters, the most recently written valid account snapshot is
+selected. Character snapshots remain separate in a versioned payload. The addon
+applies only a record matching the current player GUID; otherwise it preserves
+the current character's disk data. Unknown or recreated identities cannot inherit
+another character's selected settings profile or HUD. The addon also rejects
+mismatched character assignments from older Companion bridges.
+
+Deploy the addon guard before updating the Companion. Older addons can use the
+generated matching-GUID compatibility assignment when identity is available
+during file loading, but require the updated addon to recover identity that
+becomes available later. The persistence diagnostics field `bridgeCharacter`
+reports `used`, `unmatched` or `not-used` separately from account recovery.
+
+Run `tests/companion-forever-recovery.ps1` for the focused cross-language bridge
+fixture and `lua tests/forever-cvar-persistence.lua` for legacy and revision cases.
 
 This bridge is a compatibility fallback for a SavedVariables loading defect
 reproduced on an earlier Forever 1.60.1 build. Its necessity on newer builds is

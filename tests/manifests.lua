@@ -19,12 +19,12 @@ for _, toc in ipairs(tocs) do
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
     assert(text:match("## Version:%s*2%.1%.5"), "Matching 2.1.5 addon version missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.39[ \t]*\r?\n"), "Pre-Release Beta 39 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.40[ \t]*\r?\n"), "Pre-Release Beta 40 addon marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Version:[ \t]*2%.1%.9[ \t]*\r?\n"), "Matching Companion version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*beta%.2[ \t]*\r?\n"), "Companion beta release marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*beta%.3[ \t]*\r?\n"), "Companion beta release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.39[ \t]*\r?\n"), "Pre-Release Beta 39 addon marker missing: " .. toc)
+    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.40[ \t]*\r?\n"), "Pre-Release Beta 40 addon marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Max%-Workspaces:[ \t]*3[ \t]*\r?\n"),
         "Three-workspace capability missing: " .. toc)
     local guide = assert(text:find("Core\\CenterGuide.lua", 1, true), toc)
@@ -86,7 +86,7 @@ local canvasChatIndex
 local canvasProfessionsIndex
 local canvasPanelMotionIndex
 local canvasMapPresentationIndex
-local daylightMapCompatibilityIndex
+local bridgesIndex
 local canvasPanelLifecycleIndex
 local canvasPanelPlacementIndex
 local canvasIndex
@@ -121,7 +121,7 @@ for index, file in ipairs(main) do
     if file == "Core/CanvasProfessions.lua" then canvasProfessionsIndex = index end
     if file == "Core/CanvasPanelMotion.lua" then canvasPanelMotionIndex = index end
     if file == "Core/CanvasMapPresentation.lua" then canvasMapPresentationIndex = index end
-    if file == "Core/DaylightMapCompatibility.lua" then daylightMapCompatibilityIndex = index end
+    if file == "Core/Bridges.lua" then bridgesIndex = index end
     if file == "Core/CanvasPanelLifecycle.lua" then canvasPanelLifecycleIndex = index end
     if file == "Core/CanvasPanelPlacement.lua" then canvasPanelPlacementIndex = index end
     if file == "Core/Canvas.lua" then canvasIndex = index end
@@ -163,8 +163,8 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasChatIndex + 1 == canvasProfessionsIndex
         and canvasProfessionsIndex + 1 == canvasPanelMotionIndex
         and canvasPanelMotionIndex + 1 == canvasMapPresentationIndex
-        and canvasMapPresentationIndex + 1 == daylightMapCompatibilityIndex
-        and daylightMapCompatibilityIndex + 1 == canvasPanelLifecycleIndex
+        and canvasMapPresentationIndex + 1 == bridgesIndex
+        and bridgesIndex + 1 == canvasPanelLifecycleIndex
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
@@ -174,19 +174,40 @@ assert(procDocIndex and procDocIndex > viewportIndex and procDocIndex < canvasIn
     "ProcDoc adapter must load after viewport services and before Canvas refresh")
 assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
     "addon settings Escape adapters must load before Canvas persistence initialization")
+assert(main[addonEscapeIndex - 1] == "Core/AddonWindowCatalog.lua",
+    "the addon window catalog must load before the Escape adapter")
+assert(main[canvasIndex + 1] == "Core/LearnedAddonWindows.lua",
+    "the learned window service must load before Canvas begins its runtime refresh")
 local workspaceOptionsIndex
 for i,file in ipairs(main) do if file=="UI/WorkspaceOptions.lua" then workspaceOptionsIndex=i end end
 assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optionsIndex
         and main[controlsIndex+1]=="UI/WorkspaceScaleControls.lua"
         and controlsIndex + 2 == optionsActionsIndex
         and optionsActionsIndex + 1 == workspaceOptionsIndex
-        and workspaceOptionsIndex + 1 == optionsIndex,
+        and workspaceOptionsIndex + 2 == optionsIndex
+        and main[optionsIndex - 1] == "UI/AddonWindowSelection.lua",
     "shared controls and settings actions must load immediately before Options")
 for i=2,#tocs do
     local flavor = entries(tocs[i])
     assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])
     for j,file in ipairs(main) do assert(file==flavor[j], "Client TOC load order mismatch: "..file) end
 end
+local bridgeStart = #main - 6
+local expectedBridge = {
+    "Bridges/DaylightUI/Core.lua",
+    "Bridges/DaylightUI/Placement.lua",
+    "Bridges/DaylightUI/Scenes.lua",
+    "Bridges/DaylightUI/Map.lua",
+    "Bridges/DaylightUI/Bags.lua",
+    "Bridges/DaylightUI/Windows.lua",
+    "Bridges/DaylightUI/Init.lua",
+}
+for i, path in ipairs(expectedBridge) do
+    assert(main[bridgeStart + i - 1] == path, "Built-in DaylightUI bridge order mismatch: " .. tostring(main[bridgeStart + i - 1]))
+end
+local foreverText = assert(io.open("Offhand_Forever.toc", "rb")):read("*a")
+assert(foreverText:match("## OptionalDeps:%s*DaylightUI"), "Forever manifest should declare OptionalDeps: DaylightUI for load order")
+assert(not foreverText:match("## Dependencies:"), "Offhand must never require third-party addons via Dependencies")
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")

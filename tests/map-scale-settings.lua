@@ -72,10 +72,14 @@ disabled=true; Refuses(); disabled=false
 stitched=false; Refuses(); stitched=true
 ownerDB.enabled=false; Refuses(); ownerDB.enabled=true
 addon.db.enabled=false; Refuses(); addon.db.enabled=true
-OpenMap.version="v0.7.6-beta"; Refuses(); OpenMap.version="v0.7.5-beta"
+OpenMapAPI.major=2; Refuses(); OpenMapAPI.major=1
 module.MoveAnyOn=function() return true end; Refuses(); module.MoveAnyOn=nil
-OpenMapAPI.version=5; Refuses(); OpenMapAPI.version=4
+OpenMapAPI.version=3; Refuses(); OpenMapAPI.version=4
 OpenMapDB.worldmap={}; Refuses(); OpenMapDB.worldmap=ownerDB
+-- Future patch & additive API version within major 1 continue working
+OpenMap.version="v0.8.14"; OpenMapAPI.version=5
+assert(scale:Set(1.1) and ownerDB.windowScale==1.1)
+OpenMap.version="v0.7.5-beta"; OpenMapAPI.version=4
 for _, name in ipairs({"MoveAny","LeatrixMaps","ClassicUIForever"}) do owner=name; Refuses() end
 owner="OpenMap"
 map.workspace=false

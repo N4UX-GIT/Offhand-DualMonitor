@@ -30,12 +30,12 @@ try {
         $source -notmatch 'CompanionUpdatePolicy\.SelectLatest') {
         throw 'Companion update checks must use the official repository release list and channel policy.'
     }
-    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.9-beta\.2"\)' -or
-        $source -notmatch 'AssemblyFileVersion\("2\.1\.9\.2"\)') {
+    if ($source -notmatch 'AssemblyInformationalVersion\("2\.1\.9-beta\.3"\)' -or
+        $source -notmatch 'AssemblyFileVersion\("2\.1\.9\.3"\)') {
         throw 'Companion binary metadata must identify the exact release build.'
     }
     $appManifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Source\app.manifest') -Raw
-    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.9\.2" name="Offhand\.Companion\.App"/>') {
+    if ($appManifest -notmatch '<assemblyIdentity version="2\.1\.9\.3" name="Offhand\.Companion\.App"/>') {
         throw 'Companion application manifest must identify the exact release build.'
     }
     $candidateBuilder = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\scripts\New-CompanionReleaseCandidate.ps1') -Raw
@@ -195,7 +195,7 @@ try {
     if ($addonOptions -notmatch 'local COMPANION_DOWNLOAD_URL = Offhand\.companionDownloadUrl' -or
         $addonOptions -notmatch 'text = L\["COMPANION_DOWNLOAD_LINK_TEXT"\]' -or
         $englishLocale -notmatch 'Recommended for Windows: copy the Microsoft Store address below' -or
-        $englishLocale -notmatch 'offhand-wow\.onrender\.com/companion\.html') {
+        $englishLocale -notmatch 'offhandwow\.com/companion\.html') {
         throw 'The addon options must recommend the Microsoft Store Companion URL.'
     }
     $linuxGuide = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\Companion\Linux.md') -Raw

@@ -61,7 +61,7 @@ using Timer = System.Windows.Forms.Timer;
 #endif
 #if UI_PREVIEW
 [assembly: AssemblyFileVersion("2.1.9.8005")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.2")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.3")]
 #elif RDP_TEST
 [assembly: AssemblyFileVersion("2.1.3.7001")]
 [assembly: AssemblyInformationalVersion("2.1.3-beta.6")]
@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.9.2")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.2")]
+[assembly: AssemblyFileVersion("2.1.9.3")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.3")]
 #endif
 
 namespace Offhand.Companion
@@ -190,7 +190,7 @@ namespace Offhand.Companion
 
     internal static class CompanionDistribution
     {
-        internal const string WebsiteUrl = "https://offhand-wow.onrender.com/";
+        internal const string WebsiteUrl = "https://offhandwow.com/";
         internal const string DiscordUrl = "https://discord.gg/J2P3SM6pAY";
         internal const string CurseForgeUrl = "https://www.curseforge.com/wow/addons/offhand";
 
@@ -2757,18 +2757,37 @@ namespace Offhand.Companion
         internal static bool Matches(Rectangle requested, ClassicGraphicsRecovery.Observation actual,
             uint beforeDpi, uint afterDpi)
         {
-            if (beforeDpi == 0 || afterDpi <= beforeDpi || actual == null || !actual.Usable
+            if (beforeDpi == 0 || afterDpi == 0 || afterDpi == beforeDpi || actual == null || !actual.Usable
                 || actual.Bounds.Location != requested.Location || actual.Client != actual.Bounds.Size
                 || actual.Region != new Rectangle(Point.Empty, requested.Size)
                 || (actual.Style & (NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME)) != 0)
                 return false;
             // Windows can round the suggested dimensions and cap width at its
             // tracking limit. Require the height to match the measured DPI ratio
-            // and the width to grow without exceeding the scaled request.
+            // and the width to move toward the scaled request without passing it:
+            // larger when WoW lands on a higher scale, smaller on a lower one.
             double ratio = (double)afterDpi / beforeDpi;
-            return actual.Bounds.Width > requested.Width
-                && actual.Bounds.Width <= Math.Ceiling(requested.Width * ratio)
-                && Math.Abs(actual.Bounds.Height - requested.Height * ratio) <= 1;
+            bool width = afterDpi > beforeDpi
+                ? actual.Bounds.Width > requested.Width && actual.Bounds.Width <= Math.Ceiling(requested.Width * ratio)
+                : actual.Bounds.Width < requested.Width && actual.Bounds.Width >= Math.Floor(requested.Width * ratio);
+            return width && Math.Abs(actual.Bounds.Height - requested.Height * ratio) <= 1;
+        }
+
+        // Every kind of span gets the one exact retry: manual and automatic, standard and
+        // custom, Remote Desktop and graphics recovery. Only the graphics-recovery test
+        // candidate leaves it out, so its VSync measurements stay unchanged.
+        internal static bool Allowed(bool graphicsRecoveryTestBuild)
+        {
+            return !graphicsRecoveryTestBuild;
+        }
+
+        // The retry only runs when the session and the displays are still the ones the span was
+        // planned for. A local span needs the same local displays; a Remote Desktop span needs
+        // the same confirmed connection and displays.
+        internal static bool SameSession(bool remote, RemoteDesktop.State now, bool sameRemoteConnection, bool sameDisplays)
+        {
+            if (remote) return now == RemoteDesktop.State.Active && sameRemoteConnection && sameDisplays;
+            return now == RemoteDesktop.State.Local && sameDisplays;
         }
 
         internal static bool IsExact(Rectangle requested, ClassicGraphicsRecovery.Observation actual, int style)
@@ -3983,6 +4002,41 @@ namespace Offhand.Companion
         }
     }
 
+    // Auto-span for custom layouts (a custom workspace, secondary area, workspace regions or a flexible layout).
+    // These were manual-only. They may now span automatically, but only once that exact layout has been spanned
+    // by hand on the same monitors: a manual Span WoW Now records the layout's fingerprint, and an automatic span
+    // goes ahead only while the fingerprint still matches. Editing, loading or switching layouts, or a monitor
+    // being moved, changed or disconnected, changes it, so the next launch waits for one manual span again.
+    internal static class CustomAutoSpan
+    {
+        internal const string SettingKey = "CustomAutoSpanKey";
+
+        internal static string Fingerprint(MonitorSelection.Plan plan, IList<MonitorSelection.Display> displays)
+        {
+            if (plan == null || displays == null) return null;
+            string layout = CompanionTopologyBridge.LayoutKey(plan, displays);
+            var sizes = new List<string>();
+            foreach (var display in displays) sizes.Add(display.StableId + "@" + display.Bounds.ToString());
+            sizes.Sort(StringComparer.Ordinal);
+            using (var sha = SHA256.Create())
+            {
+                byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(layout + "\n" + string.Join(";", sizes.ToArray())));
+                return BitConverter.ToString(hash).Replace("-", "");
+            }
+        }
+
+        // null: go ahead. Otherwise the reason the automatic span is skipped.
+        internal static string Refusal(bool custom, bool manual, bool graphicsRecovery, string recorded, string current)
+        {
+            if (!custom || manual) return null;
+            if (graphicsRecovery) return "Custom regions are manual-only for graphics recovery. Click Span WoW Now.";
+            if (string.IsNullOrEmpty(recorded) || !string.Equals(recorded, current, StringComparison.Ordinal))
+                return "Auto-span skipped: this custom layout has not been spanned by hand on the current monitors yet "
+                    + "(or the layout or a monitor changed since). Click Span WoW Now once; later launches will auto-span it.";
+            return null;
+        }
+    }
+
     internal static class ProcessPathResolver
     {
         internal static string Get(Process process)
@@ -4624,6 +4678,229 @@ namespace Offhand.Companion
         }
     }
 
+    // A small picture of the monitors, to scale: each display with its number and resolution, the game area
+    // (Mainhand) in green, the Offhand workspace(s) in amber, and a dashed outline round the whole span. Read
+    // only: it draws the current selection and plan, and changes nothing.
+    internal sealed class DisplayPreview : Control
+    {
+        internal static readonly Color GameFill = Color.FromArgb(55, 105, 74);       // N4UX's layout diagrams
+        internal static readonly Color WorkspaceFill = Color.FromArgb(175, 130, 44);
+        internal static readonly Color DisplayFill = Color.FromArgb(28, 28, 34);
+        internal static readonly Color Edge = Color.FromArgb(65, 52, 28);
+        internal static readonly Color Gold = Color.FromArgb(145, 115, 55);
+        internal static readonly Color Ink = Color.FromArgb(235, 230, 215);
+
+        internal sealed class Shape
+        {
+            internal RectangleF Area;
+            internal string[] Titles;      // longest first; the first that fits is drawn
+            internal string Detail;
+            internal Color Fill;           // Color.Empty: a label only (a monitor's free desktop part)
+            internal string Badge;         // a monitor's number, in its corner
+            internal string Title { get { return Titles == null || Titles.Length == 0 ? "" : Titles[0]; } }
+        }
+
+        private List<MonitorSelection.Display> displays = new List<MonitorSelection.Display>();
+        private MonitorSelection.Plan plan;
+
+        internal DisplayPreview()
+        {
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer
+                | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            BackColor = Color.FromArgb(14, 14, 17);
+        }
+
+        internal void SetLayout(List<MonitorSelection.Display> current, MonitorSelection.Plan currentPlan)
+        {
+            displays = current ?? new List<MonitorSelection.Display>();
+            plan = currentPlan;
+            Invalidate();
+        }
+
+        // The scale and offset that fit every display (and the span) in a box, with a margin.
+        internal static float Fit(IList<Rectangle> rects, Size box, int margin, out PointF origin)
+        {
+            origin = PointF.Empty;
+            if (rects == null || rects.Count == 0 || box.Width <= 2 * margin || box.Height <= 2 * margin) return 0;
+            Rectangle all = rects[0];
+            foreach (var r in rects) all = Rectangle.Union(all, r);
+            if (all.Width <= 0 || all.Height <= 0) return 0;
+            float k = Math.Min((box.Width - 2f * margin) / all.Width, (box.Height - 2f * margin) / all.Height);
+            origin = new PointF((box.Width - all.Width * k) / 2f - all.X * k, (box.Height - all.Height * k) / 2f - all.Y * k);
+            return k;
+        }
+
+        internal static RectangleF Place(Rectangle r, float k, PointF origin)
+        {
+            return new RectangleF(origin.X + r.X * k, origin.Y + r.Y * k, r.Width * k, r.Height * k);
+        }
+
+        private static string Dims(Rectangle r) { return r.Width + "\u00d7" + r.Height; }
+
+        // The widest part of a display left of or right of the areas on it (its free desktop), if any.
+        internal static Rectangle FreePart(Rectangle display, List<Rectangle> areas)
+        {
+            int left = display.Right, right = display.Left;
+            foreach (var a in areas)
+            {
+                Rectangle on = Rectangle.Intersect(display, a);
+                if (on.Width <= 0 || on.Height <= 0) continue;
+                left = Math.Min(left, on.Left);
+                right = Math.Max(right, on.Right);
+            }
+            if (left >= right) return Rectangle.Empty;   // nothing on it
+            int before = left - display.Left, after = display.Right - right;
+            if (Math.Max(before, after) < display.Width / 8) return Rectangle.Empty;
+            return before >= after ? new Rectangle(display.Left, display.Top, before, display.Height)
+                : new Rectangle(right, display.Top, after, display.Height);
+        }
+
+        // What's drawn, in drawing order: the displays, the game and workspace areas over them, then labels
+        // for the desktop parts left free.
+        internal static List<Shape> Shapes(List<MonitorSelection.Display> displays, MonitorSelection.Plan plan, Size box,
+            out RectangleF span)
+        {
+            span = RectangleF.Empty;
+            var shapes = new List<Shape>();
+            var rects = new List<Rectangle>();
+            foreach (var d in displays) rects.Add(d.Bounds);
+            if (plan != null && plan.Bounds.Width > 0) rects.Add(plan.Bounds);
+            PointF origin;
+            float k = Fit(rects, box, 6, out origin);
+            if (k <= 0) return shapes;
+            var areas = new List<Rectangle>();
+            var areaShapes = new List<Shape>();
+            if (plan != null)
+            {
+                if (plan.MainhandBounds.Width > 0)
+                {
+                    areas.Add(plan.MainhandBounds);
+                    areaShapes.Add(new Shape { Area = Place(plan.MainhandBounds, k, origin), Titles = new[] { "Mainhand (game)", "Game" },
+                        Detail = Dims(plan.MainhandBounds), Fill = GameFill });
+                }
+                if (plan.MultiRegion)
+                {
+                    foreach (var w in plan.Workspaces)
+                        if (w != null && w.Bounds.Width > 0)
+                        {
+                            areas.Add(w.Bounds);
+                            areaShapes.Add(new Shape { Area = Place(w.Bounds, k, origin), Titles = new[] { "Workspace " + w.Id, w.Id },
+                                Detail = Dims(w.Bounds), Fill = WorkspaceFill });
+                        }
+                }
+                else if (plan.WorkspaceBounds.Width > 0)
+                {
+                    areas.Add(plan.WorkspaceBounds);
+                    areaShapes.Add(new Shape { Area = Place(plan.WorkspaceBounds, k, origin), Titles = new[] { "Offhand workspace", "Workspace", "Offhand" },
+                        Detail = Dims(plan.WorkspaceBounds), Fill = WorkspaceFill });
+                }
+                if (plan.Bounds.Width > 0) span = Place(plan.Bounds, k, origin);
+            }
+            var free = new List<Shape>();
+            foreach (var d in displays)
+            {
+                string n = (d.Index + 1).ToString();
+                bool covered = false;
+                foreach (var a in areas)
+                {
+                    Rectangle on = Rectangle.Intersect(d.Bounds, a);
+                    if (on.Width > 0 && on.Height > 0) covered = true;   // touching along an edge isn't on it
+                }
+                // a display with nothing on it: its own name and size; with areas on it: just its number badge
+                shapes.Add(new Shape { Area = Place(d.Bounds, k, origin), Fill = DisplayFill, Badge = covered ? n : null,
+                    Titles = covered ? null : new[] { "Display " + n, n }, Detail = covered ? null : Dims(d.Bounds) });
+                if (covered)
+                {
+                    Rectangle part = FreePart(d.Bounds, areas);
+                    if (part.Width > 0)
+                        free.Add(new Shape { Area = Place(part, k, origin), Titles = new[] { "Desktop", "" }, Detail = Dims(part),
+                            Fill = Color.Empty });
+                }
+            }
+            shapes.AddRange(areaShapes);
+            shapes.AddRange(free);
+            return shapes;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            Draw(e.Graphics, ClientRectangle, Font, displays, plan);
+        }
+
+        private static void Label(Graphics g, Shape shape, Rectangle box, Font title, Font detail, Color colour)
+        {
+            if (shape.Titles == null) return;
+            string text = null;
+            Size t = Size.Empty;
+            foreach (var option in shape.Titles)
+            {
+                if (string.IsNullOrEmpty(option)) continue;
+                Size measured = TextRenderer.MeasureText(option, title);
+                if (measured.Width <= box.Width - 4 && measured.Height <= box.Height) { text = option; t = measured; break; }
+            }
+            if (text == null) return;
+            Size dsz = string.IsNullOrEmpty(shape.Detail) ? Size.Empty : TextRenderer.MeasureText(shape.Detail, detail);
+            bool both = dsz.Height > 0 && t.Height + dsz.Height <= box.Height - 2 && dsz.Width <= box.Width - 4;
+            int top = box.Y + (box.Height - (both ? t.Height + dsz.Height : t.Height)) / 2;
+            TextRenderer.DrawText(g, text, title, new Rectangle(box.X, top, box.Width, t.Height), colour,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPrefix);
+            if (both)
+                TextRenderer.DrawText(g, shape.Detail, detail, new Rectangle(box.X, top + t.Height, box.Width, dsz.Height), colour,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPrefix);
+        }
+
+        // The drawing itself (a separate step, so it can be drawn onto a picture too)
+        internal static void Draw(Graphics g, Rectangle client, Font font, List<MonitorSelection.Display> displays,
+            MonitorSelection.Plan plan)
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            RectangleF span;
+            var shapes = Shapes(displays, plan, client.Size, out span);
+            if (shapes.Count == 0)
+            {
+                TextRenderer.DrawText(g, "No displays found.", font, client, Color.FromArgb(155, 145, 130),
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+            float unit = g.DpiX / 96f;
+            var muted = Color.FromArgb(155, 145, 130);
+            using (var title = new Font(font.FontFamily, 8.5f, FontStyle.Bold))
+            using (var detail = new Font(font.FontFamily, 7.5f))
+            using (var badgeFont = new Font(font.FontFamily, 7f, FontStyle.Bold))
+            using (var edge = new Pen(Edge, 1))
+            {
+                foreach (var shape in shapes)
+                {
+                    RectangleF a = shape.Fill.IsEmpty ? shape.Area : RectangleF.Inflate(shape.Area, -1.5f * unit, -1.5f * unit);
+                    if (a.Width < 2 || a.Height < 2) continue;
+                    if (!shape.Fill.IsEmpty)
+                    {
+                        using (var fill = new SolidBrush(shape.Fill)) g.FillRectangle(fill, a);
+                        g.DrawRectangle(edge, a.X, a.Y, a.Width, a.Height);
+                    }
+                    Label(g, shape, Rectangle.Round(a), title, detail, shape.Fill.IsEmpty ? muted : Ink);
+                }
+                if (span.Width > 0)
+                    using (var outline = new Pen(Gold, 1.5f * unit) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
+                        g.DrawRectangle(outline, span.X + 0.5f, span.Y + 0.5f, span.Width - 1, span.Height - 1);
+                // each monitor's number in its corner, over everything
+                foreach (var shape in shapes)
+                {
+                    if (shape.Badge == null) continue;
+                    Size b = TextRenderer.MeasureText(shape.Badge, badgeFont);
+                    var spot = new RectangleF(shape.Area.X + 4 * unit, shape.Area.Y + 4 * unit, b.Width + 4 * unit, b.Height);
+                    // only where there's room above the centred labels, so it never sits on top of one
+                    if (spot.Right > shape.Area.Right || shape.Area.Height < 64 * unit) continue;
+                    using (var back = new SolidBrush(Color.FromArgb(200, 12, 12, 14))) g.FillRectangle(back, spot);
+                    using (var line = new Pen(Gold, 1)) g.DrawRectangle(line, spot.X, spot.Y, spot.Width, spot.Height);
+                    TextRenderer.DrawText(g, shape.Badge, badgeFont, Rectangle.Round(spot), Ink,
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+                }
+            }
+        }
+    }
+
     public class CompanionForm : Form
     {
 #if HDR_DPI_DIAGNOSTICS_TEST || GRAININESS_TEST || FOREVER_GRAPHICS_RECOVERY_TEST || RETAIL_GRAPHICS_RECOVERY_TEST || CLASSIC_GRAPHICS_RECOVERY_TEST
@@ -4631,7 +4908,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.9-beta.2";
+        internal const string BaseVersion = "2.1.9-beta.3";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 5";
@@ -4729,6 +5006,7 @@ namespace Offhand.Companion
         private Label lblAddonStatus;
         private Label lblDisplayInfo;
         private Label lblColorModes;
+        private DisplayPreview displayPreview;
         private Label lblColorWarning;
         private Label lblScaleInfo;
         private Label lblStatusSummary;
@@ -5113,7 +5391,7 @@ namespace Offhand.Companion
 #if UI_PREVIEW
             chkAutoSpan.Enabled = false;
 #else
-            chkAutoSpan.Enabled = local && !partial && !GraphicsRecoveryTestBuild;
+            chkAutoSpan.Enabled = local && !GraphicsRecoveryTestBuild;
 #endif
             if (itemAuto != null) itemAuto.Enabled = chkAutoSpan.Enabled;
         }
@@ -6221,7 +6499,7 @@ namespace Offhand.Companion
             uiToolTips.SetToolTip(btnPartialSpan, "Edit a custom workspace or return to a standard display layout.");
 
             uiToolTips.SetToolTip(chkAutoSpan,
-                "Automatically span the selected WoW client after the delay. When several clients are open, choose one in the WoW client list.");
+                "Automatically span the selected WoW client after the delay. When several clients are open, choose one in the WoW client list. A custom layout auto-spans after you have spanned it once with Span WoW Now on the same monitors.");
             uiToolTips.SetToolTip(lblDelay,
                 "Wait time before automatically spanning a newly detected WoW window. Use 0 for immediate pre-login spanning.");
             uiToolTips.SetToolTip(numDelaySpan,
@@ -6355,6 +6633,10 @@ namespace Offhand.Companion
             // Color status is advisory and never gates Span or auto-spanning.
             Panel colorPanel = CreateCardPanel(16, 570, 490, 206, "Display Diagnostics");
             this.Controls.Add(colorPanel);
+            displayPreview = new DisplayPreview { Location = new Point(10, 28), Size = new Size(470, 120),
+                Font = new Font("Segoe UI", 8.5f) };
+            colorPanel.Controls.Add(displayPreview);
+            uiToolTips.SetToolTip(displayPreview, "Your displays to scale: the game area (Mainhand) in green, the Offhand workspace in amber, and the area WoW's window spans outlined.");
             lblColorModes = new Label { Text = "Color mode: Checking...", Location = new Point(10, 28),
                 Size = new Size(470, 38), Font = new Font("Segoe UI", 8.5f), ForeColor = cText, UseMnemonic = false };
             colorPanel.Controls.Add(lblColorModes);
@@ -6913,9 +7195,9 @@ namespace Offhand.Companion
             }
         }
 
-        private int LayoutDashboardLabels(Panel panel, Label[] labels, float scale)
+        private int LayoutDashboardLabels(Panel panel, Label[] labels, float scale, int below = 0)
         {
-            int y = (int)Math.Ceiling(40 * scale);
+            int y = (int)Math.Ceiling(40 * scale) + below;
             int inset = (int)Math.Ceiling(14 * scale);
             int gap = (int)Math.Ceiling(5 * scale);
             foreach (var label in labels)
@@ -6926,7 +7208,7 @@ namespace Offhand.Companion
                 label.SetBounds(inset, y, Math.Max(1, panel.Width - 2 * inset), height);
                 if (height > 0) y += height + gap;
             }
-            return Math.Max((int)Math.Ceiling(40 * scale), y - gap);
+            return Math.Max((int)Math.Ceiling(40 * scale) + below, y - gap);
         }
 
         private static FlowLayoutPanel CreateDashboardColumn(Padding margin)
@@ -7086,7 +7368,12 @@ namespace Offhand.Companion
                     }
                     else if (panel.Controls.Contains(lblColorModes))
                     {
-                        int bottom = LayoutDashboardLabels(panel, new[] { lblColorModes, lblColorWarning, lblScaleInfo }, scale);
+                        int previewTop = (int)Math.Ceiling(40 * scale);
+                        int previewHeight = (int)Math.Ceiling(130 * scale);
+                        if (displayPreview != null)
+                            displayPreview.SetBounds(inset, previewTop, Math.Max(1, panel.Width - 2 * inset), previewHeight);
+                        int bottom = LayoutDashboardLabels(panel, new[] { lblColorModes, lblColorWarning, lblScaleInfo }, scale,
+                            displayPreview == null ? 0 : previewHeight + (int)Math.Ceiling(10 * scale));
                         var buttons = new List<Button>();
                         foreach (Control child in panel.Controls) if (child is Button && child != section.Toggle) buttons.Add((Button)child);
                         buttons.Sort((a, b) => a.Left.CompareTo(b.Left));
@@ -7240,7 +7527,7 @@ namespace Offhand.Companion
 
             AppendHelpSection(guide, sectionFont, "After calibration: check your next launch",
                 "Arrange supported panels in WoW. Exit WoW normally, relaunch it, apply your chosen span and confirm that the game, workspace panels and Mainhand HUD return.",
-                "For standard layouts, you may then enable Auto-span WoW on launch and leave Companion in the tray. Custom layouts use Span WoW Now each time. The title-bar X minimizes to the tray; Exit Companion closes it and leaves the current span in place.",
+                "You may then enable Auto-span WoW on launch and leave Companion in the tray. A custom layout auto-spans after you span it once by hand with Span WoW Now; after changing the layout or a monitor, span it by hand once more. The title-bar X minimizes to the tray; Exit Companion closes it and leaves the current span in place.",
                 "Keep Companion running for automatic spanning, active display-disconnect recovery, the remembered Restore Window bounds or an indicated Forever recovery bridge. Restore Window at the top returns WoW to its pre-span window and suspends auto-span for that session. The tray menu provides Pause/Resume background monitoring; manual Span and Restore remain available.");
 
             AppendHelpSection(guide, sectionFont, "Optional: custom workspaces and saved plans",
@@ -7356,9 +7643,10 @@ namespace Offhand.Companion
             {
                 if (whatsNew)
                 {
-                    AppendHelpSection(guide, sectionFont, "More room on your desktop",
-                        "Expand the sections you need in Advanced. Switch back to Setup and the Companion shrinks to fit. Your sections are still expanded when you return.",
-                        "Running two WoW clients? Use the WoW client list on Setup to choose which window to span.");
+                    AppendHelpSection(guide, sectionFont, "What's new in 2.1.9-beta.3 (contributed by Abysmal Kabal)",
+                        "Display Diagnostics now draws a to-scale display preview of your Windows monitor arrangement, showing Mainhand, Workspace regions, and display numbers across side-by-side, stacked, or mixed-DPI setups.",
+                        "Custom workspace layouts now support automatic spanning on WoW launch after one verified manual span on the same monitors.",
+                        "Spanning now retries automatically after Windows DPI or display-scale changes across every span path, including scale decreases.");
                     AppendHelpSection(guide, sectionFont, "Your saved setup",
                         "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
                     AppendHelpSection(guide, sectionFont, "If something looks wrong",
@@ -7716,6 +8004,7 @@ namespace Offhand.Companion
 
         private void RefreshColorStatus(List<MonitorSelection.Display> displays, MonitorSelection.Plan plan, string planFailure = null)
         {
+            if (displayPreview != null) displayPreview.SetLayout(displays, plan);
             if (lblColorModes == null) return;
             if (plan == null)
             {
@@ -8637,8 +8926,11 @@ namespace Offhand.Companion
                 if (handle == IntPtr.Zero) throw new Exception("WoW window is not ready. Retry after it opens.");
 
                 if (!remote) plan = MonitorSelection.CreatePlan(appSettings, displays);
-                if (plan.IsCustom && !manual)
-                    throw new InvalidOperationException("Custom regions are manual-only in this prototype. Click Span WoW Now.");
+                string recordedCustom;
+                appSettings.TryGetValue(CustomAutoSpan.SettingKey, out recordedCustom);
+                string customRefusal = CustomAutoSpan.Refusal(plan.IsCustom, manual, graphicsRecovery, recordedCustom,
+                    plan.IsCustom && !manual ? CustomAutoSpan.Fingerprint(plan, displays) : null);
+                if (customRefusal != null) throw new InvalidOperationException(customRefusal);
                 if (graphicsRecovery)
                 {
                     ClassicGraphicsRecovery expected;
@@ -8654,7 +8946,7 @@ namespace Offhand.Companion
                 Rectangle bounds = plannedBounds;
                 if (bounds.Width <= 0 || bounds.Height <= 0) throw new Exception("Invalid virtual desktop dimensions.");
 
-                bool canRetryDpi = !remote && manual && plan.IsCustom && !graphicsRecovery && !GraphicsRecoveryTestBuild;
+                bool canRetryDpi = SpanDpiRetry.Allowed(GraphicsRecoveryTestBuild);
 #if GRAININESS_TEST
                 canRetryDpi = false;
 #endif
@@ -8790,15 +9082,19 @@ namespace Offhand.Companion
                             uint afterDpi = NativeMethods.ReadWindowDpi(handle);
                             failedBoundsReadback += " Window DPI before/after span: " + beforeDpi + "/" + afterDpi + ".";
                             uint currentOwner;
+                            List<MonitorSelection.Display> nowDisplays = ReadDisplays();
+                            RemoteDesktop.State nowSession = RemoteDesktop.Read();
                             if (SpanDpiRetry.Matches(bounds, observation, beforeDpi, afterDpi)
-                                && RemoteDesktop.Read() == RemoteDesktop.State.Local
-                                && MonitorSelection.SameDisplays(displays, ReadDisplays())
+                                && SpanDpiRetry.SameSession(remote, nowSession,
+                                    remote && RemoteDesktop.SameConnection(nowSession, remoteWatcher.Registered,
+                                        confirmedGeneration, remoteGeneration, displays, nowDisplays),
+                                    MonitorSelection.SameDisplays(displays, nowDisplays))
                                 && GetWoWWindowHandle(proc) == handle
                                 && NativeMethods.GetWindowThreadProcessId(handle, out currentOwner) == spanThread
                                 && spanOwner == currentOwner
                                 && SpanClipRegion.Matches(handle, plan, bounds))
                             {
-                                AddLog(failedBoundsReadback + " Retrying the exact custom span once after the DPI change.");
+                                AddLog(failedBoundsReadback + " Retrying the exact span once after the DPI change.");
                                 NativeMethods.SetLastError(0);
                                 bool resized = NativeMethods.SetWindowPos(handle, IntPtr.Zero, bounds.X, bounds.Y,
                                     bounds.Width, bounds.Height, flags);
@@ -8815,7 +9111,7 @@ namespace Offhand.Companion
                                 if (!resized) failedBoundsReadback += " SetWindowPos Windows error " + resizeError + ".";
                                 if (recovered)
                                 {
-                                    AddLog("Exact custom span verified after the window DPI settled.");
+                                    AddLog("Exact span verified after the window DPI settled.");
                                     failedBoundsReadback = null;
                                 }
                             }
@@ -8913,6 +9209,17 @@ namespace Offhand.Companion
                 else
                 {
                     rollback.Commit();
+                    if (plan.IsCustom && manual && !remote && !graphicsRecovery)
+                    {
+                        string fingerprint = CustomAutoSpan.Fingerprint(plan, displays);
+                        string recorded;
+                        if (!appSettings.TryGetValue(CustomAutoSpan.SettingKey, out recorded) || recorded != fingerprint)
+                        {
+                            appSettings[CustomAutoSpan.SettingKey] = fingerprint;
+                            SaveConfig();
+                            if (chkAutoSpan.Checked) AddLog("Auto-span will use this custom layout on later WoW launches.");
+                        }
+                    }
                     ReportSpanApplied(proc.Id, bounds, manual, remote, plan.IsCustom);
                 }
                 return true;

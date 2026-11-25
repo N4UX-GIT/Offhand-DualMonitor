@@ -115,4 +115,25 @@ for i,id in ipairs(ids) do
     ContainerFrameCombinedBags.workspace=true;combinedIDs[id]=nil
     module:Refresh();assert(not overrides[slotKeys[i]],"closed separate bag must open normally")
 end
+
+-- Bridge-provided replacement bag (e.g. DaylightUI_Bags): masking B when
+-- keepBagToggleOpen is true, and immediately unbinding B (while preserving M)
+-- when keepBagToggleOpen is toggled off.
+local bridgeBag = root(); bridgeBag.shown = true
+addon.BagPersistence = { frames = {} }
+addon.Bridges = { IsBagOnWorkspace = function(_, fn) return fn(bridgeBag) end }
+ContainerFrameCombinedBags.shown = false
+ContainerFrame1.shown = false
+WorldMapFrame.shown = true; WorldMapFrame.workspace = true
+keys.TOGGLEWORLDMAP = { "M" }; native.M = "TOGGLEWORLDMAP"
+keys.OPENALLBAGS = { "B" }; native.B = "OPENALLBAGS"
+overrides.B = nil; overrides.M = nil
+addon.db.keepMapToggleOpen = true
+addon.db.keepBagToggleOpen = true
+module:Refresh()
+assert(overrides.B and overrides.M, "bridge bag on Offhand must mask B when keepBagToggleOpen is enabled")
+addon.db.keepBagToggleOpen = false
+module:Refresh()
+assert(not overrides.B and overrides.M, "disabling keepBagToggleOpen must immediately unbind B while keeping M")
+
 print("PASS: map, backpack and individual bag keys, window ownership, rebinding and combat cleanup")

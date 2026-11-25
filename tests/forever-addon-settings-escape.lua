@@ -63,9 +63,15 @@ local noSource = RandomRoot('Faaaaaaaaaaaaaaaa','Leatrix_Maps',{mt={},v={}})
 noSource.GetSourceLocation=false
 local throws = RandomRoot('Fbbbbbbbbbbbbbbbb','Leatrix_Maps',{mt={},v={}})
 throws.GetSourceLocation=function() error('debug access unavailable') end
-local loader=loadfile('Core/CanvasAddonEscape.lua')
-if loader then loader('Offhand',addon) end
-local adapter=addon.CanvasAddonEscape or {Refresh=function() end}
+assert(loadfile('Core/AddonWindowCatalog.lua'))('Offhand',addon)
+assert(loadfile('Core/CanvasAddonEscape.lua'))('Offhand',addon)
+local adapter=addon.CanvasAddonEscape
+local journalPolicy=addon.AddonWindowCatalog.ForeverDungeonJournal.journal
+local workspaceClose=journalPolicy.close
+journalPolicy.close='native'
+adapter:Refresh()
+assert(Has('ForeverDungeonJournalFrame'),'a recognized root with native close policy must retain native Escape')
+journalPolicy.close=workspaceClose
 adapter:Refresh()
 assert(not Has('OffhandFloatingConfigFrame'),'Offhand workspace settings must be protected')
 for _,name in ipairs({'F1111111111111111','F2222222222222222','F3333333333333333',

@@ -22,6 +22,17 @@ Copy-Item -LiteralPath (Join-Path $root "Offhand_Wrath335a.toc") `
 foreach ($directory in @("Core", "Locales", "UI")) {
     Copy-Item -LiteralPath (Join-Path $root $directory) -Destination $staging -Recurse
 }
+if (Test-Path -LiteralPath (Join-Path $root "Bridges") -PathType Container) {
+    Get-ChildItem -LiteralPath (Join-Path $root "Bridges") -Filter "*.lua" -File -Recurse | ForEach-Object {
+        $rel = $_.FullName.Substring($root.Length).TrimStart('\', '/')
+        $dest = Join-Path $staging $rel
+        $destDir = Split-Path -Parent $dest
+        if (-not (Test-Path -LiteralPath $destDir -PathType Container)) {
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+        }
+        Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+    }
+}
 
 $media = Join-Path $staging "Media"
 New-Item -ItemType Directory -Path $media -Force | Out-Null

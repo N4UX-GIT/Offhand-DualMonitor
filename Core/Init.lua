@@ -53,7 +53,7 @@ Offhand.companionDownloadUrl = Offhand.companionStoreUrl
 -- The addon only links to Microsoft's documentation. It does not inspect or
 -- depend on PowerToys; FancyZones is one optional way to place the WoW window.
 Offhand.powerToysDownloadUrl = "https://aka.ms/getPowerToys"
-Offhand.websiteUrl = "https://offhand-wow.onrender.com/"
+Offhand.websiteUrl = "https://offhandwow.com/"
 Offhand.discordUrl = "https://discord.gg/J2P3SM6pAY"
 Offhand.modules = {}
 Offhand.callbacks = {}
@@ -665,6 +665,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
     local setupPopup = popupKey == "OFFHAND_DOWNLOAD_LINK" or popupKey == "OFFHAND_POWERTOYS_LINK"
         or popupKey == "OFFHAND_SETUP_MANUAL_RELOAD"
         or popupKey == "OFFHAND_WEBSITE_LINK" or popupKey == "OFFHAND_DISCORD_LINK"
+        or popupKey == "OFFHAND_STUDIO_LINK"
         or popupKey == "OFFHAND_CONFIRM_WINDOWED_MODE"
         or popupKey == "OFFHAND_CONFIRM_PLACEMENT"
         or popupKey == "OFFHAND_CONFIRM_PROFILE"
@@ -1539,6 +1540,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         Offhand:Print(L["MSG_LOADED"], Offhand.version)
 
     elseif event == "PLAYER_LEAVING_WORLD" or event == "PLAYER_LOGOUT" then
+        if Offhand.isForever and Offhand.Canvas and Offhand.Canvas.ResetForeverMapZone then
+            Offhand.Canvas:ResetForeverMapZone(false)
+        end
         -- Some Forever builds dispatch PLAYER_LOGOUT, but not
         -- PLAYER_LEAVING_WORLD, during /reload. Capture once per transition so
         -- a later teardown event cannot replace the visible snapshot with an
@@ -1554,6 +1558,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 and transitionMetrics.topologyStatus == "MISMATCH")
         if not preserveWorkspaceSnapshot and Offhand.Canvas and Offhand.Canvas.FinalizeForeverNativeBagStateForTransition then
             Offhand.Canvas:FinalizeForeverNativeBagStateForTransition()
+        end
+        if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.restoreWorkspaceOnReload ~= false then
+            if Offhand.Bridges and Offhand.Bridges.CaptureWorkspaceState then
+                Offhand.Bridges:CaptureWorkspaceState()
+            end
         end
         if not preserveWorkspaceSnapshot and Offhand.db and Offhand.db.enabled and Offhand.db.savedWorkspacePositions and Offhand.db.restoreWorkspaceOnReload ~= false then
             if Offhand.CanvasBackpackState and Offhand.Canvas then
@@ -1623,6 +1632,9 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand.ForeverPersistence:SaveProfileSnapshot(true)
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
+        if Offhand.isForever and Offhand.Canvas and Offhand.Canvas.ResetForeverMapZone then
+            Offhand.Canvas:ResetForeverMapZone(true)
+        end
         Offhand._openPanelsCapturedForTransition = false
         if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:BeginSession() end
         local shouldEvaluateNotices = not Offhand._hasEnteredWorld
@@ -1726,16 +1738,22 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
     elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED"
         or event == "ZONE_CHANGED_INDOORS" then
         if Offhand.Canvas and Offhand.Canvas.RequestPersistentWorldMapRefocus then
-            Offhand.Canvas:RequestPersistentWorldMapRefocus()
+            Offhand.Canvas:RequestPersistentWorldMapRefocus(true)
         end
 
     elseif event == "PLAYER_REGEN_DISABLED" then
+        if Offhand.isForever and Offhand.Canvas and Offhand.Canvas.ResetForeverMapZone then
+            Offhand.Canvas:ResetForeverMapZone(false)
+        end
         if not Offhand._loggingOut and Offhand.Canvas and Offhand.Canvas.PrepareCombatPanelClamps then
             Offhand.Canvas:PrepareCombatPanelClamps()
         end
 
     elseif event == "PLAYER_REGEN_ENABLED" then
         if Offhand._loggingOut then return end
+        if Offhand.isForever and Offhand.Canvas and Offhand.Canvas.ResetForeverMapZone then
+            Offhand.Canvas:ResetForeverMapZone(true)
+        end
         if Offhand.Canvas and Offhand.Canvas.ReleaseCombatPanelClamps then
             Offhand.Canvas:ReleaseCombatPanelClamps()
         end
@@ -1894,10 +1912,13 @@ SLASH_OFFHAND2 = "/oh"
 SLASH_OFFHAND3 = "/Offhand"
 
 SlashCmdList["OFFHAND"] = function(msg)
-    msg = strtrim(msg or ""):lower()
+    local input = strtrim(msg or "")
+    msg = input:lower()
     local cmd, arg = strsplit(" ", msg, 2)
 
-    if cmd == "recovermap" and Offhand.OpenMapRecovery then
+    if cmd == "window" and Offhand.LearnedAddonWindows then
+        Offhand.LearnedAddonWindows:Run(input:match("^%S+%s*(.*)$"))
+    elseif cmd == "recovermap" and Offhand.OpenMapRecovery then
         Offhand.OpenMapRecovery:RunAndReport(strtrim(arg or "") == "offhand")
     elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
         Offhand.EllesmereLayout:Run(strtrim(arg or ""))

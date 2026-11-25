@@ -45,6 +45,35 @@ function UI.Build(tabs,card,options)
         return m and m.workspaceRegions or {}
     end
 
+    local learning
+    if Offhand.isForever and Offhand.AddonWindowSelection then
+        learning = card(tabs.panels, L.LEARN_WINDOW_MODE_TITLE, 128,
+            L.LEARN_WINDOW_HELP_OVERVIEW, L.LEARN_WINDOW_HELP_STEPS, L.LEARN_WINDOW_HELP_ELIGIBLE)
+        local learnDesc = Text(learning, L.LEARN_WINDOW_CARD_DESC, 12, -34, 628)
+        local descBottom = 42 + Controls.FitCompactParagraph(learnDesc, L.LEARN_WINDOW_CARD_DESC, 628)
+        local learnList = Text(learning, "", 12, -descBottom, 628)
+        if learnList.SetTextColor then learnList:SetTextColor(0.76, 0.78, 0.84) end
+        local learnBtn = Button(learning, L.BINDING_NAME_OFFHAND_LEARN_WINDOW, 12, -(descBottom + 24), 330, function()
+            Offhand.AddonWindowSelection:Toggle(true)
+        end)
+        if Offhand.SetTooltip then
+            Offhand:SetTooltip(learnBtn, L.BINDING_NAME_OFFHAND_LEARN_WINDOW, L.LEARN_WINDOW_HELP)
+        end
+        refreshers[#refreshers + 1] = function()
+            local names = Offhand.LearnedAddonWindows and Offhand.LearnedAddonWindows.ListNames
+                and Offhand.LearnedAddonWindows:ListNames() or {}
+            local listText = string.format(L.LEARN_WINDOW_LIST,
+                #names > 0 and table.concat(names, ", ") or (NONE or "None"))
+            learnList:SetText(listText)
+            local listHeight = Controls.FitCompactParagraph(learnList, listText, 628)
+            local btnTop = descBottom + listHeight + 8
+            learnBtn:ClearAllPoints()
+            learnBtn:SetPoint("TOPLEFT", learning, "TOPLEFT", 12, -btnTop)
+            learning:SetHeight(btnTop + 40)
+            if learning.onSizingChanged then learning.onSizingChanged() end
+        end
+    end
+
     local profiles=card(tabs.profiles,L.WORKSPACE_PROFILES_TITLE,140,
         L.WORKSPACE_PROFILES_HELP,L.WORKSPACE_PRESETS_WORKFLOW)
     local profileHelp=Text(profiles,L.WORKSPACE_PROFILES_HELP,12,-34,628)
@@ -344,7 +373,8 @@ function UI.Build(tabs,card,options)
     UI.refreshers=refreshers
     -- Resolve profile selection before its choice label is first rendered.
     local _,current=Offhand.WorkspaceProfiles:List();selected=current
-    UI.controls={sizing=sizing,profiles=profiles,picker=picker,name=input,routing=routing,themes=themeCard,regions=regionRows}
+    UI.controls={learning=learning,sizing=sizing,profiles=profiles,picker=picker,name=input,
+        routing=routing,themes=themeCard,regions=regionRows}
     UI:Refresh()
     return UI.controls
 end

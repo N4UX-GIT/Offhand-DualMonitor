@@ -2,6 +2,52 @@
 
 Stable IDs for reports that require follow-up across test sessions.
 
+## Current Known Issues and Open QA Status (2026-11-24)
+
+Baseline: **Offhand `2.1.5-beta.39`** (`origin/main` `1463937`) paired with **Companion `2.1.9-beta.2`**, plus **Beta 40 Candidate** (`codex/offhand-beta40-candidate`: Forever outdoor map zone following, live multipage book confirmation, and Forever Addon Window Catalog + Learned Addon Windows).
+
+### Active Known Issues (Player-Facing)
+
+| ID / Area | Client / Scope | Current Status and Workaround | Evidence / Reference |
+| --- | --- | --- | --- |
+| Separate Blizzard backpack combat warning | Forever `1.60.1.71037`, restored separate bags | Reopening a restored separate Blizzard backpack with `B` during combat can still show a yellow interface warning. The backpack still opens at its saved spot; `B` reopens the backpack only. | [Beta 39 QA](FOREVER-BETA39-RELEASE-QA.md), `CHANGELOG.md` |
+| Bags remaining open during flight paths | Forever (reported in Beta 38) | A player reported bags stayed open while speaking to a flight master and taking off. Flight-path bag behavior remains deferred pending live capture and regression coverage. | [COMPATIBILITY.md](COMPATIBILITY.md), `tests/compatibility/forever-native-real-escape.json` |
+| Loading screen artwork crop on mixed-size spans | Windows multi-monitor (different monitor sizes) | Loading screen artwork can appear cropped while spanning monitors of different sizes; the in-game viewport returns to its assigned display once loading completes. | `CHANGELOG.md` (Beta 39) |
+| DaylightUI 2.2.3 trainer resize error | Forever `1.60.1.71037`, DaylightUI `2.2.3` | Resizing/spanning with a trainer list open triggers a DaylightUI `Npc/Window.lua:380` Lua error (`choices`). Reproduces with Offhand disabled (upstream DaylightUI issue); placement itself is resolved. | [COMPATIBILITY.md](COMPATIBILITY.md) |
+| Forever `71037` gamepad bag focus taint | Forever `1.60.1.71037` (upstream Blizzard) | `Blizzard_GamepadSharedUtility/FrameControlsManager.lua` notifies `FrameShown`/`FrameHidden` for `ContainerFrameCombinedBags` even when Gamepad UI is disabled. Upstream patch reference retained in-repo. | [forever-71037-gamepad-bag-focus.patch](patches/forever-71037-gamepad-bag-focus.patch) |
+
+### Open Live QA, Stale Receipts, and Hardware Gates (Before Beta 40 / Promotion)
+
+Automated checks pass on `codex/offhand-beta40-candidate` (11/11 compatibility-checker tests, 6 manifests, 90 runtime Lua files, 143 Lua suites). Live client, hardware, and reporter evidence remain separate:
+
+| Gate | Scope | What Remains Unchecked |
+| --- | --- | --- |
+| Beta 40 stale compatibility receipts | Forever `1.60.1.71037` | Re-run live QA against the Beta 40 candidate runtime and refresh `tests/compatibility/forever-native-real-escape.json` (`Canvas.lua`, `CanvasAddonEscape.lua`, `HUDCompatibility.lua`, `Init.lua`) and `tests/compatibility/forever-workspace-restart.json` (`Canvas.lua`, `CanvasForeverMap.lua`, `CanvasMapPresentation.lua`, `Init.lua`) so `python scripts/check-compatibility.py --require-fresh-live` passes. |
+| Learned Addon Windows + Catalog | Forever (new in Beta 40 candidate) | Live mouse picking, keyboard focus cycling (`Next`/`Add`), saving/forgetting, reload restoration, frame strata/level ordering, and coexistence with cataloged providers (Leatrix, Platynator, ForeverDungeonJournal, Baganator). |
+| Deferred Forever native bag & restart cases | Forever `1.60.1.71037` | Flight paths, in-combat Escape, live character with equipped bags 1–4 (B + numbered bag keys), and full cold restart with span already active at login. |
+| Deferred Forever panels & third-party addons | Forever | Talents (awaiting tester confirmation), Achievements & Group Finder (post-release follow-up), Encounter Journal (untested entry point), shared-slot peers (`PVEFrame`, `PVPUIFrame`, `RaidParentFrame`, `GuildControlUI`, `ChatConfigFrame`), AdiBags (no compatible Forever build verified), BetterBags Next full Escape, EllesmereUI detached reagent window, Forever Bag Mover real NPC/Inspect with modifier enabled. |
+| PR & hardware acceptance follow-ups | Cross-client / Windows / Linux | PR #18 (packaged Forever Gamepad ↔ Keyboard HUD switching, targeting & taint), PR #19 (reporter Wine/XWayland), PR #45 (Retail mixed-height Action Bar 1 + XP/rep chain), PR #131 (Companion multi-client running-window picker with 2+ clients), mixed-refresh monitor desk & physical monitor hotplug, `OH-FONTS-AFTER-REMOVAL` (post-release reporter confirmation), `OH-COMP-003` (duplicate display identity native migration/dock/reconnect). |
+| Native macOS Companion | macOS (`companion/macos-native-probe`) | Compile and run real-hardware macOS Accessibility span/restore verification (physical pair, Retina+external, Spaces, Sidecar) and align with contributor SwiftUI Companion work. |
+| WotLK 3.3.5a (private servers) | Experimental (`Interface: 30300`, build `12340`) | Unmodified 3.3.5a live test matrix in [WOTLK-335A-TESTING.md](WOTLK-335A-TESTING.md), Companion flat-folder discovery, and remaining post-3.3.5a API guards. |
+
+### Recently Resolved (Beta 37–39 + Post-Beta 39 Candidate)
+
+- **Forever outdoor map zone following & OpenMap 0.8.13 follow** — Implemented and live-verified on Forever `1.60.1.71037` (Dun Morogh ↔ Ironforge with active quest pins, 0 BugSack errors); included in Beta 40 candidate ([MAP-ZONE-FOLLOW-QA.md](MAP-ZONE-FOLLOW-QA.md)).
+- **Forever multi-page book reading & empty-reload fix** — Live-verified on Forever `1.60.1.71037` on Nov 24 ([COMPATIBILITY.md](COMPATIBILITY.md#books-and-readable-items-on-offhand)).
+- **Workspace full-restart & Restore/Span panel recovery** — Released in Beta 39 ([FOREVER-BETA39-RELEASE-QA.md](FOREVER-BETA39-RELEASE-QA.md)).
+- **Separate/combined Blizzard bags & Baganator Escape + Game Menu** — Released in Beta 39 ([FOREVER-BETA39-RELEASE-QA.md](FOREVER-BETA39-RELEASE-QA.md)).
+- **DaylightUI Trainer, Spellbook, and Talents placement** — Released in Beta 39 ([COMPATIBILITY.md](COMPATIBILITY.md)).
+- **Inventory tooltip crossing display boundary** — Fixed in Beta 38; closed Nov 23 ([COMPATIBILITY.md](COMPATIBILITY.md#inventory-tooltip-crossing-the-display-boundary--resolved)).
+- **Forever error and quest-progress text top inset** — Fixed and live-verified on Forever `1.60.1.71037` ([COMPATIBILITY.md](COMPATIBILITY.md#forever-error-and-quest-progress-text)).
+- **Manual window setup 50/50 split, Fit Window Height, and ultrawide calibration** — Released in Beta 39 across all 11 locales.
+- **Beta 27 first-install Next route, legacy Nov 1–7 Discord/Test 8–19 reports, and `OH-UI-OPTIONS-TOOLTIP-SCALE` (Anniversary `SettingsTooltip`)** — Superseded by Beta 28–39 releases; original dated investigation entries remain archived below for traceability.
+
+---
+
+## Historical Issue Ledger (Archived Dated Entries)
+
+The sections below preserve dated investigation checkpoints and evidence links from earlier beta cycles (Beta 18–36). Do not treat superseded historical entries below as active Beta 39/40 blockers unless listed in the current status tables above.
+
 ## OH-FONTS-AFTER-REMOVAL: tiny chat and resurrection-popup text
 
 **Resolved in the candidate, pending post-release verification.**

@@ -73,6 +73,29 @@ the panel. Repeat with the panel on Mainhand and Offhand.
 | Flight Map | Reopen at multiple flight masters | Frame remains fully visible |
 | Options | Open and close with replacement bags installed | Bag frame does not flicker or play a false open cue |
 
+## Forever 1.60.1.70938 panel inventory
+
+The native manager assigns slots and can reposition an already-visible peer
+before rendering the newly opened panel. Recheck the surviving peer after
+closing either panel. A native slot replacement can deliberately close a peer,
+so verify the resulting slot and visibility before assessing placement.
+
+| Native roots | Coverage and activation |
+| --- | --- |
+| `PlayerSpellsFrame`, `ProfessionsFrame` | Loaded on demand. The automated test runs both opening and closing orders before delayed repairs. The current candidate passed both live. `SpellBookFrame` is a child on the tested route. |
+| `CharacterFrame`, `CollectionsJournal` | The regression checks cover Collections followed by Professions, and Character followed by Collections. Both must remain on Mainhand through native peer open and close. Character can retain its user-placed flag after the native slot manager overwrites its anchor. The test covers that flag and a separate custom anchor. |
+| `FriendsFrame` / `SocialUIFrame`, `CommunitiesFrame` | Shared slots with a dedicated Offhand controller. Forever live testing identified `SocialUIFrame` and confirmed these two panels kept their anchors through Spellbook open and close. |
+| `PVEFrame`, `PVPUIFrame`, `RaidParentFrame`, `EncounterJournal`, `GuildControlUI`, `ChatConfigFrame` | Simulated as shared-slot peers in the panel regression. The test checks the already-open Spellbook and its native slot. Availability, each peer's placement, and native close rules still need client evidence. Guild permissions and the character's progression can limit which entry points are available. |
+| `MerchantFrame`, `TradeFrame`, `MailFrame`, `QuestFrame`, `GossipFrame`, `LootFrame` and load-on-demand bank, auction, trainer and taxi windows | Native interactions control opening and close. Exercise them as peer triggers when available. Keep the interaction, slot and focus intact. Recheck the peer when the interaction ends and when the same interaction reopens. |
+| `EditModeManagerFrame`, `GameMenuFrame`, `CinematicFrame`, `PVPMatchScoreboard`, `PVPMatchResults` | Specialized fullscreen or transient routes. Apply each panel's own visibility and focus contract. |
+
+Run `lua tests/party-editmode-and-void-rescue.lua` for the simulated cases.
+CI treats the Collections and Character cases as required checks. The pinned [panel
+registrations](https://github.com/Gethe/wow-ui-source/blob/bebcb6bf309cf41b41bd74f8ca651e6a105b2676/Interface/AddOns/Blizzard_UIParentPanelManager/Mainline/UIPanelWindows.lua)
+and [layout implementation](https://github.com/Gethe/wow-ui-source/blob/bebcb6bf309cf41b41bd74f8ca651e6a105b2676/Interface/AddOns/Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua#L577-L703)
+describe the registered roots and reflow order. Registrations alone cannot
+establish character access to the corresponding feature.
+
 ## Evidence levels
 
 - `static`: Lua parses, manifests validate, and no forbidden API pattern is found.

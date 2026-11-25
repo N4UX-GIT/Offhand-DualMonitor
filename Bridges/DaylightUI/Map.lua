@@ -1,10 +1,18 @@
--- Cooperate with DaylightUI's public map mover without changing its saved DB
--- or hooking the native map's geometry methods/scripts. Inspected 1.6.5.2/1.6.6:
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local ns = shared
+if type(shared) == "table" and shared.API and shared.API.GetBridgeNamespace then
+    ns = shared.API.GetBridgeNamespace("DaylightUI")
+end
+if type(ns) ~= "table" or ns.contract == false then return end
+
+-- Stands DaylightUI's public map mover aside while Offhand places the world
+-- map (Offhand.API.OwnsWorldMapPlacement), without changing its saved DB or
+-- hooking the native map's geometry methods/scripts. Inspected 1.6.5.2/1.6.6:
 -- Start accepts its config, Scale is read dynamically by all retained Apply
 -- callbacks, and only MapMove reads the projected config supplied here.
-local _, Offhand = ...
 local Adapter = {}
-Offhand.DaylightMapCompatibility = Adapter
+ns.Map = Adapter
 local states = setmetatable({}, { __mode = "k" })
 local current
 
@@ -14,8 +22,7 @@ end
 
 local function FindModule()
     local vendor = _G.DaylightUI
-    if not Offhand.isForever or type(vendor) ~= "table"
-        or type(vendor.GetModule) ~= "function" then return end
+    if type(vendor) ~= "table" or type(vendor.GetModule) ~= "function" then return end
     local ok, module = pcall(vendor.GetModule, vendor, "Skins")
     if ok and type(module) == "table" and type(module.ns) == "table" then
         return vendor, module, module.ns.MapMove
@@ -23,28 +30,12 @@ local function FindModule()
 end
 
 local function WantsOwnership(state)
-    local db, map = Offhand.db, _G.WorldMapFrame
-    if state ~= current or not Offhand.isForever or not db or not db.enabled
+    if state ~= current
         or _G.DaylightUI ~= state.vendor or state.module.enabled == false
         or type(state.module.db) ~= "table"
         or state.module.ns.MapMove ~= state.mover
-        or state.mover.Start ~= state.wrappedStart or state.mover.Scale ~= state.wrappedScale
-        or not map or type(map.GetScale) ~= "function"
-        or (map.IsForbidden and map:IsForbidden()) then return false end
-    if map.IsMaximized and map:IsMaximized() then return false end
-    local canvas = Offhand.Canvas
-    if not canvas or not canvas.CanManagePanelsFromAddon
-        or not canvas.CanManagePanelsFromAddon() then return false end
-    local compatibility = Offhand.CanvasCompatibility
-    if compatibility and compatibility.GetWorldMapExternalOwner() then return false end
-    local persistence = Offhand.CanvasPersistence
-    if not persistence or not (persistence.IsPosition(db.savedWorkspacePositions
-        and db.savedWorkspacePositions.WorldMapFrame)
-        or persistence.IsPosition(db.savedMainPositions and db.savedMainPositions.WorldMapFrame)) then
-        return false
-    end
-    local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
-    if not metrics or not metrics.isSpanned then return false end
+        or state.mover.Start ~= state.wrappedStart or state.mover.Scale ~= state.wrappedScale then return false end
+    if not Offhand.API.OwnsWorldMapPlacement() then return false end
     -- Do not acquire interactive controls in the middle of a vendor resize or
     -- combat. An already acquired projection can keep suppressing map writes.
     if state.mover.grip and state.mover.grip.grab then return false end
@@ -120,11 +111,14 @@ local function Install(vendor, module, mover)
         end,
     })
     mover.Start = function(config)
-        state.config = config
-        return state.start(type(config) == "table" and state.proxy or config)
+        if type(config) == "table" and config ~= state.proxy then state.config = config end
+        return state.start(state.proxy)
     end
     mover.Scale = function(...)
-        if Sync(state) then return _G.WorldMapFrame:GetScale() end
+        if Sync(state) then
+            local map = _G.WorldMapFrame
+            if map and type(map.GetScale) == "function" then return map:GetScale() end
+        end
         return state.scale(...)
     end
     state.wrappedStart, state.wrappedScale = mover.Start, mover.Scale
@@ -133,19 +127,21 @@ end
 
 function Adapter:Refresh()
     local vendor, module, mover = FindModule()
-    local previous = current
-    if previous and (previous.vendor ~= vendor or previous.module ~= module or previous.mover ~= mover) then
-        current = nil
-        Sync(previous)
-    end
-    local state = mover and Install(vendor, module, mover)
+    local state = vendor and Install(vendor, module, mover)
     current = state
     if state then
         state.vendor, state.module = vendor, module
+        if type(module.db) == "table" and module.db ~= state.proxy then
+            local first = state.config == nil
+            state.config = module.db
+            if first and mover.Start == state.wrappedStart and state.module.enabled ~= false then
+                state.start(state.proxy)
+            end
+        end
         Sync(state)
-        if state.config ~= module.db then mover.Start(module.db) end
     end
-    -- Old controls can still need restoration after a combat-time module swap.
+    -- Also release previously wrapped movers and replay any deferred vendor
+    -- restoration after a combat-time module swap.
     -- This small namespace registry is not a frame-tree or global scan.
     for _, pending in pairs(states) do
         if pending ~= state then Sync(pending) end
