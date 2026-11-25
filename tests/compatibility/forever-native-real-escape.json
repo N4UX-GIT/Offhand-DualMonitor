@@ -9,7 +9,7 @@
     "Owner confirmed the native separate-backpack Escape gate, including trainer gossip, ordinary player inspection and early-shown Inspect."
   ],
   "providers": {
-    "Offhand": "2.1.5-beta.40",
+    "Offhand": "2.1.5-beta.41",
     "Companion": "2.1.9-beta.3 (version recorded in the installed topology file)"
   },
   "deferred": [
@@ -23,17 +23,17 @@
     "Core/CanvasAddonEscape.lua": "f4198a7c4e1ab2c546809a50f09bf33207765529241cfbc29b7dad424bfbe3dd",
     "Core/CanvasForeverBags.lua": "01342bcb2d95a17516231eebcd032839fbc288fb16b7aee2d47c667d153c3a33",
     "Core/HUDCompatibility.lua": "74ae99bcaa485bbfc5ade66517c69501f0c869c46adb9438099a463582626ddd",
-    "Core/Canvas.lua": "53e13138e78f494541117a60e526f10922dc07a98385b6a4dd5cc6059be28ba2",
+    "Core/Canvas.lua": "5c2258dd2c4b979a3346527c1d7d9ff9590ba08d58b6efa8a18abb030954fe7c",
     "Core/CanvasBackpackState.lua": "8f8c0407bb33ff8c1aaa0ac88e3ba661ba1a315a72606c24a014ae177158be15",
     "Core/CanvasCompatibility.lua": "ddac724f554eca7c12d77786916d235b94a80408eb67bc75aa7941ec7c0da486",
     "Core/CanvasPanelLifecycle.lua": "d851e1bf27ec8beacccf6d6149e58b98fdef84cce31c9d87c11a35fa4d75a29a",
-    "Core/CanvasPanelPlacement.lua": "10c1b3ca90693a7b3d1288cb413110de85a02d204748d31a8bf7cabba95109f1",
-    "Core/CanvasPanelRegistry.lua": "ce271b4532331d9a4047ed831b5869e35c1aaa9417b418b0309291e6f1373e02",
+    "Core/CanvasPanelPlacement.lua": "04df032512e8ea56a7c0e2e856ea64f46040a533f09597849a4800db0a3d7721",
+    "Core/CanvasPanelRegistry.lua": "f4d64acd09d62365718ab3a102e9bffa26876a2cf61a458b7b7523cf90ae927d",
     "Core/CanvasPersistence.lua": "f50c773f4375e93e48a1e36e87a52b2410a5f73359346e58e355c54ac6acd360",
     "Core/WorkspaceBehavior.lua": "c362bcef96b2ba646595a6539c7c93b4dbe6ac042c7776362d4db9d1324ebe61",
     "Core/MenuPlacement.lua": "873c2e0b94bf6b6c4384a10839d1670244b3a35008280d960a77c2a647b675a4",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
-    "Core/Init.lua": "ffc860cc78a59f8b3f79740d8f6b83c53abb5c318e31487800e927f2a57f6524"
+    "Core/Init.lua": "4947067b493fb4fae09f66d4c2239bc604506c0266d75de821ff8e5ccb6c0813"
   },
-  "integration_note": "Live pass reported by the release owner. The installed runtime was checked against the release ZIP and candidate 4b59c0fe70c90687025af6318b4bbe52dcdb6534 after confirmation. The November 23 results are documented in docs/FOREVER-BETA39-RELEASE-QA.md."
+  "integration_note": "Live pass confirmed by the release owner on 2026-11-25 against Offhand 2.1.5-beta.41 runtime commit 0320aef8af10d9f92fcb60ab294c00b5a99a700f (synced to the installed Forever addon and matching dist/Offhand-v2.1.5-beta.41.zip SHA-256 90611dc39695437fadf34962d31e76f81eccb910fee0f9725864c422acc171e3), including live Barbershop Mainhand confinement confirmation. Earlier Beta 39/40 results remain archived in docs/FOREVER-BETA39-RELEASE-QA.md and docs/FOREVER-BETA40-RELEASE-QA.md."
 }

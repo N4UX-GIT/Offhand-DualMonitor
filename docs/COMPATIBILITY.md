@@ -50,14 +50,18 @@ without a new matching live run does not renew evidence. Deferred cases remain
 deferred even when the fingerprints match.
 
 The November 25 release receipts (`tests/compatibility/forever-native-real-escape.json`
-and `tests/compatibility/forever-workspace-restart.json`) record Beta 40 (`4b59c0f`) on
-Forever `1.60.1.71037` with Companion `2.1.9-beta.3`, DaylightUI `2.2.6`, OpenMap `0.8.13`,
-and OneForAll `6.2.16` ([FOREVER-BETA40-RELEASE-QA.md](FOREVER-BETA40-RELEASE-QA.md)).
-Earlier Beta 39 receipts and measurements remain archived in
+and `tests/compatibility/forever-workspace-restart.json`) were refreshed for Beta 41
+(`0320aef`, matching `Offhand-v2.1.5-beta.41.zip` SHA-256 `90611dc3...`) after the release
+owner confirmed the Forever live evidence gate and live full-screen Barbershop Mainhand
+confinement on Forever with Companion `2.1.9-beta.3`. Earlier Beta 40 (`4b59c0f`) and
+Beta 39 measurements remain archived in
+[FOREVER-BETA40-RELEASE-QA.md](FOREVER-BETA40-RELEASE-QA.md) and
 [FOREVER-BETA39-RELEASE-QA.md](FOREVER-BETA39-RELEASE-QA.md).
 Outdoor zone map following (native Blizzard map + OpenMap 0.8.13) and
 multi-page book turning also have separate Nov 24 live runs on Forever `1.60.1.71037`
 ([MAP-ZONE-FOLLOW-QA.md](MAP-ZONE-FOLLOW-QA.md) and the book section below).
+Reporter-side live confirmation on vertically stacked DaylightUI setups and Retail
+Barbershop remains separate from this Forever release pass.
 
 ## Workspace restoration after a full restart
 

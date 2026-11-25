@@ -9,7 +9,7 @@
     "Owner confirmed the full-exit, Battle.net relaunch, single-window login and span gate for workspace restoration, including the native-map and separate-bag variant in the handoff."
   ],
   "providers": {
-    "Offhand": "2.1.5-beta.40",
+    "Offhand": "2.1.5-beta.41",
     "Companion": "2.1.9-beta.3 (version recorded in the installed topology file)"
   },
   "deferred": [
@@ -18,7 +18,7 @@
   "evidence": "docs/COMPATIBILITY.md",
   "source_fingerprints": {
     "Core/BagPersistence.lua": "291ac6230a4c827226c38c513601ee957f8e734562caecfbd9336854ed507a76",
-    "Core/Canvas.lua": "53e13138e78f494541117a60e526f10922dc07a98385b6a4dd5cc6059be28ba2",
+    "Core/Canvas.lua": "5c2258dd2c4b979a3346527c1d7d9ff9590ba08d58b6efa8a18abb030954fe7c",
     "Core/CanvasBackpackState.lua": "8f8c0407bb33ff8c1aaa0ac88e3ba661ba1a315a72606c24a014ae177158be15",
     "Core/CanvasCompatibility.lua": "ddac724f554eca7c12d77786916d235b94a80408eb67bc75aa7941ec7c0da486",
     "Core/CanvasForeverBags.lua": "01342bcb2d95a17516231eebcd032839fbc288fb16b7aee2d47c667d153c3a33",
@@ -27,12 +27,12 @@
     "Core/CanvasMapPresentation.lua": "efdf557cc3e3a2d513394e989943ff6edcb3dad136dd87f46522fb91d7ede807",
     "Core/CanvasPanelLifecycle.lua": "d851e1bf27ec8beacccf6d6149e58b98fdef84cce31c9d87c11a35fa4d75a29a",
     "Core/CanvasPanelMotion.lua": "9ccdb12afe6ab9fec7539b37d59cbcde3b7aa9c02e570b057894aa8270301bfa",
-    "Core/CanvasPanelPlacement.lua": "10c1b3ca90693a7b3d1288cb413110de85a02d204748d31a8bf7cabba95109f1",
-    "Core/CanvasPanelRegistry.lua": "ce271b4532331d9a4047ed831b5869e35c1aaa9417b418b0309291e6f1373e02",
+    "Core/CanvasPanelPlacement.lua": "04df032512e8ea56a7c0e2e856ea64f46040a533f09597849a4800db0a3d7721",
+    "Core/CanvasPanelRegistry.lua": "f4d64acd09d62365718ab3a102e9bffa26876a2cf61a458b7b7523cf90ae927d",
     "Core/CanvasPersistence.lua": "f50c773f4375e93e48a1e36e87a52b2410a5f73359346e58e355c54ac6acd360",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
     "Core/Config.lua": "5595af0c1830d264ac13112f030d7ff8aae5f6fae032a6f784f2c7d14f6f9126",
-    "Core/Init.lua": "ffc860cc78a59f8b3f79740d8f6b83c53abb5c318e31487800e927f2a57f6524",
+    "Core/Init.lua": "4947067b493fb4fae09f66d4c2239bc604506c0266d75de821ff8e5ccb6c0813",
     "Core/ManualCanvas.lua": "2b2c60e1af07ad93b0240e527b21164c1413c74beffe62993cd2a16edb141a22",
     "Core/TopologyDetection.lua": "982b61683c53cf7393a82e061a9d1bc9f9fd8ba035a1bcda8ee977e1897441cc",
     "Core/Viewport.lua": "1684a00f0721c4ef702c66e12a3b7d2dfa113367876f6204ddae3ede9065638d",
@@ -40,5 +40,5 @@
     "Bridges/DaylightUI/Bags.lua": "f272ab42437501ca408c24c33e9932f884bfd80b24760fe85f5ce0d58002fc6d",
     "Bridges/DaylightUI/Windows.lua": "158e313a9920436b92ea06291b7e7000feb70986563dd1c2e2991bc19b06ec9e"
   },
-  "integration_note": "Live pass reported by the release owner. The installed runtime was checked against the release ZIP and candidate 4b59c0fe70c90687025af6318b4bbe52dcdb6534 after confirmation. The November 23 results are documented in docs/FOREVER-BETA39-RELEASE-QA.md."
+  "integration_note": "Live pass confirmed by the release owner on 2026-11-25 against Offhand 2.1.5-beta.41 runtime commit 0320aef8af10d9f92fcb60ab294c00b5a99a700f (synced to the installed Forever addon and matching dist/Offhand-v2.1.5-beta.41.zip SHA-256 90611dc39695437fadf34962d31e76f81eccb910fee0f9725864c422acc171e3), including live Barbershop Mainhand confinement confirmation. Earlier Beta 39/40 results remain archived in docs/FOREVER-BETA39-RELEASE-QA.md and docs/FOREVER-BETA40-RELEASE-QA.md."
 }
