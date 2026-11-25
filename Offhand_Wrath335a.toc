@@ -3,10 +3,10 @@
 ## Notes: Keep gameplay on one screen and move maps, bags, chat, and other supported UI panels to another. Experimental original Wrath 3.3.5a compatibility test build.
 ## Author: N4UX (Noggaholic)
 ## Version: 2.1.5
-## X-Offhand-Release: beta.41
-## X-Offhand-Addon-Release: beta.41
+## X-Offhand-Release: beta.42
+## X-Offhand-Addon-Release: beta.42
 ## X-Offhand-Companion-Version: 2.1.9
-## X-Offhand-Companion-Release: beta.3
+## X-Offhand-Companion-Release: beta.4
 ## X-Offhand-Companion-Protocol: 1
 ## X-Offhand-Topology-Schemas: 1,2,3
 ## X-Offhand-Max-Workspaces: 3

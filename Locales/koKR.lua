@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "koKR" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s의 새로운 기능"
+L["WHATS_NEW_BETA42"] = "Forever에서 단일 창과 여러 모니터 사이를 전환할 때 채팅, 지도, 가방 배치가 개선되었습니다. DaylightUI 및 OneForAll과의 호환성도 향상되었습니다. 창 동작 설정에서 각 패널을 관리하는 애드온과 이동 방법을 확인할 수 있습니다."
 L["WHATS_NEW_BETA41"] = "|cffffd100버그 수정|r\n• 상하 배치 또는 비대칭 다중 모니터 환경에서 DaylightUI 행동 단축바가 위로 튀어 오르고 드래그나 X/Y 좌표 입력 시 되돌아가던 문제를 수정했습니다. Beta 40에서 바 위치가 이동했다면 한 번 다시 배치하거나 Offhand Monitor > 복구 및 미리보기에서 초기화하세요.\n• 수직 배치 모니터에서 DaylightUI 레이아웃 정렬과 낚시, 전문 기술, 모닥불 장면 표시를 개선했습니다.\n• 비행 경로, 공포 등 제어 불가 효과 이후 Offhand 설정 및 안내 창이 다시 열리던 문제를 수정했습니다.\n• 다중 모니터 환경에서 미용실 꾸미기 패널과 수락/취소 버튼이 사라지거나 화면 밖으로 밀려나던 문제를 수정했습니다."
 L["WHATS_NEW_BETA40"] = "|cffffd100DaylightUI 지원|r (Kintrok / @DCtheGeek 기여)\n• 이제 DaylightUI가 Offhand와 바로 호환되어 행동 단축바, 창, 가방, 지도, 메뉴가 올바른 화면에 유지됩니다.\n• Offhand 모니터 > 복구 및 미리보기에서 언제든 DaylightUI 배치를 정렬하거나 초기화할 수 있으며, 리로드와 재시작 후에도 열린 창이 유지됩니다.\n\n|cffffd100사용자 지정 애드온 창|r (Forever)\n• 패널 배치 > 애드온 창, 단축키 설정 > Offhand 또는 /offhand window에서 다른 애드온 창을 Offhand 화면에 유지할 수 있습니다.\n\n|cffffd100지도, 가방 및 수정 사항|r (Forever)\n• 야외 지도(Blizzard 및 OpenMap)가 Offhand에서 새 지역으로 이동할 때 자동으로 따라오며, 창 동작에서 지도나 가방을 관리하는 애드온을 확인할 수 있습니다.\n• 분리형 Blizzard 배낭의 회색 오버레이를 수정했고, Esc를 눌러도 Questdon이 유지되며 월드 툴팁 위치 문제를 해결했습니다 (Questdon 및 툴팁: Abysmal Kabal 기여)."
 L["WHATS_NEW_BETA40_COMPANION"] = "|cffffd100Windows Companion %s|r (Abysmal Kabal 개선 기여)\n• 디스플레이 진단에 축척 미리보기를 추가하고, 첫 수동 확장 이후 사용자 지정 레이아웃 자동 확장 및 Windows 화면 배율 변경 시 더 안정적인 전환을 제공합니다."

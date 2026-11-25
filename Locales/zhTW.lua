@@ -2,6 +2,7 @@ local _, Offhand = ...
 if GetLocale() ~= "zhTW" then return end
 local L = Offhand.L
 L["WHATS_NEW_TITLE"] = "Offhand v%s 更新內容"
+L["WHATS_NEW_BETA42"] = "在 Forever 中，在單一視窗與跨螢幕顯示之間切換時，聊天、地圖與背包的位置更加穩定。改善了與 DaylightUI 和 OneForAll 的相容性。視窗行為設定會顯示哪些插件管理各面板，以及如何移動它們。"
 L["WHATS_NEW_BETA41"] = "|cffffd100錯誤修正|r\n• 修正了在上下排列或不對稱多螢幕配置下，DaylightUI 動作列向上偏移且拖曳或輸入 X/Y 座標後會回彈的問題。若動作列已在 Beta 40 中偏移，重新拖回原位一次或在 Offhand Monitor > 復原與預覽中重設即可。\n• 改善了垂直堆疊螢幕上的 DaylightUI 版面配置對齊，以及釣魚、製作與營火場景的適配。\n• 修正了飛行路線、恐懼或其他失控效果結束後重新跳出 Offhand 設定與提示視窗的問題。\n• 修正了多螢幕配置下理髮廳自訂面板與接受/取消按鈕消失或超出螢幕範圍的問題。"
 L["WHATS_NEW_BETA40"] = "|cffffd100DaylightUI 支援|r（由 Kintrok / @DCtheGeek 貢獻）\n• DaylightUI 現已開箱即用地與 Offhand 配合，讓快捷列、介面視窗、背包、地圖與選單保持在正確的螢幕上。\n• 可隨時於 Offhand 顯示器 > 恢復與預覽 中對齊或重設 DaylightUI 版面，並在重載或重啟後保留開啟的視窗。\n\n|cffffd100自訂插件視窗|r（Forever）\n• 透過 面板配置 > 插件視窗、按鍵設定 > Offhand 或 /offhand window 將第三方插件視窗保留在 Offhand 螢幕上。\n\n|cffffd100地圖、背包與修復|r（Forever）\n• 野外地圖（暴雪地圖與 OpenMap）現會在 Offhand 上隨你進入新區域自動切換，視窗行為也會顯示目前管理地圖或背包的插件。\n• 修復了獨立暴雪背包上的灰色遮罩，按 Esc 時保持 Questdon 開啟，並修復了世界滑鼠提示位置（Questdon 與滑鼠提示由 Abysmal Kabal 貢獻）。"
 L["WHATS_NEW_BETA40_COMPANION"] = "|cffffd100Windows Companion %s|r（包含 Abysmal Kabal 的改進）\n• 於顯示診斷新增按比例螢幕預覽，首次手動跨螢幕後支援自訂版面自動跨螢幕，並在 Windows 顯示縮放變更時處理更順暢。"

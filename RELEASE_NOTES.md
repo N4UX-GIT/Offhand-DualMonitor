@@ -1,20 +1,21 @@
-<!-- offhand-companion-version: 2.1.9-beta.3 -->
+<!-- offhand-companion-version: 2.1.9-beta.4 -->
 
-# Offhand Beta 41 (DaylightUI Action Bar Hotfix)
+# Offhand Beta 42 and Windows Companion 2.1.9-beta.4
 
-This is an **addon-only hotfix** (`Offhand v2.1.5-beta.41`). Windows Companion remains **2.1.9-beta.3**.
+Offhand `2.1.5-beta.42` ships with Windows Companion `2.1.9-beta.4`.
 
-### Bug Fixes
+## Addon
 
-- **DaylightUI 2.2.6+ action bar placement & dragging**: Fixed a Beta 40 regression where DaylightUI action bars registered at file load time (`DaylightUIBar1..8`, stance, pet, possess, and totem bars) were intercepted by Offhand's frame sweep and shifted onto `OffhandDaylightUIArea` instead of staying in DaylightUI's coordinate space. On stacked and asymmetrical monitor setups, this pushed bars upward, bounced dragged bars back, and caused manual X/Y adjustments to climb toward the top of the screen.
-  - Offhand now recognizes all pre-registered and runtime DaylightUI movers (including proxy movers), preserving manual drag and numeric X/Y placement across `/reload` while still aligning default positions to Mainhand.
-  - *Note*: If you dragged or adjusted X/Y values while on Beta 40, DaylightUI already saved those shifted coordinates in its own profile. After updating to Beta 41, drag your bars back into place once (they will now stay put) or reset them via **Offhand Monitor > Recovery & Preview > Reset DaylightUI positions** (`/dui reset`).
-- **DaylightUI stacked-monitor hardening**:
-  - Edit Mode staleness detection (`layoutStale`) now accounts for vertical Mainhand offsets on both top-Mainhand and bottom-Mainhand stacked monitor layouts instead of checking horizontal `offsetX` only.
-  - DaylightUI fishing, crafting, and campfire scenes now detect vertically stacked spans and refit their height and waterline to Mainhand.
-- **Flight path & fear popup spam fix**: Fixed Offhand reopening setup or notice dialogs after every flight path, fear, or charm (`PLAYER_CONTROL_LOST` / `PLAYER_CONTROL_GAINED`) when no Offhand dialog was open. Automatic UI deferral now triggers only when a dialog is actually open or triggered during a control-loss intro sequence.
-- **Barbershop UI confinement (Retail & Forever)**: Fixed the Barbershop losing its customization options and Accept/Reset/Cancel buttons on spanned and mixed-height monitor setups. Full-screen takeover panels (`area == "full"`) are now excluded from generic panel dragging/placement, and both `BarberShopFrame` and `CharCustomizeFrame` stay framed inside your Mainhand display.
+- Chat on Forever keeps its saved workspace position more reliably when switching between one window and a span. Cursor-anchored tooltips follow the physical display under the pointer, including when hovering minimap icons on Offhand.
+- The compact map and bags are less likely to flicker or jump back when Blizzard or another addon refreshes their position. Offhand respects MoveMyBags ownership, and separate bags keep their workspace position when the backpack closes.
+- Refined DaylightUI and OneForAll compatibility. **Offhand Monitor > Window behavior** identifies which addons control windows and offers guidance when an external mover can cause snapping or flicker.
 
-### Previous highlights (Beta 40 + Windows Companion 2.1.9-beta.3)
+## Windows Companion
 
-See [CHANGELOG.md](CHANGELOG.md) for the full Beta 40 release notes, known issues, and contributor credits (**Kintrok / `@DCtheGeek`** and **Abysmal Kabal**).
+- The display picker follows Windows display device numbering, including when a secondary display sits to the left of the primary display.
+- The Mainhand menu shows display names when Windows provides them. Display tooltips show the name, resolution, and Windows device name where available.
+
+## Downloads
+
+- The addon ZIP installs into `Interface/AddOns/Offhand`.
+- Extract the portable Companion ZIP before opening `Offhand.exe`. The Microsoft Store delivers updates to Store installations.

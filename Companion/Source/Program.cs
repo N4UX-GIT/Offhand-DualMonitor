@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.9.3")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.3")]
+[assembly: AssemblyFileVersion("2.1.9.4")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.4")]
 #endif
 
 namespace Offhand.Companion
@@ -4955,7 +4955,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.9-beta.3";
+        internal const string BaseVersion = "2.1.9-beta.4";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 5";
@@ -7780,10 +7780,9 @@ namespace Offhand.Companion
             {
                 if (whatsNew)
                 {
-                    AppendHelpSection(guide, sectionFont, "What's new in 2.1.9-beta.3 (contributed by Abysmal Kabal)",
-                        "Display Diagnostics now draws a to-scale display preview of your Windows monitor arrangement, showing Mainhand, Workspace regions, and display numbers across side-by-side, stacked, or mixed-DPI setups.",
-                        "Custom workspace layouts now support automatic spanning on WoW launch after one verified manual span on the same monitors.",
-                        "Spanning now retries automatically after Windows DPI or display-scale changes across every span path, including scale decreases.");
+                    AppendHelpSection(guide, sectionFont, "What's new in 2.1.9-beta.4",
+                        "The display picker now follows Windows display device numbering, even when a secondary display is to the left of the primary display.",
+                        "The Mainhand menu shows monitor names when Windows provides them. Hover over a display to see its name, resolution, and Windows device name.");
                     AppendHelpSection(guide, sectionFont, "Your saved setup",
                         "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
                     AppendHelpSection(guide, sectionFont, "If something looks wrong",
