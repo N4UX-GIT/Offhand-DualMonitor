@@ -133,10 +133,43 @@ ElvUI = { { private = { bags = { enable = false } } } }
 ElvUI_ContainerFrame = nil
 assert(#compatibility.GetOwnershipConflicts() == 0,
     "ElvUI with disabled bags + Baganator must not trigger a false bag conflict")
+-- ElvUI with active bag frame + Baganator MUST flag a bag conflict.
 ElvUI_ContainerFrame = {}
 assert(#compatibility.GetOwnershipConflicts() == 1
     and compatibility.GetOwnershipConflicts()[1].kind == "bags-conflict",
     "ElvUI with active bag frame + Baganator must trigger a bag conflict")
 Baganator, ElvUI, ElvUI_ContainerFrame = nil, nil, nil
+
+-- Forever default Blizzard UI + OneForAll Move Blizzard windows: reports window-mover
+-- conflict once per session and exposes OneForAllMover=active in diagnostics.
+compatibility.ResetConflictNotifications()
+printed = {}
+loaded = { OneForAll = true }
+WorldMapFrame = { ofaMovable = true }
+ContainerFrameCombinedBags = { ofaMovable = true }
+SettingsPanel = { ofaMovable = true }
+OneForAllDB = { qol = { moveWindows = true } }
+local ofaConflicts = compatibility.GetOwnershipConflicts()
+assert(#ofaConflicts == 1 and ofaConflicts[1].kind == "window-mover"
+    and ofaConflicts[1].id == "window-mover:OneForAll",
+    "OneForAll moving unmitigated Offhand roots must flag window-mover:OneForAll")
+assert(compatibility.NotifyActiveConflicts() == 1 and #printed == 1
+    and printed[1]:find("Move Blizzard windows", 1, true),
+    "window-mover conflict must notify once per session with the actionable OneForAll setting")
+assert(compatibility.NotifyActiveConflicts() == 0 and #printed == 1,
+    "window-mover conflict must not spam repeated chat notices")
+local ofaDiag = compatibility.GetDiagnostics(false)
+assert(ofaDiag:find("OneForAllMover=active", 1, true)
+    and ofaDiag:find("Conflicts=window-mover:OneForAll", 1, true),
+    "diagnostics must report OneForAllMover=active and window-mover:OneForAll")
+
+-- Disabling Move Blizzard windows in OneForAll clears the conflict even if ofaMovable
+-- remains set on frames (for example from Resize Blizzard windows or before reload).
+OneForAllDB.qol.moveWindows = false
+assert(#compatibility.GetOwnershipConflicts() == 0,
+    "disabling OneForAll moveWindows must clear the window-mover conflict")
+assert(not compatibility.GetDiagnostics(false):find("OneForAllMover=active", 1, true),
+    "disabling OneForAll moveWindows must clear OneForAllMover=active")
+OneForAllDB, ContainerFrameCombinedBags, SettingsPanel = nil, nil, nil
 
 print("PASS: Canvas external ownership priority, yielding, diagnostics, contract validation, conflicts and API fallback")

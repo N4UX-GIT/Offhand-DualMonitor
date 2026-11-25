@@ -1033,6 +1033,7 @@ L["COMPAT_MINIMAP"] = "Your minimap addon controls its window."
 L["COMPAT_AUTO"] = "Compatible bag and minimap addons are detected automatically."
 L["COMPAT_EXTERNAL_OWNERS"] = "Managed by other addons: %s."
 L["COMPAT_CONFLICT_WORLDMAP_MOVER"] = "Conflict: %s is moving the World Map ahead of %s. Disable %s's window movement option if the map snaps back."
+L["COMPAT_CONFLICT_WINDOW_MOVER"] = "Conflict: %s's Move Blizzard windows option is active alongside Offhand. Disable Move Blizzard windows in %s if windows, bags, or the World Map flicker or snap back."
 L["COMPAT_CONFLICT_OPENMAP_CONTRACT"] = "Notice: OpenMap updated to an unsupported contract (%s). Offhand stood down its OpenMap drag sync and recovery helpers."
 L["COMPAT_CONFLICT_BAGS"] = "Conflict: multiple bag addons are active (%s). Keep only one bag addon enabled for reliable Offhand bag persistence."
 

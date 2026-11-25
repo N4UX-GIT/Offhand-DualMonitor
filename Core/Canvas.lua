@@ -1591,6 +1591,7 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
         repaired[name] = true
         local frame = _G[name]
         if frame and frame ~= exceptFrame and frame.IsShown and frame:IsShown()
+            and not IsPanelDragging(frame) and not frame.ofaMoving
             and GetPanelController(frame, name) == "generic"
             and not (isMainhand and IsBackpackRoot(name))
             and not IsUnsafeForPanelMutation(frame, name) then
@@ -2192,6 +2193,13 @@ function Canvas:EnableFreeDragging()
                 end
                 return
             end
+            -- Attach drag/OnShow/SetPoint hooks synchronously so a load-on-demand
+            -- panel that Blizzard opens immediately after RegisterUIPanel settles
+            -- on its first rendered frame without flickering. Reload auto-open
+            -- stays deferred until the loader turn finishes.
+            if not (InCombatLockdown and InCombatLockdown()) then
+                Canvas:TryMakeFrameDraggable(frame)
+            end
             local function AttachRegisteredPanel()
                 Canvas:TryMakeFrameDraggable(frame)
                 local name = frame and frame.GetName and frame:GetName()
@@ -2270,11 +2278,10 @@ function Canvas:EnableFreeDragging()
                 local function Repair()
                     -- Opening any UIPanel can reflow every other panel in
                     -- Blizzard's shared slots, including an already-visible
-                    -- Offhand World Map. Restore all saved peers, but do not
-                    -- sample replacement-bag visibility from inside this panel
-                    -- transaction because Settings may have hidden it only
-                    -- temporarily.
-                    RepairUIPanelTransaction(openedFrame, true)
+                    -- Offhand World Map, and an external mover can overwrite
+                    -- openedFrame itself after OnShow. Restore all drifted
+                    -- saved panels without sampling replacement-bag visibility.
+                    RepairUIPanelTransaction(openedFrame, true, true)
                     Canvas:RepairDefaultForeverSlots()
                 end
                 -- The post-hook catches the usual synchronous left-slot reflow.

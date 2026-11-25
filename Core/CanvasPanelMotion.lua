@@ -241,10 +241,11 @@ function Motion.Install(Canvas, services)
     local HookPanelCloseButton = assert(services.HookPanelCloseButton, "Missing panel motion service: HookPanelCloseButton")
     local interactionAnchorState = setmetatable({}, { __mode = "k" })
 
-    -- Communities changes its own root anchor when switching between Chat, Roster,
-    -- Info and recruitment/settings views. Preserve an explicit Offhand placement
-    -- after that native layout pass instead of letting the panel jump to UIParent's
-    -- spanned top-left corner. Visibility and tab selection remain Blizzard-owned.
+    -- Communities, Retail native-registration panels, and guarded Forever
+    -- UIPanels can have their anchors overwritten after OnShow by Blizzard's
+    -- layout passes or external window movers (such as OneForAll). Repair
+    -- synchronously inside the SetPoint post-hook so no intermediate anchor
+    -- flashes before render, while yielding to active drags and combat.
     local function HookKnownPanelAnchorResets(frame, name)
         local panelName = name or (frame and frame.GetName and frame:GetName())
         local isCommunities = (panelName == "CommunitiesFrame")
@@ -252,28 +253,42 @@ function Motion.Install(Canvas, services)
         local isInteraction = Offhand.isRetail and Offhand.CanvasPanelRegistry
             and Offhand.CanvasPanelRegistry.RequiresNativePanelRegistration(panelName)
         local isForeverSpellbook = Offhand.isForever and panelName == "PlayerSpellsFrame"
-        if isInteraction or isForeverSpellbook then
+        local isForeverSocial = Offhand.isForever and (panelName == "FriendsFrame"
+            or panelName == "FriendsListFrame" or panelName == "SocialFrame" or panelName == "SocialUIFrame")
+        local isForeverGuardedPanel = not isInteraction and not isForeverSpellbook
+            and Offhand.isForever and panelName and not isForeverSocial
+            and not isCommunities and not isProfessions
+            and UIPanelWindows and UIPanelWindows[panelName] ~= nil
+            and not IsForeverEditModeFrame(frame, panelName)
+            and not IsForeverWorldMap(frame)
+            and not IsUnsafeForPanelMutation(frame, panelName)
+        if isInteraction or isForeverSpellbook or isForeverGuardedPanel then
             if interactionAnchorState[frame] or not hooksecurefunc or not C_Timer or not C_Timer.After then return end
             local state = {}
             interactionAnchorState[frame] = state
+            local function HasSavedPosition()
+                local db = Offhand.db
+                if not db or not db.enabled then return false end
+                return (db.savedWorkspacePositions and db.savedWorkspacePositions[panelName] ~= nil)
+                    or (db.savedMainPositions and db.savedMainPositions[panelName] ~= nil)
+            end
+            local function IsSuppressed()
+                return state.repairing or state.moveStartX or IsPanelDragging(frame)
+                    or frame._OffhandDragging or frame.ofaMoving
+                    or (FrameState.IsEvicting and FrameState.IsEvicting(frame))
+                    or (FrameState.IsRestoring and FrameState.IsRestoring(frame))
+                    or InCombatLockdown() or not CanManagePanelsFromAddon()
+            end
             local function RepairAnchor()
-                if state.repairing or state.moveStartX or frame._OffhandDragging or InCombatLockdown() or not Offhand.db
-                    or not Offhand.db.enabled or (frame.IsShown and not frame:IsShown()) then return end
-                local workspace = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[panelName]
-                local mainhand = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[panelName]
-                if not workspace and not mainhand then return end
-                state.pending = nil
+                if IsSuppressed() or (frame.IsShown and not frame:IsShown()) then return end
+                if not HasSavedPosition() then return end
                 state.repairing = true
-                RestoreWorkspacePosition(frame)
+                pcall(RestoreWorkspacePosition, frame)
                 state.repairing = nil
             end
             local function QueueRepair()
-                if state.repairing or state.pending or state.moveStartX or frame._OffhandDragging or InCombatLockdown()
-                    or not Offhand.db or not Offhand.db.enabled then return end
-                local workspace = Offhand.db.savedWorkspacePositions
-                    and Offhand.db.savedWorkspacePositions[panelName]
-                local mainhand = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[panelName]
-                if not workspace and not mainhand then return end
+                if state.pending or IsSuppressed() then return end
+                if not HasSavedPosition() then return end
                 local pending = {}
                 state.pending = pending
                 C_Timer.After(0, function()
@@ -282,34 +297,58 @@ function Motion.Install(Canvas, services)
                     RepairAnchor()
                 end)
             end
-            hooksecurefunc(frame, "SetPoint", QueueRepair)
-            if isForeverSpellbook and frame.StartMoving and frame.StopMovingOrSizing then
-                -- A window mover can drag the book by its body, bypassing our
-                -- title grip. Resize hides and shows the book, so all placement
-                -- restores must already agree on the user's last drop.
+            local function ShouldRepairSynchronously(point, relativeTo, relativePoint)
+                -- Blizzard panel layout anchors to TOPLEFT/TOPLEFT, TOP/TOP,
+                -- CENTER/CENTER, or sibling panels (never TOPLEFT/BOTTOMLEFT).
+                -- OneForAll's applyPos writes TOPLEFT/UIParent/BOTTOMLEFT while
+                -- frame.ofaMovable is set and frame.ofaMoving is false. Repair
+                -- both synchronously before render, while letting non-OneForAll
+                -- TOPLEFT/BOTTOMLEFT updates (such as drag fixtures) settle via
+                -- the bounded next-frame pass.
+                local isBottomLeftAnchor = (point == "TOPLEFT"
+                    and (relativeTo == UIParent or relativeTo == "UIParent")
+                    and relativePoint == "BOTTOMLEFT")
+                return not isBottomLeftAnchor or frame.ofaMovable == true
+            end
+            hooksecurefunc(frame, "SetPoint", function(_, point, relativeTo, relativePoint)
+                if IsSuppressed() or (frame.IsShown and not frame:IsShown()) then return end
+                if not HasSavedPosition() then return end
+                if ShouldRepairSynchronously(point, relativeTo, relativePoint) then
+                    RepairAnchor()
+                end
+                QueueRepair()
+            end)
+            if (isForeverSpellbook or isForeverGuardedPanel) and frame.StartMoving and frame.StopMovingOrSizing then
+                -- An external window mover (such as OneForAll) can drag the
+                -- panel by its body, bypassing our guarded title grip. Observe
+                -- the completed drop so Offhand adopts the user's new placement
+                -- instead of snapping back on reopen or resize.
                 hooksecurefunc(frame, "StartMoving", function()
                     local db = Offhand.db
                     if InCombatLockdown() or not db or not db.enabled or not CanManagePanelsFromAddon()
+                        or IsPanelDragging(frame) or frame._OffhandDragging
                         or not frame:IsShown() then return end
-                    if not ((db.savedWorkspacePositions and db.savedWorkspacePositions[panelName])
-                        or (db.savedMainPositions and db.savedMainPositions[panelName])) then return end
-                    local metrics = Offhand.Viewport:GetMetrics()
+                    if not frame.ofaMoving and not HasSavedPosition() then return end
+                    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
                     if not metrics or not metrics.isSpanned then return end
                     state.moveStartX, state.moveStartY = frame:GetLeft(), frame:GetTop()
                 end)
                 hooksecurefunc(frame, "StopMovingOrSizing", function()
                     local startX, startY = state.moveStartX, state.moveStartY
                     state.moveStartX, state.moveStartY = nil, nil
-                    if not startX or not startY or IsPanelDragging(frame) or InCombatLockdown() or not Offhand.db
+                    if not startX or not startY or IsPanelDragging(frame) or frame._OffhandDragging
+                        or InCombatLockdown() or not Offhand.db
                         or not Offhand.db.enabled or not CanManagePanelsFromAddon() or not frame:IsShown() then return end
                     local x, y = frame:GetLeft(), frame:GetTop()
                     if x and y and (math.abs(x - startX) > 1 or math.abs(y - startY) > 1) then
                         OnPanelDragStop(frame, true)
                     end
                 end)
-                frame:HookScript("OnHide", function()
-                    state.moveStartX, state.moveStartY = nil, nil
-                end)
+                if frame.HookScript then
+                    frame:HookScript("OnHide", function()
+                        state.moveStartX, state.moveStartY = nil, nil
+                    end)
+                end
             end
             if panelName == "PlayerSpellsFrame" then
                 -- Tab and minimize changes resize the native root without always
@@ -334,9 +373,11 @@ function Motion.Install(Canvas, services)
         if (not isCommunities and not isProfessions) or frame._OffhandAnchorResetHooked
             or not hooksecurefunc or not C_Timer or not C_Timer.After then return end
         frame._OffhandAnchorResetHooked = true
-        hooksecurefunc(frame, "SetPoint", function()
-            if frame._OffhandAnchorRepairing or frame._OffhandDragging
-                or not Offhand.db or not Offhand.db.enabled then return end
+        hooksecurefunc(frame, "SetPoint", function(_, point, relativeTo, relativePoint)
+            if frame._OffhandAnchorRepairing or IsPanelDragging(frame) or frame._OffhandDragging
+                or frame.ofaMoving or (FrameState.IsEvicting and FrameState.IsEvicting(frame))
+                or (FrameState.IsRestoring and FrameState.IsRestoring(frame))
+                or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
             local workspace = Offhand.db.savedWorkspacePositions
                 and Offhand.db.savedWorkspacePositions[panelName]
             local mainhand = Offhand.db.savedMainPositions
@@ -347,19 +388,29 @@ function Motion.Install(Canvas, services)
                     or not IsExperimentalForeverProfessionsMovementEnabled() then return end
                 frame._OffhandAnchorRepairing = true
                 frame._OffhandExperimentalProfessionsRestoreAllowed = true
-                RestoreSavedPositionAfterShow(frame)
+                pcall(RestoreSavedPositionAfterShow, frame)
                 frame._OffhandExperimentalProfessionsRestoreAllowed = nil
                 frame._OffhandAnchorRepairing = nil
                 return
+            end
+            local isBottomLeftAnchor = (point == "TOPLEFT"
+                and (relativeTo == UIParent or relativeTo == "UIParent")
+                and relativePoint == "BOTTOMLEFT")
+            if (not isBottomLeftAnchor or frame.ofaMovable == true)
+                and (not frame.IsShown or frame:IsShown()) then
+                frame._OffhandAnchorRepairing = true
+                pcall(RestoreWorkspacePosition, frame)
+                frame._OffhandAnchorRepairing = nil
             end
             if frame._OffhandAnchorRepairPending then return end
             frame._OffhandAnchorRepairPending = true
             C_Timer.After(0, function()
                 frame._OffhandAnchorRepairPending = nil
-                if frame._OffhandDragging or not Offhand.db or not Offhand.db.enabled
+                if IsPanelDragging(frame) or frame._OffhandDragging or frame.ofaMoving
+                    or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
                     or (frame.IsShown and not frame:IsShown()) then return end
                 frame._OffhandAnchorRepairing = true
-                RestoreWorkspacePosition(frame)
+                pcall(RestoreWorkspacePosition, frame)
                 frame._OffhandAnchorRepairing = nil
             end)
         end)

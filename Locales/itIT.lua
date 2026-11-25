@@ -858,6 +858,7 @@ L["COMPAT_MINIMAP"] = "Il tuo addon della minimappa controlla la propria finestr
 L["COMPAT_AUTO"] = "Gli addon compatibili di borse e minimappa vengono rilevati automaticamente."
 L["COMPAT_EXTERNAL_OWNERS"] = "Gestito da altri addon: %s."
 L["COMPAT_CONFLICT_WORLDMAP_MOVER"] = "Conflitto: %s sta spostando la mappa del mondo prima di %s. Disattiva lo spostamento delle finestre in %s se la mappa torna indietro."
+L["COMPAT_CONFLICT_WINDOW_MOVER"] = "Conflitto: l'opzione di spostamento delle finestre Blizzard di %s e attiva insieme a Offhand. Disattivala in %s se finestre, borse o mappa del mondo sfarfallano o tornano indietro."
 L["COMPAT_CONFLICT_OPENMAP_CONTRACT"] = "Avviso: OpenMap e stato aggiornato a un contratto non supportato (%s). Offhand ha sospeso la sincronizzazione di trascinamento e il ripristino di OpenMap."
 L["COMPAT_CONFLICT_BAGS"] = "Conflitto: piu addon per le borse sono attivi (%s). Lascia attivo un solo addon per le borse per una persistenza affidabile di Offhand."
 L["MAP_KEEP_OPEN_DESC"] = "La mappa resta visibile quando ti muovi."

@@ -714,11 +714,17 @@ function Persistence.InstallRestore(Canvas, services)
             clampedX, clampedY, peer = Persistence.AvoidWorkspacePeer(frame, m, clampedX, clampedY, frameWidth, frameHeight)
 
             local factor = parentScale / frameScale
-            if frame.SetClampedToScreen then
-                pcall(function() frame:SetClampedToScreen(false) end)
-            end
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            local frameState = Offhand.CanvasFrameState
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, true) end
+            local restoreOK, restoreErr = pcall(function()
+                if frame.SetClampedToScreen then
+                    pcall(function() frame:SetClampedToScreen(false) end)
+                end
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            end)
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, false) end
+            if not restoreOK then error(restoreErr) end
             if peer and not arrangingPeer then
                 arrangingPeer = true
                 RestoreWorkspacePosition(peer)
@@ -793,8 +799,14 @@ function Persistence.InstallRestore(Canvas, services)
             local minY, maxY = m.gameBottom+height+12, m.gameTop-12
             local x = math.max(minX, math.min((mPos and mPos.x) or minX, maxX))
             local y = math.min(maxY, math.max(minY, (mPos and mPos.y) or maxY))
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
+            local frameState = Offhand.CanvasFrameState
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, true) end
+            local restoreOK, restoreErr = pcall(function()
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
+            end)
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, false) end
+            if not restoreOK then error(restoreErr) end
         end
     end
     return RestoreWorkspacePosition

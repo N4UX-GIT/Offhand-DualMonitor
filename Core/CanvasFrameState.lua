@@ -13,6 +13,7 @@ Offhand.CanvasFrameState = FrameState
 -- fields or handlers anywhere in that native map tree can taint the protected
 -- chat-link action. Keep its state in this addon-owned weak table instead.
 local foreverWorldMapState = setmetatable({}, { __mode = "k" })
+local restoringFrames = setmetatable({}, { __mode = "k" })
 
 function FrameState.IsForeverWorldMap(frame)
     return Offhand.isForever and frame and frame == _G.WorldMapFrame
@@ -71,4 +72,13 @@ function FrameState.SetEvicting(frame, evicting)
     else
         frame._OffhandEvictingPanelSlot = evicting and true or nil
     end
+end
+
+function FrameState.IsRestoring(frame)
+    return frame and restoringFrames[frame] == true or false
+end
+
+function FrameState.SetRestoring(frame, restoring)
+    if not frame then return end
+    restoringFrames[frame] = restoring and true or nil
 end

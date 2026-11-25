@@ -621,12 +621,21 @@ function HUD:HookFrames()
         -- manager or its dialogs from OnShow taints CompactUnitFrame on some clients.
     end
 
+    local function HasCanvasSavedPosition(name)
+        local db = Offhand.db
+        if not name or not db then return false end
+        return (db.savedWorkspacePositions and db.savedWorkspacePositions[name] ~= nil)
+            or (db.savedMainPositions and db.savedMainPositions[name] ~= nil)
+    end
+
     local function CenterGameMenu()
         if UsesForeverEditMode() then return end
         PositionEditMode()
         for _, name in ipairs(menuFrameNames) do
             local frame = _G[name]
-            if frame and frame:IsShown() and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
+            if frame and frame:IsShown() and not frame._OffhandDragging
+                and not HasCanvasSavedPosition(name)
+                and not InCombatLockdown() and Offhand.db and Offhand.db.enabled then
                 local m = Offhand.Viewport:GetMetrics()
                 if Offhand.MenuPlacement then Offhand.MenuPlacement:Center(frame, m) end
             end
@@ -1064,9 +1073,11 @@ function HUD:HookFrames()
                         end
                         
                         local info = UIPanelWindows and UIPanelWindows[name]
-                        if isMenu or (info and info.area == "center") then
+                        if (isMenu or (info and info.area == "center"))
+                            and not frame._OffhandDragging and not HasCanvasSavedPosition(name) then
                             local function DoCenter()
-                                if frame:IsShown() and not InCombatLockdown()
+                                if frame:IsShown() and not frame._OffhandDragging
+                                    and not HasCanvasSavedPosition(name) and not InCombatLockdown()
                                     and not Compatibility.ShouldPreservePopupPosition(frame, name) then
                                     local m = Offhand.Viewport:GetMetrics()
                                     frame:ClearAllPoints()

@@ -287,10 +287,60 @@ local function FormatMapOwnerLabel(owner)
     return owner
 end
 
+local function IsOneForAllMoveWindowsDisabled()
+    local db = rawget(_G, "OneForAllDB")
+    local qol = type(db) == "table" and rawget(db, "qol")
+    return type(qol) == "table" and qol.moveWindows == false
+end
+
+local function IsOneForAllMovingFrame(frameName)
+    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
+        return false
+    end
+    local frame = rawget(_G, frameName)
+    return type(frame) == "table" and frame.ofaMovable == true
+end
+
 local function IsOneForAllMovingWorldMap()
-    if not Compatibility.IsAddonLoaded("OneForAll") then return false end
-    local map = _G.WorldMapFrame
-    return type(map) == "table" and map.ofaMovable == true
+    return IsOneForAllMovingFrame("WorldMapFrame")
+end
+
+local oneForAllDiagnosticFrameNames = {
+    "WorldMapFrame", "ContainerFrameCombinedBags", "SettingsPanel",
+    "CooldownViewerSettings", "AddonList", "MerchantFrame", "CharacterFrame",
+    "PlayerSpellsFrame", "GameMenuFrame",
+}
+
+local function IsOneForAllMovingAnyWindow()
+    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
+        return false
+    end
+    for _, frameName in ipairs(oneForAllDiagnosticFrameNames) do
+        if IsOneForAllMovingFrame(frameName) then return true end
+    end
+    return false
+end
+
+local function GetOneForAllUnmitigatedMoverTargets(mapOwner, bagOwners)
+    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
+        return nil
+    end
+    local targets = {}
+    if not mapOwner and IsOneForAllMovingFrame("WorldMapFrame") then
+        targets[#targets + 1] = "WorldMapFrame"
+    end
+    if (#bagOwners == 0) and IsOneForAllMovingFrame("ContainerFrameCombinedBags") then
+        targets[#targets + 1] = "ContainerFrameCombinedBags"
+    end
+    if Offhand.isForever then
+        if IsOneForAllMovingFrame("SettingsPanel") then
+            targets[#targets + 1] = "SettingsPanel"
+        end
+        if IsOneForAllMovingFrame("CooldownViewerSettings") then
+            targets[#targets + 1] = "CooldownViewerSettings"
+        end
+    end
+    return #targets > 0 and targets or nil
 end
 
 local function IsElvUIBagsActive()
@@ -394,6 +444,15 @@ function Compatibility.GetOwnershipConflicts()
             addons = table.concat(bags, ", "),
         }
     end
+    local ofaTargets = GetOneForAllUnmitigatedMoverTargets(mapOwner, bags)
+    if ofaTargets then
+        conflicts[#conflicts + 1] = {
+            id = "window-mover:OneForAll",
+            kind = "window-mover",
+            mover = "OneForAll",
+            targets = table.concat(ofaTargets, ","),
+        }
+    end
     return conflicts
 end
 
@@ -405,6 +464,10 @@ function Compatibility.FormatConflictMessage(conflict)
         local fmt = L["COMPAT_CONFLICT_WORLDMAP_MOVER"]
             or "Conflict: %s is moving the World Map ahead of %s. Disable %s's window movement option if the map snaps back."
         return string.format(fmt, conflict.mover, conflict.owner, conflict.mover)
+    elseif conflict.kind == "window-mover" then
+        local fmt = L["COMPAT_CONFLICT_WINDOW_MOVER"]
+            or "Conflict: %s's Move Blizzard windows option is active alongside Offhand. Disable Move Blizzard windows in %s if windows, bags, or the World Map flicker or snap back."
+        return string.format(fmt, conflict.mover, conflict.mover)
     elseif conflict.kind == "openmap-contract" then
         local fmt = L["COMPAT_CONFLICT_OPENMAP_CONTRACT"]
             or "Notice: OpenMap updated to an unsupported contract (%s). Offhand stood down its OpenMap drag sync and recovery helpers."
@@ -471,6 +534,9 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
     if (mapOwner == "OpenMap" or mapOwner == "LeatrixMaps") and IsOneForAllMovingWorldMap() then
         local mitigated = (mapOwner == "OpenMap" and Compatibility.InspectOpenMapContract() == "ok")
         moverStatus = " | WorldMapMover=OneForAll(" .. (mitigated and "synced" or "conflict") .. ")"
+    end
+    if IsOneForAllMovingAnyWindow() then
+        moverStatus = moverStatus .. " | OneForAllMover=active"
     end
     local conflictList = Compatibility.GetOwnershipConflicts()
     local conflictStatus = ""
