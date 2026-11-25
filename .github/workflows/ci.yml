@@ -30,6 +30,16 @@ jobs:
           python scripts/check-compatibility.py --skip-lua-tests --report dist/compatibility-check.json
           if ($LASTEXITCODE -ne 0) { throw 'Addon compatibility checks failed.' }
 
+      - name: Verify an addon ZIP against the CI revision
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -p test_verify_addon_archive.py -v
+          if ($LASTEXITCODE -ne 0) { throw 'Archive verifier tests failed.' }
+          ./package.ps1 -AddonOnly -Version ci
+          python scripts/verify-addon-archive.py dist/Offhand-vci.zip --revision $env:GITHUB_SHA `
+            --checksums dist/checksums-addon-vci-sha256.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Addon ZIP verification failed.' }
+
       - name: Require current workspace restart evidence for promotion to main
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
         shell: pwsh

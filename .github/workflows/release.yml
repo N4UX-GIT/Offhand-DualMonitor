@@ -137,6 +137,14 @@ jobs:
           "$hash  $($file.Name)" | Add-Content -LiteralPath "dist\checksums-sha256.txt" -Encoding UTF8
         }
 
+    - name: Verify addon ZIP against the release tag
+      shell: pwsh
+      run: |
+        $version = $env:GITHUB_REF_NAME.TrimStart('v')
+        python scripts/verify-addon-archive.py "dist/Offhand-v$version.zip" --revision $env:GITHUB_SHA `
+          --checksums dist/checksums-sha256.txt --report dist/addon-verification.json
+        if ($LASTEXITCODE -ne 0) { throw 'Tagged addon ZIP verification failed.' }
+
     - name: Create standardized release metadata
       id: metadata
       shell: powershell
@@ -160,6 +168,7 @@ jobs:
           dist/Offhand-v*.zip
           dist/Offhand-Complete-v*.zip
           dist/checksums-sha256.txt
+          dist/addon-verification.json
 
     - name: Attest updated Companion provenance
       if: steps.policy.outputs.companion_changed == 'true'
@@ -181,6 +190,7 @@ jobs:
           dist/Offhand-Complete-v*.zip
           dist/Offhand.exe
           dist/checksums-sha256.txt
+          dist/addon-verification.json
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

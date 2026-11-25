@@ -320,6 +320,27 @@ The tag-triggered GitHub workflow restores and hash-verifies the published Beta
 validates and packages the checked-in frozen executable; it must never rebuild
 different bytes after candidate review.
 
+CI builds an addon ZIP from its checkout and checks it against that run's Git
+revision. The tag-triggered release workflow checks the exact addon ZIP against
+the tagged commit and the release checksum list before attestation and upload.
+Keep the resulting `addon-verification.json` with the release assets. It records
+the verified commit, ZIP filename, SHA-256, and file count.
+
+For a manually prepared release, run the same check on the exact upload ZIP.
+Use the approved commit during preparation and rerun with the release tag before
+uploading. Point `--checksums` at the checksum list that names that ZIP.
+
+```powershell
+python scripts/verify-addon-archive.py 'dist/Offhand-v<VERSION>.zip' `
+  --revision 'v<VERSION>' --checksums 'dist/checksums-sha256.txt' `
+  --report 'dist/addon-verification.json'
+```
+
+The verifier compares the archive inventory and contents with the Git tree.
+It accepts CRLF and LF line endings in text and compares binary assets byte for
+byte. Store Companion and frozen historical releases retain their own package
+checks.
+
 - [ ] Run release metadata tests.
 - [ ] Tag only the reviewed commit using `vMAJOR.MINOR.PATCH`,
       `vMAJOR.MINOR.PATCH-beta.N`, or another supported prerelease form.
@@ -331,6 +352,7 @@ different bytes after candidate review.
   - `Offhand-Complete-v<VERSION>.zip`
   - `Offhand.exe` (frozen Beta 20)
   - `checksums-sha256.txt`
+  - `addon-verification.json`
 - [ ] Confirm the complete bundle contains the frozen Beta 20 executable with
       the SHA-256 recorded in the release workflow and package script.
 - [ ] For an intentional Companion release only, also inspect
@@ -475,6 +497,7 @@ The CurseForge upload is `Offhand-v<VERSION>.zip`; it does not contain the
 Companion executable.
 
 - [ ] Upload only when addon files or compatibility metadata changed.
+- [ ] Match the CurseForge upload ZIP to the SHA-256 in `addon-verification.json`.
 - [ ] Select **Beta** for beta builds and the appropriate supported game
       versions.
 - [ ] Use the same public version and changelog as GitHub.
