@@ -50,6 +50,14 @@ local function PersistenceEnabled()
     return api.IsWorkspacePersistenceEnabled() == true
 end
 
+local function EscapeProtectionEnabled()
+    local api = Offhand and Offhand.API
+    if api and type(api.IsEscapeProtectionEnabled) == "function" then
+        return api.IsEscapeProtectionEnabled() == true
+    end
+    return PersistenceEnabled()
+end
+
 -- ---------------------------------------------------------------------
 -- 1. Monitor-confined Win.Room / Win.Feel.Slide
 -- ---------------------------------------------------------------------
@@ -230,6 +238,18 @@ local function IsHiddenParkedFrame(frame)
         or (type(charFollow) == "table" and parent == charFollow.hidden)
 end
 
+local function IsAsideParkedFrame(frame)
+    if type(frame) ~= "table" or type(frame.GetParent) ~= "function" then return false end
+    local ok, parent = pcall(frame.GetParent, frame)
+    if not ok or not parent then return false end
+    local followers = Win and Win.Followers
+    return type(followers) == "table" and parent == followers.aside
+end
+
+local function IsParkedGameFrame(frame)
+    return IsHiddenParkedFrame(frame) or IsAsideParkedFrame(frame)
+end
+
 local function EnsureAddonLoaded(addonName)
     if type(addonName) ~= "string" or addonName == "" then return end
     local isLoaded = C_AddOns and C_AddOns.IsAddOnLoaded or _G.IsAddOnLoaded
@@ -250,14 +270,15 @@ local function IsDaylightWindowOpen(frame)
     return frame.IsShown and frame:IsShown() == true and not frame.__feelClosing
 end
 
--- Restorable DaylightUI replacement windows. Hidden-parked windows restore
--- before aside-parked windows so hidden frames can vacate Blizzard's UIPanel
--- slots without firing OnHide, allowing every saved Offhand window to reopen.
+-- Restorable DaylightUI replacement windows. Slot-vacating windows restore
+-- before Craft so Blizzard's UIPanel manager never closes earlier Offhand
+-- windows before Craft opens, and Escape protection covers all six windows.
 local MANAGED_WINDOWS = {
     {
         key = "character",
         order = 1,
         hidden = true,
+        escapeMode = "vacate-slot",
         frame = function() return _G.DaylightUICharacter end,
         game = function() return _G.CharacterFrame end,
         covers = function()
@@ -291,6 +312,7 @@ local MANAGED_WINDOWS = {
         key = "social",
         order = 2,
         hidden = true,
+        escapeMode = "vacate-slot",
         addon = "Blizzard_SocialUI",
         frame = function() return _G.DaylightUISocial end,
         game = function() return _G.SocialUIFrame end,
@@ -322,6 +344,7 @@ local MANAGED_WINDOWS = {
         key = "lfg",
         order = 3,
         hidden = true,
+        escapeMode = "vacate-slot",
         addon = "Blizzard_GroupFinder_VanillaStyle",
         frame = function() return _G.DaylightUILfg end,
         game = function() return _G.LFGParentFrame end,
@@ -352,7 +375,8 @@ local MANAGED_WINDOWS = {
     {
         key = "legacy",
         order = 4,
-        hidden = true,
+        hidden = false,
+        escapeMode = "vacate-slot",
         addon = "Blizzard_LegacySystem",
         frame = function() return _G.DaylightUILegacy end,
         game = function() return _G.LegacySystemFrame end,
@@ -375,6 +399,13 @@ local MANAGED_WINDOWS = {
             end
             return false
         end,
+        afterOpen = function(savedPage)
+            local mod = DUI and DUI.Legacy and DUI.Legacy.Window
+            if type(savedPage) == "string" and type(mod) == "table" and type(mod.ShowTab) == "function"
+                and _G.DaylightUILegacy and _G.DaylightUILegacy.current ~= savedPage then
+                pcall(mod.ShowTab, savedPage)
+            end
+        end,
         close = function()
             local mod = DUI and DUI.Legacy and DUI.Legacy.Window
             if type(mod) == "table" and type(mod.Close) == "function" then pcall(mod.Close) end
@@ -384,6 +415,7 @@ local MANAGED_WINDOWS = {
         key = "book",
         order = 5,
         hidden = false,
+        escapeMode = "vacate-slot",
         addon = "Blizzard_PlayerSpells",
         frame = function() return _G.DaylightUIBook end,
         game = function() return _G.PlayerSpellsFrame end,
@@ -437,6 +469,7 @@ local MANAGED_WINDOWS = {
         key = "craft",
         order = 6,
         hidden = false,
+        escapeMode = "craft-escape",
         addon = "Blizzard_Professions",
         frame = function() return _G.DaylightUICraft end,
         game = function() return _G.ProfessionsFrame end,
@@ -477,6 +510,13 @@ local byKey = {}
 for _, desc in ipairs(MANAGED_WINDOWS) do byKey[desc.key] = desc end
 
 local transitioning, singleScreenPaused, restoring, sessionReady = false, false, false, false
+local PANEL_SLOTS = { "left", "center", "right", "doublewide", "fullscreen" }
+local vacating = setmetatable({}, { __mode = "k" })
+local vacatedPanels = {}
+local removedSpecial = {}
+local craftEscapeState = {}
+local pendingCraftEscape = nil
+local hookedShowUIPanel, hookedHideUIPanel, hookedToggleGameMenu = false, false, false
 
 local function GetOpenWindowsStore(create)
     local db = ns.DB and ns.DB()
@@ -496,18 +536,348 @@ local function DescriptorForFrame(frame)
     return nil
 end
 
-local function InstallLifecycleHooks()
-    if not Feel or Feel._offhandLifecycleWrapped then return end
-    Feel._offhandLifecycleWrapped = true
-    if type(Feel.Close) == "function" then
-        local origClose = Feel.Close
-        function Feel.Close(frame, ...)
-            local desc = DescriptorForFrame(frame)
-            if desc and sessionReady and not transitioning and not singleScreenPaused and not restoring and IsSpanned() then
-                local store = GetOpenWindowsStore(false)
-                if store then store[desc.key] = nil end
+local function DescriptorForGameFrame(gameFrame)
+    if not gameFrame then return nil end
+    for _, desc in ipairs(MANAGED_WINDOWS) do
+        if desc.game() == gameFrame then return desc end
+    end
+    return nil
+end
+
+local function OccupiesPanelSlot(frame)
+    if not frame or type(GetUIPanel) ~= "function" then return false end
+    for _, slot in ipairs(PANEL_SLOTS) do
+        if GetUIPanel(slot) == frame then return true end
+    end
+    return false
+end
+
+local function IsInSpecialFrames(name)
+    if type(name) ~= "string" or type(UISpecialFrames) ~= "table" then return false end
+    for _, entry in ipairs(UISpecialFrames) do
+        if entry == name then return true end
+    end
+    return false
+end
+
+local function ExcludeSpecialFrame(name)
+    if InCombatLockdown() or type(name) ~= "string" or type(UISpecialFrames) ~= "table" then return false end
+    local removed = false
+    for i = #UISpecialFrames, 1, -1 do
+        if UISpecialFrames[i] == name then
+            if not removedSpecial[name] then removedSpecial[name] = i end
+            table.remove(UISpecialFrames, i)
+            removed = true
+        end
+    end
+    return removed
+end
+
+local function RestoreSpecialFrame(name)
+    if InCombatLockdown() or type(name) ~= "string" then return false end
+    local index = removedSpecial[name]
+    if not index or type(UISpecialFrames) ~= "table" then return false end
+    removedSpecial[name] = nil
+    if not IsInSpecialFrames(name) then
+        table.insert(UISpecialFrames, math.min(index, #UISpecialFrames + 1), name)
+    end
+    return true
+end
+
+local function IsProtectedWorkspacePanel(panel)
+    local desc = DescriptorForGameFrame(panel)
+    if desc then
+        local f = desc.frame()
+        return f ~= nil and IsDaylightWindowOpen(f) and IsOnWorkspace(f)
+    end
+    if Windows.IsParkedNativePanel(panel) then return false end
+    return IsOnWorkspace(panel)
+end
+
+local function CloseMainhandPanelsExcept(exceptFrame)
+    local closed = false
+    if type(GetUIPanel) == "function" and type(HideUIPanel) == "function" then
+        local seen = {}
+        for _, slot in ipairs(PANEL_SLOTS) do
+            local p = GetUIPanel(slot)
+            if p and p ~= exceptFrame and not seen[p] and p.IsShown and p:IsShown()
+                and not IsProtectedWorkspacePanel(p) then
+                seen[p] = true
+                pcall(HideUIPanel, p)
+                closed = true
             end
-            return origClose(frame, ...)
+        end
+    end
+    if type(UISpecialFrames) == "table" then
+        for _, name in ipairs(UISpecialFrames) do
+            local p = type(name) == "string" and _G[name] or nil
+            if p and p ~= exceptFrame and p ~= _G.GameMenuFrame and p.IsShown and p:IsShown()
+                and not IsProtectedWorkspacePanel(p) and p.Hide then
+                pcall(p.Hide, p)
+                closed = true
+            end
+        end
+    end
+    return closed
+end
+
+local function VacatePanelSlot(desc, frame, gameFrame)
+    if InCombatLockdown() or not desc or desc.escapeMode ~= "vacate-slot" then return false end
+    if not gameFrame or type(HideUIPanel) ~= "function" or vacating[gameFrame] then return false end
+    if not IsParkedGameFrame(gameFrame) then return false end
+    if not (gameFrame.IsShown and gameFrame:IsShown()) then return false end
+    local didVacate = false
+    if OccupiesPanelSlot(gameFrame) then
+        local savedPage = frame and frame.current
+        vacating[gameFrame] = true
+        pcall(HideUIPanel, gameFrame, 1)
+        if gameFrame.Show and not gameFrame:IsShown() then
+            pcall(gameFrame.Show, gameFrame)
+        end
+        vacating[gameFrame] = nil
+        if savedPage and frame and frame.current ~= savedPage and desc.afterOpen then
+            pcall(desc.afterOpen, savedPage)
+        end
+        vacatedPanels[desc.key] = true
+        didVacate = true
+    end
+    local gName = gameFrame.GetName and gameFrame:GetName()
+    if gName and ExcludeSpecialFrame(gName) then didVacate = true end
+    return didVacate
+end
+
+local function ReattachPanelSlot(desc, frame, gameFrame)
+    if not desc then return false end
+    local gName = gameFrame and gameFrame.GetName and gameFrame:GetName()
+    if gName and not InCombatLockdown() then RestoreSpecialFrame(gName) end
+    if not vacatedPanels[desc.key] then return false end
+    local open = frame ~= nil and IsDaylightWindowOpen(frame)
+    local parkedShown = gameFrame ~= nil and IsParkedGameFrame(gameFrame)
+        and gameFrame.IsShown and gameFrame:IsShown()
+    if not open or not parkedShown then
+        if not restoring then vacatedPanels[desc.key] = nil end
+        return false
+    end
+    if InCombatLockdown() then return false end
+    if type(GetUIPanel) == "function" and GetUIPanel("left") and GetUIPanel("center") then
+        -- Wait for a free native panel slot instead of letting ShowUIPanel
+        -- immediately close another open window while toggling settings.
+        return false
+    end
+    vacatedPanels[desc.key] = nil
+    if not OccupiesPanelSlot(gameFrame) and type(ShowUIPanel) == "function" and not vacating[gameFrame] then
+        local savedPage = frame.current
+        vacating[gameFrame] = true
+        if gameFrame.Hide then pcall(gameFrame.Hide, gameFrame) end
+        pcall(ShowUIPanel, gameFrame)
+        if gameFrame.Show and not gameFrame:IsShown() then
+            pcall(gameFrame.Show, gameFrame)
+        end
+        vacating[gameFrame] = nil
+        if savedPage and frame.current ~= savedPage and desc.afterOpen then
+            pcall(desc.afterOpen, savedPage)
+        end
+        return true
+    end
+    return false
+end
+
+local function InstallCraftEscapeGuard()
+    if InCombatLockdown() or type(debugstack) ~= "function" then return end
+    local g = _G.ProfessionsFrame
+    if type(g) ~= "table" or type(g.CheckConfirmClose) ~= "function" then return end
+    if craftEscapeState.frame == g and g.CheckConfirmClose == craftEscapeState.wrapper then return end
+    local nativeClose = g.CheckConfirmClose
+    local function wrapper(self, ...)
+        local f = _G.DaylightUICraft
+        if self == g
+            and EscapeProtectionEnabled()
+            and IsSpanned()
+            and not InCombatLockdown()
+            and IsAsideParkedFrame(g)
+            and f and IsDaylightWindowOpen(f) and IsOnWorkspace(f)
+            and ((self.CraftingPage and self.CraftingPage.IsShown and self.CraftingPage:IsShown())
+                or (self.BookPage and self.BookPage.IsShown and self.BookPage:IsShown()))
+            and debugstack(2, 3, 0):find("Blizzard_ProfessionsRegistration.lua", 1, true) then
+            if GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown() then
+                if GameMenuFrame.Hide then pcall(GameMenuFrame.Hide, GameMenuFrame) end
+            elseif not CloseMainhandPanelsExcept(g) and GameMenuFrame and GameMenuFrame.Show then
+                pcall(GameMenuFrame.Show, GameMenuFrame)
+            end
+            return
+        end
+        return nativeClose(self, ...)
+    end
+    g.CheckConfirmClose = wrapper
+    craftEscapeState.frame = g
+    craftEscapeState.native = nativeClose
+    craftEscapeState.wrapper = wrapper
+end
+
+local function ProtectManagedWindow(desc)
+    if not desc then return end
+    local f, g = desc.frame(), desc.game()
+    local shouldProtect = EscapeProtectionEnabled()
+        and IsSpanned()
+        and f ~= nil and IsDaylightWindowOpen(f) and IsOnWorkspace(f)
+        and g ~= nil and IsParkedGameFrame(g) and g.IsShown and g:IsShown()
+    if desc.escapeMode == "vacate-slot" then
+        if shouldProtect then
+            VacatePanelSlot(desc, f, g)
+        else
+            ReattachPanelSlot(desc, f, g)
+        end
+    elseif desc.escapeMode == "craft-escape" then
+        InstallCraftEscapeGuard()
+        local gName = g and g.GetName and g:GetName()
+        if shouldProtect then
+            if gName then ExcludeSpecialFrame(gName) end
+        else
+            if gName then RestoreSpecialFrame(gName) end
+        end
+    end
+end
+
+local function SyncEscapeProtection()
+    InstallCraftEscapeGuard()
+    for _, desc in ipairs(MANAGED_WINDOWS) do
+        ProtectManagedWindow(desc)
+    end
+end
+
+local function ObserveCraftOverviewEscapeHide(panel)
+    if InCombatLockdown() or not panel or panel ~= _G.ProfessionsFrame or vacating[panel] then return end
+    if not EscapeProtectionEnabled() or not IsSpanned() or not IsAsideParkedFrame(panel) then return end
+    if panel.IsShown and panel:IsShown() then return end
+    local f = _G.DaylightUICraft
+    if not (f and IsDaylightWindowOpen(f) and IsOnWorkspace(f)) then return end
+    -- Only recover overview closes when Blizzard hides ProfessionsFrame via
+    -- HideUIPanel during Escape. CraftingPage is protected pre-hide by
+    -- CheckConfirmClose so live trade-skill sessions never end.
+    local craftingShown = panel.CraftingPage and panel.CraftingPage.IsShown and panel.CraftingPage:IsShown()
+    if craftingShown then return end
+    local pending = {
+        frame = panel,
+        menuWasShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown() or false,
+    }
+    pendingCraftEscape = pending
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.10, function()
+            if pendingCraftEscape == pending then pendingCraftEscape = nil end
+        end)
+    end
+end
+
+local function RestoreCraftOverviewAfterEscape(pending)
+    if not pending or InCombatLockdown() or not EscapeProtectionEnabled() or not IsSpanned() then return end
+    local desc = byKey.craft
+    local g = desc and desc.game()
+    if not g or g ~= pending.frame or not IsAsideParkedFrame(g) then return end
+    if not (g.IsShown and g:IsShown()) then desc.open() end
+    local menuShouldBeShown = not pending.menuWasShown
+    local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown() or false
+    if GameMenuFrame and menuShouldBeShown ~= menuIsShown then
+        if menuShouldBeShown and GameMenuFrame.Show then
+            pcall(GameMenuFrame.Show, GameMenuFrame)
+        elseif GameMenuFrame.Hide then
+            pcall(GameMenuFrame.Hide, GameMenuFrame)
+        end
+    end
+end
+
+local function InstallLifecycleHooks()
+    if Feel and not Feel._offhandLifecycleWrapped then
+        Feel._offhandLifecycleWrapped = true
+        if type(Feel.Open) == "function" then
+            local origOpen = Feel.Open
+            function Feel.Open(frame, ...)
+                local r1, r2 = origOpen(frame, ...)
+                local desc = DescriptorForFrame(frame)
+                if desc then
+                    ProtectManagedWindow(desc)
+                    if sessionReady and not transitioning and not singleScreenPaused and not restoring
+                        and IsSpanned() and IsOnWorkspace(frame) then
+                        local store = GetOpenWindowsStore(true)
+                        if store then store[desc.key] = desc.page and desc.page(frame) or true end
+                    end
+                    if C_Timer and C_Timer.After then
+                        C_Timer.After(0, function() ProtectManagedWindow(desc) end)
+                    end
+                end
+                return r1, r2
+            end
+        end
+        if type(Feel.Close) == "function" then
+            local origClose = Feel.Close
+            function Feel.Close(frame, ...)
+                local desc = DescriptorForFrame(frame)
+                if desc then
+                    vacatedPanels[desc.key] = nil
+                    local g = desc.game()
+                    local gName = g and g.GetName and g:GetName()
+                    if gName and not InCombatLockdown() then RestoreSpecialFrame(gName) end
+                    if sessionReady and not transitioning and not singleScreenPaused and not restoring and IsSpanned() then
+                        local store = GetOpenWindowsStore(false)
+                        if store then store[desc.key] = nil end
+                    end
+                end
+                return origClose(frame, ...)
+            end
+        end
+    end
+    if Room and type(Room.Changed) == "function" and not Room._offhandRoomChangedWrapped then
+        Room._offhandRoomChangedWrapped = true
+        local origChanged = Room.Changed
+        function Room.Changed(frame, ...)
+            local r1, r2 = origChanged(frame, ...)
+            local desc = DescriptorForFrame(frame)
+            if desc then
+                ProtectManagedWindow(desc)
+                if sessionReady and not transitioning and not singleScreenPaused and not restoring and IsSpanned() then
+                    local store = GetOpenWindowsStore(true)
+                    if store then
+                        if IsDaylightWindowOpen(frame) and IsOnWorkspace(frame) then
+                            store[desc.key] = desc.page and desc.page(frame) or true
+                        else
+                            store[desc.key] = nil
+                        end
+                    end
+                end
+            end
+            return r1, r2
+        end
+    end
+    if type(hooksecurefunc) == "function" then
+        if type(ShowUIPanel) == "function" and not hookedShowUIPanel then
+            hookedShowUIPanel = true
+            hooksecurefunc("ShowUIPanel", function(panel)
+                if not panel or vacating[panel] then return end
+                local desc = DescriptorForGameFrame(panel)
+                if not desc then return end
+                ProtectManagedWindow(desc)
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, function() ProtectManagedWindow(desc) end)
+                end
+            end)
+        end
+        if type(HideUIPanel) == "function" and not hookedHideUIPanel then
+            hookedHideUIPanel = true
+            hooksecurefunc("HideUIPanel", function(panel)
+                ObserveCraftOverviewEscapeHide(panel)
+            end)
+        end
+        if type(ToggleGameMenu) == "function" and not hookedToggleGameMenu then
+            hookedToggleGameMenu = true
+            hooksecurefunc("ToggleGameMenu", function()
+                local pending = pendingCraftEscape
+                if not pending then return end
+                pendingCraftEscape = nil
+                if C_Timer and C_Timer.After then
+                    C_Timer.After(0, function() RestoreCraftOverviewAfterEscape(pending) end)
+                else
+                    RestoreCraftOverviewAfterEscape(pending)
+                end
+            end)
         end
     end
 end
@@ -528,21 +898,6 @@ local function SyncManagedWindows(preserveMissing)
     end
 end
 
-local function VacateHiddenPanelSlot(gameFrame)
-    if InCombatLockdown() or not gameFrame or type(HideUIPanel) ~= "function" then return end
-    if not IsHiddenParkedFrame(gameFrame) then return end
-    if not (gameFrame.IsShown and gameFrame:IsShown()) then return end
-    if type(GetUIPanel) == "function" then
-        local occupied = GetUIPanel("left") == gameFrame or GetUIPanel("center") == gameFrame
-            or GetUIPanel("right") == gameFrame or GetUIPanel("doublewide") == gameFrame
-        if not occupied then return end
-    end
-    pcall(HideUIPanel, gameFrame, 1)
-    if gameFrame.Show and not gameFrame:IsShown() then
-        pcall(gameFrame.Show, gameFrame)
-    end
-end
-
 -- ---------------------------------------------------------------------
 -- 3. DaylightUI_Skins WindowMove sync for standard Blizzard panels
 -- ---------------------------------------------------------------------
@@ -554,6 +909,9 @@ local EXCLUDED_WINDOW_MOVE = {
 
 local hookedMoveBars = setmetatable({}, { __mode = "k" })
 local hookedWindowMoveForget = setmetatable({}, { __mode = "k" })
+local hookedWindowMoveApply = setmetatable({}, { __mode = "k" })
+local windowMoveEvictGuard = setmetatable({}, { __mode = "k" })
+local pendingWindowMoveSync = {}
 local syncedWindowSpots = {}
 
 local function GetWindowMove()
@@ -564,10 +922,38 @@ end
 
 local function NotifyMoved(frame)
     local api = Offhand and Offhand.API
-    if not frame or not api or type(api.NotifyExternalPanelMoved) ~= "function" then return end
-    if InCombatLockdown() or not IsSpanned() then return end
-    if Windows.IsParkedNativePanel(frame) then return end
-    api.NotifyExternalPanelMoved(frame)
+    if not frame or not api or type(api.NotifyExternalPanelMoved) ~= "function" then return false end
+    if InCombatLockdown() or not IsSpanned() then return false end
+    if Windows.IsParkedNativePanel(frame) then return false end
+    return api.NotifyExternalPanelMoved(frame) == true
+end
+
+local function SyncWindowMoveFrame(wm, name, forceCapture)
+    if type(name) ~= "string" or EXCLUDED_WINDOW_MOVE[name] then return end
+    local f = _G[name]
+    if not (f and f.IsShown and f:IsShown()) then
+        if f then windowMoveEvictGuard[f] = nil end
+        return
+    end
+    if not IsSpanned() or Windows.IsParkedNativePanel(f) or not IsOnWorkspace(f) then
+        windowMoveEvictGuard[f] = nil
+        return
+    end
+    local spot = type(wm.Spot) == "function" and wm.Spot(name) or nil
+    local token = type(spot) == "table" and (tostring(spot[1]) .. "," .. tostring(spot[2])) or "shown"
+    local occupied = OccupiesPanelSlot(f)
+    local inSpecial = IsInSpecialFrames(name)
+    local needsEscapeSync = EscapeProtectionEnabled() and (occupied or inSpecial)
+    local guardKey = token .. ":" .. tostring(occupied) .. ":" .. tostring(inSpecial)
+    if forceCapture or syncedWindowSpots[name] ~= token
+        or (needsEscapeSync and windowMoveEvictGuard[f] ~= guardKey) then
+        syncedWindowSpots[name] = token
+        windowMoveEvictGuard[f] = guardKey
+        NotifyMoved(f)
+        if not OccupiesPanelSlot(f) and not IsInSpecialFrames(name) then
+            windowMoveEvictGuard[f] = nil
+        end
+    end
 end
 
 local function SyncWindowMove(forceCapture)
@@ -582,7 +968,31 @@ local function SyncWindowMove(forceCapture)
             if type(name) == "string" and not EXCLUDED_WINDOW_MOVE[name]
                 and api and type(api.ForgetExternalWorkspacePanel) == "function" then
                 syncedWindowSpots[name] = nil
+                local f = _G[name]
+                if f then windowMoveEvictGuard[f] = nil end
                 api.ForgetExternalWorkspacePanel(name)
+            end
+            return r1, r2
+        end
+    end
+    if type(wm.Apply) == "function" and not hookedWindowMoveApply[wm] then
+        hookedWindowMoveApply[wm] = true
+        local origApply = wm.Apply
+        wm.Apply = function(name, ...)
+            local r1, r2 = origApply(name, ...)
+            if type(name) == "string" and not EXCLUDED_WINDOW_MOVE[name]
+                and IsSpanned() and not InCombatLockdown() then
+                if C_Timer and C_Timer.After then
+                    if not pendingWindowMoveSync[name] then
+                        pendingWindowMoveSync[name] = true
+                        C_Timer.After(0, function()
+                            pendingWindowMoveSync[name] = nil
+                            SyncWindowMoveFrame(wm, name, false)
+                        end)
+                    end
+                else
+                    SyncWindowMoveFrame(wm, name, false)
+                end
             end
             return r1, r2
         end
@@ -596,20 +1006,12 @@ local function SyncWindowMove(forceCapture)
                     local f = _G[name]
                     if f then
                         syncedWindowSpots[name] = nil
+                        windowMoveEvictGuard[f] = nil
                         NotifyMoved(f)
                     end
                 end)
             end
-            local f = _G[name]
-            if f and f.IsShown and f:IsShown() and IsSpanned()
-                and not Windows.IsParkedNativePanel(f) and IsOnWorkspace(f) then
-                local spot = type(wm.Spot) == "function" and wm.Spot(name) or nil
-                local token = type(spot) == "table" and (tostring(spot[1]) .. "," .. tostring(spot[2])) or "shown"
-                if forceCapture or syncedWindowSpots[name] ~= token then
-                    syncedWindowSpots[name] = token
-                    NotifyMoved(f)
-                end
-            end
+            SyncWindowMoveFrame(wm, name, forceCapture)
         end
     end
 end
@@ -622,6 +1024,7 @@ function Windows.Refresh()
     InstallRoomGuard()
     InstallLifecycleHooks()
     SyncManagedWindows(false)
+    SyncEscapeProtection()
     SyncWindowMove(false)
 end
 
@@ -656,15 +1059,18 @@ function Windows.RestoreWorkspaceState()
     singleScreenPaused = false
     InstallRoomGuard()
     InstallLifecycleHooks()
+    InstallCraftEscapeGuard()
     if restoring then return end
     if InCombatLockdown() or not IsSpanned() then return end
     if not PersistenceEnabled() then
         sessionReady = true
+        SyncEscapeProtection()
         return
     end
     local store = GetOpenWindowsStore(false)
     if not store then
         sessionReady = true
+        SyncEscapeProtection()
         return
     end
     local queue = {}
@@ -675,6 +1081,7 @@ function Windows.RestoreWorkspaceState()
     end
     if #queue == 0 then
         sessionReady = true
+        SyncEscapeProtection()
         return
     end
     restoring = true
@@ -705,8 +1112,10 @@ function Windows.RestoreWorkspaceState()
                 return
             end
             desc.open(item.page)
-            if desc.hidden then
-                VacateHiddenPanelSlot(desc.game())
+            if desc.escapeMode == "vacate-slot" and EscapeProtectionEnabled() then
+                VacatePanelSlot(desc, desc.frame(), desc.game())
+            elseif desc.escapeMode == "craft-escape" then
+                InstallCraftEscapeGuard()
             end
             local function settle()
                 if desc.afterOpen then desc.afterOpen(item.page) end
@@ -714,6 +1123,7 @@ function Windows.RestoreWorkspaceState()
                 if f and IsDaylightWindowOpen(f) and not IsOnWorkspace(f) then
                     currentStore[desc.key] = nil
                 end
+                ProtectManagedWindow(desc)
                 doneOne()
             end
             if C_Timer and C_Timer.After then
@@ -732,3 +1142,4 @@ end
 
 InstallRoomGuard()
 InstallLifecycleHooks()
+InstallCraftEscapeGuard()

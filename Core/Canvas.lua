@@ -772,6 +772,7 @@ assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before
 function Canvas:UpdatePersistenceBehavior()
     if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
     if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
+    if Offhand.Bridges then Offhand.Bridges:Refresh("persistence") end
     if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
         Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
     end
@@ -1572,7 +1573,16 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
                 and Offhand.db.savedMainPositions[name]
                 or Offhand.db.savedWorkspacePositions[name]
             local placement = GetPanelPhysicalPlacement(frame)
-            if not PlacementMatchesPosition(placement, position) then
+            local needsSlotEviction = not isMainhand
+                and Offhand.db.persistentWorkspacePanels ~= false
+                and (Offhand.db.independentWorkspacePanels or frame == _G.WorldMapFrame)
+                and Offhand.CanvasPanelLifecycle
+                and Offhand.CanvasPanelLifecycle.OccupiesPanelSlot
+                and Offhand.CanvasPanelLifecycle.OccupiesPanelSlot(frame)
+                and not PanelRegistry.RequiresNativePanelRegistration(name)
+                and not IsForeverProfessionsPanel(frame, name)
+                and not IsBackpackRoot(name)
+            if not PlacementMatchesPosition(placement, position) or needsSlotEviction then
                 NotePanelControllerActivity(name, "generic", "peer-repair")
                 RestoreWorkspacePosition(frame)
             end

@@ -405,6 +405,13 @@ function Offhand.API.IsFrameOnWorkspace(frame)
     return false
 end
 
+-- True when Offhand is configured to keep Offhand workspace panels open on Escape.
+function Offhand.API.IsEscapeProtectionEnabled()
+    local db = Offhand.db
+    return type(db) == "table" and db.enabled == true
+        and db.persistentWorkspacePanels ~= false
+end
+
 -- True when Offhand is configured to keep and restore Offhand workspace panels
 -- across Escape and UI reloads.
 function Offhand.API.IsWorkspacePersistenceEnabled()

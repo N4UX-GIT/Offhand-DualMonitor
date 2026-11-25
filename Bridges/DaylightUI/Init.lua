@@ -151,6 +151,7 @@ events:SetScript("OnEvent", function(_, event, name)
         end
         if ns.layout and ns.Sweep then ns.Sweep() end
     elseif event == "PLAYER_REGEN_ENABLED" then
+        if ns.Windows and ns.Windows.Refresh then ns.Windows.Refresh("combat") end
         if not (ns.pending or ns.sweepPending) then return end
         ns.pending = false
         if ns.sweepPending and ns.layout and ns.Sweep then ns.Sweep() end

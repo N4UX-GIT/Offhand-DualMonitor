@@ -248,6 +248,19 @@ assert(x == 2880 and y == 380 + 50, "out-of-range ratios must use the default ce
 x, y = addon.API.GetGroupLootSpot(200)
 assert(y == 380 + 100, "the height argument must centre the slot")
 
+addon.db = {enabled = true, persistentWorkspacePanels = true, restoreWorkspaceOnReload = false}
+assert(addon.API.IsEscapeProtectionEnabled() == true,
+    "IsEscapeProtectionEnabled must stay true when restoreWorkspaceOnReload is false")
+assert(addon.API.IsWorkspacePersistenceEnabled() == false,
+    "IsWorkspacePersistenceEnabled must still respect restoreWorkspaceOnReload")
+addon.db.persistentWorkspacePanels = false
+assert(addon.API.IsEscapeProtectionEnabled() == false,
+    "IsEscapeProtectionEnabled must be false when persistentWorkspacePanels is false")
+addon.db.persistentWorkspacePanels = true
+addon.db.enabled = false
+assert(addon.API.IsEscapeProtectionEnabled() == false,
+    "IsEscapeProtectionEnabled must be false when Offhand is disabled")
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",

@@ -122,12 +122,16 @@ function Feel.Slide(f, dx)
     f.offsetX = dx
     f.slideCalls[#f.slideCalls + 1] = dx
 end
+function Feel.Open(f)
+    if f then f.__feelClosing = nil; f:Show() end
+end
 function Feel.Close(f)
     if f then f:Hide() end
 end
 
 local roomOrder = {}
 local Room = { GAP = 8, EDGE = 4 }
+function Room.Changed() end
 local function roomHome(f)
     local l = f:GetLeft() - Feel.OffsetX(f)
     local t = f:GetTop() - Feel.Offset(f)
@@ -164,20 +168,35 @@ function Room.Lay()
         placed[#placed + 1] = roomAt(r, x)
     end
 end
+local baseFeelOpen, baseFeelClose, baseFeelSlide = Feel.Open, Feel.Close, Feel.Slide
+local baseRoomLay, baseRoomChanged = Room.Lay, Room.Changed
 
 -- Replacement windows + parked Blizzard frames
 local charGame = MakeWindow("CharacterFrame", 16, 1000, 384, 512, charHidden)
 local socialGame = MakeWindow("SocialUIFrame", 16, 1000, 384, 512, followersHidden)
+local lfgGame = MakeWindow("LFGParentFrame", 16, 1000, 384, 512, followersHidden)
+local legacyGame = MakeWindow("LegacySystemFrame", 16, 1000, 780, 580, followersAside)
 local bookGame = MakeWindow("PlayerSpellsFrame", 16, 1000, 600, 600, followersAside)
 local craftGame = MakeWindow("ProfessionsFrame", 16, 1000, 720, 560, followersAside)
+craftGame.CraftingPage = MakeWindow(nil, 0, 0, 720, 560, craftGame)
+craftGame.BookPage = MakeWindow(nil, 0, 0, 720, 560, craftGame)
+local craftNativeCloseCalls = 0
+local function craftNativeClose()
+    craftNativeCloseCalls = craftNativeCloseCalls + 1
+    HideUIPanel(craftGame)
+end
+craftGame.CheckConfirmClose = craftNativeClose
 local trainerGame = MakeWindow("ClassTrainerFrame", 16, 1000, 384, 512, followersVeil)
 
 local duiChar = MakeWindow("DaylightUICharacter", 120, 1200, 460, 560)
 local duiSocial = MakeWindow("DaylightUISocial", 80, 900, 520, 600)
+local duiLfg = MakeWindow("DaylightUILfg", 100, 1000, 460, 560)
+local duiLegacy = MakeWindow("DaylightUILegacy", 140, 1100, 780, 580)
 local duiBook = MakeWindow("DaylightUIBook", 160, 1200, 600, 600)
 local duiCraft = MakeWindow("DaylightUICraft", 200, 1100, 720, 560)
 
--- Simulated Blizzard UIPanel slot manager (only 2 slots: left + center)
+-- Simulated Blizzard UIPanel slot manager (only 2 slots: left + center) + UISpecialFrames
+UISpecialFrames = {}
 local slots = { left = nil, center = nil }
 GetUIPanel = function(slot) return slots[slot] end
 ShowUIPanel = function(frame)
@@ -195,23 +214,34 @@ HideUIPanel = function(frame, skipSetPoint)
     if slots.center == frame then slots.center = nil end
     frame:Hide()
 end
+ToggleGameMenu = function()
+    if GameMenuFrame:IsShown() then GameMenuFrame:Hide() else GameMenuFrame:Show() end
+end
 
 ToggleCharacter = function()
-    if charGame:IsShown() then HideUIPanel(charGame) else ShowUIPanel(charGame); duiChar:Show() end
+    if charGame:IsShown() then HideUIPanel(charGame) else ShowUIPanel(charGame); Feel.Open(duiChar) end
 end
 ToggleFriendsFrame = function()
-    if socialGame:IsShown() then HideUIPanel(socialGame) else ShowUIPanel(socialGame); duiSocial:Show() end
+    if socialGame:IsShown() then HideUIPanel(socialGame) else ShowUIPanel(socialGame); Feel.Open(duiSocial) end
+end
+ToggleLFGParentFrame = function()
+    if lfgGame:IsShown() then HideUIPanel(lfgGame) else ShowUIPanel(lfgGame); Feel.Open(duiLfg) end
+end
+ToggleLegacySystemUI = function()
+    if legacyGame:IsShown() then HideUIPanel(legacyGame) else ShowUIPanel(legacyGame); Feel.Open(duiLegacy) end
 end
 PlayerSpellsUtil = {
     ToggleSpellBookFrame = function()
-        ShowUIPanel(bookGame); duiBook.current = "spells"; duiBook:Show()
+        ShowUIPanel(bookGame); duiBook.current = "spells"; Feel.Open(duiBook)
     end,
     ToggleClassTalentOrSpecFrame = function()
-        ShowUIPanel(bookGame); duiBook.current = "talents"; duiBook:Show()
+        ShowUIPanel(bookGame); duiBook.current = "talents"; Feel.Open(duiBook)
     end,
 }
 ToggleProfessionsBook = function()
-    ShowUIPanel(craftGame); duiCraft:Show()
+    craftGame.BookPage:Show()
+    craftGame.CraftingPage:Hide()
+    ShowUIPanel(craftGame); Feel.Open(duiCraft)
 end
 
 -- DaylightUI_Bags mock
@@ -241,16 +271,27 @@ end
 -- DaylightUI_Skins WindowMove mock
 local collections = MakeWindow("CollectionsJournal", 120, 1000, 700, 600)
 local macroFrame = MakeWindow("MacroFrame", 220, 900, 350, 420)
+local auctionFrame = MakeWindow("AuctionHouseFrame", 150, 900, 600, 500)
 local gameMenu = MakeWindow("GameMenuFrame", 120, 900, 200, 300)
 local wmBars = {
     CollectionsJournal = MakeWindow(nil, 120, 1000, 600, 26, collections),
     MacroFrame = MakeWindow(nil, 220, 900, 300, 26, macroFrame),
+    AuctionHouseFrame = MakeWindow(nil, 150, 900, 500, 26, auctionFrame),
     GameMenuFrame = MakeWindow(nil, 120, 900, 150, 26, gameMenu),
 }
-local wmSpots = { CollectionsJournal = { 120, 1000 }, MacroFrame = { 220, 900 }, GameMenuFrame = { 120, 900 } }
+local wmSpots = {
+    CollectionsJournal = { 120, 1000 },
+    MacroFrame = { 220, 900 },
+    AuctionHouseFrame = { 150, 900 },
+    GameMenuFrame = { 120, 900 },
+}
 local WindowMove = {
     bars = wmBars,
     Spot = function(name) return wmSpots[name] end,
+    Apply = function(name)
+        local f, s = _G[name], wmSpots[name]
+        if f and s and f:IsShown() then f.left, f.top = s[1], s[2] end
+    end,
     Forget = function(name) wmSpots[name] = nil end,
 }
 
@@ -293,8 +334,19 @@ _G.DaylightUI = {
             Close = function() HideUIPanel(craftGame); duiCraft:Hide() end,
         },
     },
-    Lfg = { Window = { Covers = function() return false end, Close = function() end } },
-    Legacy = { Window = { Covers = function() return false end, Close = function() end } },
+    Lfg = {
+        Window = {
+            Covers = function() return true end,
+            Close = function() HideUIPanel(lfgGame); Feel.Close(duiLfg) end,
+        },
+    },
+    Legacy = {
+        Window = {
+            Covers = function() return true end,
+            ShowTab = function(page) duiLegacy.current = page end,
+            Close = function() HideUIPanel(legacyGame); Feel.Close(duiLegacy) end,
+        },
+    },
     GetModule = function(_, name)
         if name == "Bags" then
             return { enabled = true, ns = { window = duiBag, OpenClose = bagOpenClose } }
@@ -311,7 +363,8 @@ local gameLeft, gameRight, gameBottom, gameTop = 1080, 3000, 0, 1080
 local externalMoved, externalForgotten = {}, {}
 
 _G.OffhandDB = {}
-local Offhand = {
+local Offhand
+Offhand = {
     db = { enabled = true, persistentWorkspacePanels = true, restoreWorkspaceOnReload = true },
     MainhandGeometry = {
         GetCurrentRect = function()
@@ -335,7 +388,18 @@ local Offhand = {
     },
     Canvas = {
         RecordExternalPanelDrag = function(_, frame)
-            externalMoved[#externalMoved + 1] = frame:GetName()
+            local name = frame:GetName()
+            if name == "AuctionHouseFrame" then return false end
+            externalMoved[#externalMoved + 1] = name
+            if Offhand.db.persistentWorkspacePanels ~= false and Offhand.API.IsFrameOnWorkspace(frame) then
+                if slots.left == frame or slots.center == frame then
+                    HideUIPanel(frame, 1)
+                    frame:Show()
+                end
+                for i = #UISpecialFrames, 1, -1 do
+                    if UISpecialFrames[i] == name then table.remove(UISpecialFrames, i) end
+                end
+            end
             return true
         end,
         ForgetExternalWorkspacePanel = function(_, name)
@@ -478,13 +542,43 @@ assert(savedWins.social == nil, "Explicit close must clear saved window state")
 duiBag:Hide(); bagOpenClose.held = nil; bagOpenClose.holdCalls = 0
 duiChar:Hide(); charGame:Hide()
 duiSocial:Hide(); socialGame:Hide()
+duiLfg:Hide(); lfgGame:Hide()
+duiLegacy:Hide(); legacyGame:Hide()
 duiBook:Hide(); bookGame:Hide(); duiBook.current = nil
 duiCraft:Hide(); craftGame:Hide()
 slots.left, slots.center = nil, nil
 duiBag.hooked = {}
 for _, b in pairs(wmBars) do b.hooked = {} end
 WindowMove.Forget = function(name) wmSpots[name] = nil end
+WindowMove.Apply = function(name)
+    local f, s = _G[name], wmSpots[name]
+    if f and s and f:IsShown() then f.left, f.top = s[1], s[2] end
+end
+craftGame.CheckConfirmClose = craftNativeClose
+ShowUIPanel = function(frame)
+    if slots.left and slots.left ~= frame then
+        if slots.center and slots.center ~= frame then
+            slots.center:Hide()
+        end
+        slots.center = slots.left
+    end
+    slots.left = frame
+    frame:Show()
+end
+HideUIPanel = function(frame, skipSetPoint)
+    if slots.left == frame then slots.left = nil end
+    if slots.center == frame then slots.center = nil end
+    frame:Hide()
+end
+ToggleGameMenu = function()
+    if GameMenuFrame:IsShown() then GameMenuFrame:Hide() else GameMenuFrame:Show() end
+end
+Feel.Open, Feel.Close, Feel.Slide = baseFeelOpen, baseFeelClose, baseFeelSlide
+Room.Lay, Room.Changed = baseRoomLay, baseRoomChanged
 Feel._offhandLifecycleWrapped = nil
+Feel._offhandSlideWrapped = nil
+Room._offhandLayWrapped = nil
+Room._offhandRoomChangedWrapped = nil
 
 _G.OffhandDB.bridges.DaylightUI.openBags = true
 _G.OffhandDB.bridges.DaylightUI.openWindows = {
@@ -551,4 +645,236 @@ WindowMove.Forget("CollectionsJournal")
 assert(#externalForgotten == 1 and externalForgotten[1] == "CollectionsJournal",
     "WindowMove.Forget must notify Offhand to clear workspace ownership")
 
+-- =====================================================================
+-- TEST 5: Escape protection for DaylightUI replacement windows & WindowMove
+-- =====================================================================
+
+-- Simulate Blizzard's Escape key press on Forever:
+-- 1. If GameMenuFrame is shown -> close it.
+-- 2. If ProfessionsFrame is shown -> Blizzard_ProfessionsRegistration calls CheckConfirmClose().
+-- 3. Otherwise CloseWindows() hides left/center UIPanel slots + UISpecialFrames;
+--    if anything closed, stop; else ToggleGameMenu() opens GameMenuFrame.
+local function SimulateBlizzardEscape(syncFollowers)
+    if gameMenu:IsShown() then
+        gameMenu:Hide()
+        return "closed-menu"
+    end
+    if craftGame:IsShown() then
+        local prevStack = debugstack
+        debugstack = function() return "Blizzard_Professions/Blizzard_ProfessionsRegistration.lua:42" end
+        craftGame:CheckConfirmClose()
+        debugstack = prevStack
+        if syncFollowers then syncFollowers() end
+        return gameMenu:IsShown() and "opened-menu" or "craft-escape"
+    end
+    local closedAny = false
+    for _, slot in ipairs({ "left", "center" }) do
+        local p = GetUIPanel(slot)
+        if p and p:IsShown() then
+            HideUIPanel(p)
+            closedAny = true
+        end
+    end
+    for i = #UISpecialFrames, 1, -1 do
+        local p = _G[UISpecialFrames[i]]
+        if p and p:IsShown() then
+            p:Hide()
+            closedAny = true
+        end
+    end
+    if syncFollowers then syncFollowers() end
+    if closedAny then return "closed-window" end
+    ToggleGameMenu()
+    return "opened-menu"
+end
+
+-- Simulates DaylightUI's Follow.Tick closing any replacement whose parked game frame hid
+local function SyncFollowers()
+    if not charGame:IsShown() and duiChar:IsShown() then Feel.Close(duiChar) end
+    if not socialGame:IsShown() and duiSocial:IsShown() then Feel.Close(duiSocial) end
+    if not lfgGame:IsShown() and duiLfg:IsShown() then Feel.Close(duiLfg) end
+    if not legacyGame:IsShown() and duiLegacy:IsShown() then Feel.Close(duiLegacy) end
+    if not bookGame:IsShown() and duiBook:IsShown() then Feel.Close(duiBook) end
+    if not craftGame:IsShown() and duiCraft:IsShown() then Feel.Close(duiCraft) end
+end
+
+-- Reset all windows cleanly; verify Escape protection works even with restoreWorkspaceOnReload = false!
+Offhand.db.persistentWorkspacePanels = true
+Offhand.db.restoreWorkspaceOnReload = false
+gameMenu:Hide()
+collections:Hide(); macroFrame:Hide(); auctionFrame:Hide()
+duiChar:Hide(); charGame:Hide()
+duiSocial:Hide(); socialGame:Hide()
+duiLfg:Hide(); lfgGame:Hide()
+duiLegacy:Hide(); legacyGame:Hide()
+duiBook:Hide(); bookGame:Hide()
+duiCraft:Hide(); craftGame:Hide()
+slots.left, slots.center = nil, nil
+UISpecialFrames = {}
+
+-- 5a. Open all 5 slot-vacating DaylightUI windows on Offhand via hotkeys (including aside-parked Legacy & Book!)
+duiChar.left, duiChar.top = 120, 1200
+duiSocial.left, duiSocial.top = 80, 900
+duiLfg.left, duiLfg.top = 100, 1000
+duiLegacy.left, duiLegacy.top, duiLegacy.current = 140, 1100, "challenges"
+duiBook.left, duiBook.top = 160, 1200
+
+ToggleCharacter()
+ToggleFriendsFrame()
+ToggleLFGParentFrame()
+ToggleLegacySystemUI()
+PlayerSpellsUtil.ToggleClassTalentOrSpecFrame()
+FlushTimers()
+
+assert(duiChar:IsShown() and duiSocial:IsShown() and duiLfg:IsShown()
+    and duiLegacy:IsShown() and duiBook:IsShown(),
+    "All 5 Offhand DaylightUI windows must be open together without evicting each other")
+assert(duiBook.current == "talents" and duiLegacy.current == "challenges",
+    "Vacating aside-parked slots must preserve active Book and Legacy tabs")
+assert(slots.left == nil and slots.center == nil,
+    "All 5 Offhand DaylightUI windows must vacate Blizzard UIPanel slots")
+
+-- Press Escape: ALL 5 Offhand panels stay open AND GameMenuFrame opens on the FIRST press!
+assert(SimulateBlizzardEscape(SyncFollowers) == "opened-menu",
+    "First Escape with only Offhand DaylightUI panels open must open Game Menu")
+assert(gameMenu:IsShown(), "GameMenuFrame must be shown on first Escape")
+assert(duiChar:IsShown() and duiSocial:IsShown() and duiLfg:IsShown()
+    and duiLegacy:IsShown() and duiBook:IsShown(),
+    "Escape must NOT close Character, Social, LFG, Legacy, or Book on Offhand")
+-- Second Escape closes GameMenuFrame without touching Offhand panels
+assert(SimulateBlizzardEscape(SyncFollowers) == "closed-menu" and not gameMenu:IsShown())
+assert(duiChar:IsShown() and duiBook:IsShown(), "Closing GameMenu must leave Offhand panels open")
+
+-- Tab switch on Character (ShowUIPanel re-called on already-open CharacterFrame) must re-vacate immediately
+ShowUIPanel(charGame)
+FlushTimers()
+assert(slots.left == nil and slots.center == nil,
+    "CharacterFrame tab switch (ShowUIPanel) must immediately re-vacate UIPanel slot")
+
+-- Dragging Character from Offhand -> Mainhand (Room.Changed) must re-attach its UIPanel slot so Escape closes it!
+duiChar.left, duiChar.top = 1400, 900
+Room.Changed(duiChar)
+assert(slots.left == charGame, "Dragging DaylightUICharacter to Mainhand must re-attach CharacterFrame slot")
+assert(SimulateBlizzardEscape(SyncFollowers) == "closed-window",
+    "Escape must close DaylightUICharacter after it is dragged to Mainhand")
+assert(not duiChar:IsShown() and not charGame:IsShown(), "Mainhand Character must close on Escape")
+assert(duiSocial:IsShown() and duiLfg:IsShown() and duiLegacy:IsShown() and duiBook:IsShown(),
+    "Other Offhand windows must remain open when Mainhand Character closes on Escape")
+
+-- Re-open Character on Offhand, then toggle Escape protection OFF -> Escape must close all Offhand windows
+duiChar.left, duiChar.top = 120, 1200
+ToggleCharacter()
+FlushTimers()
+assert(duiChar:IsShown() and slots.left == nil)
+Offhand.db.persistentWorkspacePanels = false
+Offhand.Bridges:Refresh("persistence")
+assert(slots.left ~= nil, "Disabling Escape protection must re-attach open DaylightUI windows to Blizzard slots")
+SimulateBlizzardEscape(SyncFollowers)
+assert(not (duiChar:IsShown() and duiSocial:IsShown() and duiLfg:IsShown()
+    and duiLegacy:IsShown() and duiBook:IsShown()),
+    "Escape must close Offhand DaylightUI windows when Escape protection is toggled OFF")
+
+-- Explicit X / hotkey close still works cleanly with Escape protection back ON
+Offhand.db.persistentWorkspacePanels = true
+Offhand.db.restoreWorkspaceOnReload = true
+duiChar:Hide(); charGame:Hide()
+duiSocial:Hide(); socialGame:Hide()
+duiLfg:Hide(); lfgGame:Hide()
+duiLegacy:Hide(); legacyGame:Hide()
+duiBook:Hide(); bookGame:Hide()
+slots.left, slots.center = nil, nil
+ToggleCharacter()
+FlushTimers()
+assert(duiChar:IsShown() and slots.left == nil)
+ToggleCharacter()
+SyncFollowers()
+assert(not duiChar:IsShown() and not charGame:IsShown(), "Hotkey toggle (C) must still close Offhand DaylightUICharacter")
+
+-- 5b. DaylightUICraft (ProfessionsFrame, aside-parked): live CraftingPage session survives Escape!
+duiCraft.left, duiCraft.top = 200, 1100
+craftGame.CraftingPage:Show()
+craftGame.BookPage:Hide()
+ShowUIPanel(craftGame)
+Feel.Open(duiCraft)
+FlushTimers()
+Offhand.Bridges:Refresh("tick")
+
+local beforeNativeClose = craftNativeCloseCalls
+-- With a Mainhand panel also open, Escape while Craft is on Offhand closes the Mainhand panel first!
+local mainPanel = MakeWindow("MerchantFrame", 1400, 900, 400, 500)
+ShowUIPanel(mainPanel)
+SimulateBlizzardEscape(SyncFollowers)
+assert(not mainPanel:IsShown(), "Escape with Offhand Craft + Mainhand panel must close the Mainhand panel first")
+assert(craftGame:IsShown() and duiCraft:IsShown() and craftNativeCloseCalls == beforeNativeClose,
+    "Offhand DaylightUICraft live crafting session must stay open when Mainhand panel closes")
+assert(not gameMenu:IsShown(), "Game Menu must not open while closing a Mainhand panel")
+
+-- Next Escape with no Mainhand panels opens GameMenuFrame while keeping live crafting session intact!
+assert(SimulateBlizzardEscape(SyncFollowers) == "opened-menu",
+    "Escape with only Offhand DaylightUICraft open must open GameMenuFrame")
+assert(gameMenu:IsShown() and craftGame:IsShown() and duiCraft:IsShown()
+    and craftGame.CraftingPage:IsShown() and craftNativeCloseCalls == beforeNativeClose,
+    "Live crafting session must never run CheckConfirmClose native close on Escape")
+gameMenu:Hide()
+
+-- Explicit non-Registration close reaches nativeClose
+debugstack = function() return "CloseButton:OnClick" end
+craftGame:CheckConfirmClose()
+SyncFollowers()
+assert(craftNativeCloseCalls == beforeNativeClose + 1 and not craftGame:IsShown() and not duiCraft:IsShown(),
+    "Explicit close of DaylightUICraft must still close normally")
+
+-- Overview (BookPage) HideUIPanel + ToggleGameMenu fallback recovers Escape while explicit X stays closed
+ToggleProfessionsBook()
+FlushTimers()
+assert(duiCraft:IsShown() and craftGame:IsShown() and craftGame.BookPage:IsShown())
+HideUIPanel(craftGame)
+ToggleGameMenu()
+FlushTimers()
+assert(craftGame:IsShown() and duiCraft:IsShown() and gameMenu:IsShown(),
+    "Escape HideUIPanel + ToggleGameMenu on Craft overview must recover Craft and keep GameMenu shown")
+gameMenu:Hide()
+-- Explicit X close (Craft.Close calls Feel.Close before HideUIPanel, no ToggleGameMenu) stays closed
+Feel.Close(duiCraft)
+HideUIPanel(craftGame)
+FlushTimers()
+assert(not craftGame:IsShown() and not duiCraft:IsShown(), "Explicit Craft X close must remain closed")
+
+-- Dragging Craft to Mainhand lets Escape close it normally
+duiCraft.left, duiCraft.top = 1400, 900
+craftGame.CraftingPage:Show()
+ShowUIPanel(craftGame)
+Feel.Open(duiCraft)
+FlushTimers()
+local beforeMainCraftClose = craftNativeCloseCalls
+SimulateBlizzardEscape(SyncFollowers)
+assert(craftNativeCloseCalls == beforeMainCraftClose + 1 and not duiCraft:IsShown(),
+    "Mainhand DaylightUICraft must still close on Escape")
+
+-- 5c. DaylightUI_Skins WindowMove standard Blizzard panels (reopen after prior sync + Escape!)
+wmSpots.CollectionsJournal = { 120, 1000 }
+wmSpots.AuctionHouseFrame = { 150, 900 }
+collections:Hide(); slots.left, slots.center = nil, nil
+UISpecialFrames = { "CollectionsJournal" }
+-- Open CollectionsJournal via ShowUIPanel + WindowMove.Apply (same saved spot as earlier sync!)
+ShowUIPanel(collections)
+WindowMove.Apply("CollectionsJournal")
+FlushTimers()
+assert(slots.left == nil and slots.center == nil and #UISpecialFrames == 0,
+    "Reopened Offhand WindowMove panel must evict its Blizzard UIPanel slot and UISpecialFrames entry")
+assert(SimulateBlizzardEscape(SyncFollowers) == "opened-menu" and collections:IsShown(),
+    "Escape must NOT close reopened Offhand WindowMove CollectionsJournal")
+gameMenu:Hide()
+
+-- Context-bound panel (AuctionHouseFrame rejected by RecordExternalPanelDrag) must NOT loop on ticks
+ShowUIPanel(auctionFrame)
+WindowMove.Apply("AuctionHouseFrame")
+FlushTimers()
+local movedCount = #externalMoved
+Offhand.Bridges:Refresh("tick")
+Offhand.Bridges:Refresh("tick")
+assert(#externalMoved == movedCount and slots.left == auctionFrame,
+    "Context-bound AuctionHouseFrame must keep its native slot without looping")
+
+assert(next(Offhand.Bridges.errors) == nil, "DaylightUI bridge must produce zero errors")
 print("bridge-daylightui-windows tests passed")
