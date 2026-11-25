@@ -70,7 +70,7 @@ Every callback is optional and runs inside `pcall`:
 | Method / Field | When called | Return value |
 | --- | --- | --- |
 | `Refresh(reason)` | `"layout"` (`Canvas:UpdateLayout`), `"map"` (`Canvas:ConfigureWorldMap`), `"tick"` (Forever 0.5s ticker; can run in combat) | Ignored |
-| `RefreshBags(services)` | Forever bag Escape pass with `{ UpdateEscapeRegistration, IsEscapeRegistered, CanSuppressVendorClose, IsGameMenuBagClose }` | Ignored |
+| `RefreshBags(services)` | Forever bag Escape pass with `{ UpdateEscapeRegistration, IsEscapeRegistered, CanSuppressVendorClose, IsGameMenuBagClose, IsSettingsBagClose }` | Ignored |
 | `GetDiagnostics()` | Compatibility diagnostics report | Non-empty string or `nil` |
 | `ShouldPreserveSingleScreenPosition(frame, metrics)` | Single-screen recovery for saved workspace panels | Literal `true` to preserve vendor placement |
 | `GetBagFrames()` | Workspace bag toggle check | Table of bag frames |

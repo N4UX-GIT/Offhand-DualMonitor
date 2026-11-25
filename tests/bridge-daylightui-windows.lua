@@ -876,5 +876,93 @@ Offhand.Bridges:Refresh("tick")
 assert(#externalMoved == movedCount and slots.left == auctionFrame,
     "Context-bound AuctionHouseFrame must keep its native slot without looping")
 
+-- =====================================================================
+-- TEST 6: DaylightUI_Bags survives navigating to Blizzard Options from
+-- Game Menu (even right after /reload Hold() restore!) and reopens if
+-- Options closed it through an untracked path.
+-- =====================================================================
+local simTime = 100
+GetTime = function() return simTime end
+local settingsPanel = MakeWindow("SettingsPanel", 1200, 900, 900, 700)
+local openSettingsCalls = 0
+C_SettingsUtil = {
+    OpenSettingsPanel = function()
+        openSettingsCalls = openSettingsCalls + 1
+        ShowUIPanel(settingsPanel)
+    end,
+}
+
+-- Simulate fresh reload with openBags = true -> Hold() opens DaylightUIBag with AnyOpen() == false!
+duiBag:Hide(); bagOpenClose.held = nil; bagOpenClose.holdCalls = 0
+duiBag.hooked = {}
+function bagOpenClose.Follow()
+    if bagOpenClose.held then duiBag:Show() else duiBag:Hide() end
+end
+_G.OffhandDB.bridges.DaylightUI.openBags = true
+LoadChunk("Bridges/DaylightUI/Bags.lua", "Offhand", Offhand)
+Offhand.Bridges:RestoreWorkspaceState("reload")
+FlushTimers()
+assert(bagOpenClose.holdCalls == 1 and bagOpenClose.held == true and duiBag:IsShown(),
+    "Post-reload DaylightUIBag must open via Hold()")
+
+-- RefreshBags MUST wrap openClose.Follow even though openClose.held is already true & AnyOpen() is false!
+local settingsBagServices = {
+    UpdateEscapeRegistration = function(_, name, supported, _, proxy)
+        escapeRegistered[proxy] = supported and true or false
+    end,
+    IsEscapeRegistered = function(proxy) return escapeRegistered[proxy] == true end,
+    CanSuppressVendorClose = function() return Offhand.db.persistentWorkspacePanels ~= false end,
+    IsGameMenuBagClose = function(stack)
+        return type(stack) == "string" and stack:find("Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua", 1, true) ~= nil
+    end,
+    IsSettingsBagClose = function(stack)
+        return type(stack) == "string"
+            and stack:find("Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua", 1, true) ~= nil
+            and stack:find("ShowUIPanel", 1, true) ~= nil
+    end,
+}
+Offhand.Bridges:RefreshBags(settingsBagServices)
+
+-- 6a. Clicking Options -> SettingsPanel ShowUIPanel -> CloseAllBags clears held and calls Follow():
+--     wrapped Follow suppresses the close so DaylightUIBag never even closes!
+local prevStack = debugstack
+debugstack = function()
+    return "Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua in function 'ShowUIPanel'\n"
+        .. "Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua:88"
+end
+bagOpenClose.held = nil
+bagOpenClose.Follow()
+debugstack = prevStack
+assert(duiBag:IsShown() and bagOpenClose.held == true,
+    "Post-reload held DaylightUIBag must stay open when Blizzard Options triggers CloseAllBags")
+
+-- 6b. Fallback: if Blizzard Options closes DaylightUIBag right before/during OpenSettingsPanel
+--     through a path that did not match SettingsPanel in stack, closing Options reopens DaylightUIBag!
+local beforeFallbackHolds = bagOpenClose.holdCalls
+simTime = 110
+duiBag:Hide() -- simulates Blizzard closing bag right before OpenSettingsPanel shows SettingsPanel
+C_SettingsUtil.OpenSettingsPanel()
+assert(settingsPanel:IsShown() and not duiBag:IsShown())
+assert(_G.OffhandDB.bridges.DaylightUI.openBags == true,
+    "Closing DaylightUIBag during Options open must preserve openBags")
+-- Closing Options (HideUIPanel(SettingsPanel)) immediately restores DaylightUIBag!
+HideUIPanel(settingsPanel)
+FlushTimers()
+assert(not settingsPanel:IsShown() and duiBag:IsShown() and bagOpenClose.holdCalls == beforeFallbackHolds + 1,
+    "Closing Blizzard Options must restore and reopen DaylightUIBag on Offhand")
+
+-- 6c. Deliberate user bag close well AFTER Options opened must NOT reopen when Options closes!
+simTime = 120
+ShowUIPanel(settingsPanel)
+Offhand.Bridges:Refresh("tick")
+simTime = 125 -- 5 seconds later while Options is sitting open
+bagOpenClose.CloseAll() -- user clicks X on bag
+assert(not duiBag:IsShown() and _G.OffhandDB.bridges.DaylightUI.openBags == nil,
+    "Explicit bag close while Options is open must clear openBags")
+HideUIPanel(settingsPanel)
+FlushTimers()
+Offhand.Bridges:Refresh("tick")
+assert(not duiBag:IsShown(), "Explicitly closed DaylightUIBag must stay closed after Options closes")
+
 assert(next(Offhand.Bridges.errors) == nil, "DaylightUI bridge must produce zero errors")
 print("bridge-daylightui-windows tests passed")

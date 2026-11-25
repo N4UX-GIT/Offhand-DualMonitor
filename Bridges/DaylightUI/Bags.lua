@@ -17,6 +17,18 @@ local escapeProxy, held, hookedOpenClose
 local latest              -- the services table of the latest Refresh
 local hookedBagFrames = setmetatable({}, { __mode = "k" })
 local transitioning, singleScreenPaused, restoring, sessionReady = false, false, false, false
+local optionsPaused, optionsOpeningAt, lastWorkspaceHideAt, wasVisibleOnWorkspace = false, nil, nil, false
+local wasOptionsOpen, optionsHooksInstalled = false, false
+local OPTIONS_PANEL_NAMES = {
+    SettingsPanel = true,
+    InterfaceOptionsFrame = true,
+    VideoOptionsFrame = true,
+    AudioOptionsFrame = true,
+}
+
+local function Now()
+    return type(GetTime) == "function" and GetTime() or 0
+end
 
 local function IsAddOnLoaded(name)
     local checker = C_AddOns and C_AddOns.IsAddOnLoaded or _G.IsAddOnLoaded
@@ -43,6 +55,32 @@ local function PersistenceEnabled()
     return api.IsWorkspacePersistenceEnabled() == true
 end
 
+local function EscapeProtectionEnabled()
+    local api = Offhand and Offhand.API
+    if api and type(api.IsEscapeProtectionEnabled) == "function" then
+        return api.IsEscapeProtectionEnabled() == true
+    end
+    return PersistenceEnabled()
+end
+
+local function IsOptionsPanel(panel)
+    if type(panel) ~= "table" or type(panel.GetName) ~= "function" then return false end
+    local ok, name = pcall(panel.GetName, panel)
+    return ok and type(name) == "string" and OPTIONS_PANEL_NAMES[name] == true
+end
+
+local function IsOptionsOpen()
+    for name in pairs(OPTIONS_PANEL_NAMES) do
+        local panel = _G[name]
+        if panel and panel.IsShown and panel:IsShown() then return true end
+    end
+    if type(IsOptionFrameOpen) == "function" then
+        local ok, open = pcall(IsOptionFrameOpen)
+        if ok and open then return true end
+    end
+    return false
+end
+
 local function GetBagContext()
     local vendor = IsAddOnLoaded("DaylightUI_Bags") and _G.DaylightUI
     local module = vendor and vendor.GetModule and vendor:GetModule("Bags")
@@ -64,24 +102,117 @@ local function SyncOpenState(frame)
     local db = ns.DB and ns.DB()
     if type(db) ~= "table" then return end
     if IsBagVisiblyOpen(frame) and IsOnWorkspace(frame) then
+        wasVisibleOnWorkspace = true
+        optionsPaused = false
         db.openBags = true
-    elseif sessionReady then
+    elseif sessionReady and not optionsPaused then
+        wasVisibleOnWorkspace = false
         db.openBags = nil
+    end
+end
+
+local function RestoreBagAfterOptions()
+    if not optionsPaused or IsOptionsOpen() or InCombatLockdown() then return end
+    optionsPaused = false
+    optionsOpeningAt = nil
+    if not EscapeProtectionEnabled() or not IsSpanned() then return end
+    local frame, openClose = GetBagContext()
+    if not frame or not openClose or IsBagVisiblyOpen(frame) then return end
+    if type(openClose.Hold) ~= "function" then return end
+    held = openClose
+    pcall(openClose.Hold)
+    if latest then Bags.Refresh(latest) end
+    SyncOpenState(frame)
+end
+
+local function ObserveOptionsOpening()
+    if not EscapeProtectionEnabled() or not IsSpanned() or InCombatLockdown() then return end
+    if transitioning or singleScreenPaused or restoring then return end
+    local frame = GetBagContext()
+    if not frame then return end
+    local now = Now()
+    if IsBagVisiblyOpen(frame) and IsOnWorkspace(frame) then
+        optionsOpeningAt = now
+        wasVisibleOnWorkspace = true
+    elseif lastWorkspaceHideAt and (now - lastWorkspaceHideAt) <= 0.5 then
+        optionsPaused = true
+        optionsOpeningAt = now
+        local db = ns.DB and ns.DB()
+        if type(db) == "table" then db.openBags = true end
+    end
+end
+
+local function InstallOptionsObservers()
+    if optionsHooksInstalled or type(hooksecurefunc) ~= "function" then return end
+    optionsHooksInstalled = true
+    if type(Settings) == "table" and type(Settings.OpenToCategory) == "function" then
+        hooksecurefunc(Settings, "OpenToCategory", ObserveOptionsOpening)
+    end
+    if type(C_SettingsUtil) == "table" and type(C_SettingsUtil.OpenSettingsPanel) == "function" then
+        hooksecurefunc(C_SettingsUtil, "OpenSettingsPanel", ObserveOptionsOpening)
+    end
+    if type(InterfaceOptionsFrame_OpenToCategory) == "function" then
+        hooksecurefunc("InterfaceOptionsFrame_OpenToCategory", ObserveOptionsOpening)
+    end
+    if type(ShowUIPanel) == "function" then
+        hooksecurefunc("ShowUIPanel", function(panel)
+            if IsOptionsPanel(panel) then ObserveOptionsOpening() end
+        end)
+    end
+    if type(HideUIPanel) == "function" then
+        hooksecurefunc("HideUIPanel", function(panel)
+            if not IsOptionsPanel(panel) or not optionsPaused then return end
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0, RestoreBagAfterOptions)
+            else
+                RestoreBagAfterOptions()
+            end
+        end)
     end
 end
 
 local function HookBagVisibility(frame)
     if not frame or hookedBagFrames[frame] or type(frame.HookScript) ~= "function" then return end
     hookedBagFrames[frame] = true
-    frame:HookScript("OnShow", function(self) SyncOpenState(self) end)
+    frame:HookScript("OnShow", function(self)
+        lastWorkspaceHideAt = nil
+        SyncOpenState(self)
+    end)
     frame:HookScript("OnHide", function(self)
-        if not sessionReady or transitioning or singleScreenPaused or restoring or not IsSpanned() then return end
+        local wasWorkspace = wasVisibleOnWorkspace or IsOnWorkspace(self)
+        wasVisibleOnWorkspace = false
+        if wasWorkspace then
+            local now = Now()
+            lastWorkspaceHideAt = now
+            if EscapeProtectionEnabled() and IsSpanned() and not InCombatLockdown()
+                and not transitioning and not singleScreenPaused and not restoring then
+                local recentOptions = optionsOpeningAt ~= nil and (now - optionsOpeningAt) <= 0.5
+                local stack = type(debugstack) == "function" and debugstack(2, 24, 0) or ""
+                local settingsStack = latest and type(latest.IsSettingsBagClose) == "function"
+                    and latest.IsSettingsBagClose(stack)
+                if recentOptions or settingsStack then
+                    optionsPaused = true
+                    local db = ns.DB and ns.DB()
+                    if type(db) == "table" then db.openBags = true end
+                    return
+                end
+            end
+        end
+        if not sessionReady or transitioning or singleScreenPaused or restoring or optionsPaused or not IsSpanned() then return end
         local db = ns.DB and ns.DB()
         if type(db) == "table" then db.openBags = nil end
     end)
 end
 
 function Bags.Tick()
+    InstallOptionsObservers()
+    local optionsOpen = IsOptionsOpen()
+    if optionsOpen and not wasOptionsOpen then
+        ObserveOptionsOpening()
+    elseif not optionsOpen and optionsPaused then
+        RestoreBagAfterOptions()
+    end
+    wasOptionsOpen = optionsOpen
     local frame = GetBagContext()
     if not frame then return end
     HookBagVisibility(frame)
@@ -100,6 +231,7 @@ function Bags.CaptureWorkspaceState()
 end
 
 function Bags.PrepareSingleScreenRecovery()
+    optionsPaused, optionsOpeningAt, wasOptionsOpen = false, nil, false
     local frame, openClose = GetBagContext()
     if not frame or not openClose then return end
     local db = ns.DB and ns.DB()
@@ -117,6 +249,7 @@ end
 function Bags.RestoreWorkspaceState()
     transitioning = false
     singleScreenPaused = false
+    optionsPaused, optionsOpeningAt, wasOptionsOpen = false, nil, false
     if restoring then return end
     if InCombatLockdown() or not IsSpanned() then return end
     if not PersistenceEnabled() then
@@ -187,6 +320,10 @@ function Bags.Refresh(services)
     if InCombatLockdown() or type(debugstack) ~= "function" then return end
     if type(services) ~= "table" then return end
     latest = services
+    InstallOptionsObservers()
+    if not IsOptionsOpen() and optionsPaused then
+        RestoreBagAfterOptions()
+    end
     local frame, openClose = GetBagContext()
     if frame then
         HookBagVisibility(frame)
@@ -207,25 +344,33 @@ function Bags.Refresh(services)
     local supported = parked and not parked:IsShown() and not frame.__duiVanishing
         and (not openClose.held or held == openClose)
     services.UpdateEscapeRegistration(frame, name, supported, nil, proxy)
-    if not services.IsEscapeRegistered(proxy) or openClose.held or not openClose.AnyOpen() then return end
-    for _, container in ipairs(openClose.GameWindows()) do
-        if container:IsShown() and container:GetParent() ~= parked then
-            services.UpdateEscapeRegistration(frame, name, false, nil, proxy)
-            return
-        end
-    end
+    if not services.IsEscapeRegistered(proxy) then return end
     if hookedOpenClose ~= openClose then
         hookedOpenClose = openClose
         local follow = openClose.Follow
         openClose.Follow = function(...)
             if held == openClose and not openClose.held then
-                if latest.CanSuppressVendorClose(frame, proxy) and latest.IsGameMenuBagClose(debugstack(2, 24, 0)) then
+                local curFrame = _G.DaylightUIBag or frame
+                local curProxy = (curFrame and curFrame.__duiEsc) or proxy
+                local stack = debugstack(2, 24, 0)
+                local suppress = latest and latest.CanSuppressVendorClose(curFrame, curProxy)
+                    and (latest.IsGameMenuBagClose(stack)
+                        or (type(latest.IsSettingsBagClose) == "function" and latest.IsSettingsBagClose(stack))
+                        or (optionsOpeningAt ~= nil and (Now() - optionsOpeningAt) <= 0.5))
+                if suppress then
                     openClose.held = true
                 else
                     held = nil
                 end
             end
             return follow(...)
+        end
+    end
+    if openClose.held or not openClose.AnyOpen() then return end
+    for _, container in ipairs(openClose.GameWindows()) do
+        if container:IsShown() and container:GetParent() ~= parked then
+            services.UpdateEscapeRegistration(frame, name, false, nil, proxy)
+            return
         end
     end
     -- Use DaylightUI's held-bag mode so Blizzard sees the parked bags closed.

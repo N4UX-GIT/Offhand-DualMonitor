@@ -294,9 +294,28 @@ local function PreserveBetterBagsBackpack()
 end
 
 local function IsGameMenuBagClose(stack)
-    return stack:find("Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua", 1, true)
+    return type(stack) == "string"
+        and stack:find("Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua", 1, true)
         and (stack:find("in function 'CloseAllBags'", 1, true)
             or stack:find("in function 'GameMenuFrame_Show'", 1, true))
+end
+
+local function IsSettingsBagClose(stack)
+    if type(stack) ~= "string" then return false end
+    if stack:find("Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua", 1, true)
+        and (stack:find("in function 'ShowUIPanel'", 1, true)
+            or stack:find("in function 'CloseAllBags'", 1, true)
+            or stack:find("in function 'CloseAllWindows'", 1, true)
+            or stack:find("in function 'ToggleAllBags'", 1, true)) then
+        return true
+    end
+    if stack:find("Blizzard_GameMenu/", 1, true)
+        and (stack:find("in function 'CloseAllBags'", 1, true)
+            or stack:find("in function 'CloseAllWindows'", 1, true)
+            or stack:find("in function 'ShowUIPanel'", 1, true)) then
+        return true
+    end
+    return false
 end
 
 local function CanSuppressVendorBagClose(frame, proxy)
@@ -318,6 +337,9 @@ local bridgeBagServices = {
     end,
     IsGameMenuBagClose = function(stack)
         return IsGameMenuBagClose(stack) and true or false
+    end,
+    IsSettingsBagClose = function(stack)
+        return IsSettingsBagClose(stack) and true or false
     end,
 }
 
@@ -393,10 +415,7 @@ local function RefreshElvUIEscape()
         vendor.CloseAllBags = function(self, ...)
             if self == vendor and CanSuppressVendorBagClose(frame) then
                 local stack = debugstack(2, 24, 0)
-                if IsGameMenuBagClose(stack)
-                    or (stack:find("Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua", 1, true)
-                        and stack:find("Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua", 1, true)
-                        and stack:find("in function 'ShowUIPanel'", 1, true)) then return end
+                if IsGameMenuBagClose(stack) or IsSettingsBagClose(stack) then return end
             end
             Bags.elvUIBackpackCleared = nil
             return vendorClose(self, ...)

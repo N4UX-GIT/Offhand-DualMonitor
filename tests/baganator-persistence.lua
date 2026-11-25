@@ -984,6 +984,15 @@ end
 targetSelected = true
 ToggleGameMenu(); flush()
 assert(not targetSelected and daylight.shown, "Escape must clear the target and retain DaylightUI on Offhand")
+local daylightEscapeStack = debugstack
+debugstack = function()
+    return "Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua in function 'ShowUIPanel'\n"
+        .. "Blizzard_Settings_Shared/Blizzard_SettingsPanel.lua"
+end
+openClose.held = nil
+openClose.Follow()
+assert(daylight.shown and openClose.held, "opening Blizzard Options must retain DaylightUIBag on Offhand")
+debugstack = daylightEscapeStack
 openClose.held = nil
 openClose.CloseGame()
 openClose.Follow()
