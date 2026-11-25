@@ -1245,16 +1245,41 @@ function HUD:HookFrames()
             DodgeFrame("MainMenuBar")
             DodgeFrame("StanceBar")
             DodgeFrame("PetActionBar")
-                        local curColRight = right
+            local curColRight = right
             local curColY = bottom
             local nextColRight = right
+
+            if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
+                local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]
+                local mainPos = Offhand.db.savedMainPositions and Offhand.db.savedMainPositions["ContainerFrameCombinedBags"]
+                if (pos and pos.x and pos.y) or (mainPos and mainPos.x and mainPos.y) then
+                    if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
+                        Offhand.Canvas.RestoreWorkspacePosition(ContainerFrameCombinedBags)
+                    end
+                    if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
+                else
+                    pcall(function() ContainerFrameCombinedBags:SetUserPlaced(false) end)
+                    ContainerFrameCombinedBags:ClearAllPoints()
+                    local factor = UIParent:GetEffectiveScale() / ContainerFrameCombinedBags:GetEffectiveScale()
+                    ContainerFrameCombinedBags:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", right * factor, bottom * factor)
+                    if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
+                    -- Reserve the Combined Bag column so separate bags such as
+                    -- the Reagent Bag (ContainerFrame6) dock beside it instead
+                    -- of stacking directly on top of it.
+                    local rawW = ContainerFrameCombinedBags:GetWidth() or defaultBagWidth
+                    local uiW = rawW / factor
+                    curColRight = right - uiW - bagSpacing
+                    nextColRight = curColRight
+                end
+            end
             
             for i = 1, (NUM_CONTAINER_FRAMES or 13) do
                 local frame = _G["ContainerFrame" .. i]
                 if frame and frame.IsShown and frame:IsShown() then
                     local name = frame.GetName and frame:GetName()
                     local pos = name and Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions[name]
-                    if pos and pos.x and pos.y then
+                    local mainPos = name and Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]
+                    if (pos and pos.x and pos.y) or (mainPos and mainPos.x and mainPos.y) then
                         if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
                             Offhand.Canvas.RestoreWorkspacePosition(frame)
                         end
@@ -1282,22 +1307,6 @@ function HUD:HookFrames()
                         curColY = curColY + uiH + bagSpacing
                         nextColRight = math.min(nextColRight, curColRight - uiW)
                     end
-                end
-            end
-
-            if ContainerFrameCombinedBags and ContainerFrameCombinedBags:IsShown() then
-                local pos = Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["ContainerFrameCombinedBags"]
-                if pos and pos.x and pos.y then
-                    if Offhand.Canvas and Offhand.Canvas.RestoreWorkspacePosition then
-                        Offhand.Canvas.RestoreWorkspacePosition(ContainerFrameCombinedBags)
-                    end
-                    if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
-                else
-                    ContainerFrameCombinedBags:SetUserPlaced(false)
-                    ContainerFrameCombinedBags:ClearAllPoints()
-                    local factor = UIParent:GetEffectiveScale() / ContainerFrameCombinedBags:GetEffectiveScale()
-                    ContainerFrameCombinedBags:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMLEFT", right * factor, bottom * factor)
-                    if ContainerFrameCombinedBags.SetAlpha then ContainerFrameCombinedBags:SetAlpha(1) end
                 end
             end
         end

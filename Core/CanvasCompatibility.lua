@@ -94,6 +94,26 @@ function Compatibility.HasClassicUIForever()
     return Compatibility.IsAddonLoaded("ClassicUIForever")
 end
 
+-- MoveMyBags moves Blizzard's native ContainerFrame windows directly and puts
+-- any bag into permanent standby if another addon attaches OnDragStart first.
+-- Yield drag, persistence, layout, and recovery for all native containers while
+-- MoveMyBags is active while retaining dormant Offhand coordinates.
+function Compatibility.HasMoveMyBags()
+    return Compatibility.IsAddonLoaded("MoveMyBags") or rawget(_G, "MoveMyBags") ~= nil
+end
+
+function Compatibility.ShouldYieldNativeContainer(frameOrName, suppliedName)
+    local name = suppliedName
+        or (type(frameOrName) == "string" and frameOrName)
+        or (type(frameOrName) == "table" and frameOrName.GetName and frameOrName:GetName())
+    if type(name) ~= "string" then return false end
+    if name ~= "ContainerFrameCombinedBags" and not name:match("^ContainerFrame%d+$") then
+        return false
+    end
+    if Compatibility.HasMoveMyBags() then return true end
+    return type(frameOrName) == "table" and rawget(frameOrName, "moveMyBags") ~= nil
+end
+
 function Compatibility.IsForeverEllesmereBag(name)
     return Offhand.isForever
         and (name == "EUI_MainBagFrame" or name == "EUI_ReagentBagFrame" or name == "EUI_BagsWindowFrame")
@@ -218,13 +238,14 @@ function Compatibility.GetOpenMapWorldMapModule()
     return module, db
 end
 
--- Placement and scaling require the stitched map's geometry contract.
-function Compatibility.GetOpenMapWindowModule()
+-- Placement and expanded-map recovery require the stitched map; windowScale
+-- itself applies to every windowed OpenMap view (allowUnstitched = true).
+function Compatibility.GetOpenMapWindowModule(allowUnstitched)
     if not Offhand.isForever or Compatibility.GetWorldMapExternalOwner() ~= "OpenMap" then return end
     local module, db = Compatibility.GetOpenMapWorldMapModule()
     local api = _G.OpenMapAPI
-    if not module or not ValidOpenMapWindowSchema(db, true)
-        or type(api.IsStitched) ~= "function" or not api.IsStitched() then return end
+    if not module or not ValidOpenMapWindowSchema(db, true) then return end
+    if not allowUnstitched and (type(api.IsStitched) ~= "function" or not api.IsStitched()) then return end
     if type(module.MoveAnyOn) == "function" and module.MoveAnyOn() then return end
     return module, db
 end
@@ -375,7 +396,7 @@ function Compatibility.GetActiveBagOwners()
             and Offhand.HUDCompatibility.UsesNativeGamepadInterface()) then
         Add("EllesmereUIBags")
     end
-    for _, candidate in ipairs({"Baganator", "Bagnon", "ArkInventory", "BetterBags", "Bagnaros", "AdiBags", "Inventorian"}) do
+    for _, candidate in ipairs({"MoveMyBags", "Baganator", "Bagnon", "ArkInventory", "BetterBags", "Bagnaros", "AdiBags", "Inventorian"}) do
         if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
             Add(candidate)
         end
@@ -409,7 +430,133 @@ function Compatibility.GetActiveExternalOwners()
     elseif rawget(_G, "Carbonite") ~= nil then minimap = "Carbonite"
     elseif rawget(_G, "ElvUI") ~= nil then minimap = "ElvUI" end
     if minimap then owners.minimap = minimap end
+
+    local unitFrames, seenUF = {}, {}
+    local function AddUF(name)
+        if name and not seenUF[name] then
+            seenUF[name] = true
+            unitFrames[#unitFrames + 1] = name
+        end
+    end
+    if Compatibility.IsAddonLoaded("ShadowedUnitFrames") or rawget(_G, "ShadowUF") ~= nil then
+        AddUF("ShadowedUnitFrames")
+    end
+    if Compatibility.IsAddonLoaded("EllesmereUIUnitFrames") then AddUF("EllesmereUIUnitFrames") end
+    if rawget(_G, "ElvUF_Player") ~= nil or Compatibility.IsAddonLoaded("ElvUI") and rawget(_G, "ElvUI") ~= nil then
+        local elv = rawget(_G, "ElvUI")
+        local core = type(elv) == "table" and elv[1]
+        local uf = type(core) == "table" and type(core.private) == "table" and core.private.unitframe
+        if rawget(_G, "ElvUF_Player") ~= nil or (type(uf) == "table" and uf.enable == true) then
+            AddUF("ElvUI")
+        end
+    end
+    if rawget(_G, "TukuiPlayerFrame") ~= nil or rawget(_G, "TukuiUnitFrames") ~= nil then AddUF("Tukui") end
+    for _, candidate in ipairs({"Cell", "PitBull4", "ZPerl", "XPerl"}) do
+        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
+            AddUF(candidate)
+        end
+    end
+    if #unitFrames > 0 then owners.unitFrames = unitFrames end
+
+    local actionBars, seenAB = {}, {}
+    local function AddAB(name)
+        if name and not seenAB[name] then
+            seenAB[name] = true
+            actionBars[#actionBars + 1] = name
+        end
+    end
+    for _, candidate in ipairs({"Bartender4", "Dominos", "EllesmereUIActionBars", "ConsolePort"}) do
+        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
+            AddAB(candidate)
+        end
+    end
+    if rawget(_G, "ElvUI_Bar1") ~= nil then AddAB("ElvUI") end
+    if rawget(_G, "TukuiActionBars") ~= nil then AddAB("Tukui") end
+    if #actionBars > 0 then owners.actionBars = actionBars end
+
+    local movers, seenMover = {}, {}
+    local function AddMover(name)
+        if name and not seenMover[name] then
+            seenMover[name] = true
+            movers[#movers + 1] = name
+        end
+    end
+    if Compatibility.HasMoveAny() then AddMover("MoveAny") end
+    if Compatibility.IsAddonLoaded("BlizzMove") or rawget(_G, "BlizzMove") ~= nil then AddMover("BlizzMove") end
+    if Compatibility.IsAddonLoaded("MoveMyBags") or rawget(_G, "MoveMyBags") ~= nil then AddMover("MoveMyBags") end
+    if #movers > 0 then owners.movers = movers end
     return owners
+end
+
+-- Actionable guidance for external addons that legitimately own specific HUD or
+-- UI frames (never treated as chat-spam conflicts, surfaced in Options/diag).
+function Compatibility.GetExternalControlGuidance()
+    local L = Offhand.L or {}
+    local owners = Compatibility.GetActiveExternalOwners()
+    local guidance, seen = {}, {}
+    local function Add(id, addon, text)
+        if not seen[id] and text then
+            seen[id] = true
+            guidance[#guidance + 1] = { id = id, addon = addon, text = text }
+        end
+    end
+    local hasUF = {}
+    for _, name in ipairs(owners.unitFrames or {}) do hasUF[name] = true end
+    local hasAB = {}
+    for _, name in ipairs(owners.actionBars or {}) do hasAB[name] = true end
+    local hasMover = {}
+    for _, name in ipairs(owners.movers or {}) do hasMover[name] = true end
+
+    if hasUF.ShadowedUnitFrames then
+        Add("suf", "ShadowedUnitFrames", L["COMPAT_GUIDE_SUF"]
+            or "Shadowed Unit Frames controls Player/Target/Focus frames. Move them with /suf, or disable Shadowed Unit Frames (or specific unit modules) to move them in Blizzard Edit Mode.")
+    end
+    if hasMover.MoveAny then
+        Add("moveany", "MoveAny", L["COMPAT_GUIDE_MOVEANY"]
+            or "MoveAny controls frame movement. Move or unlock frames with /move, or disable an element in MoveAny to let Blizzard Edit Mode or Offhand move it.")
+    end
+    if hasMover.MoveMyBags then
+        local mmbText = L["COMPAT_GUIDE_MOVEMYBAGS"]
+            or "MoveMyBags controls Blizzard bag positions. Drag or reset bags with /movemybags reset, or disable MoveMyBags to let Offhand manage bag placement."
+        local mmbDB = rawget(_G, "MoveMyBagsDB")
+        if Offhand.isForever and (type(mmbDB) ~= "table" or mmbDB.layers ~= false) then
+            local layersTip = L["COMPAT_GUIDE_MOVEMYBAGS_LAYERS"]
+                or "If a reagent or specialty bag turns grey while dragging, uncheck 'Keep the window you are using in front' in Options > AddOns > MoveMyBags."
+            mmbText = mmbText .. " " .. layersTip
+        end
+        Add("movemybags", "MoveMyBags", mmbText)
+    end
+    if hasMover.BlizzMove then
+        Add("blizzmove", "BlizzMove", L["COMPAT_GUIDE_BLIZZMOVE"]
+            or "BlizzMove controls window dragging and scaling. Check /bm if a panel snaps back or resists Offhand placement.")
+    end
+    for _, barAddon in ipairs({"Bartender4", "Dominos"}) do
+        if hasAB[barAddon] then
+            local fmt = L["COMPAT_GUIDE_ACTIONBARS"]
+                or "%s controls action bars. Unlock and move bars in %s instead of Blizzard Edit Mode."
+            Add("ab:" .. barAddon, barAddon, string.format(fmt, barAddon, barAddon))
+        end
+    end
+    for _, suite in ipairs({"ElvUI", "Tukui"}) do
+        if hasUF[suite] or hasAB[suite] then
+            local fmt = L["COMPAT_GUIDE_SUITE"]
+                or "%s controls its enabled HUD and unit frames. Move them with /moveui, or disable individual modules in %s to use Blizzard Edit Mode."
+            Add("suite:" .. suite, suite, string.format(fmt, suite, suite))
+        end
+    end
+    if hasUF.EllesmereUIUnitFrames or hasAB.EllesmereUIActionBars
+        or (owners.chat and table.concat(owners.chat, ","):find("EllesmereUIChat", 1, true)) then
+        Add("ellesmere", "EllesmereUI", L["COMPAT_GUIDE_ELLESMERE"]
+            or "EllesmereUI controls its enabled HUD modules. Position them in EllesmereUI's own unlock/layout settings instead of Blizzard Edit Mode.")
+    end
+    for _, ufAddon in ipairs({"PitBull4", "ZPerl", "XPerl", "Cell"}) do
+        if hasUF[ufAddon] then
+            local fmt = L["COMPAT_GUIDE_UNITFRAMES"]
+                or "%s controls its unit frames. Move them in %s's own settings instead of Blizzard Edit Mode."
+            Add("uf:" .. ufAddon, ufAddon, string.format(fmt, ufAddon, ufAddon))
+        end
+    end
+    return guidance
 end
 
 -- Returns genuine active conflicts only (never normal single-addon coexistence).
@@ -545,6 +692,20 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
         for _, c in ipairs(conflictList) do ids[#ids + 1] = c.id end
         conflictStatus = " | Conflicts=" .. table.concat(ids, ",")
     end
+    local controllerStatus = ""
+    local owners = Compatibility.GetActiveExternalOwners()
+    local controllers, seenCtrl = {}, {}
+    for _, list in ipairs({owners.unitFrames, owners.actionBars, owners.movers}) do
+        for _, name in ipairs(list or {}) do
+            if not seenCtrl[name] then
+                seenCtrl[name] = true
+                controllers[#controllers + 1] = name
+            end
+        end
+    end
+    if #controllers > 0 then
+        controllerStatus = " | FrameControllers=" .. table.concat(controllers, ",")
+    end
     local bagStatus = ""
     if Offhand.CanvasPanelRegistry and Offhand.CanvasPanelRegistry.IsTBCPanelRuntime() then
         local snapshot = Offhand.db and Offhand.db.tbcWorkspaceBagSnapshot
@@ -561,11 +722,11 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
         return string.format(
             "MoveAny=%s | ClassicUIForever=loaded | WorldMapOwner=%s | CharacterFrameOwner=ClassicUIForever",
             Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner)
-            .. leatrixStatus .. spellbookStatus .. bagStatus .. moverStatus .. conflictStatus
+            .. leatrixStatus .. spellbookStatus .. bagStatus .. moverStatus .. controllerStatus .. conflictStatus
     end
     return string.format("MoveAny=%s | WorldMapOwner=%s",
         Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner)
-        .. leatrixStatus .. spellbookStatus .. bagStatus .. openMapStatus .. moverStatus .. conflictStatus
+        .. leatrixStatus .. spellbookStatus .. bagStatus .. openMapStatus .. moverStatus .. controllerStatus .. conflictStatus
 end
 
 -- Support-only inspection. Never move, show, hook or read guide contents from

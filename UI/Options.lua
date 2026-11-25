@@ -1860,8 +1860,16 @@ function Options:CreateFloatingPanel()
             if owners.bags then parts[#parts + 1] = (L["LOCK_WORKSPACE_BAGS"] or "Bags") .. ": " .. table.concat(owners.bags, ", ") end
             if owners.minimap then parts[#parts + 1] = "Minimap: " .. owners.minimap end
             if owners.chat then parts[#parts + 1] = "Chat: " .. table.concat(owners.chat, ", ") end
+            if owners.unitFrames then parts[#parts + 1] = "Unit Frames: " .. table.concat(owners.unitFrames, ", ") end
+            if owners.actionBars then parts[#parts + 1] = "Action Bars: " .. table.concat(owners.actionBars, ", ") end
+            if owners.movers then parts[#parts + 1] = "Movers: " .. table.concat(owners.movers, ", ") end
             if #parts > 0 and L["COMPAT_EXTERNAL_OWNERS"] then
                 compatLines[#compatLines + 1] = string.format(L["COMPAT_EXTERNAL_OWNERS"], table.concat(parts, " | "))
+            end
+        end
+        if compat and compat.GetExternalControlGuidance then
+            for _, tip in ipairs(compat.GetExternalControlGuidance()) do
+                if tip.text then compatLines[#compatLines + 1] = "|cffb8d4f0" .. tip.text .. "|r" end
             end
         end
         if compat and compat.GetOwnershipConflicts and compat.FormatConflictMessage then

@@ -119,7 +119,71 @@ namespace Offhand.Companion
             settings.Remove("DisplayIdentityVersion");
             Check(!MonitorSelection.HasStableIdentitySettings(settings), "Partial save cannot auto-span");
             WorkspaceCases();
+            DisplayOrderingCases();
             Console.WriteLine("PASS: " + checks + " display identity, selection feedback, migration, workspace/profile, ambiguity and reconnect checks");
+        }
+
+        private static void DisplayOrderingCases()
+        {
+            // Secondary \\.\DISPLAY2 physically on the left, Primary \\.\DISPLAY1 on the right:
+            // Screen.AllScreens often returns \\.\DISPLAY2 first; SortDisplays must align
+            // Companion's Display 1 / Display 2 numbering with Windows' GDI device order.
+            var raw = new List<MonitorSelection.Display>
+            {
+                new MonitorSelection.Display { Index = 0, DeviceName = @"\\.\DISPLAY2", StableId = "INTERFACE-B",
+                    FriendlyName = "Side Monitor", Bounds = new Rectangle(-1920, 0, 1920, 1080), Primary = false },
+                new MonitorSelection.Display { Index = 1, DeviceName = @"\\.\DISPLAY1", StableId = "INTERFACE-A",
+                    FriendlyName = "Main Monitor", Bounds = new Rectangle(0, 0, 1920, 1080), Primary = true },
+            };
+            var sorted = MonitorSelection.SortDisplays(raw);
+            Check(sorted.Count == 2 && sorted[0].DeviceName == @"\\.\DISPLAY1" && sorted[0].Index == 0 && sorted[0].Primary,
+                @"\\.\DISPLAY1 primary on right must sort as Display 1 (Index 0)");
+            Check(sorted[1].DeviceName == @"\\.\DISPLAY2" && sorted[1].Index == 1 && !sorted[1].Primary,
+                @"\\.\DISPLAY2 secondary on left must sort as Display 2 (Index 1)");
+            Check(CompanionUi.DisplayName(sorted[0], 0) == "Display 1: 1920 x 1080 — Main Monitor (primary)",
+                "DisplayName includes trimmed friendly name and primary indicator");
+            Check(CompanionUi.DisplayName(sorted[1], 1) == "Display 2: 1920 x 1080 — Side Monitor",
+                "DisplayName includes trimmed friendly name for secondary display");
+            Check(CompanionForm.FormatMonitorCheckLabel(sorted[0], 0) == "Display 1: 1920x1080 (Primary)",
+                "Checklist label stays concise and never truncates resolution");
+            Check(CompanionForm.FormatMonitorCheckLabel(sorted[1], 1) == "Display 2: 1920x1080",
+                "Checklist label stays concise for secondary display");
+            Check(CompanionForm.FormatMainhandLabel(sorted[0], 0) == "Display 1 — 1920x1080 (Primary)",
+                "Mainhand collapsed label includes Primary without truncating resolution");
+            Check(CompanionForm.FormatMainhandLabel(sorted[1], 1) == "Display 2 — 1920x1080",
+                "Mainhand collapsed label stays concise for secondary display");
+            Check(CompanionForm.FormatMainhandDropDownLabel(sorted[0], 0) == "Display 1 (Primary) — Main Monitor (1920x1080)",
+                "Mainhand expanded dropdown label includes Primary and friendly name");
+            Check(CompanionForm.FormatMainhandDropDownLabel(sorted[1], 1) == "Display 2 — Side Monitor (1920x1080)",
+                "Mainhand expanded dropdown label includes friendly name for secondary display");
+            Check(CompanionForm.FormatDisplayTooltip(sorted[0], 0) == @"Display 1 (Primary) — Main Monitor (1920 × 1080, \\.\DISPLAY1)",
+                "Display tooltip exposes full monitor model, resolution, primary flag, and Windows device");
+
+            // Numeric sort handles gaps and multi-digit ordinals (DISPLAY2 before DISPLAY10),
+            // and places unknown/non-GDI names after numbered displays with primary tie-breaker.
+            var gapped = MonitorSelection.SortDisplays(new List<MonitorSelection.Display>
+            {
+                new MonitorSelection.Display { DeviceName = "custom-secondary", Primary = false },
+                new MonitorSelection.Display { DeviceName = @"\\.\DISPLAY10", Primary = false },
+                new MonitorSelection.Display { DeviceName = @"\\.\DISPLAY4", Primary = false },
+                new MonitorSelection.Display { DeviceName = "custom-primary", Primary = true },
+                new MonitorSelection.Display { DeviceName = @"\\.\DISPLAY2", Primary = false },
+            });
+            Check(gapped[0].DeviceName == @"\\.\DISPLAY2" && gapped[0].Index == 0
+                && gapped[1].DeviceName == @"\\.\DISPLAY4" && gapped[1].Index == 1
+                && gapped[2].DeviceName == @"\\.\DISPLAY10" && gapped[2].Index == 2
+                && gapped[3].DeviceName == "custom-primary" && gapped[3].Index == 3
+                && gapped[4].DeviceName == "custom-secondary" && gapped[4].Index == 4,
+                "SortDisplays orders GDI ordinals numerically and keeps deterministic tie-breakers");
+
+            // FriendlyName propagates through DisplayIdentity.Resolve from active paths.
+            var paths = new List<DisplayIdentity.ActivePath>
+            {
+                new DisplayIdentity.ActivePath { Device = @"\\.\DISPLAY1", Identity = "INTERFACE-A", FriendlyName = "  DELL U2723QE  " },
+            };
+            var resolved = DisplayIdentity.Resolve(@"\\.\DISPLAY1", paths, new List<DisplayIdentity.Child>(), null);
+            Check(resolved.Identity == "INTERFACE-A" && resolved.FriendlyName == "DELL U2723QE",
+                "DisplayIdentity.Resolve preserves trimmed monitor friendly name");
         }
 
         private static void FeedbackCases()

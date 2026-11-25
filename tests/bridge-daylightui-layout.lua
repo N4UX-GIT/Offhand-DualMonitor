@@ -600,4 +600,54 @@ for _, bottom in ipairs({ 0, H / 3 }) do
         "vertical-stack campfire scene must anchor to game area and refit height")
 end
 
-print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3/2.2.6 unlock bar & CDM editor, HUD actions, game area, movers, redirects, rolls, staleness, stacked scenes, and legacy stand-down")
+-- DaylightUIChatDrawer (pop-out whisper card) saves UIParent-center offsets;
+-- Placement redirect must never rebase it onto area or it climbs on each save/layout.
+do
+    W, H = 4000, 2560
+    local nsChat = Setup({ gameRect = { left = 1440, bottom = 6, right = 4000, top = 1446,
+        width = 2560, height = 1440, screenWidth = W, screenHeight = H, isSpanned = true } })
+    local drawer = CreateFrame("Frame", "DaylightUIChatDrawer", UIParent)
+    for _, pt in ipairs({ { 120, -300 }, { 120, -300 }, { -400, 250 } }) do
+        drawer:ClearAllPoints()
+        drawer:SetPoint("CENTER", UIParent, "CENTER", pt[1], pt[2])
+        nsChat.Sweep()
+        local p, rel, rp, x, y = PointOf(drawer)
+        assert(p == "CENTER" and rel == UIParent and rp == "CENTER" and x == pt[1] and y == pt[2],
+            "DaylightUIChatDrawer must remain anchored to UIParent center without climbing")
+    end
+
+    -- Keep current (OnAlt) persists dismissedRect for this monitor signature so
+    -- ns.Check does not keep re-prompting on every /reload, while changing geometry
+    -- or applying clears/overrides it.
+    env.ours = { main = { anchorInfo = { point = "BOTTOM", relativePoint = "BOTTOM", offsetX = 0, offsetY = 0 } } }
+    local dbChat = nsChat.DB()
+    dbChat.rect = nil
+    dbChat.dismissedRect = nil
+    env.popup = nil
+    SlashCmdList.OFFHANDDAYLIGHTUI("apply")
+    assert(env.popup == "OFFHAND_DAYLIGHTUI_APPLY"
+        and StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY.button3 == "Keep current"
+        and type(StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY.OnAlt) == "function",
+        "DaylightUI apply dialog must expose a persistent Keep current button")
+    StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY.OnAlt()
+    assert(dbChat.dismissedRect == nsChat.signature() and env.flushes >= 1,
+        "Keep current must persist dismissedRect and flush DB")
+    local actions = env.addon.Bridges:Get("DaylightUI"):GetHUDLayoutActions()
+    assert(actions and actions[1].status:find("muted", 1, true),
+        "HUD alignment status must reflect muted prompt while still allowing manual align")
+    -- Simulate reload: Check() must not show the popup while dismissedRect matches.
+    env.popup = nil
+    env.timers = {}
+    nsChat.Check()
+    while #env.timers > 0 do
+        local fn = table.remove(env.timers, 1)
+        fn()
+    end
+    assert(env.popup == nil, "Check() must stay quiet across reloads when Keep current was chosen for this geometry")
+    -- Apply clears dismissedRect when the user later opts in manually.
+    StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY.OnAccept()
+    assert(dbChat.dismissedRect == nil and dbChat.rect == nsChat.signature(),
+        "Apply must clear dismissedRect and record the aligned rect")
+end
+
+print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3/2.2.6 unlock bar & CDM editor, HUD actions, game area, movers, redirects, rolls, staleness, stacked scenes, whisper drawer, persistent dismiss, and legacy stand-down")

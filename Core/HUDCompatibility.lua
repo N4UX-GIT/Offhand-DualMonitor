@@ -80,9 +80,14 @@ function Compatibility.GetBagSmithParkingParent()
     end
 end
 
+function Compatibility.HasMoveMyBags()
+    return Compatibility.IsAddonPresent("MoveMyBags")
+end
+
 function Compatibility.HasCustomBagAddon()
     if Compatibility.IsAddonPresent("EllesmereUIBags")
         and not (Offhand.isForever and Compatibility.UsesNativeGamepadInterface()) then return true end
+    if Compatibility.HasMoveMyBags() then return true end
     if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
         or _G.ArkInventory or _G.BetterBags or _G.Inventorian
         or _G.ElvUI or _G.Tukui then return true end
@@ -258,6 +263,12 @@ function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
     -- Baganator owns the backpack anchor and also clears IsUserPlaced on drag.
     local bags = Offhand.BagPersistence
     if bags and bags.IsBaganatorBackpackRoot and bags.IsBaganatorBackpackRoot(frame, name) then return true end
+    -- MoveMyBags owns native ContainerFrame placement and leaves IsUserPlaced false.
+    if frame.moveMyBags ~= nil
+        or (Compatibility.HasMoveMyBags() and type(name) == "string"
+            and (name == "ContainerFrameCombinedBags" or name:match("^ContainerFrame%d+$") ~= nil)) then
+        return true
+    end
     if Compatibility.GetRestedXPGuideFrame() == frame then return true end
     if allowUserPlaced then return false end
     local learned = Offhand.LearnedAddonWindows

@@ -101,6 +101,10 @@ end
 -- The banners' names, and the frames found by them (keyed by frame).
 local BANNERS = { DaylightUIZoneTitle = true, DaylightUILevelUp = true, DaylightUIRepBanner = true }
 local banners = {}
+-- Frames that persist their own position as UIParent-center offsets and replay
+-- SetPoint("CENTER", UIParent, "CENTER", ...). Redirecting them onto the game
+-- area adds the monitor center delta on every save/layout pass, making them climb.
+local SCREEN_SAVED = { DaylightUIChatDrawer = true }
 
 local redirecting = false
 
@@ -174,6 +178,10 @@ end
 -- A DaylightUI frame by its name: watched from now on (and full-screen overlays
 -- covered onto the game area).
 local function adopt(name, frame)
+    if SCREEN_SAVED[name] and type(frame) == "table" then
+        placed[frame] = true
+        return
+    end
     if BANNERS[name] and type(frame) == "table" then banners[frame] = true end
     watch(frame)
     if COVERS[name] and type(frame) == "table" and frame.SetAllPoints then cover(frame) end
@@ -433,18 +441,33 @@ local function Apply()
         Print("couldn't write the layout: " .. tostring(callOk and why or ok) .. ".")
         return
     end
-    ns.DB().rect = signature()
+    local db = ns.DB()
+    db.rect = signature()
+    db.dismissedRect = nil
     if ns.FlushDB then ns.FlushDB() end
     ReloadUI()
 end
 
+local function DismissForCurrentArea()
+    local db = ns.DB()
+    db.dismissedRect = signature()
+    if ns.FlushDB then ns.FlushDB() end
+    Print("kept your current DaylightUI layout for this monitor setup. You can still align it anytime in Offhand Settings or with /ohdaylight apply.")
+end
+
 local function Ask()
-    StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY = StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY or {
-        text = "DaylightUI's action bars and game frames are laid out for a different screen area than Offhand's game monitor. Move them onto it? (Rebuilds the DaylightUI Edit Mode layout and reloads.)",
-        button1 = "Apply and reload", button2 = LATER or "Later",
-        OnAccept = Apply,
-        timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
-    }
+    local dialog = StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY or {}
+    dialog.text = "DaylightUI's action bars and game frames are laid out for a different screen area than Offhand's game monitor. Move them onto it? (Rebuilds the DaylightUI Edit Mode layout and reloads.)"
+    dialog.button1 = "Apply and reload"
+    dialog.button2 = LATER or "Later"
+    dialog.button3 = "Keep current"
+    dialog.OnAccept = Apply
+    dialog.OnAlt = DismissForCurrentArea
+    dialog.timeout = 0
+    dialog.whileDead = true
+    dialog.hideOnEscape = true
+    dialog.preferredIndex = 3
+    StaticPopupDialogs.OFFHAND_DAYLIGHTUI_APPLY = dialog
     StaticPopup_Show("OFFHAND_DAYLIGHTUI_APPLY")
 end
 ns.Ask = Ask
@@ -490,6 +513,7 @@ function ns.Check()
             checking = false
             Refresh()
             if asked or InCombatLockdown() or signature() ~= before then return end
+            if ns.DB().dismissedRect == before then return end
             if layoutStale() then
                 asked = true
                 Ask()

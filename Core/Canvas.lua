@@ -16,6 +16,7 @@ local HasLeatrixMaps = Compatibility.HasLeatrixMaps
 local HasMoveAny = Compatibility.HasMoveAny
 local HasClassicUIForever = Compatibility.HasClassicUIForever
 local ShouldYieldFrameToClassicUIForever = Compatibility.ShouldYieldFrameToClassicUIForever
+local ShouldYieldNativeContainer = Compatibility.ShouldYieldNativeContainer
 local GetWorldMapExternalOwner = Compatibility.GetWorldMapExternalOwner
 local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorldMap
 local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
@@ -377,6 +378,7 @@ local function IsUnsafeForPanelMutation(frame, name)
     if Offhand.isForever and frame == _G.WorldMapFrame
         and not CanManagePanelsFromAddon() then return true end
     if ShouldYieldFrameToClassicUIForever(frame, name) then return true end
+    if ShouldYieldNativeContainer(frame, name) then return true end
     if ShouldYieldWorldMapToMoveAny(name or frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
     if ShouldYieldForeverProfessionsPanel(frame, name) then return true end
@@ -1077,6 +1079,7 @@ function Canvas:RestorePersistentFrames(mode)
         local conflictsWithNativeMainhand = nativeBackpackOnMainhand
             and not IsBackpackRoot(name)
         if hasWorkspaceOwner and not hasMainhandOwner
+            and not ShouldYieldNativeContainer(_G[name], name)
             and IsRestorableBagRootName(name) and not conflictsWithNativeMainhand then
             hasBag = true
             break
@@ -1119,6 +1122,7 @@ function Canvas:RestorePersistentFrames(mode)
                 if frame:IsShown() then Canvas:RepairYieldedWorldMapAnchor(frame) end
             end
         elseif frame
+            and not ShouldYieldNativeContainer(frame, name)
             and not self:ShouldDeferSecondaryChatRestore(frame, name)
             and not IsForeverEditModeFrame(frame, name)
             and (not IsForeverProfessionsPanel(frame, name)
@@ -1210,7 +1214,8 @@ function Canvas:RestorePersistentFrames(mode)
             -- Combined Backpack mode may never create ContainerFrame1 during
             -- startup, which makes the general compatibility heuristic report
             -- a false custom-bag positive. An explicit saved native root wins.
-            local hasNativeCombinedSnapshot = openPanels.ContainerFrameCombinedBags
+            local hasNativeCombinedSnapshot = not Compatibility.HasMoveMyBags()
+                and openPanels.ContainerFrameCombinedBags
                 and Offhand.db.savedWorkspacePositions.ContainerFrameCombinedBags
                 and _G.ContainerFrameCombinedBags
             local hasCustomBagAddon = not hasNativeCombinedSnapshot
@@ -1423,6 +1428,7 @@ function Canvas:CaptureForeverFramePosition(frame)
     if not Offhand.isForever or InCombatLockdown() or not frame or not Offhand.db
         or not Offhand.db.enabled or not Offhand.ForeverPersistence then return false end
     local name = frame.GetName and frame:GetName()
+    if ShouldYieldNativeContainer(frame, name) then return false end
     if name ~= "ContainerFrameCombinedBags" and not (name and name:match("^ChatFrame%d+$")) then return false end
     if name and name:match("^ChatFrame%d+$") and HasCustomChatAddon() then
         ClearTrackedChatState(name)
@@ -1697,6 +1703,7 @@ local function RestoreSavedPositionAfterShow(frame)
     if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     local frameName = frame.GetName and frame:GetName()
+    if ShouldYieldNativeContainer(frame, frameName) then return end
     if (frameName and nonMovableSystemPanels[frameName]) or IsFullScreenUIPanel(frame, frameName) then
         return
     end
@@ -1781,7 +1788,7 @@ end
 
 local function HookContainerTitlePersistence(frame, name)
     if not frame or not name or not string.match(name, "^ContainerFrame") then return end
-    if IsForeverNativeContainerName(name) then return end
+    if IsForeverNativeContainerName(name) or ShouldYieldNativeContainer(frame, name) then return end
     local titleContainer = frame.TitleContainer or _G[name .. "TitleContainer"]
     if not titleContainer or not titleContainer.HookScript or titleContainer._OffhandPersistenceHooked then return end
 
@@ -1801,7 +1808,7 @@ end
 
 local function HookProtectedContainerPersistence(frame, name)
     if not frame or not name or not name:match("^ContainerFrame") then return false end
-    if IsForeverNativeContainerName(name) then return false end
+    if IsForeverNativeContainerName(name) or ShouldYieldNativeContainer(frame, name) then return false end
     HookContainerTitlePersistence(frame, name)
     local titleContainer = frame.TitleContainer or _G[name .. "TitleContainer"]
     return titleContainer and titleContainer._OffhandPersistenceHooked == true
@@ -2921,6 +2928,10 @@ function Offhand:InitializeCanvas()
                 -- applying a stale runtime width. Trust Offhand's last explicit
                 -- FCF save and restore it after protected Edit Mode closes.
                 Canvas:RepairShownWorkspacePanels()
+                if Offhand.CanvasChat and Offhand.CanvasChat.UpdateMainhandBounds
+                    and Offhand.Viewport then
+                    Offhand.CanvasChat.UpdateMainhandBounds(Offhand.Viewport:GetMetrics())
+                end
                 return
             else
                 return

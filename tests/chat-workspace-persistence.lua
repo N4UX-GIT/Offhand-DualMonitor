@@ -1061,4 +1061,101 @@ do
     addon.CanvasChat.UpdateMainhandBounds(span)
     assert(within(), "the attached input below the message area must also fit")
     print("PASS: reversible Forever Mainhand chat and edit box placement")
+
+    -- Reporter geometry: 1080x1920 portrait Offhand on the left (0..548.571 x 0..975.238),
+    -- 3840x2160 Mainhand on the right raised 240px (548.571..2499.048 x 121.905..1219.048).
+    local prevManager = EditModeManagerFrame
+    local editShown = false
+    EditModeManagerFrame = {
+        IsShown = function() return editShown end,
+        HookScript = function() error("Forever must not hook EditModeManagerFrame scripts") end,
+    }
+    local portraitSpan = {
+        isSpanned = true,
+        workspaceLeft = 0, workspaceBottom = 0, workspaceRight = 548.571, workspaceTop = 975.238,
+        gameLeft = 548.571, gameBottom = 121.905, gameRight = 2499.048, gameTop = 1219.048,
+    }
+    addon.Viewport.GetMetrics = function() return portraitSpan end
+    chat:SetSize(410, 131)
+    box:SetSize(426, 32)
+    box.GetLeft = function() return chat:GetLeft() - 5 end
+    box.GetBottom = function() return chat:GetBottom() - 34 end
+    ChatFrame1Tab = makeMockFrame("ChatFrame1Tab", 80, 30)
+    ChatFrame1Tab.GetLeft = function() return chat:GetLeft() end
+    ChatFrame1Tab.GetBottom = function() return chat:GetBottom() + chat:GetHeight() end
+    chat.buttonFrame = makeMockFrame("ChatFrame1ButtonFrame", 29, 131)
+    chat.buttonFrame.GetLeft = function() return chat:GetLeft() - 34 end
+    chat.buttonFrame.GetBottom = function() return chat:GetBottom() end
+
+    -- Moving ChatFrame1 from Mainhand to Offhand in Edit Mode and exiting must
+    -- keep it on Offhand even when buttonFrame/EditBox/Tab overhang an edge.
+    local offhandDrops = {
+        {x = 0, y = 0, label = "extreme bottom-left"},
+        {x = 15, y = 25, label = "near bottom-left"},
+        {x = 34, y = 129.301, label = "left edge with buttonFrame overhang"},
+        {x = 138, y = 400, label = "near right seam with EditBox overhang"},
+        {x = 50, y = 844, label = "near top edge with Tab overhang"},
+    }
+    for _, drop in ipairs(offhandDrops) do
+        place(582.571, 251.206)
+        addon.CanvasChat.UpdateMainhandBounds(portraitSpan)
+        editShown = true
+        chat.isInEditMode = true
+        place(drop.x, drop.y)
+        addon.CanvasChat.UpdateMainhandBounds(portraitSpan)
+        editShown = false
+        chat.isInEditMode = false
+        addon.CanvasChat.UpdateMainhandBounds(portraitSpan)
+        assert(math.abs(chat:GetLeft() - drop.x) < 0.01 and math.abs(chat:GetBottom() - drop.y) < 0.01,
+            "Offhand Edit Mode drop (" .. drop.label .. ") must not bounce back to Mainhand")
+    end
+
+    -- A full-width chat window filling the portrait Offhand must also survive.
+    chat:SetSize(540, 200)
+    box:SetSize(556, 32)
+    place(4, 40)
+    addon.CanvasChat.UpdateMainhandBounds(portraitSpan)
+    assert(math.abs(chat:GetLeft() - 4) < 0.01 and math.abs(chat:GetBottom() - 40) < 0.01,
+        "wide portrait Offhand chat must remain on Offhand")
+
+    -- Moving ChatFrame1 near Mainhand's bottom-left edge must only nudge by
+    -- child clearance, never double-shifting by gameLeft or gameBottom.
+    chat:SetSize(410, 131)
+    box:SetSize(426, 32)
+    place(560, 140)
+    addon.CanvasChat.UpdateMainhandBounds(portraitSpan)
+    assert(math.abs(chat:GetLeft() - 582.571) < 0.05 and math.abs(chat:GetBottom() - 155.905) < 0.05,
+        "Mainhand edge overhang must nudge minimally without double-shifting by gameLeft/gameBottom")
+
+    -- A frame stranded in the physical dead void above portrait Offhand is still rescued.
+    place(50, 1050)
+    addon.CanvasChat.UpdateMainhandBounds(portraitSpan)
+    assert(chat:GetLeft() >= portraitSpan.gameLeft,
+        "dead-void anchor above portrait Offhand must still recover onto Mainhand")
+
+    -- Right-side Offhand drop near the seam/bottom-left must stay on Offhand.
+    local rightOffhandSpan = {
+        isSpanned = true,
+        gameLeft = 0, gameBottom = 0, gameRight = 1920, gameTop = 1080,
+        workspaceLeft = 1920, workspaceBottom = 0, workspaceRight = 3840, workspaceTop = 1080,
+    }
+    addon.Viewport.GetMetrics = function() return rightOffhandSpan end
+    place(1930, 20)
+    addon.CanvasChat.UpdateMainhandBounds(rightOffhandSpan)
+    assert(math.abs(chat:GetLeft() - 1930) < 0.01 and math.abs(chat:GetBottom() - 20) < 0.01,
+        "right-side Offhand chat drop must not bounce back to Mainhand")
+
+    -- Short Offhand bottom-edge drop stays on Offhand while deep dead void still rescues.
+    addon.Viewport.GetMetrics = function() return span end
+    chat:SetSize(400, 100)
+    box:SetSize(416, 32)
+    place(10, 650)
+    addon.CanvasChat.UpdateMainhandBounds(span)
+    assert(math.abs(chat:GetLeft() - 10) < 0.01 and math.abs(chat:GetBottom() - 650) < 0.01,
+        "short Offhand bottom-edge drop must survive even with overhanging children")
+
+    ChatFrame1Tab = nil
+    chat.buttonFrame = nil
+    EditModeManagerFrame = prevManager
+    print("PASS: Forever Edit Mode Offhand chat placements and minimal Mainhand nudging verified")
 end

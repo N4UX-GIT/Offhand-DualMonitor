@@ -226,6 +226,11 @@ function Persistence.InstallDrag(Canvas, services)
         end
         if InCombatLockdown() then SetPanelDragging(frame, false); return end
         local dragName = frame.GetName and frame:GetName()
+        if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.ShouldYieldNativeContainer
+            and Offhand.CanvasCompatibility.ShouldYieldNativeContainer(frame, dragName) then
+            SetPanelDragging(frame, false)
+            return
+        end
         if dragName and dragName:match("^ChatFrame%d+$") and HasCustomChatAddon() then
             ClearTrackedChatState(dragName)
             SetPanelDragging(frame, false)
@@ -644,6 +649,8 @@ function Persistence.InstallRestore(Canvas, services)
         if not name or IsVendorGameplayFrame(frame, name) then return end
         if frame._OffhandDragging then return end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return end
+        if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.ShouldYieldNativeContainer
+            and Offhand.CanvasCompatibility.ShouldYieldNativeContainer(frame, name) then return end
         if ShouldYieldWorldMapToMoveAny(name) then return end
         if name:match("^ChatFrame%d+$") and HasCustomChatAddon() then
             ClearTrackedChatState(name)

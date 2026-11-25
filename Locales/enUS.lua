@@ -1036,6 +1036,15 @@ L["COMPAT_CONFLICT_WORLDMAP_MOVER"] = "Conflict: %s is moving the World Map ahea
 L["COMPAT_CONFLICT_WINDOW_MOVER"] = "Conflict: %s's Move Blizzard windows option is active alongside Offhand. Disable Move Blizzard windows in %s if windows, bags, or the World Map flicker or snap back."
 L["COMPAT_CONFLICT_OPENMAP_CONTRACT"] = "Notice: OpenMap updated to an unsupported contract (%s). Offhand stood down its OpenMap drag sync and recovery helpers."
 L["COMPAT_CONFLICT_BAGS"] = "Conflict: multiple bag addons are active (%s). Keep only one bag addon enabled for reliable Offhand bag persistence."
+L["COMPAT_GUIDE_SUF"] = "Shadowed Unit Frames controls Player/Target/Focus frames. Move them with /suf, or disable Shadowed Unit Frames (or specific unit modules) to move them in Blizzard Edit Mode."
+L["COMPAT_GUIDE_MOVEANY"] = "MoveAny controls frame movement. Move or unlock frames with /move, or disable an element in MoveAny to let Blizzard Edit Mode or Offhand move it."
+L["COMPAT_GUIDE_MOVEMYBAGS"] = "MoveMyBags controls Blizzard bag positions. Drag or reset bags with /movemybags reset, or disable MoveMyBags to let Offhand manage bag placement."
+L["COMPAT_GUIDE_MOVEMYBAGS_LAYERS"] = "If a reagent or specialty bag turns grey while dragging, uncheck 'Keep the window you are using in front' in Options > AddOns > MoveMyBags."
+L["COMPAT_GUIDE_BLIZZMOVE"] = "BlizzMove controls window dragging and scaling. Check /bm if a panel snaps back or resists Offhand placement."
+L["COMPAT_GUIDE_ACTIONBARS"] = "%s controls action bars. Unlock and move bars in %s instead of Blizzard Edit Mode."
+L["COMPAT_GUIDE_SUITE"] = "%s controls its enabled HUD and unit frames. Move them with /moveui, or disable individual modules in %s to use Blizzard Edit Mode."
+L["COMPAT_GUIDE_ELLESMERE"] = "EllesmereUI controls its enabled HUD modules. Position them in EllesmereUI's own unlock/layout settings instead of Blizzard Edit Mode."
+L["COMPAT_GUIDE_UNITFRAMES"] = "%s controls its unit frames. Move them in %s's own settings instead of Blizzard Edit Mode."
 
 -- Minimap & Menu
 L["MINIMAP_MENU_TITLE"] = "Offhand Workspace"

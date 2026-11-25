@@ -1019,3 +1019,79 @@ addon.Canvas:RefreshForeverNativeBagPlacement(bag);sizeWrites=0
 addon.Canvas:RefreshForeverNativeBagPlacement(bag);addon.Canvas:RefreshForeverNativeBagPlacement(bag)
 assert(sizeWrites==0,'A default bag without saved intent repeated fallback scale writes')
 print('PASS: region sizing uses native bag placement, keeps reset/combat isolation and avoids fallback scale churn')
+
+-- Combined Bags + separate Reagent/Herb bag (ContainerFrame6, bag ID 5):
+-- Closing ContainerFrameCombinedBags from Offhand, or opening the Reagent Bag
+-- alone while Combined Bags is closed, must keep the Reagent Bag on Offhand
+-- instead of letting Blizzard anchor it to ContainerFrameContainer (Mainhand).
+metrics.workspaceRegions = nil
+metrics.workspaceLeft, metrics.workspaceRight = 0, 1440
+metrics.workspaceBottom, metrics.workspaceTop = 0, 2560
+metrics.workspaceWidth, metrics.workspaceHeight = 1440, 2560
+metrics.gameLeft, metrics.gameRight = 1440, 4000
+metrics.gameBottom, metrics.gameTop = 6, 1446
+addon.db = {
+    enabled = true,
+    savedWorkspacePositions = { ContainerFrameCombinedBags = { x = 220, y = 900 } },
+    savedMainPositions = {},
+    nativeBackpackWorkspacePosition = { x = 220, y = 900 },
+    openWorkspacePanels = { ContainerFrameCombinedBags = true },
+    nativeBackpackWorkspaceOpen = true,
+}
+ContainerFrameContainer = {
+    IsForbidden = function() return false end,
+    IsProtected = function() return false end,
+    GetParent = function() return UIParent end,
+}
+ContainerFrameSettingsManager = { IsUsingCombinedBags = function() return true end }
+local reagentWrites = 0
+local reagentPoint = { "BOTTOMRIGHT", ContainerFrameContainer, "BOTTOMRIGHT", -16, 32 }
+local reagent = {
+    shown = true, left = 3700, top = 300, width = 192, height = 180, scale = 1,
+    GetName = function() return "ContainerFrame6" end,
+    GetID = function() return 5 end,
+    GetParent = function() return ContainerFrameContainer end,
+    IsShown = function(self) return self.shown end,
+    IsForbidden = function() return false end,
+    IsProtected = function() return false end,
+    IsAnchoringRestricted = function() return false end,
+    GetWidth = function(self) return self.width end,
+    GetHeight = function(self) return self.height end,
+    GetEffectiveScale = function(self) return self.scale end,
+    GetScale = function(self) return self.scale end,
+    GetLeft = function(self) return self.left end,
+    GetTop = function(self) return self.top end,
+    GetPoint = function() return unpack(reagentPoint) end,
+    ClearAllPoints = function() end,
+    SetPoint = function(self, pt, rel, relPt, x, y)
+        reagentWrites = reagentWrites + 1
+        reagentPoint = { pt, rel, relPt, x, y }
+        self.left, self.top = x, y
+    end,
+}
+ContainerFrame6 = reagent
+bag.GetBottom = function(self) return (self.top or 0) - (self.height or 0) end
+bag:SetScale(1); bag.width, bag.height = 420, 620
+bag:Show()
+controller.scripts.OnUpdate(controller, 0.016)
+-- User explicitly closes Combined Backpack (B / X button) while Reagent Bag stays open;
+-- Blizzard re-anchors Reagent Bag to ContainerFrameContainer (bottom-right of Mainhand).
+addon.Canvas._foreverNativeBagExplicitCloseObserved = true
+bag:Hide()
+reagentPoint = { "BOTTOMRIGHT", ContainerFrameContainer, "BOTTOMRIGHT", -16, 32 }
+reagent.left, reagent.top = 3700, 300
+reagentWrites = 0
+controller.scripts.OnUpdate(controller, 0.016)
+assert(reagentWrites == 1 and reagentPoint[2] == UIParent and reagent.left == 220 and reagent.top == 900,
+    "Reagent Bag surviving Combined Backpack close must stay on Offhand workspace")
+-- Subsequent OnUpdate ticks must not churn once relocated to UIParent on Offhand.
+controller.scripts.OnUpdate(controller, 0.016)
+assert(reagentWrites == 1, "Relocated Reagent Bag must not churn SetPoint on subsequent ticks")
+-- Standalone Reagent Bag opened while Combined Backpack is already closed:
+reagentPoint = { "BOTTOMRIGHT", ContainerFrameContainer, "BOTTOMRIGHT", -16, 32 }
+reagent.left, reagent.top = 3700, 300
+controller.scripts.OnUpdate(controller, 0.016)
+assert(reagentWrites == 2 and reagentPoint[2] == UIParent and reagent.left == 220 and reagent.top == 900,
+    "Standalone Reagent Bag opened while Combined Backpack is closed must relocate to Offhand workspace")
+ContainerFrame6, ContainerFrameContainer, ContainerFrameSettingsManager = nil, nil, nil
+print("PASS: Forever Combined Backpack Reagent Bag stays on Offhand when backpack closes or opens standalone")
