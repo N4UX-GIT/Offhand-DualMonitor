@@ -4,8 +4,7 @@
 
 `Offhand.exe` is still a Windows .NET Framework/WinForms application. Its
 display enumeration, window discovery, border changes, window
-placement, clipping regions, and tray UI all use Win32 APIs. There is no native
-Linux executable in this repository yet.
+placement, clipping regions, and tray UI all use Win32 APIs. The native Linux placement probe is available for volunteer testing.
 
 Running the Windows Companion under Wine is an **experimental compatibility
 path**, not native Linux support. The Companion now falls back from
@@ -84,6 +83,10 @@ automatic retries for that WoW process so it does not repeatedly fight the
 desktop compositor. Review the activity-log diagnostic and use **Span WoW Now**
 for an explicit retry after correcting the runner, prefix, permissions, or
 display selection.
+
+## Native Linux placement probe
+
+See the [tester instructions](Linux/README.md) to inspect your desktop and try a timed span and restore. The full player Companion remains in development.
 
 ## Native Linux implementation
 
