@@ -33,12 +33,11 @@ class Publication(unittest.TestCase):
         cls.fixture.mkdir(parents=True)
         receipt = ROOT / 'Release/Prepared/2.1.5-beta.29/addon.json'
         files = json.loads(receipt.read_text(encoding='utf-8-sig'))['files']
-        paths = [n[len('Offhand/'):] for n in files]
-        paths += ['Release/Prepared/2.1.5-beta.29/addon.json',
-                  'Release/Prepared/2.1.5-beta.29/Offhand-v2.1.5-beta.29.zip']
+        paths = ['Release/Prepared/2.1.5-beta.29/addon.json',
+                 'Release/Prepared/2.1.5-beta.29/Offhand-v2.1.5-beta.29.zip']
         paths += ['Companion/Prepared/2.1.5/' + n
                   for n in ('Offhand.exe', publication.PORTABLE, 'release.json')]
-        for rel in set(paths):
+        for rel in paths:
             dest = cls.fixture / rel
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / rel, dest)
@@ -50,7 +49,9 @@ class Publication(unittest.TestCase):
         # Historical Beta 29 tests use its immutable product bytes.
         with zipfile.ZipFile(ROOT / 'Release/Prepared/2.1.5-beta.29/Offhand-v2.1.5-beta.29.zip') as z:
             for name in files:
-                (cls.fixture / name[len('Offhand/'):]).write_bytes(z.read(name))
+                dest = cls.fixture / name[len('Offhand/'):]
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(z.read(name))
         cls.native = cls.fixture / 'Companion/Prepared/2.1.5'
 
     def test_valid_exact_subject(self):
