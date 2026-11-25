@@ -133,10 +133,76 @@ ElvUI = { { private = { bags = { enable = false } } } }
 ElvUI_ContainerFrame = nil
 assert(#compatibility.GetOwnershipConflicts() == 0,
     "ElvUI with disabled bags + Baganator must not trigger a false bag conflict")
+-- ElvUI with active bag frame + Baganator MUST flag a bag conflict.
 ElvUI_ContainerFrame = {}
 assert(#compatibility.GetOwnershipConflicts() == 1
     and compatibility.GetOwnershipConflicts()[1].kind == "bags-conflict",
     "ElvUI with active bag frame + Baganator must trigger a bag conflict")
 Baganator, ElvUI, ElvUI_ContainerFrame = nil, nil, nil
 
-print("PASS: Canvas external ownership priority, yielding, diagnostics, contract validation, conflicts and API fallback")
+-- Forever default Blizzard UI + OneForAll Move Blizzard windows: reports window-mover
+-- conflict once per session and exposes OneForAllMover=active in diagnostics.
+compatibility.ResetConflictNotifications()
+printed = {}
+loaded = { OneForAll = true }
+WorldMapFrame = { ofaMovable = true }
+ContainerFrameCombinedBags = { ofaMovable = true }
+SettingsPanel = { ofaMovable = true }
+OneForAllDB = { qol = { moveWindows = true } }
+local ofaConflicts = compatibility.GetOwnershipConflicts()
+assert(#ofaConflicts == 1 and ofaConflicts[1].kind == "window-mover"
+    and ofaConflicts[1].id == "window-mover:OneForAll",
+    "OneForAll moving unmitigated Offhand roots must flag window-mover:OneForAll")
+assert(compatibility.NotifyActiveConflicts() == 1 and #printed == 1
+    and printed[1]:find("Move Blizzard windows", 1, true),
+    "window-mover conflict must notify once per session with the actionable OneForAll setting")
+assert(compatibility.NotifyActiveConflicts() == 0 and #printed == 1,
+    "window-mover conflict must not spam repeated chat notices")
+local ofaDiag = compatibility.GetDiagnostics(false)
+assert(ofaDiag:find("OneForAllMover=active", 1, true)
+    and ofaDiag:find("Conflicts=window-mover:OneForAll", 1, true),
+    "diagnostics must report OneForAllMover=active and window-mover:OneForAll")
+
+-- Disabling Move Blizzard windows in OneForAll clears the conflict even if ofaMovable
+-- remains set on frames (for example from Resize Blizzard windows or before reload).
+OneForAllDB.qol.moveWindows = false
+assert(#compatibility.GetOwnershipConflicts() == 0,
+    "disabling OneForAll moveWindows must clear the window-mover conflict")
+assert(not compatibility.GetDiagnostics(false):find("OneForAllMover=active", 1, true),
+    "disabling OneForAll moveWindows must clear OneForAllMover=active")
+OneForAllDB, ContainerFrameCombinedBags, SettingsPanel = nil, nil, nil
+
+-- External frame controllers (e.g. Shadowed Unit Frames, MoveAny, MoveMyBags, Bartender4):
+-- surfaced in GetActiveExternalOwners, GetExternalControlGuidance, and full diagnostics,
+-- while remaining silent in chat (healthy coexistence, never false conflicts).
+compatibility.ResetConflictNotifications()
+printed = {}
+loaded = { ShadowedUnitFrames = true, MoveAny = true, MoveMyBags = true, Bartender4 = true }
+local ctrlOwners = compatibility.GetActiveExternalOwners()
+assert(ctrlOwners.unitFrames and ctrlOwners.unitFrames[1] == "ShadowedUnitFrames",
+    "ShadowedUnitFrames must be reported under unitFrames")
+assert(ctrlOwners.actionBars and ctrlOwners.actionBars[1] == "Bartender4",
+    "Bartender4 must be reported under actionBars")
+assert(ctrlOwners.movers and ctrlOwners.movers[1] == "MoveAny" and ctrlOwners.movers[2] == "MoveMyBags",
+    "MoveAny and MoveMyBags must be reported under movers")
+local guides = compatibility.GetExternalControlGuidance()
+assert(#guides == 4, "all four external frame controllers must produce actionable guidance")
+assert(guides[1].text:find("/suf", 1, true), "SUF guidance must explain /suf and Edit Mode resolution")
+assert(guides[2].text:find("/move", 1, true), "MoveAny guidance must explain /move resolution")
+assert(guides[3].text:find("/movemybags reset", 1, true)
+    and guides[3].text:find("Keep the window you are using in front", 1, true),
+    "MoveMyBags guidance on Forever must include the layers tip while layers is enabled")
+MoveMyBagsDB = { layers = false }
+local guidesNoLayers = compatibility.GetExternalControlGuidance()
+assert(guidesNoLayers[3].text:find("/movemybags reset", 1, true)
+    and not guidesNoLayers[3].text:find("Keep the window you are using in front", 1, true),
+    "MoveMyBags guidance must omit the layers tip once the user disables layers")
+MoveMyBagsDB = nil
+assert(guides[4].text:find("Bartender4", 1, true), "Bartender4 guidance must name Bartender4")
+assert(#compatibility.GetOwnershipConflicts() == 0 and compatibility.NotifyActiveConflicts() == 0 and #printed == 0,
+    "single external frame controllers must not spam chat conflicts")
+local ctrlDiag = compatibility.GetDiagnostics(false)
+assert(ctrlDiag:find("FrameControllers=ShadowedUnitFrames,Bartender4,MoveAny,MoveMyBags", 1, true),
+    "full diagnostics must list active FrameControllers for support triage")
+
+print("PASS: Canvas external ownership priority, yielding, diagnostics, contract validation, conflicts, frame-controller guidance and API fallback")

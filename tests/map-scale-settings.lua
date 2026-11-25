@@ -69,7 +69,11 @@ gamepad=true; Refuses(); gamepad=false
 map.maximized=true; Refuses(); map.maximized=false
 map.forbidden=true; Refuses(); map.forbidden=false
 disabled=true; Refuses(); disabled=false
-stitched=false; Refuses(); stitched=true
+-- OpenMap's windowScale applies on non-stitched windowed maps too (e.g. Forever map 2521).
+stitched=false
+assert(scale:GetState().available and scale:Set(1.15) and ownerDB.windowScale==1.15 and map.scale==1.15,
+    "OpenMap windowScale must stay available on non-stitched windowed maps")
+stitched=true
 ownerDB.enabled=false; Refuses(); ownerDB.enabled=true
 addon.db.enabled=false; Refuses(); addon.db.enabled=true
 OpenMapAPI.major=2; Refuses(); OpenMapAPI.major=1
@@ -124,7 +128,8 @@ table.remove(timers, 1)()
 assert(#observed == 1)
 card.visible = true
 callbacks.WorldMapOnHide()
-stitched = false
+map.maximized = true
 table.remove(timers, 1)()
 assert(observed[2] == false)
+map.maximized = false
 print("PASS: map settings route by active side/owner, refresh on map transitions and enforce scale guards")

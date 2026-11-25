@@ -662,7 +662,7 @@ function Adapter.Install(Canvas, services)
     -- Each panel family still has exactly one position writer: the World Map and
     -- Social adapters run their dedicated repair, while the generic pass can only
     -- touch panels assigned to the generic controller.
-    local function RepairUIPanelTransaction(exceptFrame, skipBagCapture)
+    local function RepairUIPanelTransaction(exceptFrame, skipBagCapture, includeOpenedFrame)
         if Offhand.isForever and Offhand.db and Offhand.db.enabled
             and not (InCombatLockdown and InCombatLockdown())
             and not NativeGamepadOwnsMap() and exceptFrame
@@ -688,7 +688,12 @@ function Adapter.Install(Canvas, services)
             QueueForeverWorldMapSettlement(
                 map, GetForeverWorldMapState(map), true, true)
         end
-        Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
+        local peerExcept = exceptFrame
+        if includeOpenedFrame and exceptFrame
+            and exceptFrame ~= _G.FlightMapFrame and exceptFrame ~= _G.TaxiFrame then
+            peerExcept = nil
+        end
+        Canvas:RepairShownWorkspacePanels(peerExcept, skipBagCapture)
         Canvas:RepairShownSocialCommunityPanels()
     end
 

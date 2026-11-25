@@ -207,7 +207,58 @@ function PopupBounds:RestoreClassicTooltipClamp(frame)
     end
     return true
 end
-function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
+local cursorTooltipAnchors = {
+    ANCHOR_CURSOR = true,
+    ANCHOR_CURSOR_LEFT = true,
+    ANCHOR_CURSOR_RIGHT = true,
+}
+local cursorTooltipAnchorState = setmetatable({}, { __mode = "k" })
+
+local function CursorPointInUI()
+    if type(GetCursorPosition) ~= "function" or not UIParent or not UIParent.GetEffectiveScale then return nil end
+    local okScale, uiScale = pcall(UIParent.GetEffectiveScale, UIParent)
+    if not okScale or not PublicNumber(uiScale) or uiScale <= 0 then return nil end
+    local okPos, x, y = pcall(GetCursorPosition)
+    if not okPos or not PublicNumber(x) or not PublicNumber(y) then return nil end
+    return x / uiScale, y / uiScale
+end
+
+-- Minimap tracking tooltips call GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR").
+-- Resolve cursor-anchored world tooltips against the physical display under the
+-- pointer so Offhand minimap blips clamp inside Offhand instead of Mainhand.
+local function ResolveWorldTooltipMetrics(frame, metrics, anchor)
+    local anchorType = type(anchor) == "string" and anchor or nil
+    if not anchorType and frame and type(frame.GetAnchorType) == "function" then
+        local ok, value = pcall(frame.GetAnchorType, frame)
+        if ok and type(value) == "string" then anchorType = value end
+    end
+    if not anchorType and frame then anchorType = cursorTooltipAnchorState[frame] end
+    if not cursorTooltipAnchors[anchorType] then return metrics, false end
+    local cx, cy = CursorPointInUI()
+    if not cx then return metrics, false end
+    if metrics.workspaceRegions and Offhand.WorkspaceRegions then
+        local id = Offhand.WorkspaceRegions:Destination(metrics, cx, cy, 0, 0)
+        if id and id ~= "MAINHAND" then
+            return Offhand.WorkspaceRegions:ForRegion(metrics, id), true
+        end
+        return metrics, false
+    end
+    if PublicNumber(metrics.gameLeft) and PublicNumber(metrics.gameRight)
+        and PublicNumber(metrics.gameBottom) and PublicNumber(metrics.gameTop)
+        and cx >= metrics.gameLeft and cx <= metrics.gameRight
+        and cy >= metrics.gameBottom and cy <= metrics.gameTop then
+        return metrics, false
+    end
+    if PublicNumber(metrics.workspaceLeft) and PublicNumber(metrics.workspaceRight)
+        and PublicNumber(metrics.workspaceBottom) and PublicNumber(metrics.workspaceTop)
+        and cx >= metrics.workspaceLeft and cx <= metrics.workspaceRight
+        and cy >= metrics.workspaceBottom and cy <= metrics.workspaceTop then
+        return metrics, true
+    end
+    return metrics, false
+end
+
+function PopupBounds:UpdateClassicTooltipClamp(frame, preparing, anchor)
     if classicClampUpdating or tooltipFitUpdating or comparisonClampUpdating
         or (InCombatLockdown and InCombatLockdown()) or not frame
         or not frame.GetClampRectInsets or not frame.SetClampRectInsets
@@ -221,13 +272,20 @@ function PopupBounds:UpdateClassicTooltipClamp(frame, preparing)
     if (Offhand.isRetail or Offhand.isForever) and root and root ~= frame then
         return self:RestoreClassicTooltipClamp(frame)
     end
-    if metrics and Offhand.WorkspaceRegions then metrics=Offhand.WorkspaceRegions:ForFrame(metrics,owner or frame) end
     local worldOwner = owner and (owner == UIParent or owner == _G.WorldFrame)
+    local worldOnWorkspace = false
+    if metrics and worldOwner then
+        metrics, worldOnWorkspace = ResolveWorldTooltipMetrics(root or frame, metrics, anchor)
+    elseif metrics and Offhand.WorkspaceRegions then
+        metrics = Offhand.WorkspaceRegions:ForFrame(metrics, owner or frame)
+    end
     local external = ExternalTooltipOwner()
-    local mainhandOwner = worldOwner or (metrics and (Offhand.isRetail or Offhand.isForever)
-        and FrameCenterInside(owner, metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop))
-    local workspaceOwner = metrics and FrameCenterInside(owner, metrics.workspaceLeft, metrics.workspaceBottom,
-        metrics.workspaceRight, metrics.workspaceTop)
+    local mainhandOwner = (worldOwner and not worldOnWorkspace)
+        or (not worldOwner and metrics and (Offhand.isRetail or Offhand.isForever)
+            and FrameCenterInside(owner, metrics.gameLeft, metrics.gameBottom, metrics.gameRight, metrics.gameTop))
+    local workspaceOwner = (worldOwner and worldOnWorkspace)
+        or (not worldOwner and metrics and FrameCenterInside(owner, metrics.workspaceLeft, metrics.workspaceBottom,
+            metrics.workspaceRight, metrics.workspaceTop))
     if not metrics or not owner or frame.IsEmbedded or external
         or (not mainhandOwner and not workspaceOwner) then
         comparisonClampState[frame] = nil
@@ -841,6 +899,7 @@ function PopupBounds:ObserveTooltip(tooltip)
         end
         tooltip:HookScript("OnHide", function(self)
             comparisonClampState[self] = nil
+            cursorTooltipAnchorState[self] = nil
             if self==_G.SettingsTooltip then
                 PopupBounds:UpdateSettingsTooltipScale(self,true)
                 settingsTooltipYielded[self]=nil
@@ -857,11 +916,12 @@ function PopupBounds:ObserveTooltip(tooltip)
     if tooltip.SetOwner and hooksecurefunc then
         hooksecurefunc(tooltip, "SetOwner", function(self, owner, anchor)
             comparisonClampState[self] = nil
+            cursorTooltipAnchorState[self] = cursorTooltipAnchors[anchor] and anchor or nil
             -- Settings builds its lines immediately after SetOwner. Scaling on
             -- show, even next turn, leaves native wrapping/height inconsistent
             -- on Anniversary. Prepare scale before native text construction.
             if self==_G.SettingsTooltip then PopupBounds:UpdateSettingsTooltipScale(self) end
-            PopupBounds:UpdateClassicTooltipClamp(self, true)
+            PopupBounds:UpdateClassicTooltipClamp(self, true, anchor)
             if not Offhand.isRetail and not Offhand.isForever then
                 return
             end

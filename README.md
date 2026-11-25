@@ -12,7 +12,7 @@
   [![Portable, Linux, and manual options](https://img.shields.io/badge/Companion-Portable_%26_manual_options-181717?style=for-the-badge&logo=github)](https://offhandwow.com/companion.html)
 </div>
 
-Offhand Beta 41 pairs with Windows Companion 2.1.9-beta.3. See the [changelog](CHANGELOG.md) for changes and contributor credits.
+Offhand Beta 42 pairs with Windows Companion 2.1.9-beta.4. See the [changelog](CHANGELOG.md) for changes and contributor credits.
 
 ---
 

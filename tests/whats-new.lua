@@ -118,9 +118,9 @@ assert(dialog.link.text == addon.companionStoreUrl and dialog.link.focus and dia
 dialog.children[3].scripts.OnClick() -- Release notes link.
 assert(dialog.link.text == "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v" .. firstRelease,
     "the current beta must link to its matching release notes")
-assert(dialog.body.text:find(addon.L.WHATS_NEW_BETA41, 1, true), "Beta 41 should show its bug-fix highlights")
-assert(dialog.body.text:find(addon.L.WHATS_NEW_COMPANION_UNCHANGED, 1, true),
-    "Addon-only Beta 41 hotfix should note that no new Companion release accompanies it")
+assert(dialog.body.text:find(addon.L.WHATS_NEW_BETA42, 1, true), "Beta 42 should show its workspace highlights")
+assert(dialog.body.text:find(addon.L.WHATS_NEW_COMPANION_PAIRED:format("2.1.9-beta.4"), 1, true),
+    "Beta 42 should identify the paired Companion")
 assert(not dialog.body.text:find("2.1.7-beta.9", 1, true), "span history is not release news")
 assert(dialog:GetHeight() - 44 > 52 + dialog.body:GetHeight(), "footer overlaps release notes")
 

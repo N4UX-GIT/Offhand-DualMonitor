@@ -36,7 +36,7 @@ local function Inspect()
         if owner ~= "OpenMap" or not Offhand.isForever then return state end
         -- Reviewed internal contract, not a public setter API. No mod:Refresh:
         -- rebuilding MapCanvas data providers is outside this settings action.
-        local module, ownerDB = Offhand.CanvasCompatibility.GetOpenMapWindowModule()
+        local module, ownerDB = Offhand.CanvasCompatibility.GetOpenMapWindowModule(true)
         if not module or not Number(ownerDB.windowScale)
             or type(module.WindowOptions) ~= "function" then return state end
         local options = {}

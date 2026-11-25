@@ -77,8 +77,8 @@ using Timer = System.Windows.Forms.Timer;
 [assembly: AssemblyFileVersion("2.1.2.20")]
 [assembly: AssemblyInformationalVersion("2.1.2-beta.20")]
 #else
-[assembly: AssemblyFileVersion("2.1.9.3")]
-[assembly: AssemblyInformationalVersion("2.1.9-beta.3")]
+[assembly: AssemblyFileVersion("2.1.9.4")]
+[assembly: AssemblyInformationalVersion("2.1.9-beta.4")]
 #endif
 
 namespace Offhand.Companion
@@ -480,9 +480,9 @@ namespace Offhand.Companion
     // swap chain or whether Auto HDR / a driver filter is active for the game.
     internal static class DisplayIdentity
     {
-        internal sealed class ActivePath { internal string Device, Identity, Detail; }
+        internal sealed class ActivePath { internal string Device, Identity, FriendlyName, Detail; }
         internal sealed class Child { internal string Identity, LegacyIdentity; }
-        internal sealed class State { internal string Identity, LegacyIdentity, Detail; }
+        internal sealed class State { internal string Identity, LegacyIdentity, FriendlyName, Detail; }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         internal struct TargetName
@@ -524,6 +524,7 @@ namespace Offhand.Companion
             if (string.IsNullOrWhiteSpace(match.Identity))
             { state.Detail = match.Detail ?? "Windows did not identify an active monitor target for this display"; return state; }
             state.Identity = match.Identity.Trim();
+            state.FriendlyName = string.IsNullOrWhiteSpace(match.FriendlyName) ? null : match.FriendlyName.Trim();
             int aliases = 0;
             foreach (var child in children)
                 if (string.Equals(child.Identity, state.Identity, StringComparison.OrdinalIgnoreCase))
@@ -564,6 +565,7 @@ namespace Offhand.Companion
                         int named = GetTargetName(ref target);
                         values.Add(new ActivePath { Device = source.Name,
                             Identity = named == 0 && paths[i].Target.Available != 0 ? target.Path : null,
+                            FriendlyName = named == 0 && paths[i].Target.Available != 0 && !string.IsNullOrWhiteSpace(target.Name) ? target.Name.Trim() : null,
                             Detail = named != 0 ? "Active monitor target name query failed: " + named
                                 : paths[i].Target.Available == 0 ? "Active monitor target is unavailable"
                                 : "Windows returned an empty active monitor device path" });
@@ -920,10 +922,44 @@ namespace Offhand.Companion
             internal string DeviceName;
             internal string StableId;
             internal string LegacyStableId;
+            internal string FriendlyName;
             internal string IdentityDetail;
             internal Rectangle Bounds;
             internal Rectangle WorkArea;
             internal bool Primary;
+        }
+
+        internal static int DeviceOrdinal(string deviceName)
+        {
+            if (string.IsNullOrWhiteSpace(deviceName)) return int.MaxValue;
+            var match = Regex.Match(deviceName.Trim(), @"(?:^|\\)DISPLAY(\d+)$", RegexOptions.IgnoreCase);
+            int ordinal;
+            return match.Success && int.TryParse(match.Groups[1].Value, out ordinal) && ordinal > 0
+                ? ordinal : int.MaxValue;
+        }
+
+        // Order displays deterministically by Windows GDI device number
+        // (\\.\DISPLAY1, \\.\DISPLAY2, ...) so Companion display numbers match
+        // Windows even when a secondary monitor is physically left of primary.
+        internal static List<Display> SortDisplays(IList<Display> displays)
+        {
+            var ordered = new List<Display>();
+            if (displays == null) return ordered;
+            foreach (var display in displays)
+                if (display != null) ordered.Add(display);
+            ordered.Sort((a, b) =>
+            {
+                int cmp = DeviceOrdinal(a.DeviceName).CompareTo(DeviceOrdinal(b.DeviceName));
+                if (cmp != 0) return cmp;
+                if (a.Primary != b.Primary) return a.Primary ? -1 : 1;
+                cmp = StringComparer.OrdinalIgnoreCase.Compare(a.DeviceName ?? "", b.DeviceName ?? "");
+                if (cmp != 0) return cmp;
+                cmp = a.Bounds.X.CompareTo(b.Bounds.X);
+                if (cmp != 0) return cmp;
+                return a.Bounds.Y.CompareTo(b.Bounds.Y);
+            });
+            for (int i = 0; i < ordered.Count; i++) ordered[i].Index = i;
+            return ordered;
         }
 
         internal sealed class Plan
@@ -1152,6 +1188,7 @@ namespace Offhand.Companion
                 if (!string.Equals(left[i].DeviceName, right[i].DeviceName, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(left[i].StableId, right[i].StableId, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(left[i].LegacyStableId, right[i].LegacyStableId, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(left[i].FriendlyName, right[i].FriendlyName, StringComparison.OrdinalIgnoreCase)
                     || left[i].Bounds != right[i].Bounds
                     || left[i].WorkArea != right[i].WorkArea
                     || left[i].Primary != right[i].Primary)
@@ -1467,8 +1504,12 @@ namespace Offhand.Companion
             catch (System.ComponentModel.Win32Exception) { return null; }
         });
         internal static Icon AppIcon { get { return appIcon.Value; } }
-        internal static string DisplayName(MonitorSelection.Display display,int index)
-        {return string.Format("Display {0}: {1} x {2}{3}",index+1,display.Bounds.Width,display.Bounds.Height,display.Primary?" (primary)":"");}
+        internal static string DisplayName(MonitorSelection.Display display, int index)
+        {
+            string friendly = string.IsNullOrWhiteSpace(display.FriendlyName) ? "" : " — " + display.FriendlyName.Trim();
+            return string.Format("Display {0}: {1} x {2}{3}{4}", index + 1, display.Bounds.Width, display.Bounds.Height,
+                friendly, display.Primary ? " (primary)" : "");
+        }
         internal static void StyleButton(Button button,bool primary)
         {
             button.FlatStyle=FlatStyle.Flat;button.UseVisualStyleBackColor=false;
@@ -1494,14 +1535,20 @@ namespace Offhand.Companion
                 if(label.MaximumSize.Width!=width)label.MaximumSize=new Size(width,0);};
             if(label.Parent!=null)label.Parent.SizeChanged+=(s,e)=>fit();fit();
         }
-        internal static void StyleCombo(ComboBox combo)
+        internal static void StyleCombo(ComboBox combo, Func<object, bool, string> formatItem = null)
         {
             combo.BackColor=Field;combo.ForeColor=Text;combo.FlatStyle=FlatStyle.Flat;combo.DrawMode=DrawMode.OwnerDrawFixed;
             Action height=()=>combo.ItemHeight=Math.Max(20,combo.Font.Height+6);height();combo.FontChanged+=(s,e)=>height();
             combo.DrawItem+=(s,e)=>{
                 bool selected=(e.State&DrawItemState.Selected)!=0;
+                bool inEdit=(e.State&DrawItemState.ComboBoxEdit)!=0;
                 using(var fill=new SolidBrush(selected?Color.FromArgb(59,49,30):Field))e.Graphics.FillRectangle(fill,e.Bounds);
-                string text=e.Index>=0&&e.Index<combo.Items.Count?combo.GetItemText(combo.Items[e.Index]):"Choose an option";
+                string text="Choose an option";
+                if(e.Index>=0&&e.Index<combo.Items.Count)
+                {
+                    object item=combo.Items[e.Index];
+                    text=formatItem!=null?formatItem(item,inEdit):combo.GetItemText(item);
+                }
                 TextRenderer.DrawText(e.Graphics,text,combo.Font,Rectangle.Inflate(e.Bounds,-5,0),combo.Enabled?Text:Muted,
                     TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
                 if((e.State&DrawItemState.Focus)!=0)e.DrawFocusRectangle();
@@ -4908,7 +4955,7 @@ namespace Offhand.Companion
 #elif RDP_TEST
         internal const string BaseVersion = "2.1.3";
 #else
-        internal const string BaseVersion = "2.1.9-beta.3";
+        internal const string BaseVersion = "2.1.9-beta.4";
 #endif
 #if UI_PREVIEW
         internal const string ReleaseLabel = "UI Preview 5";
@@ -5118,6 +5165,7 @@ namespace Offhand.Companion
             internal string DeviceName;
             internal string StableId;
             internal string Label;
+            internal string DropDownLabel;
             public override string ToString() { return Label; }
         }
 
@@ -5168,9 +5216,10 @@ namespace Offhand.Companion
                     ForeColor = text,
                     BackColor = background
                 };
+                string friendly = string.IsNullOrWhiteSpace(display.FriendlyName) ? "" : display.FriendlyName.Trim() + "  •  ";
                 var details = new Label
                 {
-                    Text = string.Format("{0} x {1}{2}", display.Bounds.Width, display.Bounds.Height,
+                    Text = string.Format("{0}{1} x {2}{3}", friendly, display.Bounds.Width, display.Bounds.Height,
                         display.Primary ? "  •  Windows primary display" : ""),
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.TopCenter,
@@ -5236,9 +5285,10 @@ namespace Offhand.Companion
                 result.Add(new MonitorSelection.Display { Index = i, DeviceName = screens[i].DeviceName,
                     StableId = identities[screens[i].DeviceName].Identity,
                     LegacyStableId = identities[screens[i].DeviceName].LegacyIdentity,
+                    FriendlyName = identities[screens[i].DeviceName].FriendlyName,
                     IdentityDetail = identities[screens[i].DeviceName].Detail,
                     Bounds = screens[i].Bounds, WorkArea = screens[i].WorkingArea, Primary = screens[i].Primary });
-            return result;
+            return MonitorSelection.SortDisplays(result);
         }
 
         private List<MonitorSelection.Display> TryReadRestoreDisplays()
@@ -5269,6 +5319,85 @@ namespace Offhand.Companion
         {
             foreach(string identity in identities)if(MonitorSelection.FindDisplay(displays,identity,null)==index)return true;
             return false;
+        }
+
+        private const string MonitorListHelpTooltip =
+            "Select exactly two displays for normal use. If a saved display is disconnected, Offhand refuses to span rather than shrinking the UI onto the remaining screen.";
+        private int hoveredMonitorIndex = -2;
+
+        internal static string FormatMonitorCheckLabel(MonitorSelection.Display display, int index)
+        {
+            Rectangle b = display.Bounds;
+            return string.Format("Display {0}: {1}x{2}{3}", index + 1, b.Width, b.Height,
+                display.Primary ? " (Primary)" : "");
+        }
+
+        internal static string FormatMainhandLabel(MonitorSelection.Display display, int index)
+        {
+            Rectangle b = display.Bounds;
+            return string.Format("Display {0} — {1}x{2}{3}", index + 1, b.Width, b.Height,
+                display.Primary ? " (Primary)" : "");
+        }
+
+        internal static string FormatMainhandDropDownLabel(MonitorSelection.Display display, int index)
+        {
+            Rectangle b = display.Bounds;
+            string friendly = string.IsNullOrWhiteSpace(display.FriendlyName) ? null : display.FriendlyName.Trim();
+            if (friendly != null)
+                return string.Format("Display {0}{1} — {2} ({3}x{4})", index + 1,
+                    display.Primary ? " (Primary)" : "", friendly, b.Width, b.Height);
+            return FormatMainhandLabel(display, index);
+        }
+
+        internal static string FormatDisplayTooltip(MonitorSelection.Display display, int index)
+        {
+            Rectangle b = display.Bounds;
+            string friendly = string.IsNullOrWhiteSpace(display.FriendlyName) ? null : display.FriendlyName.Trim();
+            string device = string.IsNullOrWhiteSpace(display.DeviceName) ? "" : ", " + display.DeviceName.Trim();
+            if (friendly != null)
+                return string.Format("Display {0}{1} — {2} ({3} × {4}{5})", index + 1,
+                    display.Primary ? " (Primary)" : "", friendly, b.Width, b.Height, device);
+            return string.Format("Display {0}{1} ({2} × {3}{4})", index + 1,
+                display.Primary ? " (Primary)" : "", b.Width, b.Height, device);
+        }
+
+        private void UpdateMainhandDropDownWidth()
+        {
+            if (cmbMainhand == null) return;
+            int width = cmbMainhand.Width;
+            foreach (object item in cmbMainhand.Items)
+            {
+                var choice = item as DisplayChoice;
+                string text = choice != null && !string.IsNullOrEmpty(choice.DropDownLabel)
+                    ? choice.DropDownLabel : cmbMainhand.GetItemText(item);
+                if (string.IsNullOrEmpty(text)) continue;
+                int measured = TextRenderer.MeasureText(text, cmbMainhand.Font, new Size(int.MaxValue, int.MaxValue),
+                    TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine).Width + 32;
+                if (measured > width) width = measured;
+            }
+            cmbMainhand.DropDownWidth = Math.Min(560, width);
+        }
+
+        private void UpdateMainhandTooltip()
+        {
+            if (uiToolTips == null || cmbMainhand == null) return;
+            string baseTip = "The display that contains the 3D game view and Blizzard combat UI. The other selected display becomes the Offhand workspace.\r\n\r\n"
+                + LayoutApplyInstruction;
+            var choice = cmbMainhand.SelectedItem as DisplayChoice;
+            if (choice != null && uiDisplays != null && choice.Index >= 0 && choice.Index < uiDisplays.Count)
+                uiToolTips.SetToolTip(cmbMainhand, FormatDisplayTooltip(uiDisplays[choice.Index], choice.Index) + "\r\n\r\n" + baseTip);
+            else
+                uiToolTips.SetToolTip(cmbMainhand, baseTip);
+        }
+
+        private void UpdateMonitorListTooltip(int index)
+        {
+            if (uiToolTips == null || clbMonitors == null || hoveredMonitorIndex == index) return;
+            hoveredMonitorIndex = index;
+            if (uiDisplays != null && index >= 0 && index < uiDisplays.Count)
+                uiToolTips.SetToolTip(clbMonitors, FormatDisplayTooltip(uiDisplays[index], index) + "\r\n\r\n" + MonitorListHelpTooltip);
+            else
+                uiToolTips.SetToolTip(clbMonitors, MonitorListHelpTooltip);
         }
 
         private void RefreshDisplayControls(List<MonitorSelection.Display> displays, bool force = false)
@@ -5302,16 +5431,17 @@ namespace Offhand.Companion
                 cmbMainhand.Items.Clear();
                 for (int i = 0; i < uiDisplays.Count; i++)
                 {
-                    Rectangle b = uiDisplays[i].Bounds;
                     string selectionKey = useStableIdentities ? uiDisplays[i].StableId : uiDisplays[i].DeviceName;
                     bool selected = !hasSavedSelection || (useStableIdentities
                         ? wanted.Count>0 && HasSelectedIdentity(wanted,uiDisplays,i) : wanted.Contains(selectionKey ?? ""));
-                    clbMonitors.Items.Add(string.Format("Display {0}: {1}x{2}{3}", i + 1, b.Width, b.Height,
-                        uiDisplays[i].Primary ? " (Primary)" : ""), selected);
+                    clbMonitors.Items.Add(FormatMonitorCheckLabel(uiDisplays[i], i), selected);
                     cmbMainhand.Items.Add(new DisplayChoice { Index = i, DeviceName = uiDisplays[i].DeviceName,
                         StableId = uiDisplays[i].StableId,
-                        Label = string.Format("Display {0} — {1}x{2}", i + 1, b.Width, b.Height) });
+                        Label = FormatMainhandLabel(uiDisplays[i], i),
+                        DropDownLabel = FormatMainhandDropDownLabel(uiDisplays[i], i) });
                 }
+                hoveredMonitorIndex = -2;
+                UpdateMainhandDropDownWidth();
                 for (int i = 0; i < cmbMainhand.Items.Count; i++)
                 {
                     var choice = (DisplayChoice)cmbMainhand.Items[i];
@@ -5333,6 +5463,7 @@ namespace Offhand.Companion
                 chkSingleSplit.Checked = appSettings.TryGetValue("SingleDisplaySplit", out side) && side == "True";
                 cmbSingleSide.SelectedIndex = appSettings.TryGetValue("SingleGameSide", out side)
                     && string.Equals(side, "LEFT", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                UpdateMainhandTooltip();
             }
             finally
             {
@@ -5622,7 +5753,9 @@ namespace Offhand.Companion
         private static string DescribeDisplayRole(string role, int displayIndex, IList<MonitorSelection.Display> displays)
         {
             Rectangle bounds = displays[displayIndex].Bounds;
-            return string.Format("{0} on Display {1} ({2} × {3})", role, displayIndex + 1, bounds.Width, bounds.Height);
+            string friendly = string.IsNullOrWhiteSpace(displays[displayIndex].FriendlyName)
+                ? "" : ", " + displays[displayIndex].FriendlyName.Trim();
+            return string.Format("{0} on Display {1} ({2} × {3}{4})", role, displayIndex + 1, bounds.Width, bounds.Height, friendly);
         }
 
         private static Dictionary<string, string> appSettings = new Dictionary<string, string>();
@@ -6374,27 +6507,34 @@ namespace Offhand.Companion
             // below the checklist using its actual scaled height.
             clbMonitors = new CheckedListBox { Size = new Size(220, 74), Margin = new Padding(0, 0, 0, 10), IntegralHeight = false, BackColor = cBtnBg, ForeColor = cText, BorderStyle = BorderStyle.FixedSingle };
             clbMonitors.CheckOnClick = true;
+            clbMonitors.MouseMove += (s, e) => UpdateMonitorListTooltip(clbMonitors.IndexFromPoint(e.Location));
+            clbMonitors.MouseLeave += (s, e) => UpdateMonitorListTooltip(-1);
             uiDisplays = ReadDisplays();
             for (int i = 0; i < uiDisplays.Count; i++)
-            {
-                Rectangle b = uiDisplays[i].Bounds;
-                clbMonitors.Items.Add(string.Format("Display {0}: {1}x{2}{3}", i + 1, b.Width, b.Height,
-                    uiDisplays[i].Primary ? " (Primary)" : ""), true);
-            }
+                clbMonitors.Items.Add(FormatMonitorCheckLabel(uiDisplays[i], i), true);
             configLeft.Controls.Add(clbMonitors);
 
             Label lblMainhand = new Label { Text = "Mainhand (game)", Height = 22, Margin = new Padding(0, 0, 0, 4),
                 TextAlign = ContentAlignment.MiddleLeft, ForeColor = cText, BackColor = Color.Transparent };
             configRight.Controls.Add(lblMainhand);
             cmbMainhand = new ComboBox { Width = 220, Margin = Padding.Empty, DropDownStyle = ComboBoxStyle.DropDownList, BackColor = cCard, ForeColor = cText };
-            CompanionUi.StyleCombo(cmbMainhand);cmbMainhand.AccessibleName="Mainhand game display";
+            CompanionUi.StyleCombo(cmbMainhand, (item, inEdit) =>
+            {
+                var choice = item as DisplayChoice;
+                if (choice == null) return cmbMainhand.GetItemText(item);
+                return inEdit || string.IsNullOrEmpty(choice.DropDownLabel) ? choice.Label : choice.DropDownLabel;
+            });
+            cmbMainhand.AccessibleName="Mainhand game display";
+            cmbMainhand.DropDown += (s, e) => UpdateMainhandDropDownWidth();
+            cmbMainhand.SelectedIndexChanged += (s, e) => UpdateMainhandTooltip();
             for (int i = 0; i < uiDisplays.Count; i++)
             {
-                Rectangle b = uiDisplays[i].Bounds;
                 cmbMainhand.Items.Add(new DisplayChoice { Index = i, DeviceName = uiDisplays[i].DeviceName,
                     StableId = uiDisplays[i].StableId,
-                    Label = string.Format("Display {0} — {1}x{2}", i + 1, b.Width, b.Height) });
+                    Label = FormatMainhandLabel(uiDisplays[i], i),
+                    DropDownLabel = FormatMainhandDropDownLabel(uiDisplays[i], i) });
             }
+            UpdateMainhandDropDownWidth();
             configRight.Controls.Add(cmbMainhand);
 
             chkSingleSplit = new CheckBox { Text = "Single-display 32:9 split", Size = new Size(220, 22), Margin = new Padding(0, 12, 0, 4), Font = new Font("Segoe UI", 9), ForeColor = cText, BackColor = Color.Transparent };
@@ -6508,11 +6648,8 @@ namespace Offhand.Companion
                 "Temporarily label every connected screen with the same Display number and role used by Offhand.");
             uiToolTips.SetToolTip(lblMonitors,
                 "Select every display that should form WoW's borderless virtual desktop.");
-            uiToolTips.SetToolTip(clbMonitors,
-                "Select exactly two displays for normal use. If a saved display is disconnected, Offhand refuses to span rather than shrinking the UI onto the remaining screen.");
-            uiToolTips.SetToolTip(cmbMainhand,
-                "The display that contains the 3D game view and Blizzard combat UI. The other selected display becomes the Offhand workspace.\r\n\r\n"
-                + LayoutApplyInstruction);
+            UpdateMonitorListTooltip(-1);
+            UpdateMainhandTooltip();
             uiToolTips.SetToolTip(chkSingleSplit,
                 "For one 32:9 or 32:10 super-ultrawide only: divide that display into a game half and workspace half. Leave disabled for ordinary single-monitor use.");
             uiToolTips.SetToolTip(cmbSingleSide,
@@ -7643,10 +7780,9 @@ namespace Offhand.Companion
             {
                 if (whatsNew)
                 {
-                    AppendHelpSection(guide, sectionFont, "What's new in 2.1.9-beta.3 (contributed by Abysmal Kabal)",
-                        "Display Diagnostics now draws a to-scale display preview of your Windows monitor arrangement, showing Mainhand, Workspace regions, and display numbers across side-by-side, stacked, or mixed-DPI setups.",
-                        "Custom workspace layouts now support automatic spanning on WoW launch after one verified manual span on the same monitors.",
-                        "Spanning now retries automatically after Windows DPI or display-scale changes across every span path, including scale decreases.");
+                    AppendHelpSection(guide, sectionFont, "What's new in 2.1.9-beta.4",
+                        "The display picker now follows Windows display device numbering, even when a secondary display is to the left of the primary display.",
+                        "The Mainhand menu shows monitor names when Windows provides them. Hover over a display to see its name, resolution, and Windows device name.");
                     AppendHelpSection(guide, sectionFont, "Your saved setup",
                         "Your display selections, custom areas and profiles are preserved. If everything looks right, continue playing as usual.");
                     AppendHelpSection(guide, sectionFont, "If something looks wrong",

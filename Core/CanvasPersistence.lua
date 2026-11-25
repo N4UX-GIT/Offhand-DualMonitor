@@ -226,6 +226,11 @@ function Persistence.InstallDrag(Canvas, services)
         end
         if InCombatLockdown() then SetPanelDragging(frame, false); return end
         local dragName = frame.GetName and frame:GetName()
+        if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.ShouldYieldNativeContainer
+            and Offhand.CanvasCompatibility.ShouldYieldNativeContainer(frame, dragName) then
+            SetPanelDragging(frame, false)
+            return
+        end
         if dragName and dragName:match("^ChatFrame%d+$") and HasCustomChatAddon() then
             ClearTrackedChatState(dragName)
             SetPanelDragging(frame, false)
@@ -644,6 +649,8 @@ function Persistence.InstallRestore(Canvas, services)
         if not name or IsVendorGameplayFrame(frame, name) then return end
         if frame._OffhandDragging then return end
         if ShouldYieldFrameToClassicUIForever(frame, name) then return end
+        if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.ShouldYieldNativeContainer
+            and Offhand.CanvasCompatibility.ShouldYieldNativeContainer(frame, name) then return end
         if ShouldYieldWorldMapToMoveAny(name) then return end
         if name:match("^ChatFrame%d+$") and HasCustomChatAddon() then
             ClearTrackedChatState(name)
@@ -714,11 +721,17 @@ function Persistence.InstallRestore(Canvas, services)
             clampedX, clampedY, peer = Persistence.AvoidWorkspacePeer(frame, m, clampedX, clampedY, frameWidth, frameHeight)
 
             local factor = parentScale / frameScale
-            if frame.SetClampedToScreen then
-                pcall(function() frame:SetClampedToScreen(false) end)
-            end
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            local frameState = Offhand.CanvasFrameState
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, true) end
+            local restoreOK, restoreErr = pcall(function()
+                if frame.SetClampedToScreen then
+                    pcall(function() frame:SetClampedToScreen(false) end)
+                end
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", clampedX * factor, clampedY * factor)
+            end)
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, false) end
+            if not restoreOK then error(restoreErr) end
             if peer and not arrangingPeer then
                 arrangingPeer = true
                 RestoreWorkspacePosition(peer)
@@ -793,8 +806,14 @@ function Persistence.InstallRestore(Canvas, services)
             local minY, maxY = m.gameBottom+height+12, m.gameTop-12
             local x = math.max(minX, math.min((mPos and mPos.x) or minX, maxX))
             local y = math.min(maxY, math.max(minY, (mPos and mPos.y) or maxY))
-            frame:ClearAllPoints()
-            frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
+            local frameState = Offhand.CanvasFrameState
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, true) end
+            local restoreOK, restoreErr = pcall(function()
+                frame:ClearAllPoints()
+                frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x*factor, y*factor)
+            end)
+            if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, false) end
+            if not restoreOK then error(restoreErr) end
         end
     end
     return RestoreWorkspacePosition

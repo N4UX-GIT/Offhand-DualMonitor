@@ -72,7 +72,10 @@ end
 function bridge:GetHUDLayoutActions()
     if not ns.layout then return nil end
     local stale = ns.layoutStale and ns.layoutStale() or false
-    local status = stale
+    local dismissed = stale and ns.DB and ns.signature and ns.DB().dismissedRect == ns.signature() or false
+    local status = dismissed
+        and "DaylightUI Edit Mode layout is kept as configured (automatic prompt muted for this monitor setup). Click Align DaylightUI HUD anytime to rebuild it for Mainhand."
+        or stale
         and "DaylightUI Edit Mode layout is set for a different screen area. Align it to move action bars and HUD onto Mainhand."
         or "DaylightUI Edit Mode layout is aligned to Mainhand."
     return {

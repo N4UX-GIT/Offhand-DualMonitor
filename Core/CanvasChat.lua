@@ -5,7 +5,7 @@ Offhand.CanvasChat = Chat
 
 -- Keep the native dock and its edit box together. Forever saves this anchor
 -- against the whole window, which can include space below a shorter monitor.
-local adjustment, editManager, watchedFrame, pending, writing
+local adjustment, watchedFrame, pending, writing
 function Chat.IsForeverPrimary(frame)
     return Offhand.isForever and frame and frame == ChatFrame1
         and Offhand.HUDCompatibility.IsForeverEditModeFrame(frame, "ChatFrame1")
@@ -29,11 +29,37 @@ local function RefreshAfterNativeLayout()
     end)
 end
 
-local function AxisShift(low, high, first, last)
+local function AxisShift(low, high, first, last, frameLow, frameHigh)
     if low >= first - 0.1 and high <= last + 0.1 then return 0 end
-    -- Retain the native lower-left margin where there is room. For a dock
-    -- larger than the display keep the input and left edge reachable.
-    return math.max(first - low, math.min(first, last - high))
+    if low < first - 0.1 then
+        -- Preserve the native lower-left margin only when the entire chat frame
+        -- is still on the unshifted side of the display. When the frame already
+        -- sits on Mainhand and only a child overhangs an edge, nudge minimally.
+        if frameLow and frameHigh and frameLow >= -0.1 and frameHigh <= first + 0.1 then
+            return math.max(first - low, math.min(first, last - high))
+        end
+        return first - low
+    end
+    return math.max(first - low, last - high)
+end
+
+local function IsOnVisibleWorkspace(metrics, frame, frameLeft, frameRight, frameBottom, frameTop)
+    local regions = Offhand.WorkspaceRegions
+    local ws = regions and regions:ForFrame(metrics, frame)
+    if not ws or not ws.workspaceLeft or not ws.workspaceRight
+        or not ws.workspaceBottom or not ws.workspaceTop then return false end
+    local cx, cy = (frameLeft + frameRight) / 2, (frameBottom + frameTop) / 2
+    if cx < ws.workspaceLeft - 0.1 or cx > ws.workspaceRight + 0.1
+        or cy < ws.workspaceBottom - 0.1 or cy > ws.workspaceTop + 0.1 then
+        return false
+    end
+    -- A short Offhand monitor can sit above a physical dead void. Still rescue
+    -- an unshifted frame buried deep in that void, while respecting deliberate
+    -- Edit Mode drops right down to Offhand's bottom edge.
+    if ws.workspaceBottom > 1 and frameBottom < ws.workspaceBottom - 36 then
+        return false
+    end
+    return true
 end
 
 function Chat.UpdateMainhandBounds(metrics)
@@ -42,11 +68,6 @@ function Chat.UpdateMainhandBounds(metrics)
         or frame:IsForbidden() or MOVING_CHATFRAME == frame then return end
     if frame:IsProtected() and not frame:CanChangeProtectedState() then return end
     local manager = EditModeManagerFrame
-    if manager and manager ~= editManager then
-        editManager = manager
-        manager:HookScript("OnShow", function() Chat.UpdateMainhandBounds(nil) end)
-        manager:HookScript("OnHide", RefreshAfterNativeLayout)
-    end
     if watchedFrame ~= frame then
         watchedFrame = frame
         hooksecurefunc(frame, "SetPoint", RefreshAfterNativeLayout)
@@ -63,15 +84,16 @@ function Chat.UpdateMainhandBounds(metrics)
     if relative ~= UIParent then return end
     if Offhand.HUDCompatibility.HasCustomChatAddon() then adjustment = nil; return end
     if not (metrics and metrics.isSpanned and db.enabled and db.dockChat ~= false
-        and db.chatPosition == "GAME" and not (db.savedWorkspacePositions or {}).ChatFrame1)
-        or (manager and manager:IsShown()) or frame.isInEditMode then
+        and db.chatPosition == "GAME" and not (db.savedWorkspacePositions or {}).ChatFrame1) then
         if adjustment then SetAnchor(frame, adjustment.original); adjustment = nil end
         return
     end
+    if (manager and manager:IsShown()) or frame.isInEditMode then return end
     local regions = Offhand.WorkspaceRegions
     local left, top, width, height = regions:FrameRect(frame)
     if not left or width <= 0 or height <= 0 then return end
     local right, bottom = left + width, top - height
+    local frameLeft, frameRight, frameBottom, frameTop = left, right, bottom, top
     for _, child in pairs({ChatFrame1EditBox, ChatFrame1Tab, frame.buttonFrame}) do
         local cx, cy, cw, ch = regions:FrameRect(child)
         if cx then
@@ -79,11 +101,11 @@ function Chat.UpdateMainhandBounds(metrics)
             bottom, top = math.min(bottom, cy - ch), math.max(top, cy)
         end
     end
-    local ws = regions:ForFrame(metrics, frame)
-    if not adjustment and ws and left >= ws.workspaceLeft and right <= ws.workspaceRight
-        and bottom >= ws.workspaceBottom and top <= ws.workspaceTop then return end
-    local dx = AxisShift(left, right, metrics.gameLeft, metrics.gameRight)
-    local dy = AxisShift(bottom, top, metrics.gameBottom, metrics.gameTop)
+    if not adjustment and IsOnVisibleWorkspace(metrics, frame, frameLeft, frameRight, frameBottom, frameTop) then
+        return
+    end
+    local dx = AxisShift(left, right, metrics.gameLeft, metrics.gameRight, frameLeft, frameRight)
+    local dy = AxisShift(bottom, top, metrics.gameBottom, metrics.gameTop, frameBottom, frameTop)
     if math.abs(dx) < 0.1 and math.abs(dy) < 0.1 then return end
     local factor = UIParent:GetEffectiveScale() / frame:GetEffectiveScale()
     local nextAnchor = {point, relative, relPoint, x + dx * factor, y + dy * factor}

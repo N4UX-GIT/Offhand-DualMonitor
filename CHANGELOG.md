@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [2.1.5-beta.42] - 2026-11-25
+
+Paired with **Windows Companion 2.1.9-beta.4**.
+
+- Improved Forever chat, compact map, and bag placement during reloads and changes between a single window and a span. Offhand is more tolerant of repeated panel anchors, and separate bags stay on the workspace when closing the backpack.
+- Improved coexistence with DaylightUI, OneForAll, and MoveMyBags. **Offhand Monitor > Window behavior** shows which addons control your panels and how to adjust them.
+- Cursor-anchored tooltips use the screen under the pointer, including minimap icons on Offhand.
+- Companion sorts displays by Windows display device number and shows available monitor names in the Mainhand picker and display tooltips.
+
+
 ## [2.1.5-beta.41] - 2026-11-25
 
 Addon-only hotfix (Windows Companion remains **2.1.9-beta.3**).

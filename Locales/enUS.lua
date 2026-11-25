@@ -14,6 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA42"] = "Improved Forever chat, map, and bag placement when switching between a single window and a span. DaylightUI and OneForAll coexistence is more reliable. Window behavior explains which addons control panels and where to move them."
 L["WHATS_NEW_BETA41"] = "|cffffd100Bug Fixes|r\n• Fixed DaylightUI action bars jumping upward and bouncing back when dragged or adjusted with X/Y coordinates on stacked or asymmetrical multi-monitor setups. If your bars shifted on Beta 40, drag them back once or reset them in Offhand Monitor > Recovery & Preview.\n• Improved DaylightUI layout alignment and fishing, crafting, and campfire scenes on vertically stacked monitors.\n• Fixed Offhand setup and notice windows reopening after flight paths, fears, or other loss-of-control effects.\n• Fixed the Barbershop customization panel and Accept/Cancel buttons disappearing or spanning off-screen on multi-monitor setups."
 L["WHATS_NEW_BETA40"] = "|cffffd100DaylightUI Support|r (by Kintrok / @DCtheGeek)\n• DaylightUI now works seamlessly with Offhand out of the box, keeping your action bars, frames, bags, map, and menus on the right screen.\n• Align or reset your DaylightUI layout anytime in Offhand Monitor > Recovery & Preview, and keep your open windows across reloads and restarts.\n\n|cffffd100Custom Addon Windows|r (Forever)\n• Keep third-party addon windows on your Offhand screen using Panel layout > Addon windows, Key Bindings > Offhand, or /offhand window.\n\n|cffffd100Maps, Bags & Fixes|r (Forever)\n• Outdoor maps (Blizzard and OpenMap) now follow you into new zones on Offhand, and Window behavior shows which addons manage your map or bags.\n• Fixed the grey overlay on the separate Blizzard backpack, kept Questdon open on Escape, and fixed world tooltip positioning (Questdon & tooltips by Abysmal Kabal)."
 L["WHATS_NEW_BETA40_COMPANION"] = "|cffffd100Windows Companion %s|r (with improvements by Abysmal Kabal)\n• Adds a to-scale display preview in Display Diagnostics, automatic spanning for custom layouts after your first manual span, and smoother handling when Windows display scaling changes."
@@ -1033,8 +1034,18 @@ L["COMPAT_MINIMAP"] = "Your minimap addon controls its window."
 L["COMPAT_AUTO"] = "Compatible bag and minimap addons are detected automatically."
 L["COMPAT_EXTERNAL_OWNERS"] = "Managed by other addons: %s."
 L["COMPAT_CONFLICT_WORLDMAP_MOVER"] = "Conflict: %s is moving the World Map ahead of %s. Disable %s's window movement option if the map snaps back."
+L["COMPAT_CONFLICT_WINDOW_MOVER"] = "Conflict: %s's Move Blizzard windows option is active alongside Offhand. Disable Move Blizzard windows in %s if windows, bags, or the World Map flicker or snap back."
 L["COMPAT_CONFLICT_OPENMAP_CONTRACT"] = "Notice: OpenMap updated to an unsupported contract (%s). Offhand stood down its OpenMap drag sync and recovery helpers."
 L["COMPAT_CONFLICT_BAGS"] = "Conflict: multiple bag addons are active (%s). Keep only one bag addon enabled for reliable Offhand bag persistence."
+L["COMPAT_GUIDE_SUF"] = "Shadowed Unit Frames controls Player/Target/Focus frames. Move them with /suf, or disable Shadowed Unit Frames (or specific unit modules) to move them in Blizzard Edit Mode."
+L["COMPAT_GUIDE_MOVEANY"] = "MoveAny controls frame movement. Move or unlock frames with /move, or disable an element in MoveAny to let Blizzard Edit Mode or Offhand move it."
+L["COMPAT_GUIDE_MOVEMYBAGS"] = "MoveMyBags controls Blizzard bag positions. Drag or reset bags with /movemybags reset, or disable MoveMyBags to let Offhand manage bag placement."
+L["COMPAT_GUIDE_MOVEMYBAGS_LAYERS"] = "If a reagent or specialty bag turns grey while dragging, uncheck 'Keep the window you are using in front' in Options > AddOns > MoveMyBags."
+L["COMPAT_GUIDE_BLIZZMOVE"] = "BlizzMove controls window dragging and scaling. Check /bm if a panel snaps back or resists Offhand placement."
+L["COMPAT_GUIDE_ACTIONBARS"] = "%s controls action bars. Unlock and move bars in %s instead of Blizzard Edit Mode."
+L["COMPAT_GUIDE_SUITE"] = "%s controls its enabled HUD and unit frames. Move them with /moveui, or disable individual modules in %s to use Blizzard Edit Mode."
+L["COMPAT_GUIDE_ELLESMERE"] = "EllesmereUI controls its enabled HUD modules. Position them in EllesmereUI's own unlock/layout settings instead of Blizzard Edit Mode."
+L["COMPAT_GUIDE_UNITFRAMES"] = "%s controls its unit frames. Move them in %s's own settings instead of Blizzard Edit Mode."
 
 -- Minimap & Menu
 L["MINIMAP_MENU_TITLE"] = "Offhand Workspace"

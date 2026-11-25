@@ -135,4 +135,10 @@ assert(bagProxyEntry and bagProxyEntry:find("OpenForeverNativeBackpackThroughBli
 assert(seamSource:find("not self.anchorsHooked and not UsesForeverEditMode()", 1, true),
     "Forever must preserve native UpdateContainerFrameAnchors")
 
+local canvasChatFile = assert(io.open("Core/CanvasChat.lua", "r"))
+local canvasChatSource = canvasChatFile:read("*a")
+canvasChatFile:close()
+assert(not canvasChatSource:find("HookScript", 1, true),
+    "Forever primary chat bounds must not hook EditModeManagerFrame scripts")
+
 print("PASS: Forever global-function and secure panel-manager taint boundaries verified")

@@ -162,3 +162,91 @@ for _, client in ipairs({"isRetail", "isForever"}) do
     addon[client] = nil
 end
 print("PASS: Retail and Forever world-tooltip clamp preserves native anchors, combat and external ownership")
+
+-- Minimap tracking tooltips call GameTooltip:SetOwner(UIParent, "ANCHOR_CURSOR").
+-- When the cursor is over the Offhand display (side-by-side, stacked, or multi-region),
+-- clamp insets must target that Offhand display rather than snapping to Mainhand.
+local cursorX, cursorY = 0, 0
+GetCursorPosition = function() return cursorX, cursorY end
+local activeAnchor = "ANCHOR_NONE"
+tooltip.GetAnchorType = function() return activeAnchor end
+local observedTooltip = frame(100, 180, 200, 160)
+local observedInsets = { 0, 0, 25, 0 }
+local observedClamped = false
+local observedOwner = UIParent
+local observedAnchor = "ANCHOR_NONE"
+local observedScripts = {}
+observedTooltip.GetOwner = function() return observedOwner end
+observedTooltip.GetAnchorType = function() return observedAnchor end
+observedTooltip.GetClampRectInsets = function() return unpack(observedInsets) end
+observedTooltip.SetClampRectInsets = function(_, ...) observedInsets = {...} end
+observedTooltip.IsClampedToScreen = function() return observedClamped end
+observedTooltip.SetClampedToScreen = function(_, value) observedClamped = value end
+observedTooltip.HookScript = function(_, event, cb) observedScripts[event] = cb end
+observedTooltip.SetOwner = function(_, o, a) observedOwner = o; observedAnchor = a or "ANCHOR_NONE" end
+-- Ensure UIParent has full-span bounds whose center lies right on the seam (500, 400).
+UIParent.GetLeft = function() return 0 end
+UIParent.GetRight = function() return 1000 end
+UIParent.GetBottom = function() return 0 end
+UIParent.GetTop = function() return 800 end
+hooksecurefunc = function(target, method, callback)
+    local original = target[method]
+    target[method] = function(...) original(...); callback(...) end
+end
+addon.PopupBounds:ObserveTooltip(observedTooltip)
+
+-- Side-by-side: Offhand left [0..400], Mainhand right [400..1000], UIParent scale 0.5, tooltip scale 1.0
+metrics.gameLeft, metrics.gameRight, metrics.gameBottom, metrics.gameTop = 400, 1000, 0, 800
+metrics.workspaceLeft, metrics.workspaceRight = 0, 400
+metrics.workspaceBottom, metrics.workspaceTop = 0, 800
+for _, client in ipairs({"isRetail", "isForever", "classic"}) do
+    addon.isRetail = (client == "isRetail") or nil
+    addon.isForever = (client == "isForever") or nil
+    -- Cursor hovering Minimap on Offhand (UI coords 200, 600 -> raw cursor 100, 300 at uiScale 0.5)
+    cursorX, cursorY = 100, 300
+    observedInsets, observedClamped = { 0, 0, 25, 0 }, false
+    observedTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+    assert(observedInsets[1] == -6 and observedInsets[2] == 306 and observedClamped,
+        client .. ": Offhand minimap ANCHOR_CURSOR tooltip must clamp to Offhand, not Mainhand")
+    observedScripts.OnShow(observedTooltip)
+    assert(observedInsets[1] == -6 and observedInsets[2] == 306,
+        client .. ": OnShow must preserve Offhand cursor tooltip clamp")
+    -- Non-cursor world tooltip (ANCHOR_NONE) stays on Mainhand even while cursor is on Offhand
+    observedTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+    assert(observedInsets[1] == -206 and observedInsets[2] == 6,
+        client .. ": ANCHOR_NONE world tooltip must remain clamped to Mainhand")
+    -- Cursor hovering on Mainhand (UI coords 700, 400 -> raw cursor 350, 200) clamps to Mainhand
+    cursorX, cursorY = 350, 200
+    observedTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+    assert(observedInsets[1] == -206 and observedInsets[2] == 6,
+        client .. ": Mainhand ANCHOR_CURSOR tooltip must clamp to Mainhand")
+    observedScripts.OnHide(observedTooltip)
+    assert(observedInsets[1] == 0 and observedInsets[2] == 0 and not observedClamped,
+        client .. ": OnHide must restore native clamp insets")
+end
+
+-- Multi-region workspace: Mainhand middle [300..700], Workspace A left [0..300], Workspace B right [700..1000]
+assert(loadfile("Core/WorkspaceRegions.lua"))("Offhand", addon)
+addon.isRetail, addon.isForever = true, nil
+metrics.gameLeft, metrics.gameRight, metrics.gameBottom, metrics.gameTop = 300, 700, 0, 800
+metrics.workspaceLeft, metrics.workspaceRight = 0, 300
+metrics.workspaceRegions = {
+    { id = "A", x = 0, y = 0, width = 300, height = 800 },
+    { id = "B", x = 700, y = 0, width = 300, height = 800 },
+}
+metrics.primaryWorkspaceRegion = "A"
+-- Cursor in Workspace B (UI x=850, y=400 -> raw cursor 425, 200)
+cursorX, cursorY = 425, 200
+observedInsets, observedClamped = { 0, 0, 25, 0 }, false
+observedTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+assert(observedInsets[1] == -356 and observedInsets[2] == 6 and observedClamped,
+    "multi-region Offhand minimap tooltip in Workspace B must clamp to Workspace B")
+-- Cursor in Mainhand (UI x=500, y=400 -> raw cursor 250, 200)
+cursorX, cursorY = 250, 200
+observedTooltip:SetOwner(UIParent, "ANCHOR_CURSOR")
+assert(observedInsets[1] == -156 and observedInsets[2] == 156,
+    "multi-region Mainhand cursor tooltip must clamp to Mainhand")
+observedScripts.OnHide(observedTooltip)
+metrics.workspaceRegions, addon.WorkspaceRegions, addon.isRetail = nil, nil, nil
+GetCursorPosition = nil
+print("PASS: Offhand minimap ANCHOR_CURSOR tooltips clamp to the display under the cursor")

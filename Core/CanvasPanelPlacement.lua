@@ -378,12 +378,15 @@ function Placement.InstallMainhand(Canvas, services)
         local clampedY = math.max(minY, math.min(targetY, maxY))
         local pointFactor = parentScale / frameScale
 
+        local frameState = Offhand.CanvasFrameState
+        if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, true) end
         local ok = pcall(function()
             if not anchorOnly and name and frame.SetClampedToScreen then frame:SetClampedToScreen(false) end
             frame:ClearAllPoints()
             frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT",
                 clampedX * pointFactor, clampedY * pointFactor)
         end)
+        if frameState and frameState.SetRestoring then frameState.SetRestoring(frame, false) end
         if ok and anchorOnly and name == "CharacterFrame" and frame.GetPoint then
             local _, _, _, x, y = frame:GetPoint(1)
             settledCharacterAnchors[frame] = { x = x, y = y }

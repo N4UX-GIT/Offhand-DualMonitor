@@ -445,21 +445,31 @@ function Adapter.Install(Canvas, services)
         return ok
     end
 
-    -- When the backpack closes, Blizzard moves the first surviving bag to its
-    -- default corner and chains the other bags to it. Move only that stack root.
-    function Canvas:PlaceRemainingSeparateBags()
-        if not ContainerFrameContainer or not Offhand.CanvasBackpackState.UsesForeverSeparateBags() then return end
+    -- When the backpack (separate or combined) closes, Blizzard moves the first
+    -- surviving separate bag (such as equipped bags 1-4 or the Reagent/Herb bag)
+    -- to its default ContainerFrameContainer corner and chains any remaining bags
+    -- to it. Move only that stack root onto the saved workspace.
+    function Canvas:PlaceRemainingSeparateBags(onlyDefaultCorner)
+        if not ContainerFrameContainer or not Offhand.isForever
+            or (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()) then return end
         local position = GetNativeBackpackWorkspacePosition()
-        for i = 2, NUM_CONTAINER_FRAMES or 13 do
+        local mainhandBackpack = not position and Offhand.db and Offhand.db.savedMainPositions
+            and (Offhand.db.savedMainPositions.ContainerFrameCombinedBags
+                or Offhand.db.savedMainPositions.ContainerFrame1)
+        if mainhandBackpack then return end
+        local combined = _G.ContainerFrameCombinedBags
+        for i = 1, NUM_CONTAINER_FRAMES or 13 do
             local bag = _G["ContainerFrame" .. i]
-            if bag and HasFlag(bag, "IsForbidden", false) and bag:IsShown()
+            if bag and bag ~= combined and HasFlag(bag, "IsForbidden", false) and bag:IsShown()
                 and HasFlag(bag, "IsProtected", false) and HasFlag(bag, "IsAnchoringRestricted", false)
                 and bag:GetParent() == ContainerFrameContainer then
                 local id = bag:GetID()
                 local _, relative = bag:GetPoint(1)
+                local atNativeRoot = relative == ContainerFrameContainer
+                    or (not onlyDefaultCorner and relative == UIParent)
                 if IsPlainValue(id) and type(id) == "number" and id > 0
                     and id <= (NUM_TOTAL_EQUIPPED_BAG_SLOTS or 5)
-                    and (relative == ContainerFrameContainer or relative == UIParent) then
+                    and atNativeRoot then
                     local x, y, scale, parentScale = GetForeverNativeBagTarget(bag, position, true, false)
                     if x then
                         bag:ClearAllPoints()
@@ -1000,12 +1010,14 @@ function Adapter.Install(Canvas, services)
             local panelTransitionActive = preservingPanelShown
                 or preservingPanelChanged or optionsOpeningObserved
                 or leavingGameMenuForPanel
+            local anyBackpackRootShown = false
             for _, frameName in ipairs(backpackRootNames) do
                 local frame = _G[frameName]
                 if frame then
                     local handle, state = EnsureForeverNativeBagHandle(frame)
                     if not inCombat then state.combatPlacementFailed = nil end
                     local shown = enabled and frame.IsShown and frame:IsShown()
+                    if shown then anyBackpackRootShown = true end
                     local trackedWorkspaceBag = enabled
                         and GetNativeBackpackWorkspacePosition()
                         and IsNativeBackpackTrackedOpen()
@@ -1088,7 +1100,8 @@ function Adapter.Install(Canvas, services)
                         if not state.wasShown or not IsNativeBackpackTrackedOpen() then
                             Canvas:SetWorkspacePanelOpen(frame, true)
                         end
-                        state.wasWorkspaceBackpack = frame == _G.ContainerFrame1 and IsFrameOnWorkspace(frame)
+                        local okWorkspace, onWorkspace = pcall(IsFrameOnWorkspace, frame)
+                        state.wasWorkspaceBackpack = okWorkspace and onWorkspace == true
                         state.wasShown = true
                     else
                         if handle and handle.Hide then handle:Hide() end
@@ -1115,6 +1128,14 @@ function Adapter.Install(Canvas, services)
                         end
                     end
                 end
+            end
+            local mainhandBackpack = not GetNativeBackpackWorkspacePosition()
+                and Offhand.db and Offhand.db.savedMainPositions
+                and (Offhand.db.savedMainPositions.ContainerFrameCombinedBags
+                    or Offhand.db.savedMainPositions.ContainerFrame1)
+            if enabled and not anyBackpackRootShown and not inCombat and not inputReserved
+                and CanManagePanelsFromAddon() and not mainhandBackpack then
+                Canvas:PlaceRemainingSeparateBags(true)
             end
             Canvas._foreverNativeBagCloseObserved = nil
             Canvas._foreverNativeBagExplicitCloseObserved = nil

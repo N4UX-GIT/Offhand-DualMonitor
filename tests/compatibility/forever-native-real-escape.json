@@ -2,15 +2,15 @@
   "schema": 1,
   "hash_mode": "utf8-lf",
   "id": "forever-native-bag-real-escape-20261125",
-  "client": "Forever 1.60.1.71037",
+  "client": "Forever (release-owner report, exact test build unrecorded)",
   "scope": "Native separate backpack on Offhand with Escape during trainer gossip, ordinary player inspection and early-shown Inspect",
   "recorded_at": "2026-11-25",
   "cases": [
-    "Owner confirmed the native separate-backpack Escape gate, including trainer gossip, ordinary player inspection and early-shown Inspect."
+    "Release owner confirmed the native separate-backpack Escape gate passed on Beta 42."
   ],
   "providers": {
-    "Offhand": "2.1.5-beta.41",
-    "Companion": "2.1.9-beta.3 (version recorded in the installed topology file)"
+    "Offhand": "2.1.5-beta.42 (owner-reported)",
+    "Companion": "2.1.9-beta.4 (owner-reported)"
   },
   "deferred": [
     "flight paths",
@@ -21,19 +21,19 @@
   "source_fingerprints": {
     "Core/BagPersistence.lua": "291ac6230a4c827226c38c513601ee957f8e734562caecfbd9336854ed507a76",
     "Core/CanvasAddonEscape.lua": "f4198a7c4e1ab2c546809a50f09bf33207765529241cfbc29b7dad424bfbe3dd",
-    "Core/CanvasForeverBags.lua": "01342bcb2d95a17516231eebcd032839fbc288fb16b7aee2d47c667d153c3a33",
-    "Core/HUDCompatibility.lua": "74ae99bcaa485bbfc5ade66517c69501f0c869c46adb9438099a463582626ddd",
-    "Core/Canvas.lua": "5c2258dd2c4b979a3346527c1d7d9ff9590ba08d58b6efa8a18abb030954fe7c",
+    "Core/CanvasForeverBags.lua": "a727d4db7cbd24779efb787835d8ad54c315bb5b580252c106b168757160ef73",
+    "Core/HUDCompatibility.lua": "f1add07dd33fa4f5ea8ea0a7bb360349443245da1bb3ad3cae620c4c07c512dd",
+    "Core/Canvas.lua": "fb6a7280cd1d9f9b29d343ba627425028a1c12341b8b3c73ed598b20a9e63c74",
     "Core/CanvasBackpackState.lua": "8f8c0407bb33ff8c1aaa0ac88e3ba661ba1a315a72606c24a014ae177158be15",
-    "Core/CanvasCompatibility.lua": "ddac724f554eca7c12d77786916d235b94a80408eb67bc75aa7941ec7c0da486",
+    "Core/CanvasCompatibility.lua": "3d14476a265200828cb764916f4d21c6dbcd2f4f624fb1129f480c70e5f7a861",
     "Core/CanvasPanelLifecycle.lua": "d851e1bf27ec8beacccf6d6149e58b98fdef84cce31c9d87c11a35fa4d75a29a",
-    "Core/CanvasPanelPlacement.lua": "04df032512e8ea56a7c0e2e856ea64f46040a533f09597849a4800db0a3d7721",
+    "Core/CanvasPanelPlacement.lua": "c7040a45591468c466bd5f94d32bd7dd60a90127a15bf7a9b27de57ce4d4740d",
     "Core/CanvasPanelRegistry.lua": "f4d64acd09d62365718ab3a102e9bffa26876a2cf61a458b7b7523cf90ae927d",
-    "Core/CanvasPersistence.lua": "f50c773f4375e93e48a1e36e87a52b2410a5f73359346e58e355c54ac6acd360",
+    "Core/CanvasPersistence.lua": "a9270ee2db9eee73e86c8001664e64829766fc58f8f082662d065d9cbce4391b",
     "Core/WorkspaceBehavior.lua": "c362bcef96b2ba646595a6539c7c93b4dbe6ac042c7776362d4db9d1324ebe61",
     "Core/MenuPlacement.lua": "873c2e0b94bf6b6c4384a10839d1670244b3a35008280d960a77c2a647b675a4",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
     "Core/Init.lua": "4947067b493fb4fae09f66d4c2239bc604506c0266d75de821ff8e5ccb6c0813"
   },
-  "integration_note": "Live pass confirmed by the release owner on 2026-11-25 against Offhand 2.1.5-beta.41 runtime commit 0320aef8af10d9f92fcb60ab294c00b5a99a700f (synced to the installed Forever addon and matching dist/Offhand-v2.1.5-beta.41.zip SHA-256 90611dc39695437fadf34962d31e76f81eccb910fee0f9725864c422acc171e3), including live Barbershop Mainhand confinement confirmation. Earlier Beta 39/40 results remain archived in docs/FOREVER-BETA39-RELEASE-QA.md and docs/FOREVER-BETA40-RELEASE-QA.md."
+  "integration_note": "The release owner confirmed this live gate for the Beta 42 candidate with Companion 2.1.9-beta.4. Candidate 3daee6c and the verified Beta 42 ZIP match these scoped fingerprints. The local Forever installation separately matched the scoped source files while its version metadata remained Beta 41 with a Beta 3 topology writer."
 }
