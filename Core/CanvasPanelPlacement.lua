@@ -322,7 +322,9 @@ function Placement.InstallMainhand(Canvas, services)
             vendorGameplay or IsBackpackRoot(name) or (UIPanelWindows and UIPanelWindows[name])
                 or IsForeverSocialPositionRoot(frame, name)
         )
-        if not (name or recoverRestedXP) or (nonMovableSystemPanels and nonMovableSystemPanels[name])
+        local isFullScreen = services.IsFullScreenUIPanel and services.IsFullScreenUIPanel(frame, name)
+        if not (name or recoverRestedXP) or isFullScreen
+            or (nonMovableSystemPanels and nonMovableSystemPanels[name])
             or IsForeverEditModeFrame(frame, name)
             or (IsUnsafeForPanelMutation(frame, name) and not recoverySafePanel) then return false end
 
@@ -625,6 +627,7 @@ function Placement.InstallVoid(Canvas, services)
     local WithWorkspace = services.WithWorkspace
     local IsUnsafeForPanelMutation = services.IsUnsafeForPanelMutation
     local nonMovableSystemPanels = services.NonMovablePanels
+    local IsFullScreenUIPanel = services.IsFullScreenUIPanel
     -- A normal Blizzard panel can be reachable by its left edge while its close
     -- button and most of its title bar sit in the mixed-height monitor void. Keep
     -- the complete window inside whichever visible monitor currently contains the
@@ -637,6 +640,7 @@ function Placement.InstallVoid(Canvas, services)
         if registry and registry.GetPositionRoot(frame) ~= frame then return false end
         local name = frame.GetName and frame:GetName()
         if not name or nonMovableSystemPanels[name] or IsForeverEditModeFrame(frame, name)
+            or (IsFullScreenUIPanel and IsFullScreenUIPanel(frame, name))
             or IsUnsafeForPanelMutation(frame, name) then return false end
         if not UIPanelWindows or not UIPanelWindows[name] then return false end
         if frame.IsShown and not frame:IsShown() then return false end

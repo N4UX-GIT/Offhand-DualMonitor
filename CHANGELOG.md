@@ -12,6 +12,7 @@ Addon-only hotfix (Windows Companion remains **2.1.9-beta.3**).
   - *Note for affected users*: If you dragged or entered X/Y coordinates while on Beta 40, DaylightUI saved those shifted positions into its own profile; drag them back into place once or use **Reset DaylightUI positions** (`/dui reset`) to return them to Mainhand defaults.
 - Hardened DaylightUI vertical stacked-monitor alignment: `layoutStale()` now checks vertical Mainhand offsets (both top-Mainhand and bottom-Mainhand stacks) instead of horizontal `offsetX` alone, and DaylightUI's fishing, crafting, and campfire scenes now detect vertical spans (`b > 0 or t < sh`) and refit height cleanly.
 - Fixed Offhand setup/notice windows reopening after every flight path, fear, or charm (`PLAYER_CONTROL_LOST` / `PLAYER_CONTROL_GAINED`) when no Offhand dialog was open; automatic UI deferral now triggers only if an Offhand dialog is actually shown or attempted during control loss.
+- Fixed the Barbershop UI missing its customization options and Accept/Reset/Cancel buttons while Offhand is enabled on Retail and Forever: `Canvas` now excludes full-screen `UIPanelWindows` takeover modes (`area == "full"`) so `BarberShopFrame` is never collapsed to a single anchor, and `Core/RetailFullscreen.lua` confines `BarberShopFrame` and its attached `CharCustomizeFrame` cleanly inside Mainhand with native restore when disabled or unspanned.
 
 ## [2.1.5-beta.40] - 2026-11-24
 

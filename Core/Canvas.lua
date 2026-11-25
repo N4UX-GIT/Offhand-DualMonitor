@@ -342,8 +342,31 @@ end
 -- from a hardware drag while out of combat. Keep the exception restricted to
 -- Blizzard's UIPanel registry; secure HUD/Edit Mode frames are not registered
 -- here and remain covered by the stricter guard above.
+local function IsFullScreenUIPanel(frame, name)
+    name = name or (frame and frame.GetName and frame:GetName())
+    if name and UIPanelWindows and UIPanelWindows[name]
+        and UIPanelWindows[name].area == "full" then
+        return true
+    end
+    if frame and not (frame.IsForbidden and frame:IsForbidden()) then
+        if frame.GetAttribute then
+            local ok, area = pcall(frame.GetAttribute, frame, "UIPanelLayout-area")
+            if ok and area == "full" then return true end
+        end
+        -- Modern full-screen Barbershop (Retail and Forever) is parented to
+        -- the screen root rather than UIParent; Classic's floating
+        -- BarberShopFrame remains a child of UIParent.
+        if name == "BarberShopFrame" and frame.GetParent then
+            local ok, parent = pcall(frame.GetParent, frame)
+            if ok and parent ~= UIParent then return true end
+        end
+    end
+    return false
+end
+
 local function IsUnsafeForPanelMutation(frame, name)
     if not frame then return true end
+    if IsFullScreenUIPanel(frame, name) then return true end
     local addonEscape = Offhand.CanvasAddonEscape
     if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
     local hudCompatibility = Offhand.HUDCompatibility
@@ -369,6 +392,7 @@ local function IsPersistentPanelLoadCandidate(name)
     -- Generic panel restore uses ShowUIPanel or Show. Forever's map has a
     -- separate reload-only open request below and must skip these paths.
     if Offhand.isForever and name == "WorldMapFrame" then return false end
+    if IsFullScreenUIPanel(_G[name], name) then return false end
     return PanelRegistry.IsBasePersistentCandidate(name)
         and (not IsForeverProfessionsPanel(nil, name)
             or IsPersistentForeverProfessionsPanelName(name))
@@ -1470,6 +1494,7 @@ Offhand.CanvasPanelPlacement.InstallMainhand(Canvas, {
     ClearOtherBackpackRootState = function(...) return ClearOtherBackpackRootState(...) end,
     IsFrameOnWorkspace = function(...) return IsFrameOnWorkspace(...) end,
     GetNonMovablePanels = function() return nonMovableSystemPanels end,
+    IsFullScreenUIPanel = function(...) return IsFullScreenUIPanel(...) end,
 })
 
 RestoreWorkspacePosition = Persistence.InstallRestore(Canvas, {
@@ -1649,6 +1674,12 @@ nonMovableSystemPanels = {
     OverrideActionBar = true,
     HousingControlsFrame = true,
     HouseEditorFrame = true,
+    -- Full-screen takeover modes are confined by RetailFullscreen/CinematicPresentation
+    -- with opposing corner anchors and must never be collapsed to a single-point panel.
+    PerksProgramFrame = true,
+    CharCustomizeFrame = true,
+    CinematicFrame = true,
+    MovieFrame = true,
 }
 
 Offhand.CanvasPanelPlacement.InstallVoid(Canvas, {
@@ -1656,6 +1687,7 @@ Offhand.CanvasPanelPlacement.InstallVoid(Canvas, {
     WithWorkspace = function(...) return WithWorkspace(...) end,
     IsUnsafeForPanelMutation = function(...) return IsUnsafeForPanelMutation(...) end,
     NonMovablePanels = nonMovableSystemPanels,
+    IsFullScreenUIPanel = function(...) return IsFullScreenUIPanel(...) end,
 })
 
 local function RestoreSavedPositionAfterShow(frame)
@@ -1664,6 +1696,9 @@ local function RestoreSavedPositionAfterShow(frame)
     if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     local frameName = frame.GetName and frame:GetName()
+    if (frameName and nonMovableSystemPanels[frameName]) or IsFullScreenUIPanel(frame, frameName) then
+        return
+    end
     -- TBC container roots are pooled and the bag manager positions the whole
     -- group. Generic void recovery (including its next-frame retry) can move
     -- an unpositioned equipped bag to the workspace edge between bag passes.
@@ -2043,7 +2078,7 @@ function Canvas:TryMakeFrameDraggable(frame)
         end
         return
     end
-    if nonMovableSystemPanels[name] then return end
+    if nonMovableSystemPanels[name] or IsFullScreenUIPanel(frame, name) then return end
     if IsForeverEditModeFrame(frame, name) or IsUnsafeForPanelMutation(frame, name) then return end
     if name == "MinimapCluster" and Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon() then
         return
@@ -2069,7 +2104,7 @@ function Canvas:DiscoverUIPanels()
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     for name in pairs(UIPanelWindows) do
         local frame = _G[name]
-        if frame then
+        if frame and not IsFullScreenUIPanel(frame, name) then
             if IsForeverProfessionsPanel(frame, name) then
                 if ShouldYieldForeverProfessionsPanel(frame, name) then
                     self:RelinquishForeverProfessionsPanels(name)
@@ -2145,6 +2180,7 @@ function Canvas:EnableFreeDragging()
                 Canvas:RelinquishForeverEditModeFrames(registeredName)
                 return
             end
+            if IsFullScreenUIPanel(frame, registeredName) then return end
             if IsForeverProfessionsPanel(frame, registeredName) then
                 if ShouldYieldForeverProfessionsPanel(frame, registeredName) then
                     Canvas:RelinquishForeverProfessionsPanels(registeredName)

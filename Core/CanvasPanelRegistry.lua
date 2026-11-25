@@ -144,9 +144,12 @@ function PanelRegistry.CanAutoOpen(frame, name)
         if Offhand.IsDaylightParkedPanel and Offhand.IsDaylightParkedPanel(frame) then return false end
         if frame.IsForbidden and frame:IsForbidden() then return false end
         if PanelRegistry.IsInputWidget(frame, name) then return false end
-        -- Keyboard-enabled roots can reserve every gameplay key. Leave their
-        -- visibility to the player/native owner, even if they were saved open.
+        -- Keyboard-enabled roots and full-screen takeover panels must stay
+        -- under Blizzard's direct visibility control.
         if frame.IsKeyboardEnabled and frame:IsKeyboardEnabled() then return false end
+        if UIPanelWindows and UIPanelWindows[name] and UIPanelWindows[name].area == "full" then
+            return false
+        end
         return (UIPanelWindows and UIPanelWindows[name] ~= nil)
             or knownPanelLoadAddons[name] ~= nil or frame._OffhandMovable == true
             or name:match("^ChatFrame%d+$") ~= nil

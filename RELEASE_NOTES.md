@@ -13,6 +13,7 @@ This is an **addon-only hotfix** (`Offhand v2.1.5-beta.41`). Windows Companion r
   - Edit Mode staleness detection (`layoutStale`) now accounts for vertical Mainhand offsets on both top-Mainhand and bottom-Mainhand stacked monitor layouts instead of checking horizontal `offsetX` only.
   - DaylightUI fishing, crafting, and campfire scenes now detect vertically stacked spans and refit their height and waterline to Mainhand.
 - **Flight path & fear popup spam fix**: Fixed Offhand reopening setup or notice dialogs after every flight path, fear, or charm (`PLAYER_CONTROL_LOST` / `PLAYER_CONTROL_GAINED`) when no Offhand dialog was open. Automatic UI deferral now triggers only when a dialog is actually open or triggered during a control-loss intro sequence.
+- **Barbershop UI confinement (Retail & Forever)**: Fixed the Barbershop losing its customization options and Accept/Reset/Cancel buttons on spanned and mixed-height monitor setups. Full-screen takeover panels (`area == "full"`) are now excluded from generic panel dragging/placement, and both `BarberShopFrame` and `CharCustomizeFrame` stay framed inside your Mainhand display.
 
 ### Previous highlights (Beta 40 + Windows Companion 2.1.9-beta.3)
 

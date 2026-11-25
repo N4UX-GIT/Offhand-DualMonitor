@@ -177,4 +177,236 @@ assert(loadfile("Core/RetailFullscreen.lua"))("Offhand", classicAddon)
 assert(classicAddon.RetailFullscreen.frame == nil, "non-Retail client attached the Trading Post handler")
 assert(classicFrame:GetPoint(1) == "TOPLEFT", "non-Retail frame placement was mutated")
 
-print("PASS: Retail Trading Post confinement, scale conversion, reset repair, native restore, client isolation")
+-- Forever & Retail full-screen Barbershop (TopLevelParentScaleFrameTemplate +
+-- attached CharCustomizeFrame) must be confined to Mainhand without double-
+-- scaling, reflow option spacing, and restore nil-parent anchors on disable.
+do
+    local function NewBarberFrame(parent, isTopLevelScale)
+        local frame = NewFrame()
+        frame.parent = parent
+        frame.scale = isTopLevelScale and uiScale or 0.64
+        if isTopLevelScale then
+            frame.OnScaleFrameLoad = function() end
+            frame.OnScaleFrameShow = function() end
+        else
+            frame.OnDefaultScaleFrameLoad = function() end
+            frame.maxScale = 0.75
+        end
+        function frame:GetParent() return self.parent end
+        function frame:GetEffectiveScale()
+            if self.parent and self.parent.GetEffectiveScale then
+                return self.scale * self.parent:GetEffectiveScale()
+            end
+            return self.scale
+        end
+        function frame:SetAllPoints(relativeTo)
+            self.points = {
+                {"TOPLEFT", relativeTo, "TOPLEFT", 0, 0},
+                {"BOTTOMRIGHT", relativeTo, "BOTTOMRIGHT", 0, 0},
+            }
+        end
+        frame:SetAllPoints(parent)
+        return frame
+    end
+
+    local function NewCustomizeFrame(barberFrame)
+        local customize = NewFrame()
+        customize.parent = barberFrame
+        customize.scale = 1
+        customize.Options = {}
+        customize.layoutCount = 0
+        function customize:GetParent() return self.parent end
+        function customize:GetEffectiveScale()
+            return self.scale * self.parent:GetEffectiveScale()
+        end
+        function customize:UpdateOptionsContainer()
+            self.layoutCount = self.layoutCount + 1
+        end
+        -- Mirrors Blizzard_CharacterCustomize.xml: parent="UIParent" setAllPoints="true"
+        -- before BarberShopMixin:OnLoad reparents it without changing anchors.
+        customize:SetAllPoints(UIParent)
+        return customize
+    end
+
+    metrics.physicalHeight, metrics.gamePixelHeight = 2560, 1440
+    UIPanelWindows = {
+        BarberShopFrame = { area = "full", pushable = 0 },
+    }
+    PerksProgramFrame = nil
+    BarberShopFrame = nil
+    CharCustomizeFrame = nil
+
+    local foreverAddon = {
+        isRetail = false,
+        isForever = true,
+        db = {enabled = true},
+        Viewport = addon.Viewport,
+        RunOrQueueCombat = function(_, callback) callback() end,
+    }
+    assert(loadfile("Core/RetailFullscreen.lua"))("Offhand", foreverAddon)
+    assert(foreverAddon.RetailFullscreen.entries.barbershop.frame == nil,
+        "Barbershop should wait for load-on-demand Blizzard_BarbershopUI")
+
+    -- Simulate Blizzard_BarbershopUI loading on BARBER_SHOP_OPEN.
+    BarberShopFrame = NewBarberFrame(nil, true)
+    CharCustomizeFrame = NewCustomizeFrame(BarberShopFrame)
+    loader.callback(loader, "ADDON_LOADED", "Blizzard_BarbershopUI")
+    assert(foreverAddon.RetailFullscreen.entries.barbershop.frame == BarberShopFrame,
+        "Forever client failed to attach load-on-demand Barbershop frame")
+
+    BarberShopFrame.shown = true
+    CharCustomizeFrame.shown = true
+    BarberShopFrame.scripts.OnShow()
+    assert(foreverAddon.RetailFullscreen.entries.barbershop.modified,
+        "Barbershop frame was not confined to Mainhand")
+    assert(math.abs(BarberShopFrame:GetScale() - uiScale) < 0.001,
+        "TopLevelParentScaleFrameTemplate Barbershop must not double-shrink scale")
+    assert(BarberShopFrame:GetNumPoints() == 2, "Barbershop must keep opposing corner anchors")
+    local bp1, br1, brp1, bx1, by1 = BarberShopFrame:GetPoint(1)
+    local bp2, br2, brp2, bx2, by2 = BarberShopFrame:GetPoint(2)
+    assert(bp1 == "BOTTOMLEFT" and br1 == UIParent and brp1 == "BOTTOMLEFT"
+        and math.abs(bx1 - metrics.gameLeft) < 0.001 and math.abs(by1 - metrics.gameBottom) < 0.001,
+        "Barbershop BOTTOMLEFT did not match Mainhand")
+    assert(bp2 == "TOPRIGHT" and br2 == UIParent and brp2 == "BOTTOMLEFT"
+        and math.abs(bx2 - metrics.gameRight) < 0.001 and math.abs(by2 - metrics.gameTop) < 0.001,
+        "Barbershop TOPRIGHT did not match Mainhand")
+
+    local cp1, cr1, crp1 = CharCustomizeFrame:GetPoint(1)
+    local cp2, cr2, crp2 = CharCustomizeFrame:GetPoint(2)
+    assert(cp1 == "TOPLEFT" and cr1 == BarberShopFrame and crp1 == "TOPLEFT"
+        and cp2 == "BOTTOMRIGHT" and cr2 == BarberShopFrame and crp2 == "BOTTOMRIGHT",
+        "CharCustomizeFrame was not anchored to confined BarberShopFrame")
+    assert(CharCustomizeFrame.layoutCount == 1,
+        "CharCustomizeFrame options spacing did not reflow after Mainhand confinement")
+
+    -- Re-applying without anchor drift must not spam options reflow.
+    foreverAddon.RetailFullscreen:Apply()
+    assert(CharCustomizeFrame.layoutCount == 1,
+        "steady-state Barbershop apply unnecessarily reflowed options")
+
+    -- Disabling Offhand restores nil-relativeTo Barbershop points and UIParent
+    -- CharCustomizeFrame points without truncating unpack at nil.
+    foreverAddon.db.enabled = false
+    foreverAddon.RetailFullscreen:Apply()
+    assert(not foreverAddon.RetailFullscreen.entries.barbershop.modified,
+        "Barbershop remained marked modified after disable")
+    local r1p, r1rel, r1rp, r1x, r1y = BarberShopFrame:GetPoint(1)
+    local r2p, r2rel, r2rp, r2x, r2y = BarberShopFrame:GetPoint(2)
+    assert(r1p == "TOPLEFT" and r1rel == nil and r1rp == "TOPLEFT" and r1x == 0 and r1y == 0
+        and r2p == "BOTTOMRIGHT" and r2rel == nil and r2rp == "BOTTOMRIGHT" and r2x == 0 and r2y == 0,
+        "nil-parent Barbershop anchors were not restored intact")
+    local cr1p, cr1rel = CharCustomizeFrame:GetPoint(1)
+    assert(cr1p == "TOPLEFT" and cr1rel == UIParent,
+        "CharCustomizeFrame native UIParent anchors were not restored")
+
+    -- DefaultScaleFrame Barbershop variant (10.x) still applies height compensation.
+    local retailBarber = NewBarberFrame(nil, false)
+    BarberShopFrame = retailBarber
+    CharCustomizeFrame = NewCustomizeFrame(retailBarber)
+    local retailBarberAddon = {
+        isRetail = true,
+        db = {enabled = true},
+        Viewport = addon.Viewport,
+        RunOrQueueCombat = function(_, callback) callback() end,
+    }
+    assert(loadfile("Core/RetailFullscreen.lua"))("Offhand", retailBarberAddon)
+    retailBarber.shown = true
+    CharCustomizeFrame.shown = true
+    retailBarber.scripts.OnShow()
+    assert(math.abs(retailBarber:GetScale() - (0.64 * 1440 / 2560)) < 0.001,
+        "DefaultScaleFrame Barbershop variant was not height-compensated")
+
+    -- Floating Classic-style BarberShopFrame (parent=UIParent, not area=full)
+    -- must never be captured as a full-screen frame.
+    UIPanelWindows = { BarberShopFrame = { area = "right", pushable = 0 } }
+    local floatingBarber = NewBarberFrame(UIParent, true)
+    BarberShopFrame = floatingBarber
+    CharCustomizeFrame = nil
+    local floatingAddon = {
+        isRetail = false,
+        isForever = true,
+        db = {enabled = true},
+        Viewport = addon.Viewport,
+        RunOrQueueCombat = function(_, callback) callback() end,
+    }
+    assert(loadfile("Core/RetailFullscreen.lua"))("Offhand", floatingAddon)
+    assert(floatingAddon.RetailFullscreen.entries.barbershop.frame == nil,
+        "floating UIParent-anchored Barbershop frame was wrongly treated as fullscreen")
+    UIPanelWindows = nil
+    BarberShopFrame = nil
+    CharCustomizeFrame = nil
+end
+
+-- Canvas placement and void rescue must ignore full-screen UIPanelWindows
+-- takeover modes so BarberShopFrame is never collapsed to a single TOPLEFT point.
+do
+    local placementAddon = {
+        isForever = true,
+        db = { enabled = true, savedWorkspacePositions = {}, savedMainPositions = {}, openWorkspacePanels = {} },
+        Viewport = { GetMetrics = function() return metrics end },
+        CanvasPanelRegistry = {
+            GetPositionRoot = function(f) return f end,
+            IsBasePersistentCandidate = function() return true end,
+            IsContextBoundPanel = function() return false end,
+        },
+        CanvasCompatibility = {
+            IsForeverEllesmereBag = function() return false end,
+            HasMoveAny = function() return false end,
+            HasClassicUIForever = function() return false end,
+            IsPersistentForeverProfessionsPanelName = function() return false end,
+        },
+        CanvasFrameState = { IsDragging = function() return false end },
+        CanvasPersistence = {
+            CharacterOpenSize = function(_, w, h) return w, h end,
+            FitsWorkspace = function() return true end,
+            ResolveWorkspacePosition = function() return 0, 0 end,
+        },
+    }
+    assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", placementAddon)
+    local fakeCanvas = { CanManagePanelsFromAddon = function() return true end }
+    local barber = NewFrame()
+    barber.shown = true
+    function barber:GetName() return "BarberShopFrame" end
+    function barber:GetParent() return nil end
+    function barber:GetWidth() return 4000 end
+    function barber:GetHeight() return 2560 end
+    function barber:GetLeft() return 0 end
+    function barber:GetTop() return 2560 end
+    barber:SetAllPoints(nil)
+    UIPanelWindows = { BarberShopFrame = { area = "full", pushable = 0 } }
+    local function IsFullScreen(frame, name)
+        return (name and UIPanelWindows[name] and UIPanelWindows[name].area == "full")
+            or (name == "BarberShopFrame" and frame and frame:GetParent() ~= UIParent)
+    end
+    local services = {
+        RemodalizePanel = function() end,
+        ShouldYieldFrameToClassicUIForever = function() return false end,
+        ShouldYieldWorldMapToMoveAny = function() return false end,
+        IsForeverProfessionsPanel = function() return false end,
+        IsForeverEditModeFrame = function() return false end,
+        IsWorldMapMaximized = function() return false end,
+        WithWorkspace = function(m) return m end,
+        IsForeverSocialPositionRoot = function() return false end,
+        IsUnsafeForPanelMutation = function() return false end,
+        RegisterSpecialFrame = function() end,
+        SaveOpenWorkspacePanels = function() end,
+        SaveForeverPanelOwnership = function() end,
+        IsBackpackRoot = function() return false end,
+        ClearOtherBackpackRootState = function() return false end,
+        IsFrameOnWorkspace = function() return false end,
+        GetNonMovablePanels = function() return {} end,
+        NonMovablePanels = {},
+        IsFullScreenUIPanel = IsFullScreen,
+    }
+    placementAddon.CanvasPanelPlacement.InstallMainhand(fakeCanvas, services)
+    placementAddon.CanvasPanelPlacement.InstallVoid(fakeCanvas, services)
+    assert(not fakeCanvas:PlacePanelOnMainhand(barber, metrics, nil, true, true),
+        "PlacePanelOnMainhand mutated full-screen BarberShopFrame")
+    assert(not fakeCanvas:RescuePanelFromVoid(barber, metrics),
+        "RescuePanelFromVoid mutated full-screen BarberShopFrame")
+    assert(barber:GetNumPoints() == 2 and barber:GetPoint(1) == "TOPLEFT",
+        "full-screen BarberShopFrame anchors were collapsed")
+    UIPanelWindows = nil
+end
+
+print("PASS: Retail/Forever fullscreen Trading Post & Barbershop confinement, scale conversion, reset repair, native restore, Canvas exclusion, client isolation")
