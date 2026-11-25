@@ -964,5 +964,279 @@ FlushTimers()
 Offhand.Bridges:Refresh("tick")
 assert(not duiBag:IsShown(), "Explicitly closed DaylightUIBag must stay closed after Options closes")
 
+-- =====================================================================
+-- TEST 7: DaylightUI_Bags B-key toggle (ToggleAllBags / ToggleBackpack /
+-- ToggleBag) works cleanly when keepBagToggleOpen is off while the bag
+-- stays on Offhand in held mode (both Combined Bags and Individual Bags),
+-- and OpenAllBags (vendor/bank/mailbox) / direct OpenBackpack keep it open.
+-- =====================================================================
+local usingCombinedBags = true
+local parkedCombined = MakeWindow("ContainerFrameCombinedBags", 0, 0, 200, 200, bagOpenClose.hidden)
+local parkedBags = {
+    [0] = MakeWindow("ContainerFrame1", 0, 0, 200, 200, bagOpenClose.hidden),
+    [1] = MakeWindow("ContainerFrame2", 0, 0, 200, 200, bagOpenClose.hidden),
+    [2] = MakeWindow("ContainerFrame3", 0, 0, 200, 200, bagOpenClose.hidden),
+}
+local function AnyParkedBagOpen()
+    if parkedCombined:IsShown() then return true end
+    for i = 0, 2 do
+        if parkedBags[i]:IsShown() then return true end
+    end
+    return false
+end
+local function CloseAllParkedBags()
+    parkedCombined:Hide()
+    for i = 0, 2 do parkedBags[i]:Hide() end
+end
+
+local followPending = false
+bagOpenClose.held = nil
+bagOpenClose.AnyOpen = AnyParkedBagOpen
+bagOpenClose.GameWindows = function() return { parkedCombined, parkedBags[0], parkedBags[1], parkedBags[2] } end
+bagOpenClose.CloseGame = CloseAllParkedBags
+bagOpenClose.Follow = function()
+    if followPending then return end
+    followPending = true
+    C_Timer.After(0, function()
+        followPending = false
+        if bagOpenClose.AnyOpen() or bagOpenClose.held then
+            duiBag:Show()
+        else
+            duiBag:Hide()
+        end
+    end)
+end
+bagOpenClose.CloseAll = function()
+    bagOpenClose.held = nil
+    bagOpenClose.CloseGame()
+    bagOpenClose.Follow()
+end
+bagOpenClose.Hold = function()
+    if bagOpenClose.held or bagOpenClose.AnyOpen() or duiBag:IsShown() then return false end
+    bagOpenClose.held = true
+    bagOpenClose.Follow()
+    return true
+end
+
+local simStack = {}
+local function WithStack(fnName, fn)
+    simStack[#simStack + 1] = fnName
+    local ok, err = pcall(fn)
+    simStack[#simStack] = nil
+    if not ok then error(err, 0) end
+end
+debugstack = function()
+    local lines = {}
+    for i = #simStack, 1, -1 do
+        lines[#lines + 1] = "[C]: in function '" .. simStack[i] .. "'"
+    end
+    return table.concat(lines, "\n")
+end
+
+-- Mirror Blizzard's ContainerFrame.lua + DaylightUI_Bags/OpenClose.lua RELEASE hooks!
+local function DuiAfter(how)
+    if bagOpenClose.held then
+        if how == "open" then
+            if bagOpenClose.AnyOpen() then bagOpenClose.held = nil end
+        elseif how == "toggle" then
+            bagOpenClose.held = nil
+            if bagOpenClose.AnyOpen() then bagOpenClose.CloseGame() end
+        end
+    end
+    bagOpenClose.Follow()
+end
+
+OpenBag = function(id)
+    WithStack("OpenBag", function()
+        if usingCombinedBags then
+            parkedCombined:Show()
+        elseif parkedBags[id] then
+            parkedBags[id]:Show()
+        end
+        DuiAfter("open")
+    end)
+end
+OpenBackpack = function()
+    WithStack("OpenBackpack", function()
+        if usingCombinedBags then
+            OpenBag(0)
+        elseif not parkedBags[0]:IsShown() then
+            ToggleBackpack()
+        end
+        DuiAfter("open")
+    end)
+end
+local function OpenAllBagsInternal()
+    OpenBackpack()
+    if not usingCombinedBags then
+        for i = 1, 2 do OpenBag(i) end
+    end
+end
+OpenAllBags = function()
+    WithStack("OpenAllBags", function()
+        if not AnyParkedBagOpen() then OpenAllBagsInternal() end
+        DuiAfter("open")
+    end)
+end
+ToggleBag = function(id)
+    WithStack("ToggleBag", function()
+        if usingCombinedBags then
+            if AnyParkedBagOpen() then
+                parkedCombined:Hide()
+            else
+                OpenBackpack()
+            end
+        else
+            if parkedBags[id] and parkedBags[id]:IsShown() then
+                if id == 0 then CloseAllParkedBags() else parkedBags[id]:Hide() end
+            elseif parkedBags[id] then
+                parkedBags[id]:Show()
+            end
+        end
+        DuiAfter("toggle")
+    end)
+end
+ToggleBackpack = function()
+    WithStack("ToggleBackpack", function()
+        if usingCombinedBags then
+            if AnyParkedBagOpen() then
+                parkedCombined:Hide()
+            else
+                OpenBackpack()
+            end
+        else
+            if parkedBags[0]:IsShown() then
+                CloseAllParkedBags()
+            else
+                ToggleBag(0)
+            end
+        end
+        DuiAfter("toggle")
+    end)
+end
+ToggleAllBags = function()
+    WithStack("ToggleAllBags", function()
+        local openCount = 0
+        local total = usingCombinedBags and 1 or 3
+        if usingCombinedBags then
+            if parkedCombined:IsShown() then
+                openCount = 1
+                parkedCombined:Hide()
+            end
+        else
+            for i = 0, 2 do
+                if parkedBags[i]:IsShown() then
+                    openCount = openCount + 1
+                    parkedBags[i]:Hide()
+                end
+            end
+        end
+        if openCount < total then
+            OpenAllBagsInternal()
+        end
+        DuiAfter("toggle")
+    end)
+end
+
+-- Reload Bags bridge so it installs fresh hooks on our simulated ToggleAllBags/ToggleBackpack/ToggleBag
+duiBag:Hide(); duiBag.hooked = {}; CloseAllParkedBags(); bagOpenClose.held = nil
+_G.OffhandDB.bridges.DaylightUI.openBags = nil
+LoadChunk("Bridges/DaylightUI/Bags.lua", "Offhand", Offhand)
+Offhand.Bridges:RestoreWorkspaceState("login")
+FlushTimers()
+Offhand.Bridges:RefreshBags(settingsBagServices)
+
+-- 7a. Combined Bags mode: B opens -> RefreshBags puts it in held mode -> B closes -> B reopens -> B closes!
+usingCombinedBags = true
+ToggleAllBags()
+FlushTimers()
+assert(duiBag:IsShown() and parkedCombined:IsShown(), "First B press must open DaylightUIBag")
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(bagOpenClose.held == true and not parkedCombined:IsShown() and duiBag:IsShown(),
+    "RefreshBags must arm held mode while keeping DaylightUIBag open on Offhand")
+
+ToggleAllBags()
+FlushTimers()
+assert(not duiBag:IsShown() and not parkedCombined:IsShown() and not bagOpenClose.held,
+    "Pressing B while DaylightUIBag is held open on Offhand (Combined Bags) must close it")
+assert(_G.OffhandDB.bridges.DaylightUI.openBags == nil,
+    "Closing DaylightUIBag via B must clear openBags")
+
+ToggleAllBags()
+FlushTimers()
+assert(duiBag:IsShown() and parkedCombined:IsShown(),
+    "Pressing B again after closing must reopen DaylightUIBag cleanly")
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(bagOpenClose.held == true and not parkedCombined:IsShown())
+
+-- 7b. ToggleBackpack() and ToggleBag(0) in Combined Bags mode also close held DaylightUIBag cleanly!
+ToggleBackpack()
+FlushTimers()
+assert(not duiBag:IsShown() and not parkedCombined:IsShown(),
+    "ToggleBackpack while held open in Combined Bags mode must close DaylightUIBag")
+ToggleBackpack()
+FlushTimers()
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(duiBag:IsShown() and bagOpenClose.held == true)
+ToggleBag(0)
+FlushTimers()
+assert(not duiBag:IsShown() and not parkedCombined:IsShown(),
+    "ToggleBag while held open in Combined Bags mode must close DaylightUIBag")
+
+-- 7c. Individual Bags mode: ToggleAllBags opens bags 1..2 after ToggleBag(0) — outer ToggleAllBags hook must close all!
+usingCombinedBags = false
+ToggleAllBags()
+FlushTimers()
+assert(duiBag:IsShown() and parkedBags[0]:IsShown() and parkedBags[1]:IsShown() and parkedBags[2]:IsShown())
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(bagOpenClose.held == true and not AnyParkedBagOpen() and duiBag:IsShown())
+
+ToggleAllBags()
+FlushTimers()
+assert(not duiBag:IsShown() and not AnyParkedBagOpen() and not bagOpenClose.held,
+    "Pressing B while DaylightUIBag is held open on Offhand (Individual Bags) must close it and all parked bags")
+ToggleAllBags()
+FlushTimers()
+assert(duiBag:IsShown() and AnyParkedBagOpen(),
+    "Pressing B again in Individual Bags mode must reopen DaylightUIBag")
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(bagOpenClose.held == true and not AnyParkedBagOpen())
+
+-- 7d. OpenAllBags (vendor/bank/mailbox) and direct OpenBackpack MUST keep held DaylightUIBag open!
+usingCombinedBags = true
+OpenAllBags()
+FlushTimers()
+assert(duiBag:IsShown() and parkedCombined:IsShown(),
+    "OpenAllBags (vendor/mailbox) while held open must keep DaylightUIBag open")
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(bagOpenClose.held == true)
+
+usingCombinedBags = false
+OpenAllBags()
+FlushTimers()
+assert(duiBag:IsShown() and AnyParkedBagOpen(),
+    "OpenAllBags in Individual Bags mode while held open must keep DaylightUIBag open")
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(bagOpenClose.held == true)
+
+OpenBackpack()
+FlushTimers()
+assert(duiBag:IsShown() and (AnyParkedBagOpen() or bagOpenClose.held == true),
+    "Direct OpenBackpack in Individual Bags mode while held open must keep DaylightUIBag open")
+Offhand.Bridges:RefreshBags(settingsBagServices)
+assert(bagOpenClose.held == true)
+
+-- 7e. Closing Options then immediately pressing B (<0.5s) must close DaylightUIBag (optionsOpeningAt cleared)!
+usingCombinedBags = true
+simTime = 200
+C_SettingsUtil.OpenSettingsPanel()
+simTime = 200.1
+HideUIPanel(settingsPanel)
+FlushTimers()
+simTime = 200.2
+ToggleAllBags()
+FlushTimers()
+assert(not duiBag:IsShown(), "Pressing B immediately after closing Options must close DaylightUIBag")
+
 assert(next(Offhand.Bridges.errors) == nil, "DaylightUI bridge must produce zero errors")
 print("bridge-daylightui-windows tests passed")

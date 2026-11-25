@@ -19,6 +19,8 @@ local hookedBagFrames = setmetatable({}, { __mode = "k" })
 local transitioning, singleScreenPaused, restoring, sessionReady = false, false, false, false
 local optionsPaused, optionsOpeningAt, lastWorkspaceHideAt, wasVisibleOnWorkspace = false, nil, nil, false
 local wasOptionsOpen, optionsHooksInstalled = false, false
+local toggleHooksInstalled = {}
+local pendingToggleClose, pendingToggleFn, pendingToggleSeq = nil, nil, 0
 local OPTIONS_PANEL_NAMES = {
     SettingsPanel = true,
     InterfaceOptionsFrame = true,
@@ -142,6 +144,97 @@ local function ObserveOptionsOpening()
     end
 end
 
+local function FindFunctionPos(stack, name)
+    return stack:find("in function '" .. name .. "'", 1, true)
+        or stack:find("in function `" .. name .. "'", 1, true)
+end
+
+-- Blizzard's ToggleAllBags / ToggleBackpack / ToggleBag call OpenBackpack /
+-- OpenBag internally when the parked bags are hidden in held mode. DaylightUI's
+-- post-hook on OpenBag clears openClose.held before its Toggle* post-hook runs,
+-- turning a close keypress into a no-op. Identify the outermost user toggle so
+-- our matching Toggle* post-hook can close the bag cleanly, while leaving
+-- OpenAllBags (vendor/bank/mailbox) and direct OpenBackpack calls open.
+local function FindOuterToggleFunction(stack)
+    if type(stack) ~= "string" then return nil end
+    if FindFunctionPos(stack, "OpenAllBags") then return nil end
+    if FindFunctionPos(stack, "ToggleAllBags") then return "ToggleAllBags" end
+    local openBackpackPos = FindFunctionPos(stack, "OpenBackpack")
+    local toggleBackpackPos = FindFunctionPos(stack, "ToggleBackpack")
+    if toggleBackpackPos and (not openBackpackPos or toggleBackpackPos > openBackpackPos) then
+        return "ToggleBackpack"
+    end
+    local toggleBagPos = FindFunctionPos(stack, "ToggleBag")
+    if toggleBagPos and (not openBackpackPos or toggleBagPos > openBackpackPos) then
+        return "ToggleBag"
+    end
+    return nil
+end
+
+local function FinishPendingToggleClose(fnName)
+    if not pendingToggleClose or pendingToggleFn ~= fnName then return end
+    local openClose = pendingToggleClose
+    pendingToggleClose, pendingToggleFn = nil, nil
+    if InCombatLockdown() or type(openClose.CloseAll) ~= "function" then return end
+    pcall(openClose.CloseAll)
+end
+
+local function InstallToggleObservers()
+    if type(hooksecurefunc) ~= "function" then return end
+    for _, name in ipairs({ "ToggleAllBags", "ToggleBackpack", "ToggleBag" }) do
+        if not toggleHooksInstalled[name] and type(_G[name]) == "function" then
+            toggleHooksInstalled[name] = true
+            hooksecurefunc(name, function()
+                FinishPendingToggleClose(name)
+            end)
+        end
+    end
+end
+
+local function WrapOpenCloseFollow(frame, openClose, proxy)
+    if not openClose or type(openClose.Follow) ~= "function" or hookedOpenClose == openClose then return end
+    hookedOpenClose = openClose
+    local follow = openClose.Follow
+    openClose.Follow = function(...)
+        if held == openClose and not openClose.held then
+            local curFrame = _G.DaylightUIBag or frame
+            local curProxy = (curFrame and curFrame.__duiEsc) or proxy
+            local stack = type(debugstack) == "function" and debugstack(2, 24, 0) or ""
+            local outerToggle = FindOuterToggleFunction(stack)
+            -- In individual-bags mode, OpenAllBags() / OpenBackpack() call
+            -- ToggleBackpack() -> ToggleBag(0), whose DaylightUI toggle hook
+            -- clears openClose.held and hides bag 0. Keep the bag held open so
+            -- opening a vendor/bank/mailbox never closes an already-open bag.
+            local nestedOpenCall = not outerToggle and not openClose.AnyOpen()
+                and (FindFunctionPos(stack, "OpenAllBags") or FindFunctionPos(stack, "OpenBackpack"))
+            local suppress = nestedOpenCall
+                or (latest and latest.CanSuppressVendorClose(curFrame, curProxy)
+                    and (latest.IsGameMenuBagClose(stack)
+                        or (type(latest.IsSettingsBagClose) == "function" and latest.IsSettingsBagClose(stack))
+                        or (not outerToggle and optionsOpeningAt ~= nil and (Now() - optionsOpeningAt) <= 0.5)))
+            if suppress then
+                openClose.held = true
+            else
+                held = nil
+                if outerToggle then
+                    pendingToggleSeq = pendingToggleSeq + 1
+                    local seq = pendingToggleSeq
+                    pendingToggleClose = openClose
+                    pendingToggleFn = outerToggle
+                    if C_Timer and C_Timer.After then
+                        C_Timer.After(0, function()
+                            if pendingToggleSeq == seq then
+                                pendingToggleClose, pendingToggleFn = nil, nil
+                            end
+                        end)
+                    end
+                end
+            end
+        end
+        return follow(...)
+    end
+end
+
 local function InstallOptionsObservers()
     if optionsHooksInstalled or type(hooksecurefunc) ~= "function" then return end
     optionsHooksInstalled = true
@@ -161,7 +254,9 @@ local function InstallOptionsObservers()
     end
     if type(HideUIPanel) == "function" then
         hooksecurefunc("HideUIPanel", function(panel)
-            if not IsOptionsPanel(panel) or not optionsPaused then return end
+            if not IsOptionsPanel(panel) then return end
+            optionsOpeningAt = nil
+            if not optionsPaused then return end
             if C_Timer and C_Timer.After then
                 C_Timer.After(0, RestoreBagAfterOptions)
             else
@@ -206,15 +301,18 @@ end
 
 function Bags.Tick()
     InstallOptionsObservers()
+    InstallToggleObservers()
     local optionsOpen = IsOptionsOpen()
     if optionsOpen and not wasOptionsOpen then
         ObserveOptionsOpening()
-    elseif not optionsOpen and optionsPaused then
-        RestoreBagAfterOptions()
+    elseif not optionsOpen then
+        if wasOptionsOpen then optionsOpeningAt = nil end
+        if optionsPaused then RestoreBagAfterOptions() end
     end
     wasOptionsOpen = optionsOpen
-    local frame = GetBagContext()
+    local frame, openClose = GetBagContext()
     if not frame then return end
+    WrapOpenCloseFollow(frame, openClose, frame.__duiEsc)
     HookBagVisibility(frame)
     SyncOpenState(frame)
 end
@@ -232,6 +330,7 @@ end
 
 function Bags.PrepareSingleScreenRecovery()
     optionsPaused, optionsOpeningAt, wasOptionsOpen = false, nil, false
+    pendingToggleClose, pendingToggleFn = nil, nil
     local frame, openClose = GetBagContext()
     if not frame or not openClose then return end
     local db = ns.DB and ns.DB()
@@ -250,6 +349,8 @@ function Bags.RestoreWorkspaceState()
     transitioning = false
     singleScreenPaused = false
     optionsPaused, optionsOpeningAt, wasOptionsOpen = false, nil, false
+    pendingToggleClose, pendingToggleFn = nil, nil
+    InstallToggleObservers()
     if restoring then return end
     if InCombatLockdown() or not IsSpanned() then return end
     if not PersistenceEnabled() then
@@ -284,6 +385,8 @@ function Bags.RestoreWorkspaceState()
             sessionReady = true
             return
         end
+        InstallToggleObservers()
+        WrapOpenCloseFollow(frame, openClose, frame.__duiEsc)
         HookBagVisibility(frame)
         if not IsBagVisiblyOpen(frame) then
             held = openClose
@@ -321,11 +424,13 @@ function Bags.Refresh(services)
     if type(services) ~= "table" then return end
     latest = services
     InstallOptionsObservers()
+    InstallToggleObservers()
     if not IsOptionsOpen() and optionsPaused then
         RestoreBagAfterOptions()
     end
     local frame, openClose = GetBagContext()
     if frame then
+        WrapOpenCloseFollow(frame, openClose, frame.__duiEsc)
         HookBagVisibility(frame)
         SyncOpenState(frame)
     end
@@ -345,27 +450,7 @@ function Bags.Refresh(services)
         and (not openClose.held or held == openClose)
     services.UpdateEscapeRegistration(frame, name, supported, nil, proxy)
     if not services.IsEscapeRegistered(proxy) then return end
-    if hookedOpenClose ~= openClose then
-        hookedOpenClose = openClose
-        local follow = openClose.Follow
-        openClose.Follow = function(...)
-            if held == openClose and not openClose.held then
-                local curFrame = _G.DaylightUIBag or frame
-                local curProxy = (curFrame and curFrame.__duiEsc) or proxy
-                local stack = debugstack(2, 24, 0)
-                local suppress = latest and latest.CanSuppressVendorClose(curFrame, curProxy)
-                    and (latest.IsGameMenuBagClose(stack)
-                        or (type(latest.IsSettingsBagClose) == "function" and latest.IsSettingsBagClose(stack))
-                        or (optionsOpeningAt ~= nil and (Now() - optionsOpeningAt) <= 0.5))
-                if suppress then
-                    openClose.held = true
-                else
-                    held = nil
-                end
-            end
-            return follow(...)
-        end
-    end
+    WrapOpenCloseFollow(frame, openClose, proxy)
     if openClose.held or not openClose.AnyOpen() then return end
     for _, container in ipairs(openClose.GameWindows()) do
         if container:IsShown() and container:GetParent() ~= parked then
@@ -374,7 +459,8 @@ function Bags.Refresh(services)
         end
     end
     -- Use DaylightUI's held-bag mode so Blizzard sees the parked bags closed.
-    -- Its normal toggle releases the hold and closes any bags opened by B.
+    -- Its normal toggle calls OpenBackpack/OpenBag internally before Toggle*,
+    -- so WrapOpenCloseFollow + InstallToggleObservers close the held bag on B.
     held = openClose
     openClose.held = true
     openClose.CloseGame()

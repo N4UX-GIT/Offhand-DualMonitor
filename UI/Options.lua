@@ -1228,7 +1228,12 @@ function Options:CreateFloatingPanel()
             local function AddKeepOpenCheck(key, label)
                 local check = CreateNativeCheckbox(card2_1, L[label],
                     function() return Offhand.db and Offhand.db[key] == true end,
-                    function(value) Offhand.db[key] = value == true end)
+                    function(value)
+                        Offhand.db[key] = value == true
+                        if Offhand.WorkspaceToggleKeys and Offhand.WorkspaceToggleKeys.Refresh then
+                            Offhand.WorkspaceToggleKeys:Refresh()
+                        end
+                    end)
                 keepOpenChecks[#keepOpenChecks + 1] = {check = check, key = key}
             end
             AddKeepOpenCheck("keepMapToggleOpen", "KEEP_MAP_TOGGLE_OPEN")
