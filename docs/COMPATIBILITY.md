@@ -49,14 +49,18 @@ freshness check fails until the affected cases are rerun. Updating fingerprints
 without a new matching live run does not renew evidence. Deferred cases remain
 deferred even when the fingerprints match.
 
-The November 25 release receipts (`tests/compatibility/forever-native-real-escape.json`
-and `tests/compatibility/forever-workspace-restart.json`) were refreshed for Beta 41
-(`0320aef`, matching `Offhand-v2.1.5-beta.41.zip` SHA-256 `90611dc3...`) after the release
-owner confirmed the Forever live evidence gate and live full-screen Barbershop Mainhand
-confinement on Forever with Companion `2.1.9-beta.3`. Earlier Beta 40 (`4b59c0f`) and
-Beta 39 measurements remain archived in
-[FOREVER-BETA40-RELEASE-QA.md](FOREVER-BETA40-RELEASE-QA.md) and
-[FOREVER-BETA39-RELEASE-QA.md](FOREVER-BETA39-RELEASE-QA.md).
+On November 25 the release owner confirmed the two Forever live gates on
+Offhand 2.1.5-beta.42 and Companion 2.1.9-beta.4. The native separate-backpack
+Escape check and workspace restoration after a full restart both passed. The
+retest's exact client build was not included in the report. The scoped
+fingerprints match candidate 3daee6c and the Beta 42 release ZIP. The local
+installation separately matched the scoped files, while its version markers
+still showed Beta 41 and Companion 2.1.9-beta.3.
+
+The previous Beta 41 verification covered candidate 0320aef with Companion
+2.1.9-beta.3 and included live Forever Barbershop confinement. Earlier measured
+runs are recorded in [Beta 40 QA](FOREVER-BETA40-RELEASE-QA.md) and
+[Beta 39 QA](FOREVER-BETA39-RELEASE-QA.md).
 Outdoor zone map following (native Blizzard map + OpenMap 0.8.13) and
 multi-page book turning also have separate Nov 24 live runs on Forever `1.60.1.71037`
 ([MAP-ZONE-FOLLOW-QA.md](MAP-ZONE-FOLLOW-QA.md) and the book section below).
