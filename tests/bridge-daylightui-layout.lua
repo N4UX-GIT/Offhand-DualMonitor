@@ -125,7 +125,13 @@ local function Setup(options)
                 unlocked = false,
                 DEFAULTS = { box = { 100, 50 }, named = "x" },
                 Register = function(frame, key, label, default, opts)
-                    env.registered[key] = { frame = frame, default = default, opts = opts }
+                    env.registered[key] = { frame = frame, default = default, opts = opts, proxy = opts and opts.proxy }
+                end,
+                Get = function(key) return env.registered[key] end,
+                Keys = function()
+                    local keys = {}
+                    for key in pairs(env.registered) do keys[#keys + 1] = key end
+                    return keys
                 end,
                 LockButton = function() end,
             },
@@ -158,6 +164,7 @@ local function Setup(options)
     addon.ForeverPersistence = { SaveProfileSnapshot = function(_, inc) if inc then env.flushes = env.flushes + 1 end end }
     addon.MainhandGeometry = { GetCurrentRect = function()
         if env.spanned then
+            if options.gameRect then return options.gameRect end
             return { left = 0, bottom = 0, right = 2560, top = 1440, width = 2560, height = 1440,
                 screenWidth = W, screenHeight = H, isSpanned = true }
         end
@@ -509,4 +516,88 @@ assert(StaticPopupDialogs.OFFHAND_DAYLIGHTUI_RESET_MOVERS and StaticPopupDialogs
 StaticPopupDialogs.OFFHAND_DAYLIGHTUI_RESET_MOVERS.OnAccept()
 assert(resetAllCalls == 1, "Confirming Reset DaylightUI positions must call DaylightUI.Movers.ResetAll()")
 
-print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3/2.2.6 unlock bar & CDM editor, HUD actions, game area, movers, redirects, rolls, staleness, and legacy stand-down")
+-- DaylightUI_ActionBars 2.2.6 and 2.2.7 register the holders while loading.
+-- Exercise both stacked arrangements and the full-screen center coordinates
+-- DaylightUI reapplies when it saves a drag or a typed position.
+for _, bottom in ipairs({ 0, H / 3 }) do
+    local bar, proxyFrame
+    local ns = Setup({
+        gameRect = { left = 0, bottom = bottom, right = W, top = bottom + H * 2 / 3,
+            screenWidth = W, screenHeight = H, isSpanned = true },
+        before = { function()
+            bar = CreateFrame("Frame", "DaylightUIBar1", UIParent)
+            bar.protected = true
+            DaylightUI.Movers.Register(bar, "actionbars.main", "Action Bar 1",
+                function() return { "BOTTOM", "UIParent", "BOTTOM", 0, 20 } end)
+            bar:SetPoint("CENTER", UIParent, "CENTER", 0, -180)
+            proxyFrame = CreateFrame("Frame", "DaylightUIProxyMover", UIParent)
+            DaylightUI.Movers.Register(proxyFrame, "proxy.custom", "Proxy Mover", nil, { proxy = true })
+            proxyFrame:SetPoint("CENTER", UIParent, "CENTER", 12, -44)
+        end },
+    })
+    local point, relativeTo, relativePoint, x, y = PointOf(bar)
+    assert(point == "CENTER" and relativeTo == UIParent and relativePoint == "CENTER" and x == 0 and y == -180,
+        "the load-time sweep must preserve the saved position of an already registered action bar")
+    local _, proxyAnchor, _, px, py = PointOf(proxyFrame)
+    assert(proxyAnchor == UIParent and px == 12 and py == -44,
+        "pre-registered proxy movers must not be redirected by Sweep")
+    local lateProxy = CreateFrame("Frame", "DaylightUILateProxy", UIParent)
+    DaylightUI.Movers.Register(lateProxy, "proxy.late", "Late Proxy", nil, { proxy = true })
+    lateProxy:SetPoint("CENTER", UIParent, "CENTER", -18, 22)
+    local _, lateAnchor, _, lpx, lpy = PointOf(lateProxy)
+    assert(lateAnchor == UIParent and lpx == -18 and lpy == 22,
+        "runtime-registered proxy movers must stay in UIParent coordinates")
+    local default = DaylightUI.Movers.Get("actionbars.main").default()
+    assert(default[2] == ns.AREA and default[5] == 20, "the vendor's reset path still uses Mainhand defaults")
+    for _, position in ipairs({ { 35, -240 }, { -22, 65 }, { -22, 65 } }) do
+        bar:ClearAllPoints()
+        bar:SetPoint("CENTER", UIParent, "CENTER", position[1], position[2])
+        ns.Sweep()
+        local _, anchor, _, offsetX, offsetY = PointOf(bar)
+        assert(anchor == UIParent and offsetX == position[1] and offsetY == position[2],
+            "drag, numeric adjustment and subsequent sweeps must stay in DaylightUI's coordinate space")
+    end
+
+    -- Vertical-stack Edit Mode staleness (unaligned layout vs aligned layout)
+    local stackedMain = { anchorInfo = { point = "BOTTOM", relativePoint = "BOTTOM", offsetX = 0, offsetY = 26 } }
+    env.ours = { main = stackedMain }
+    local stackedDB = ns.DB()
+    stackedDB.rect = nil
+    assert(ns.layoutStale() == true,
+        "unaligned vertical stack must report stale whether Mainhand is on top or bottom")
+    if bottom > 0 then
+        stackedMain.anchorInfo.offsetY = bottom + 26
+        assert(ns.layoutStale() == false and stackedDB.rect == ns.signature(),
+            "vertically shifted top-Mainhand layout must be recognized as aligned and remembered")
+    else
+        stackedDB.rect = ns.signature()
+        assert(ns.layoutStale() == false,
+            "aligned bottom-Mainhand layout must stay non-stale once its rect signature is saved")
+    end
+
+    -- Vertical-stack Scenes (fishing/crafting & campfire): full-width stacked monitors must still count as spanned!
+    local stackedArea = _G.OffhandDaylightUIArea
+    stackedArea.w, stackedArea.h = W, H * 2 / 3
+    stackedArea.GetWidth = function(self) return self.w end
+    stackedArea.GetHeight = function(self) return self.h end
+    local fish = CreateFrame("Frame", "DaylightUIFishScene", UIParent)
+    fish.w, fish.h, fish.line = W, H, 120
+    local fire = CreateFrame("Frame", "DaylightUICampfire", UIParent)
+    fire.w, fire.h = W, H
+    local qolScene = { Cast = function() end, Craft = function() end }
+    local qolFire = { Check = function() end }
+    local origMod = DaylightUI.GetModule
+    DaylightUI.GetModule = function(self, name)
+        if name == "QoL" then return { ns = { Fishing = { Scene = qolScene }, Campfire = qolFire } } end
+        return origMod(self, name)
+    end
+    ns.SceneRefresh()
+    ns.FireRefresh()
+    qolScene.Cast()
+    assert(fish.all == stackedArea and math.abs(fish.h - H * 2 / 3) < 0.5 and math.abs(fish.line - 80) < 0.5,
+        "vertical-stack fishing/crafting scene must anchor to game area and scale height/waterline")
+    assert(fire.all == stackedArea and math.abs(fire.h - H * 2 / 3) < 0.5,
+        "vertical-stack campfire scene must anchor to game area and refit height")
+end
+
+print("PASS: built-in DaylightUI bridge inert load, contract purity, 2.2.3/2.2.6 unlock bar & CDM editor, HUD actions, game area, movers, redirects, rolls, staleness, stacked scenes, and legacy stand-down")

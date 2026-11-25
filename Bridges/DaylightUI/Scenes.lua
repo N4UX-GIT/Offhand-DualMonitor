@@ -38,8 +38,8 @@ end
 local function fitScene()
     local f = _G.DaylightUIFishScene
     if type(f) ~= "table" or not f.SetAllPoints then return end
-    local l, _, r, _, sw = gameRect()
-    local spanned = l > 0 or r < sw
+    local l, b, r, t, sw, sh = gameRect()
+    local spanned = l > 0 or r < sw or b > 0 or t < sh
     f:ClearAllPoints()
     f:SetAllPoints(spanned and area or UIParent)
     if not spanned then return end
@@ -48,7 +48,7 @@ local function fitScene()
     if not (W and W > 0 and H and H > 0) then return end
     if type(oldW) ~= "number" or oldW <= 0 or type(oldH) ~= "number" or oldH <= 0
         or type(oldLine) ~= "number" then return end
-    if math.abs(oldW - W) < 0.5 then return end          -- already fitted since the last layout()
+    if math.abs(oldW - W) < 0.5 and math.abs(oldH - H) < 0.5 then return end -- already fitted since the last layout()
     f.w, f.h, f.line, f.mid = W, H, oldLine * H / oldH, W / 2
     -- The same pieces, the same shares as DaylightUI's layout().
     if f.deep then
@@ -122,8 +122,8 @@ local function fitFire()
         fireHooked = true
         f:HookScript("OnUpdate", function() pcall(fitFire) end)
     end
-    local l, _, r, _, sw = gameRect()
-    local on = (l > 0 or r < sw) and area or UIParent
+    local l, b, r, t, sw, sh = gameRect()
+    local on = (l > 0 or r < sw or b > 0 or t < sh) and area or UIParent
     if fireOn ~= on then
         fireOn = on
         f:ClearAllPoints()

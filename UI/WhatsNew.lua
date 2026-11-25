@@ -8,6 +8,7 @@ Offhand.WhatsNew = WhatsNew
 -- See docs/ADDON-RELEASE-NOTICES.md before updating either value.
 local storeVersion = "2.1.9-beta.1"
 local releases = {
+    ["2.1.5-beta.41"] = { highlights = "WHATS_NEW_BETA41" },
     ["2.1.5-beta.40"] = { highlights = "WHATS_NEW_BETA40", companion = "2.1.9-beta.3",
         companionNote = "WHATS_NEW_BETA40_COMPANION" },
     ["2.1.5-beta.39"] = { highlights = "WHATS_NEW_BETA39", highlightsOnly = true },

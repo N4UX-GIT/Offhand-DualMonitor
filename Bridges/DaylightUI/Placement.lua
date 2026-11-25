@@ -29,7 +29,7 @@ if type(Movers.DEFAULTS) == "table" then
     end })
 end
 
-local placed = {}            -- frames a mover places: left alone below
+local placed = setmetatable({}, { __mode = "k" }) -- frames owned by DaylightUI movers
 
 -- A default against the screen ({ point, nil or "UIParent", relPoint, x, y })
 -- against the area instead; one against another frame is left as it is.
@@ -42,19 +42,36 @@ local function onArea(d)
     return d
 end
 
--- DaylightUI's modules register their movers from PLAYER_LOGIN on, after
--- this file has run, so every one of them comes through here.
+local function areaDefault(default)
+    if type(default) == "function" then
+        return function() return onArea(default()) end
+    end
+    return onArea(default)
+end
+
+-- ActionBars can register its holders while its files load, before the
+-- bridge. DaylightUI saves custom positions in UIParent coordinates and
+-- reapplies them when a drag or numeric edit ends. Mark every already-
+-- registered mover frame owned by DaylightUI so Sweep/redirect never shifts
+-- it, and map non-proxy defaults onto the game area.
+if type(Movers.Keys) == "function" and type(Movers.Get) == "function" then
+    for _, key in ipairs(Movers.Keys()) do
+        local entry = Movers.Get(key)
+        if type(entry) == "table" and type(entry.frame) == "table" then
+            placed[entry.frame] = true
+            if not entry.proxy then
+                entry.default = areaDefault(entry.default)
+            end
+        end
+    end
+end
+
 if type(Movers.Register) == "function" then
     local register = Movers.Register
     function Movers.Register(frame, key, label, default, opts)
         Refresh()
-        -- A default can be a function giving one (the action bars', the quest
-        -- tracker's): what it gives is moved each time.
-        if type(default) == "function" then
-            local give = default
-            default = function() return onArea(give()) end
-        else
-            default = onArea(default)
+        if type(frame) == "table" then
+            placed[frame] = true
         end
         if type(opts) == "table" and opts.proxy then
             -- An action bar's default spot, for its handle: worked out from the
@@ -68,10 +85,8 @@ if type(Movers.Register) == "function" then
                     return x + dx, y + dy
                 end
             end
-        else
-            placed[frame] = true
         end
-        return register(frame, key, label, default, opts)
+        return register(frame, key, label, areaDefault(default), opts)
     end
 end
 
@@ -107,7 +122,7 @@ end
 local watched = {}
 
 local function watch(frame)
-    if type(frame) ~= "table" or not frame.SetPoint or watched[frame] or frame == area then return end
+    if type(frame) ~= "table" or not frame.SetPoint or placed[frame] or watched[frame] or frame == area then return end
     watched[frame] = true
     hooksecurefunc(frame, "SetPoint", redirect)
 end
@@ -352,7 +367,19 @@ local function layoutStale()
         and EditMode.FindSystem(ours, AB, idx)
     local a = entry and entry.anchorInfo
     if type(a) == "table" and a.point == "BOTTOM" and a.relativePoint == "BOTTOM" and type(a.offsetX) == "number" then
-        local stale = math.abs(a.offsetX - (pointDelta("BOTTOM"))) > 1
+        local dx, dy = pointDelta("BOTTOM")
+        -- When Mainhand sits on the bottom of a vertical stack (dx == 0, dy == 0,
+        -- t < sh), BOTTOM-anchored MainBar doesn't move and cannot prove TOP/CENTER
+        -- Edit Mode systems were already shifted onto Mainhand.
+        if unproven and math.abs(dx) <= 1 and math.abs(dy) <= 1 then
+            return true
+        end
+        local stale = math.abs(a.offsetX - dx) > 1
+        if not stale and math.abs(dy) > 1 then
+            if type(a.offsetY) ~= "number" or a.offsetY < dy - 1 then
+                stale = true
+            end
+        end
         if unproven and not stale then db.rect = signature() end
         return stale
     end

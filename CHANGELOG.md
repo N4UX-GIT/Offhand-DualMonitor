@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## [2.1.5-beta.41] - 2026-11-25
+
+Addon-only hotfix (Windows Companion remains **2.1.9-beta.3**).
+
+### DaylightUI action bar & stacked-display fixes
+
+- Fixed a Beta 40 regression with DaylightUI 2.2.6+ where action bars registered at file load time (`DaylightUIBar1..8` and small/totem bar holders) were missed by the bridge's `Movers.Register` wrap and redirected by `Sweep()` onto `OffhandDaylightUIArea`. On stacked and asymmetrical monitor layouts, this shifted saved bars upward, bounced drags back, and caused manual X/Y or nudge edits to stair-step bars toward the top of the screen. The bridge now claims all pre-registered and runtime DaylightUI movers (including proxy movers) so DaylightUI keeps full ownership of custom placement while Mainhand defaults still align automatically.
+  - *Note for affected users*: If you dragged or entered X/Y coordinates while on Beta 40, DaylightUI saved those shifted positions into its own profile; drag them back into place once or use **Reset DaylightUI positions** (`/dui reset`) to return them to Mainhand defaults.
+- Hardened DaylightUI vertical stacked-monitor alignment: `layoutStale()` now checks vertical Mainhand offsets (both top-Mainhand and bottom-Mainhand stacks) instead of horizontal `offsetX` alone, and DaylightUI's fishing, crafting, and campfire scenes now detect vertical spans (`b > 0 or t < sh`) and refit height cleanly.
+
 ## [2.1.5-beta.40] - 2026-11-24
 
 Paired with **Windows Companion 2.1.9-beta.3**.
