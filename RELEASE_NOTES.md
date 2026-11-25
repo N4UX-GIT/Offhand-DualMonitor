@@ -12,6 +12,7 @@ This is an **addon-only hotfix** (`Offhand v2.1.5-beta.41`). Windows Companion r
 - **DaylightUI stacked-monitor hardening**:
   - Edit Mode staleness detection (`layoutStale`) now accounts for vertical Mainhand offsets on both top-Mainhand and bottom-Mainhand stacked monitor layouts instead of checking horizontal `offsetX` only.
   - DaylightUI fishing, crafting, and campfire scenes now detect vertically stacked spans and refit their height and waterline to Mainhand.
+- **Flight path & fear popup spam fix**: Fixed Offhand reopening setup or notice dialogs after every flight path, fear, or charm (`PLAYER_CONTROL_LOST` / `PLAYER_CONTROL_GAINED`) when no Offhand dialog was open. Automatic UI deferral now triggers only when a dialog is actually open or triggered during a control-loss intro sequence.
 
 ### Previous highlights (Beta 40 + Windows Companion 2.1.9-beta.3)
 

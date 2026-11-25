@@ -729,6 +729,42 @@ assert(cinematicPopupShows == popupsBeforeMovie and addon._automaticUIPendingAft
 MovieFrame = nil
 addon._automaticUIPendingAfterCinematic = nil
 
+-- Flight paths, fears, and charms fire PLAYER_CONTROL_LOST / PLAYER_CONTROL_GAINED
+-- during normal gameplay. When no Offhand UI is open, regaining control must NOT
+-- re-trigger EvaluateEntryNotices or reopen a previously dismissed setup guide.
+addon._automaticUIPendingAfterCinematic = nil
+cinematicTimers = {}
+local flightGuideOpens = 0
+local savedOnboarding = addon.Onboarding
+addon.Onboarding = {
+    IsOpen = function() return false end,
+    Open = function() flightGuideOpens = flightGuideOpens + 1 end,
+    Close = function() end,
+}
+initOnEvent(nil, "PLAYER_CONTROL_LOST")
+assert(addon:IsBlizzardInputReserved() and not addon._automaticUIPendingAfterCinematic,
+    "PLAYER_CONTROL_LOST with no open Offhand UI must not schedule automatic UI replay")
+initOnEvent(nil, "PLAYER_CONTROL_GAINED")
+for _, timer in ipairs(cinematicTimers) do timer.fn() end
+assert(not addon:IsBlizzardInputReserved() and flightGuideOpens == 0,
+    "ending a flight path or fear must not reopen dismissed onboarding or notices")
+
+-- If Onboarding actually WAS open when PLAYER_CONTROL_LOST fired, defer and resume it.
+local onboardingOpen = true
+addon.Onboarding = {
+    IsOpen = function() return onboardingOpen end,
+    Open = function() flightGuideOpens = flightGuideOpens + 1; onboardingOpen = true end,
+    Close = function() onboardingOpen = false end,
+}
+cinematicTimers = {}
+initOnEvent(nil, "PLAYER_CONTROL_LOST")
+assert(not onboardingOpen and addon._automaticUIPendingAfterCinematic,
+    "PLAYER_CONTROL_LOST must close and defer an actually open onboarding window")
+initOnEvent(nil, "PLAYER_CONTROL_GAINED")
+assert(#cinematicTimers > 0, "PLAYER_CONTROL_GAINED must schedule resume when open UI was deferred")
+addon._automaticUIPendingAfterCinematic = nil
+addon.Onboarding = savedOnboarding
+
 -- Some first-character intros reserve player input without a cinematic frame.
 -- Automatic UI and inherited workspace restoration must remain deferred until
 -- Blizzard returns control.
@@ -736,8 +772,9 @@ local inputRestoreCalls = 0
 addon.Canvas.RestorePersistentFrames = function() inputRestoreCalls = inputRestoreCalls + 1 end
 initOnEvent(nil, "PLAYER_CONTROL_LOST")
 addon:ShowCompanionNotice("HANDOFF", { topologyStatus = "ABSENT" })
-assert(addon:IsBlizzardInputReserved() and cinematicPopupShows == popupsBeforeMovie,
-    "PLAYER_CONTROL_LOST must suppress automatic UI even without a cinematic frame")
+assert(addon:IsBlizzardInputReserved() and cinematicPopupShows == popupsBeforeMovie
+    and addon._automaticUIPendingAfterCinematic,
+    "PLAYER_CONTROL_LOST must suppress and defer automatic UI attempted during control loss")
 cinematicTimers = {}
 addon.Canvas.persistentRestorePendingForInput = true
 initOnEvent(nil, "PLAYER_CONTROL_GAINED")

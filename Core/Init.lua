@@ -1676,7 +1676,18 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     elseif event == "PLAYER_CONTROL_LOST" then
         Offhand._playerControlLost = true
-        Offhand:DeferAutomaticUIForCinematic()
+        -- PLAYER_CONTROL_LOST also fires on flight paths, fears, and charms.
+        -- Defer automatic UI only when a prompt/window is actually open; any
+        -- notice attempted during control loss defers itself via IsBlizzardInputReserved().
+        local hasShownAutomaticUI = (Offhand.WhatsNew and Offhand.WhatsNew:IsShown())
+            or (Offhand._companionNoticesShown and next(Offhand._companionNoticesShown) ~= nil)
+            or (Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown)
+            or (Offhand.CharacterSetup and Offhand.CharacterSetup.shown)
+            or (Offhand.Onboarding and Offhand.Onboarding.IsOpen and Offhand.Onboarding:IsOpen())
+            or (Offhand.Wizard and Offhand.Wizard.IsOpen and Offhand.Wizard:IsOpen())
+        if hasShownAutomaticUI then
+            Offhand:DeferAutomaticUIForCinematic()
+        end
         Offhand:HideCompanionNotices()
         if Offhand.CharacterSetup then Offhand.CharacterSetup:Hide() end
         if Offhand.Onboarding and Offhand.Onboarding.Close then Offhand.Onboarding:Close() end

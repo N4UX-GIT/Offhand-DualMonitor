@@ -1014,6 +1014,10 @@ function Onboarding:ResumeAfterDownload()
     guideFrame:Show()
 end
 
+function Onboarding:IsOpen()
+    return guideFrame and guideFrame:IsShown() or false
+end
+
 function Onboarding:Close()
     resumeAfterDownload = nil
     if settingsReturnWatcher then settingsReturnWatcher:SetScript("OnUpdate", nil) end
