@@ -721,12 +721,12 @@ namespace Offhand.Companion
                 var guide=One<RichTextBox>(dialog, control=>true);
                 var close=One<Button>(dialog, button=>button.Text=="Got it");
                 var heading=One<Label>(dialog, label=>true);
-                if (!guide.Text.Contains("display preview") || !guide.Text.Contains("Abysmal Kabal")
-                    || !guide.Text.Contains("automatic spanning") || !guide.Text.Contains("DPI")
+                if (!guide.Text.Contains("2.1.9-beta.4") || !guide.Text.Contains("Windows display device numbering")
+                    || !guide.Text.Contains("The Mainhand menu shows monitor names")
                     || !guide.Text.Contains("If something looks wrong")
                     || !guide.Text.Contains("/reload") || !guide.Text.Contains("/offhand guide")
                     || !guide.Text.Contains("placement/calibration") || !guide.Text.Contains("preserved"))
-                    throw new Exception("Update notes must explain changes, contributor credit, and conditional setup recovery.");
+                    throw new Exception("Update notes must explain display picker changes and conditional setup recovery.");
                 if (BoundsInside(guide,dialog).Top<=heading.Bottom || BoundsInside(guide,dialog).Bottom>=BoundsInside(close,dialog).Top
                     || dialog.AcceptButton!=close || dialog.CancelButton!=close)
                     throw new Exception("Update notes must fit between title and pinned dismissal.");
