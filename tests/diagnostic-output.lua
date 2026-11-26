@@ -118,7 +118,7 @@ addon.Canvas = {
 }
 -- Long per-bridge reports reach the debug mode through the bridge registry.
 addon.Bridges = addon.Bridges or { GetMapAddons = function() return {} end,
-    GetRoleOwners = function() return {}, {} end }
+    GetRoleOwners = function() return {}, {} end, FirstRoleOwner = function() return nil end }
 local dialogueProbe = probe("dialogue", "animation")
 addon.Bridges.GetDebugDiagnostics = function()
     return { { label = "Dialogue UI", text = dialogueProbe() } }

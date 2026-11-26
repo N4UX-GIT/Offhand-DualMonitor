@@ -9,6 +9,7 @@ C_AddOns = {
 WorldMapFrame = {}
 
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Bartender4/Bridge.lua", "Bridges/ElvUI/Bridge.lua", "Bridges/MoveAny/Bridge.lua", "Bridges/MoveMyBags/Bridge.lua", "Bridges/ShadowedUnitFrames/Bridge.lua" })
 local compatibility = assert(addon.CanvasCompatibility)
 
 assert(compatibility.GetWorldMapExternalOwner() == nil,

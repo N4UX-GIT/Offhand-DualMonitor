@@ -23,9 +23,9 @@ local GLOBAL = { global = "ConsolePort" }
 API.RegisterAddonData("ConsolePort", {
     ownership = {
         { role = "hud.controller", name = "ConsolePort", detect = GLOBAL },
-        { role = "hud.actionBars", name = "ConsolePort", detect = GLOBAL },
-        { role = "hud.statusBars", name = "ConsolePort", detect = GLOBAL },
-        { role = "hud.editModeBlocker", name = "ConsolePort", detect = GLOBAL },
+        { role = "hud.actionBars", name = "ConsolePort", order = 50, detect = GLOBAL },
+        { role = "hud.statusBars", name = "ConsolePort", order = 50, detect = GLOBAL },
+        { role = "hud.editModeBlocker", name = "ConsolePort", order = 10, detect = GLOBAL },
         { role = "report.actionBars", name = "ConsolePort", order = 40, detect = { present = "ConsolePort" } },
     },
     frameRules = {

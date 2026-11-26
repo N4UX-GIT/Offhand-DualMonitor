@@ -209,16 +209,32 @@ end
 -- ahead of the DaylightUI block.
 local expectedAnchorBridges = {
     "Bridges/Shared/DefaultAnchors.lua",
+    "Bridges/Bartender4/Bridge.lua",
     "Bridges/Beastfinder/Bridge.lua",
+    "Bridges/BlizzMove/Bridge.lua",
+    "Bridges/Carbonite/Bridge.lua",
+    "Bridges/Cell/Bridge.lua",
+    "Bridges/Chattynator/Bridge.lua",
     "Bridges/ConsolePort/Bridge.lua",
     "Bridges/DialogueUI/Bridge.lua",
+    "Bridges/Dominos/Bridge.lua",
     "Bridges/EasyFishing/Bridge.lua",
+    "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/ElvUI/Bridge.lua",
     "Bridges/ForeverLedger/Bridge.lua",
     "Bridges/ForeverPlus/Bridge.lua",
     "Bridges/Gathercraft/Bridge.lua",
     "Bridges/MobInfo2/Bridge.lua",
+    "Bridges/MoveAny/Bridge.lua",
+    "Bridges/MoveMyBags/Bridge.lua",
+    "Bridges/PitBull4/Bridge.lua",
     "Bridges/Questie/Bridge.lua",
     "Bridges/RareScanner/Bridge.lua",
+    "Bridges/SexyMap/Bridge.lua",
+    "Bridges/ShadowedUnitFrames/Bridge.lua",
+    "Bridges/Tukui/Bridge.lua",
+    "Bridges/XPerl/Bridge.lua",
+    "Bridges/ZPerl/Bridge.lua",
 }
 local anchorBridgeStart = bridgeStart - #expectedAnchorBridges
 for i, path in ipairs(expectedAnchorBridges) do

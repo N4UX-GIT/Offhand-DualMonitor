@@ -414,85 +414,41 @@ function Compatibility.GetActiveBagOwners()
     return owners
 end
 
+-- Present owners of a report role in role order, each name once.
+local function ReportOwners(role)
+    local owners, seen = {}, {}
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRoleOwners(role) or {}) do
+        if not seen[name] then
+            seen[name] = true
+            owners[#owners + 1] = name
+        end
+    end
+    return owners
+end
+
 function Compatibility.GetActiveExternalOwners()
     local owners = {}
     local mapOwner = Compatibility.GetWorldMapExternalOwner()
     if mapOwner then owners.map = FormatMapOwnerLabel(mapOwner) end
     local bags = Compatibility.GetActiveBagOwners()
     if #bags > 0 then owners.bags = bags end
-    local chat = {}
-    if Compatibility.IsAddonLoaded("Chattynator") then chat[#chat + 1] = "Chattynator" end
-    if Compatibility.IsAddonLoaded("EllesmereUIChat") then chat[#chat + 1] = "EllesmereUIChat" end
+    local chat = ReportOwners("report.chat")
     if #chat > 0 then owners.chat = chat end
-    local minimap
-    if Compatibility.IsAddonLoaded("EllesmereUIMinimap") then minimap = "EllesmereUIMinimap"
-    elseif rawget(_G, "SexyMap") ~= nil then minimap = "SexyMap"
-    elseif rawget(_G, "Carbonite") ~= nil then minimap = "Carbonite"
-    elseif rawget(_G, "ElvUI") ~= nil then minimap = "ElvUI" end
+    local minimap = Offhand.Bridges and Offhand.Bridges:FirstRoleOwner("report.minimap")
     if minimap then owners.minimap = minimap end
-
-    local unitFrames, seenUF = {}, {}
-    local function AddUF(name)
-        if name and not seenUF[name] then
-            seenUF[name] = true
-            unitFrames[#unitFrames + 1] = name
-        end
-    end
-    if Compatibility.IsAddonLoaded("ShadowedUnitFrames") or rawget(_G, "ShadowUF") ~= nil then
-        AddUF("ShadowedUnitFrames")
-    end
-    if Compatibility.IsAddonLoaded("EllesmereUIUnitFrames") then AddUF("EllesmereUIUnitFrames") end
-    if rawget(_G, "ElvUF_Player") ~= nil or Compatibility.IsAddonLoaded("ElvUI") and rawget(_G, "ElvUI") ~= nil then
-        local elv = rawget(_G, "ElvUI")
-        local core = type(elv) == "table" and elv[1]
-        local uf = type(core) == "table" and type(core.private) == "table" and core.private.unitframe
-        if rawget(_G, "ElvUF_Player") ~= nil or (type(uf) == "table" and uf.enable == true) then
-            AddUF("ElvUI")
-        end
-    end
-    if rawget(_G, "TukuiPlayerFrame") ~= nil or rawget(_G, "TukuiUnitFrames") ~= nil then AddUF("Tukui") end
-    for _, candidate in ipairs({"Cell", "PitBull4", "ZPerl", "XPerl"}) do
-        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
-            AddUF(candidate)
-        end
-    end
+    local unitFrames = ReportOwners("report.unitFrames")
     if #unitFrames > 0 then owners.unitFrames = unitFrames end
-
-    local actionBars, seenAB = {}, {}
-    local function AddAB(name)
-        if name and not seenAB[name] then
-            seenAB[name] = true
-            actionBars[#actionBars + 1] = name
-        end
-    end
-    for _, candidate in ipairs({"Bartender4", "Dominos", "EllesmereUIActionBars"}) do
-        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
-            AddAB(candidate)
-        end
-    end
-    if Offhand.Bridges then
-        for _, name in ipairs(Offhand.Bridges:GetRoleOwners("report.actionBars")) do AddAB(name) end
-    end
-    if rawget(_G, "ElvUI_Bar1") ~= nil then AddAB("ElvUI") end
-    if rawget(_G, "TukuiActionBars") ~= nil then AddAB("Tukui") end
+    local actionBars = ReportOwners("report.actionBars")
     if #actionBars > 0 then owners.actionBars = actionBars end
-
-    local movers, seenMover = {}, {}
-    local function AddMover(name)
-        if name and not seenMover[name] then
-            seenMover[name] = true
-            movers[#movers + 1] = name
-        end
-    end
-    if Compatibility.HasMoveAny() then AddMover("MoveAny") end
-    if Compatibility.IsAddonLoaded("BlizzMove") or rawget(_G, "BlizzMove") ~= nil then AddMover("BlizzMove") end
-    if Compatibility.IsAddonLoaded("MoveMyBags") or rawget(_G, "MoveMyBags") ~= nil then AddMover("MoveMyBags") end
+    local movers = ReportOwners("report.movers")
     if #movers > 0 then owners.movers = movers end
     return owners
 end
 
 -- Actionable guidance for external addons that legitimately own specific HUD or
 -- UI frames (never treated as chat-spam conflicts, surfaced in Options/diag).
+-- Each bridge guidance entry is shown when any owner its when table names
+-- ({ [ownersList] = name }) is in that list of GetActiveExternalOwners.
 function Compatibility.GetExternalControlGuidance()
     local L = Offhand.L or {}
     local owners = Compatibility.GetActiveExternalOwners()
@@ -503,60 +459,29 @@ function Compatibility.GetExternalControlGuidance()
             guidance[#guidance + 1] = { id = id, addon = addon, text = text }
         end
     end
-    local hasUF = {}
-    for _, name in ipairs(owners.unitFrames or {}) do hasUF[name] = true end
-    local hasAB = {}
-    for _, name in ipairs(owners.actionBars or {}) do hasAB[name] = true end
-    local hasMover = {}
-    for _, name in ipairs(owners.movers or {}) do hasMover[name] = true end
-
-    if hasUF.ShadowedUnitFrames then
-        Add("suf", "ShadowedUnitFrames", L["COMPAT_GUIDE_SUF"]
-            or "Shadowed Unit Frames controls Player/Target/Focus frames. Move them with /suf, or disable Shadowed Unit Frames (or specific unit modules) to move them in Blizzard Edit Mode.")
-    end
-    if hasMover.MoveAny then
-        Add("moveany", "MoveAny", L["COMPAT_GUIDE_MOVEANY"]
-            or "MoveAny controls frame movement. Move or unlock frames with /move, or disable an element in MoveAny to let Blizzard Edit Mode or Offhand move it.")
-    end
-    if hasMover.MoveMyBags then
-        local mmbText = L["COMPAT_GUIDE_MOVEMYBAGS"]
-            or "MoveMyBags controls Blizzard bag positions. Drag or reset bags with /movemybags reset, or disable MoveMyBags to let Offhand manage bag placement."
-        local mmbDB = rawget(_G, "MoveMyBagsDB")
-        if Offhand.isForever and (type(mmbDB) ~= "table" or mmbDB.layers ~= false) then
-            local layersTip = L["COMPAT_GUIDE_MOVEMYBAGS_LAYERS"]
-                or "If a reagent or specialty bag turns grey while dragging, uncheck 'Keep the window you are using in front' in Options > AddOns > MoveMyBags."
-            mmbText = mmbText .. " " .. layersTip
-        end
-        Add("movemybags", "MoveMyBags", mmbText)
-    end
-    if hasMover.BlizzMove then
-        Add("blizzmove", "BlizzMove", L["COMPAT_GUIDE_BLIZZMOVE"]
-            or "BlizzMove controls window dragging and scaling. Check /bm if a panel snaps back or resists Offhand placement.")
-    end
-    for _, barAddon in ipairs({"Bartender4", "Dominos"}) do
-        if hasAB[barAddon] then
-            local fmt = L["COMPAT_GUIDE_ACTIONBARS"]
-                or "%s controls action bars. Unlock and move bars in %s instead of Blizzard Edit Mode."
-            Add("ab:" .. barAddon, barAddon, string.format(fmt, barAddon, barAddon))
+    local active = {}
+    for list, names in pairs(owners) do
+        if type(names) == "table" then
+            active[list] = {}
+            for _, name in ipairs(names) do active[list][name] = true end
         end
     end
-    for _, suite in ipairs({"ElvUI", "Tukui"}) do
-        if hasUF[suite] or hasAB[suite] then
-            local fmt = L["COMPAT_GUIDE_SUITE"]
-                or "%s controls its enabled HUD and unit frames. Move them with /moveui, or disable individual modules in %s to use Blizzard Edit Mode."
-            Add("suite:" .. suite, suite, string.format(fmt, suite, suite))
+    if not Offhand.Bridges then return guidance end
+    local entries, suffixes = Offhand.Bridges:GetGuidanceEntries()
+    for index, entry in ipairs(entries) do
+        local shown = false
+        for list, name in pairs(type(entry.when) == "table" and entry.when or {}) do
+            if active[list] and active[list][name] then shown = true; break end
         end
-    end
-    if hasUF.EllesmereUIUnitFrames or hasAB.EllesmereUIActionBars
-        or (owners.chat and table.concat(owners.chat, ","):find("EllesmereUIChat", 1, true)) then
-        Add("ellesmere", "EllesmereUI", L["COMPAT_GUIDE_ELLESMERE"]
-            or "EllesmereUI controls its enabled HUD modules. Position them in EllesmereUI's own unlock/layout settings instead of Blizzard Edit Mode.")
-    end
-    for _, ufAddon in ipairs({"PitBull4", "ZPerl", "XPerl", "Cell"}) do
-        if hasUF[ufAddon] then
-            local fmt = L["COMPAT_GUIDE_UNITFRAMES"]
-                or "%s controls its unit frames. Move them in %s's own settings instead of Blizzard Edit Mode."
-            Add("uf:" .. ufAddon, ufAddon, string.format(fmt, ufAddon, ufAddon))
+        if shown then
+            local text = L[entry.key] or entry.fallback
+            if entry.args == 2 and type(text) == "string" then
+                text = string.format(text, entry.addon, entry.addon)
+            end
+            if suffixes[index] and type(text) == "string" then
+                text = text .. " " .. (L[entry.suffixKey] or entry.suffixFallback)
+            end
+            Add(entry.id, entry.addon, text)
         end
     end
     return guidance

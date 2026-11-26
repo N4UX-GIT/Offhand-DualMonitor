@@ -38,28 +38,19 @@ function Compatibility.IsAddonPresent(name)
     return false
 end
 
+-- Replacement HUD owners come from the bridges' ownership roles.
+local function HasRole(role)
+    return Offhand.Bridges and Offhand.Bridges:HasRole(role) or false
+end
+
 function Compatibility.HasCustomActionBarAddon()
-    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui
-        or (Offhand.Bridges and Offhand.Bridges:HasRole("hud.actionBars")) then return true end
-    if Compatibility.IsAddonPresent("EllesmereUIActionBars") then return true end
+    if HasRole("hud.actionBars") then return true end
     local main = _G.MainMenuBar or _G.MainActionBar
     return not main
 end
 
 function Compatibility.HasCustomStatusBarAddon()
-    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui
-        or (Offhand.Bridges and Offhand.Bridges:HasRole("hud.statusBars")) then return true end
-    if not Compatibility.IsAddonPresent("EllesmereUIActionBars") then return false end
-    -- DataBars is a separate information-panel module, not the native XP/Rep
-    -- replacement. ActionBars owns that replacement unless the player opts back
-    -- into Blizzard's bars. Read its cross-addon accessor without changing state.
-    local lite = _G.EllesmereUI and _G.EllesmereUI.Lite
-    if lite and type(lite.GetAddon) == "function" then
-        local ok, addon = pcall(lite.GetAddon, "EllesmereUIActionBars", true)
-        local profile = ok and addon and addon.db and addon.db.profile
-        if profile and profile.useBlizzardDataBars == true then return false end
-    end
-    return true
+    return HasRole("hud.statusBars")
 end
 
 local function GetBagSmithParkingParent(frame)
@@ -102,15 +93,14 @@ function Compatibility.HasCustomBagAddon()
 end
 
 function Compatibility.HasCustomMinimapAddon()
-    if _G.SexyMap or _G.Carbonite or _G.ElvUI then return true end
-    if Compatibility.IsAddonPresent("EllesmereUIMinimap") then return true end
+    if HasRole("hud.minimap") then return true end
     local minimap = _G.MinimapCluster
     if not minimap then return true end
     return minimap.IsUserPlaced and minimap:IsUserPlaced() or false
 end
 
-function Compatibility.HasEllesmerePartyFrames()
-    return Compatibility.IsAddonPresent("EllesmereUIRaidFrames")
+function Compatibility.HasCustomPartyFrames()
+    return HasRole("hud.partyFrames")
 end
 
 function Compatibility.IsBlizzardEditModeOwnedFrame(frame, name)
@@ -141,12 +131,8 @@ function Compatibility.UsesControllerInterface()
         and mainhand:IsControllerLayout() or false
 end
 
-function Compatibility.HasChattynator()
-    return Compatibility.IsAddonPresent("Chattynator")
-end
-
 function Compatibility.HasCustomChatAddon()
-    return Compatibility.HasChattynator() or Compatibility.IsAddonPresent("EllesmereUIChat")
+    return HasRole("hud.chat")
 end
 
 -- DaylightUI lends these native panels back for some views. Check the
@@ -299,16 +285,16 @@ function Compatibility.IsExternallyOwnedEditModeSystem(entry)
     elseif system == systems.ChatFrame then
         return Compatibility.HasCustomChatAddon()
     elseif system == systems.CooldownViewer then
-        return Compatibility.IsAddonPresent("EllesmereUICooldownManager")
+        return HasRole("hud.cooldownViewer")
     elseif system == systems.ObjectiveTracker then
-        return Compatibility.IsAddonPresent("EllesmereUIQuestTracker")
+        return HasRole("hud.objectiveTracker")
     elseif system == systems.UnitFrame then
         local indices = Enum.EditModeUnitFrameSystemIndices or {}
         if (indices.Party ~= nil and entry.systemIndex == indices.Party)
             or (indices.Raid ~= nil and entry.systemIndex == indices.Raid) then
-            return Compatibility.HasEllesmerePartyFrames() or _G.ElvUI ~= nil
+            return Compatibility.HasCustomPartyFrames() or HasRole("hud.groupFrames")
         end
-        return Compatibility.IsAddonPresent("EllesmereUIUnitFrames") or _G.ElvUI ~= nil
+        return HasRole("hud.unitFrames")
     end
     return false
 end
@@ -348,4 +334,4 @@ end
 Offhand.HasCustomActionBarAddon = Compatibility.HasCustomActionBarAddon
 Offhand.HasCustomBagAddon = Compatibility.HasCustomBagAddon
 Offhand.HasCustomMinimapAddon = Compatibility.HasCustomMinimapAddon
-Offhand.HasEllesmerePartyFrames = Compatibility.HasEllesmerePartyFrames
+Offhand.HasCustomPartyFrames = Compatibility.HasCustomPartyFrames

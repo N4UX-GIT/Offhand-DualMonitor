@@ -1240,35 +1240,56 @@ local function SharedLayoutClient()
         or tostring(WOW_PROJECT_ID or Offhand.tocVersion or "classic")
 end
 
+-- The saved signature joins the present owners of the hud.layoutSignature role
+-- in role order; the stored strings depend on that order.
 local function LayoutOwnershipSignature()
     local policy = Offhand.HUDCompatibility
-    if not policy or not policy.IsAddonPresent then return "" end
-    local owners = {}
-    for _, name in ipairs({"EllesmereUIActionBars", "EllesmereUIMinimap", "EllesmereUIChat",
-        "EllesmereUICooldownManager", "EllesmereUIQuestTracker", "EllesmereUIUnitFrames",
-        "EllesmereUIRaidFrames", "Bartender4", "Dominos", "ElvUI", "Tukui", "Chattynator"}) do
-        if policy.IsAddonPresent(name) then owners[#owners + 1] = name end
+    if not policy or not policy.IsAddonPresent or not Offhand.Bridges then return "" end
+    local owners, entries = Offhand.Bridges:GetRoleOwners("hud.layoutSignature")
+    local statusOwner = false
+    for _, entry in ipairs(entries) do
+        if entry.statusOwner then statusOwner = true end
     end
     -- Old signatures already represent replacement status bars by default.
-    -- Mark the case where Action Bars is loaded but Blizzard owns XP/Rep.
-    if policy.IsAddonPresent("EllesmereUIActionBars") and policy.HasCustomStatusBarAddon
+    -- Mark the case where a status owner is loaded but Blizzard owns XP/Rep.
+    if statusOwner and policy.HasCustomStatusBarAddon
         and not policy.HasCustomStatusBarAddon() then owners[#owners + 1] = "native-status" end
     return table.concat(owners, ":")
 end
 
-local function OnlyEllesmereGainedOwnership(previous, current)
+-- True when the only change is a suite (an owner matching a suitePattern of
+-- the signature entries) gaining ownership, with status bar ownership kept.
+local function OnlySuiteGainedOwnership(previous, current)
     if type(previous) ~= "string" or previous == current then return false end
+    local statusOwners, suitePatterns = {}, {}
+    for _, entry in ipairs(Offhand.Bridges and Offhand.Bridges:GetRoleEntries("hud.layoutSignature") or {}) do
+        if entry.statusOwner then statusOwners[#statusOwners + 1] = entry.name end
+        if type(entry.suitePattern) == "string" then suitePatterns[#suitePatterns + 1] = entry.suitePattern end
+    end
+    local function NativeStatus(set)
+        if set["native-status"] then return true end
+        for _, name in ipairs(statusOwners) do
+            if set[name] then return false end
+        end
+        return true
+    end
+    local function SuiteOwner(owner)
+        for _, pattern in ipairs(suitePatterns) do
+            if owner:match(pattern) then return true end
+        end
+        return false
+    end
     local before, after = {}, {}
     for owner in previous:gmatch("[^:]+") do before[owner] = true end
     for owner in current:gmatch("[^:]+") do after[owner] = true end
-    local hadNativeStatus = not before.EllesmereUIActionBars or before["native-status"]
-    local hasNativeStatus = not after.EllesmereUIActionBars or after["native-status"]
+    local hadNativeStatus = NativeStatus(before)
+    local hasNativeStatus = NativeStatus(after)
     if hasNativeStatus and not hadNativeStatus then return false end
     for owner in pairs(before) do
         if owner ~= "native-status" and not after[owner] then return false end
     end
     for owner in pairs(after) do
-        if owner ~= "native-status" and not before[owner] and not owner:match("^EllesmereUI") then return false end
+        if owner ~= "native-status" and not before[owner] and not SuiteOwner(owner) then return false end
     end
     return true
 end
@@ -2059,7 +2080,7 @@ function Mainhand:GetLayoutStatus(geometrySignature, layoutRecord)
         presetApplied = record.presetApplied == true,
         currentGeometry = record.geometrySignature == (geometrySignature or self:GetGeometrySignature()),
         currentOwnership = ownership == nil or ownership == currentOwnership,
-        ellesmereGainedOwnership = OnlyEllesmereGainedOwnership(ownership, currentOwnership),
+        ellesmereGainedOwnership = OnlySuiteGainedOwnership(ownership, currentOwnership),
     }
 end
 

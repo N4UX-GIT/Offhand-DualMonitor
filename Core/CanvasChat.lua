@@ -119,12 +119,7 @@ function Chat.Install(Canvas)
         if Offhand.HUDCompatibility and Offhand.HUDCompatibility.HasCustomChatAddon then
             return Offhand.HUDCompatibility.HasCustomChatAddon()
         end
-        if C_AddOns and C_AddOns.IsAddOnLoaded then
-            return C_AddOns.IsAddOnLoaded("Chattynator") or C_AddOns.IsAddOnLoaded("EllesmereUIChat")
-        elseif IsAddOnLoaded then
-            return IsAddOnLoaded("Chattynator") or IsAddOnLoaded("EllesmereUIChat")
-        end
-        return false
+        return Offhand.Bridges and Offhand.Bridges:HasRole("hud.chat") or false
     end
 
     local function IsSecondaryBlizzardChatFrame(frame, suppliedName)
@@ -439,9 +434,9 @@ function Chat.Install(Canvas)
         if not name or not IsBlizzardChatFrameDocked(frame, name) then return false end
         ClearTrackedChatState(name)
 
-        -- Chattynator reparents the native Combat Log (ChatFrame2), anchors it on
-        -- two sides inside its custom holder, and hides Blizzard's chrome. Never
-        -- resize or reanchor that borrowed native frame.
+        -- A custom chat addon can reparent the native Combat Log (ChatFrame2),
+        -- anchor it on two sides inside its own holder, and hide Blizzard's
+        -- chrome. Never resize or reanchor that borrowed native frame.
         if HasCustomChatAddon() then return true end
 
         local dock = GENERAL_CHAT_DOCK or GeneralDockManager
@@ -467,8 +462,8 @@ function Chat.Install(Canvas)
         return true
     end
 
-    -- Chattynator deliberately reuses Blizzard's primary edit box while anchoring
-    -- it to an unnamed Chattynator window.  Reattaching that edit box to the hidden
+    -- A custom chat addon can reuse Blizzard's primary edit box while anchoring
+    -- it to an unnamed window of its own.  Reattaching that edit box to the hidden
     -- ChatFrame1 makes Enter focus a valid but invisible input field.
     local function ShouldManageBlizzardChatEditBox(frame)
         return frame == ChatFrame1 and not HasCustomChatAddon()
@@ -527,11 +522,12 @@ function Chat:GetPlacementDiagnostics(compact)
     local compatibility = Offhand.HUDCompatibility
     local owner = "Blizzard"
     if compatibility and compatibility.IsAddonPresent then
-        local ellesmere = compatibility.IsAddonPresent("EllesmereUIChat")
-        local chattynator = compatibility.IsAddonPresent("Chattynator")
-        if ellesmere and chattynator then owner = "EllesmereUIChat,Chattynator"
-        elseif ellesmere then owner = "EllesmereUIChat"
-        elseif chattynator then owner = "Chattynator" end
+        -- Chat providers name their segments in order; a present one is listed.
+        local providers = {}
+        for _, segment in ipairs(Offhand.Bridges and Offhand.Bridges:GetDiagnosticSegments("chat") or {}) do
+            if compatibility.IsAddonPresent(segment.present) then providers[#providers + 1] = segment.label end
+        end
+        if #providers > 0 then owner = table.concat(providers, ",") end
     end
     local manager = _G.EditModeManagerFrame
     local dock = _G.GENERAL_CHAT_DOCK or _G.GeneralDockManager

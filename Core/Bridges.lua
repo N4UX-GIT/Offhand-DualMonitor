@@ -318,6 +318,7 @@ end
 local merged, sequence = {}, 0
 local roles, rules, settings = {}, {}, {}
 local resetKeys, movableFields, movingFields = {}, {}, {}
+local guidance, diagnostics = {}, {}
 
 local function NonEmpty(value)
     return type(value) == "string" and value ~= ""
@@ -334,11 +335,12 @@ local function Guarded(addon, fn, ...)
     return result == true
 end
 
+-- No pcall: these run on per-frame ownership checks, and the checks they
+-- replace called the query directly.
 local function AddonLoaded(name)
     local query = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
     if type(query) ~= "function" then return false end
-    local ok, loaded = pcall(query, name)
-    return ok and loaded and true or false
+    return query(name) and true or false
 end
 
 -- Detector: loaded="Folder", global="Name", present="Name" (loaded or a global
@@ -468,8 +470,16 @@ local function ByOrder(a, b)
     return a.sequence < b.sequence
 end
 
--- data: ownership, frameRules, moverFields, catalogs and settings (see
--- docs/BRIDGES.md). Unknown keys are ignored. A data table merges only once.
+local function Ordered(list, entry, addon)
+    sequence = sequence + 1
+    list[#list + 1] = { entry = entry, addon = addon, sequence = sequence,
+        order = type(entry.order) == "number" and entry.order or math.huge }
+    table.sort(list, ByOrder)
+end
+
+-- data: ownership, frameRules, moverFields, catalogs, settings, guidance and
+-- diagnostics (see docs/BRIDGES.md). Unknown keys are ignored. A data table
+-- merges only once.
 -- Returns true, or false and one of "id", "data".
 function Bridges:MergeData(addon, data)
     if not NonEmpty(addon) then return false, "id" end
@@ -479,12 +489,23 @@ function Bridges:MergeData(addon, data)
     if type(data.ownership) == "table" then
         for _, entry in ipairs(data.ownership) do
             if type(entry) == "table" and NonEmpty(entry.role) and NonEmpty(entry.name) then
-                sequence = sequence + 1
                 local list = roles[entry.role] or {}
                 roles[entry.role] = list
-                list[#list + 1] = { entry = entry, addon = addon, sequence = sequence,
-                    order = type(entry.order) == "number" and entry.order or math.huge }
-                table.sort(list, ByOrder)
+                Ordered(list, entry, addon)
+            end
+        end
+    end
+    if type(data.guidance) == "table" then
+        for _, entry in ipairs(data.guidance) do
+            if type(entry) == "table" and NonEmpty(entry.id) then Ordered(guidance, entry, addon) end
+        end
+    end
+    if type(data.diagnostics) == "table" then
+        for _, entry in ipairs(data.diagnostics) do
+            if type(entry) == "table" and NonEmpty(entry.slot) and NonEmpty(entry.label) then
+                local list = diagnostics[entry.slot] or {}
+                diagnostics[entry.slot] = list
+                Ordered(list, entry, addon)
             end
         end
     end
@@ -561,6 +582,33 @@ function Bridges:FirstRoleOwner(role)
         if Detect(item.entry.detect, item.addon) then return item.entry.name, item.entry end
     end
     return nil
+end
+
+-- Every entry of role in order, present or not (for facts about a role's
+-- possible owners, such as the layout signature's suite fields).
+function Bridges:GetRoleEntries(role)
+    local entries = {}
+    for index, item in ipairs(roles[role] or {}) do entries[index] = item.entry end
+    return entries
+end
+
+-- Guidance entries in (order, registration) order, and for each one whether
+-- its suffixWhen detector passes (a suffix is added only then).
+function Bridges:GetGuidanceEntries()
+    local entries, suffixes = {}, {}
+    for index, item in ipairs(guidance) do
+        entries[index] = item.entry
+        suffixes[index] = item.entry.suffixWhen ~= nil and Detect(item.entry.suffixWhen, item.addon) or false
+    end
+    return entries, suffixes
+end
+
+-- Diagnostic segments of slot in (order, registration) order. The consumer
+-- formats them; a segment's value function is its to pcall.
+function Bridges:GetDiagnosticSegments(slot)
+    local entries = {}
+    for index, item in ipairs(diagnostics[slot] or {}) do entries[index] = item.entry end
+    return entries
 end
 
 -- True when a frame rule matches. The name set is one table read; the other

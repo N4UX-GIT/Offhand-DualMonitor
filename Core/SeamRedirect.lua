@@ -16,7 +16,7 @@ local Compatibility = assert(
 local HasCustomActionBarAddon = Compatibility.HasCustomActionBarAddon
 local HasCustomBagAddon = Compatibility.HasCustomBagAddon
 local HasCustomMinimapAddon = Compatibility.HasCustomMinimapAddon
-local HasEllesmerePartyFrames = Compatibility.HasEllesmerePartyFrames
+local HasCustomPartyFrames = Compatibility.HasCustomPartyFrames
 local IsBlizzardEditModeOwnedFrame = Compatibility.IsBlizzardEditModeOwnedFrame
 local HasBlizzardEditMode = Compatibility.HasBlizzardEditMode
 local UsesNativeGamepadInterface = Compatibility.UsesNativeGamepadInterface
@@ -25,6 +25,12 @@ local HasCustomChatAddon = Compatibility.HasCustomChatAddon
 local UsesForeverEditMode = Compatibility.UsesForeverEditMode
 local IsForeverEditModeFrame = Compatibility.IsForeverEditModeFrame
 local RetailEditModeOwnsPrimaryChat = Compatibility.RetailEditModeOwnsPrimaryChat
+-- The notice key the first present custom party frame owner supplies.
+local function CustomPartyFramesNotice()
+    if not Offhand.Bridges then return nil end
+    local _, entry = Offhand.Bridges:FirstRoleOwner("hud.partyFrames")
+    return entry and entry.noticeKey
+end
 local TransientPolicy = assert(
     Offhand.HUDTransientPolicy,
     "Offhand HUD transient policy must load before SeamRedirect"
@@ -141,9 +147,9 @@ end
 
 function HUD:AlignChatFrame(m)
     if InCombatLockdown() or not Offhand.db.enabled or not ChatFrame1 or Offhand.db.dockChat == false then return end
-    -- Chattynator owns the complete chat layout, including Blizzard's shared
-    -- ChatFrame1EditBox.  Touching either its custom windows or that edit box
-    -- can leave the visible input without mouse/focus handling.
+    -- A custom chat addon can own the complete chat layout, including Blizzard's
+    -- shared ChatFrame1EditBox.  Touching either its custom windows or that edit
+    -- box can leave the visible input without mouse/focus handling.
     if HasCustomChatAddon() then return end
     local chat = ChatFrame1
     if IsRetailChatSettlementActive(chat) then return end
@@ -371,7 +377,7 @@ function HUD:AlignHUDFrames(m)
                     -- Forever's saved Edit Mode layout owns these frames. Writing
                     -- their anchors here can taint later Edit Mode/party refreshes.
                 elseif item[1] == "MinimapCluster" and HasCustomMinimapAddon() then
-                    -- Yield completely to custom minimap addon (e.g. SexyMap, BasicMinimap, ElvUI)
+                    -- Yield completely to a custom minimap addon
                 elseif frame._OffhandDragging then
                     -- Frame is actively being dragged by the player; do not interrupt!
                 else
@@ -1009,8 +1015,8 @@ function HUD:HookFrames()
             or (Offhand.isRetail and not activeName)
         if needsGuidance and not self.editModeGuidanceShown then
             self.editModeGuidanceShown = true
-            local messageKey = HasEllesmerePartyFrames()
-                and "COMPAT_ELLESMERE_PARTY" or (UsesForeverEditMode() and "EDIT_MODE_LAYOUT_MISSING" or "EDIT_MODE_LAYOUT_MISSING_RETAIL")
+            local messageKey = HasCustomPartyFrames() and CustomPartyFramesNotice()
+                or (UsesForeverEditMode() and "EDIT_MODE_LAYOUT_MISSING" or "EDIT_MODE_LAYOUT_MISSING_RETAIL")
             Offhand:Print((Offhand.L and Offhand.L[messageKey]) or (Offhand.L and Offhand.L["EDIT_MODE_LAYOUT_MISSING"]))
         end
     end

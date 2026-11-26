@@ -457,7 +457,7 @@ assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
 canvasChunk("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua" })
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua" })
 
 addon.HUD:HookFrames()
 
@@ -1046,7 +1046,7 @@ print("PASS: PartyMemberFrame1 dragged back to Game View updates savedMainPositi
 -- ============================================================================
 addon.isForever = true
 C_AddOns = { IsAddOnLoaded = function(name) return name == "EllesmereUIRaidFrames" end }
-assert(addon.HasEllesmerePartyFrames and addon.HasEllesmerePartyFrames(),
+assert(addon.HasCustomPartyFrames and addon.HasCustomPartyFrames(),
     "Offhand must detect EllesmereUI's loaded Party/Raid Frames module")
 C_AddOns = nil
 MainActionBar = makeMockFrame("MainActionBar", 500, 45)
@@ -2229,7 +2229,7 @@ do
     local points = #map.points
     addon.Bridges = {ShouldPreserveSingleScreenPosition=function(_,frame,metrics)
         return frame == map and not metrics.isSpanned
-    end}
+    end, HasRole=function() return false end}
     assert(not addon.Canvas:PlaceForSingleScreenRecovery(map,
         {topologyStatus="MISMATCH",isSpanned=false}) and #map.points == points,
         "single-screen recovery must not replace a bridged addon's restored anchor")

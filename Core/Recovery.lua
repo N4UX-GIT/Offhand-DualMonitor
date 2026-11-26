@@ -64,9 +64,7 @@ function Recovery:Run()
     -- Native controller and replacement HUDs retain ownership of their systems.
     if systems and mainhand and mainhand.CreateOrUpdateEditModeLayout
         and not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.editModeBlocker"))
-        and not _G.ElvUI and not _G.Tukui
-        and not (mainhand.IsControllerLayout and mainhand:IsControllerLayout())
-        and not (_G.MoveAny or _G.MoveAnything) then
+        and not (mainhand.IsControllerLayout and mainhand:IsControllerLayout()) then
         local function Add(name, system, index, needsIndex, x, y, expected)
             if system == nil or (needsIndex and index == nil) then return end
             if compatibility and compatibility.IsExternallyOwnedEditModeSystem
@@ -102,7 +100,7 @@ function Recovery:Run()
             metrics.gameRight - 180, metrics.gameBottom + 80)
         Add("PlayerFrame", systems.UnitFrame, units and units.Player, true,
             metrics.gameLeft + 180, metrics.gameTop - 180)
-        if not (compatibility and compatibility.HasEllesmerePartyFrames and compatibility.HasEllesmerePartyFrames()) then
+        if not (compatibility and compatibility.HasCustomPartyFrames and compatibility.HasCustomPartyFrames()) then
             Add("PartyFrame", systems.UnitFrame, units and units.Party, true,
                 metrics.gameLeft + 180, metrics.gameTop - 500)
             Add("CompactRaidFrameContainer", systems.UnitFrame, units and units.Raid, true,

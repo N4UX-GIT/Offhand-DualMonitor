@@ -694,18 +694,24 @@ assert(supported.API.RegisterBridge("Kept", {contract = 1}) == true)
 assert(CoreBridges.Load(supported, {}) == supportBridges and supportBridges:Get("Kept"),
     "the support loader must keep an already loaded registry")
 
--- A throwing IsAddOnLoaded counts as not loaded
+-- loaded and present detectors ask the client once per check, with no pcall
 addon, Bridges = Load()
-addon.API.RegisterAddonData("Throwing", {ownership = {
+addon.API.RegisterAddonData("Queried", {ownership = {
     {role = "t.loaded", name = "L", detect = {loaded = "Anything"}},
-    {role = "t.present", name = "P", detect = {present = "ThrowingGlobal"}},
+    {role = "t.present", name = "P", detect = {present = "QueriedGlobal"}},
 }})
-C_AddOns = {IsAddOnLoaded = function() error("addon query boom") end}
-assert(Bridges:HasRole("t.loaded") == false and Bridges:HasRole("t.present") == false,
-    "a throwing addon query must count as not loaded")
-_G.ThrowingGlobal = {}
-assert(Bridges:HasRole("t.present") == true, "present must still accept the global when the query throws")
-_G.ThrowingGlobal, C_AddOns = nil, nil
+local addonQueries, addonAnswer = 0, nil
+C_AddOns = {IsAddOnLoaded = function() addonQueries = addonQueries + 1; return addonAnswer end}
+assert(Bridges:HasRole("t.loaded") == false and Bridges:HasRole("t.present") == false and addonQueries == 2,
+    "an addon that is not loaded must not hold a role, at one query per check")
+addonAnswer = 1
+assert(Bridges:HasRole("t.loaded") == true and Bridges:HasRole("t.present") == true,
+    "a truthy query result must count as loaded")
+addonAnswer = nil
+_G.QueriedGlobal = {}
+assert(Bridges:HasRole("t.present") == true and Bridges:HasRole("t.loaded") == false,
+    "present must accept the global when the addon is not loaded")
+_G.QueriedGlobal, C_AddOns = nil, nil
 
 -- IsControllerOwned and the ConsolePort data bridge
 addon, Bridges = Load()
@@ -733,6 +739,166 @@ assert(Bridges:HasRole("report.actionBars") == true and Bridges:HasRole("hud.con
     and addon.API.IsControllerOwned() == false,
     "a loaded ConsolePort without its global must be reported but must not own the controller")
 C_AddOns = nil
+
+-- Role entries, guidance entries and diagnostic segments
+addon, Bridges = Load()
+addon.API.RegisterAddonData("Second", {
+    ownership = {{role = "t.entries", name = "Late", order = 20, detect = {global = "NeverSetGlobal"}}},
+    guidance = {{id = "late", order = 20}, {id = "unordered"}},
+    diagnostics = {{slot = "s", order = 20, label = "B"}, {slot = "s", label = "C"}, {slot = "s", order = 5}},
+})
+addon.API.RegisterAddonData("First", {
+    ownership = {{role = "t.entries", name = "Early", order = 10, detect = {global = "NeverSetGlobal"}}},
+    guidance = {{id = "early", order = 10, suffixWhen = {global = "SuffixGlobal"}}, {order = 1}},
+    diagnostics = {{slot = "s", order = 10, label = "A"}},
+})
+local function Joined(list, field)
+    local out = {}
+    for index, item in ipairs(list) do out[index] = field and item[field] or item end
+    return table.concat(out, ",")
+end
+assert(Joined(Bridges:GetRoleEntries("t.entries"), "name") == "Early,Late" and #Bridges:GetRoleOwners("t.entries") == 0,
+    "role entries must list every owner in order, present or not")
+assert(#Bridges:GetRoleEntries("t.none") == 0, "an unknown role must have no entries")
+local guide, suffix = Bridges:GetGuidanceEntries()
+assert(Joined(guide, "id") == "early,late,unordered" and suffix[1] == false and suffix[2] == false
+    and suffix[3] == false, "guidance must sort by order, last when unordered, and need an id")
+_G.SuffixGlobal = {}
+guide, suffix = Bridges:GetGuidanceEntries()
+assert(suffix[1] == true and suffix[2] == false, "a guidance suffix must follow its detector")
+_G.SuffixGlobal = nil
+assert(Joined(Bridges:GetDiagnosticSegments("s"), "label") == "A,B,C",
+    "diagnostic segments must sort by order and need a slot and a label")
+assert(#Bridges:GetDiagnosticSegments("none") == 0, "an unknown slot must have no segments")
+
+-- The HUD and report ownership data bridges reproduce the legacy lists and their order.
+local hudBridgeFiles = {}
+for _, name in ipairs({"Bartender4", "BlizzMove", "Carbonite", "Cell", "Chattynator", "ConsolePort", "Dominos",
+    "EllesmereUI", "ElvUI", "MoveAny", "MoveMyBags", "PitBull4", "SexyMap", "ShadowedUnitFrames", "Tukui",
+    "XPerl", "ZPerl"}) do
+    hudBridgeFiles[#hudBridgeFiles + 1] = "Bridges/" .. name .. "/Bridge.lua"
+end
+local hudLoaded = {}
+local hudFolders = {"EllesmereUIActionBars", "EllesmereUIMinimap", "EllesmereUIChat", "EllesmereUICooldownManager",
+    "EllesmereUIQuestTracker", "EllesmereUIUnitFrames", "EllesmereUIRaidFrames", "Bartender4", "Dominos", "ElvUI",
+    "Tukui", "Chattynator", "ShadowedUnitFrames", "Cell", "PitBull4", "ZPerl", "XPerl", "MoveAny", "BlizzMove",
+    "MoveMyBags", "ConsolePort"}
+local hudGlobals = {"Bartender4", "Dominos", "ElvUI", "Tukui", "ConsolePort", "SexyMap", "Carbonite", "MoveAny",
+    "ElvUI_Bar1", "TukuiActionBars", "TukuiPlayerFrame", "ElvUF_Player"}
+local function SetHUDOwners(present)
+    for _, name in ipairs(hudFolders) do hudLoaded[name] = present or nil end
+    for _, name in ipairs(hudGlobals) do _G[name] = present and {} or nil end
+    C_AddOns = present and {IsAddOnLoaded = function(name) return hudLoaded[name] == true end} or nil
+end
+local hudRoles = {"hud.actionBars", "hud.statusBars", "hud.minimap", "hud.chat", "hud.partyFrames", "hud.unitFrames",
+    "hud.groupFrames", "hud.cooldownViewer", "hud.objectiveTracker", "hud.editModeBlocker", "hud.layoutSignature",
+    "report.actionBars", "report.chat", "report.minimap", "report.unitFrames", "report.movers"}
+local LEGACY_SIGNATURE = "EllesmereUIActionBars:EllesmereUIMinimap:EllesmereUIChat:EllesmereUICooldownManager:"
+    .. "EllesmereUIQuestTracker:EllesmereUIUnitFrames:EllesmereUIRaidFrames:Bartender4:Dominos:ElvUI:Tukui:Chattynator"
+local GUIDANCE_ORDER = "suf,moveany,movemybags,blizzmove,ab:Bartender4,ab:Dominos,suite:ElvUI,suite:Tukui,"
+    .. "ellesmere,uf:PitBull4,uf:ZPerl,uf:XPerl,uf:Cell"
+addon, Bridges = Load()
+CoreBridges.Load(addon, hudBridgeFiles)
+assert(#Bridges:List() == 0, "the ownership data bridges must not register bridge objects")
+for _, role in ipairs(hudRoles) do
+    assert(Bridges:HasRole(role) == false, role .. " must have no owner while no addon is present")
+end
+SetHUDOwners(true)
+local function Owners(role, separator) return table.concat((Bridges:GetRoleOwners(role)), separator or ",") end
+assert(Owners("hud.layoutSignature", ":") == LEGACY_SIGNATURE,
+    "the layout ownership signature must keep the legacy order byte for byte")
+assert(Owners("report.actionBars") == "Bartender4,Dominos,EllesmereUIActionBars,ConsolePort,ElvUI,Tukui",
+    "action bar owners must keep the legacy report order")
+assert(Owners("report.unitFrames") == "ShadowedUnitFrames,EllesmereUIUnitFrames,ElvUI,Tukui,Cell,PitBull4,ZPerl,XPerl",
+    "unit frame owners must keep the legacy report order")
+assert(Owners("report.chat") == "Chattynator,EllesmereUIChat", "chat owners must keep the legacy report order")
+assert(Owners("report.minimap") == "EllesmereUIMinimap,SexyMap,Carbonite,ElvUI"
+    and Bridges:FirstRoleOwner("report.minimap") == "EllesmereUIMinimap",
+    "minimap owners must keep the legacy first-wins order")
+assert(Owners("report.movers") == "MoveAny,BlizzMove,MoveMyBags", "frame movers must keep the legacy report order")
+assert(Owners("hud.actionBars") == "Bartender4,Dominos,ElvUI,Tukui,ConsolePort,EllesmereUIActionBars"
+    and Owners("hud.statusBars") == "Bartender4,Dominos,ElvUI,Tukui,ConsolePort,EllesmereUIActionBars",
+    "bar owners must be tested in the legacy order")
+assert(Owners("hud.minimap") == "SexyMap,Carbonite,ElvUI,EllesmereUIMinimap"
+    and Owners("hud.chat") == "Chattynator,EllesmereUIChat"
+    and Owners("hud.unitFrames") == "EllesmereUIUnitFrames,ElvUI"
+    and Owners("hud.groupFrames") == "ElvUI"
+    and Owners("hud.editModeBlocker") == "ConsolePort,ElvUI,Tukui,MoveAny",
+    "HUD owners must be tested in the legacy order")
+local _, partyEntry = Bridges:FirstRoleOwner("hud.partyFrames")
+assert(partyEntry.name == "EllesmereUIRaidFrames" and partyEntry.noticeKey == "COMPAT_ELLESMERE_PARTY",
+    "custom party frames must supply the legacy notice key")
+assert(Joined((Bridges:GetGuidanceEntries()), "id") == GUIDANCE_ORDER, "guidance must keep the legacy order")
+assert(Joined(Bridges:GetDiagnosticSegments("chat"), "label") == "EllesmereUIChat,Chattynator"
+    and Joined(Bridges:GetDiagnosticSegments("minimap"), "label")
+        == "SexyMap,EllesmereCore,EllesmereMinimap,EllesmereOptions,EllesmereMover,EllesmereProfileEnabled",
+    "diagnostic segments must keep the legacy order")
+EllesmereUI = {Lite = {GetAddon = function() return {db = {profile = {useBlizzardDataBars = true}}} end}}
+assert(Owners("hud.statusBars") == "Bartender4,Dominos,ElvUI,Tukui,ConsolePort",
+    "Blizzard XP/Rep bars chosen in EllesmereUI must release its status bar ownership")
+EllesmereUI = nil
+SetHUDOwners(false)
+
+-- The compatibility report, its guidance and the layout status consume those lists.
+do
+    local report = {AddonWindowCatalog = {}, isForever = true}
+    WorldMapFrame = {}
+    assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", report)
+    CoreBridges.Load(report, hudBridgeFiles)
+    local compat = report.CanvasCompatibility
+    assert(#compat.GetExternalControlGuidance() == 0, "no guidance without external owners")
+    SetHUDOwners(true)
+    local owners = compat.GetActiveExternalOwners()
+    assert(table.concat(owners.actionBars, ",") == "Bartender4,Dominos,EllesmereUIActionBars,ConsolePort,ElvUI,Tukui"
+        and table.concat(owners.unitFrames, ",")
+            == "ShadowedUnitFrames,EllesmereUIUnitFrames,ElvUI,Tukui,Cell,PitBull4,ZPerl,XPerl"
+        and table.concat(owners.chat, ",") == "Chattynator,EllesmereUIChat" and owners.minimap == "EllesmereUIMinimap"
+        and table.concat(owners.movers, ",") == "MoveAny,BlizzMove,MoveMyBags",
+        "the compatibility report must keep the legacy owner lists")
+    local tips, ids, byId = compat.GetExternalControlGuidance(), {}, {}
+    for index, tip in ipairs(tips) do ids[index], byId[tip.id] = tip.id, tip end
+    assert(table.concat(ids, ",") == GUIDANCE_ORDER, "the guidance must come out in the legacy order")
+    assert(byId["ab:Dominos"].addon == "Dominos" and byId["ab:Dominos"].text
+        == "Dominos controls action bars. Unlock and move bars in Dominos instead of Blizzard Edit Mode.",
+        "formatted guidance must name its addon twice")
+    assert(byId.movemybags.text:find("Options > AddOns > MoveMyBags.", 1, true),
+        "the MoveMyBags layers tip must follow its guidance on Forever")
+    MoveMyBagsDB = {layers = false}
+    assert(not compat.GetExternalControlGuidance()[3].text:find("Options > AddOns", 1, true),
+        "the layers tip must stay away once MoveMyBags layers are off")
+    MoveMyBagsDB = nil
+    assert(compat.GetDiagnostics(false):find(" | FrameControllers=ShadowedUnitFrames,EllesmereUIUnitFrames,ElvUI,"
+        .. "Tukui,Cell,PitBull4,ZPerl,XPerl,Bartender4,Dominos,EllesmereUIActionBars,ConsolePort,MoveAny,BlizzMove,"
+        .. "MoveMyBags", 1, true), "the frame controller diagnostics must keep the legacy order")
+    SetHUDOwners(false)
+    WorldMapFrame = nil
+
+    local layout = {Mainhand = {}, MainhandGeometry = {}, MainhandCompatibility = {
+        IsNativeGamepadInterface = function() return false end, IsControllerMode = function() return false end}}
+    assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", layout)
+    assert(loadfile("Core/MainhandEditMode.lua"))("Offhand", layout)
+    CoreBridges.Load(layout, hudBridgeFiles)
+    SetHUDOwners(true)
+    local function Status(signature)
+        return layout.Mainhand:GetLayoutStatus("geometry", {generatedName = "Offhand", ownershipSignature = signature})
+    end
+    local status = Status(LEGACY_SIGNATURE)
+    assert(status.currentOwnership == true and status.ellesmereGainedOwnership == false,
+        "a legacy signature saved with every owner present must still match")
+    assert(Status(LEGACY_SIGNATURE:gsub("EllesmereUIRaidFrames:", "")).ellesmereGainedOwnership == true,
+        "a suite module gaining ownership must be recognised")
+    assert(Status(LEGACY_SIGNATURE:gsub(":Chattynator", "")).ellesmereGainedOwnership == false,
+        "another addon gaining ownership must not count as the suite")
+    -- Only the bar addons' globals own status bars; loaded folders keep the signature.
+    Bartender4, Dominos, ElvUI, Tukui, ConsolePort = nil, nil, nil, nil, nil
+    EllesmereUI = {Lite = {GetAddon = function() return {db = {profile = {useBlizzardDataBars = true}}} end}}
+    status = Status(LEGACY_SIGNATURE)
+    assert(status.currentOwnership == false and status.ellesmereGainedOwnership == false
+        and Status(LEGACY_SIGNATURE .. ":native-status").currentOwnership == true,
+        "Blizzard XP/Rep bars must append native-status to the signature")
+    EllesmereUI = nil
+    SetHUDOwners(false)
+end
 
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
@@ -762,9 +928,13 @@ for line in io.lines("Offhand.toc") do
         local text = handle:read("*a")
         handle:close()
         coreFiles = coreFiles + 1
-        for _, token in ipairs({"ConsolePort"}) do
+        for _, token in ipairs({"ConsolePort", "Bartender4", "Dominos", "SexyMap", "Carbonite",
+            "ShadowedUnitFrames", "ShadowUF", "PitBull4", "ZPerl", "XPerl", "Chattynator", "ElvUF", "ElvUI_Bar1",
+            "TukuiPlayerFrame", "TukuiUnitFrames", "TukuiActionBars", "MoveMyBagsDB", "EllesmereUIRaidFrames",
+            "EllesmereUIChat", "EllesmereUIQuestTracker", "COMPAT_GUIDE", "COMPAT_ELLESMERE_PARTY"}) do
             assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
+        assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)
     end
 end
 assert(coreFiles > 50, "the purity scan must read the manifest's core files")

@@ -93,20 +93,27 @@ compile into one set.
 
 | Key | Shape | Read by |
 | --- | --- | --- |
-| `ownership` | Array of `{ role, name, order, detect, ... }`, sorted by `(order, registration)`, unordered last | `Bridges:HasRole(role)`, `Bridges:GetRoleOwners(role)` (names, entries), `Bridges:FirstRoleOwner(role)` (name, entry) |
+| `ownership` | Array of `{ role, name, order, detect, ... }`, sorted by `(order, registration)`, unordered last | `Bridges:HasRole(role)`, `Bridges:GetRoleOwners(role)` (names, entries), `Bridges:FirstRoleOwner(role)` (name, entry), `Bridges:GetRoleEntries(role)` (every entry, present or not) |
 | `frameRules` | `{ [rule] = { matcher, ... } }` | `Bridges:MatchFrame(rule, frame, name)`, `Bridges:MatchName(rule, name)`, `Bridges:GetRuleNames(rule)` (literal names, qualifiers not evaluated) |
 | `moverFields` | `{ movable = { "field" }, moving = { "field" } }` | `Bridges.IsExternallyMovable(frame)` (a field `== true`), `Bridges.IsExternallyMoving(frame)` (a field set) |
 | `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` |
 | `settings` | `{ [key] = { store = "profile" or "character", legacyKey, default, resetOnCharacterChange } }` | `Offhand.API.Get/SetBridgeSetting`, `Get/SetBridgeCharacterSetting`, `Bridges:GetSettingDefaults()`, `Bridges:GetCharacterResetKeys()` |
+| `guidance` | Array of `{ id, order, addon, when = { [ownersList] = name }, key, fallback, args = 2, suffixWhen = detector, suffixKey, suffixFallback }`, sorted like ownership | `Bridges:GetGuidanceEntries()` (entries, and per entry whether `suffixWhen` passes); `CanvasCompatibility.GetExternalControlGuidance` shows an entry when a `when` name is in that list of `GetActiveExternalOwners()`, as `L[key] or fallback`, formatted with `addon` twice when `args = 2`, plus `" " .. (L[suffixKey] or suffixFallback)` |
+| `diagnostics` | Array of `{ slot, order, label, present = "Folder" }` or `{ slot, order, label, value = function() }`, sorted like ownership | `Bridges:GetDiagnosticSegments(slot)`; slot `minimap`: `label:yes/no` (present) or `label:value` in the minimap visibility report; slot `chat`: present labels joined as `ChatProviders=` |
 
 Roles and rules core reads:
 
 | Role or rule | Read by |
 | --- | --- |
 | `hud.controller` | Every controller site: an owner present means an external controller addon owns the protected controller HUD, so Offhand's native Gamepad placement, controller Edit Mode layouts, learned windows, addon window Escape handling and toggle keep-open stand aside; `Offhand.API.IsControllerOwned()` |
-| `hud.actionBars`, `hud.statusBars` | `HUDCompatibility.HasCustomActionBarAddon`, `HasCustomStatusBarAddon` |
+| `hud.actionBars`, `hud.statusBars` | `HUDCompatibility.HasCustomActionBarAddon`, `HasCustomStatusBarAddon`, and the Edit Mode ActionBar and StatusTrackingBar systems |
+| `hud.minimap`, `hud.chat` | `HUDCompatibility.HasCustomMinimapAddon`, `HasCustomChatAddon`, and their Edit Mode systems |
+| `hud.partyFrames` | `HUDCompatibility.HasCustomPartyFrames` (party and raid frames); the first owner's `noticeKey` is the missing-layout notice |
+| `hud.unitFrames`, `hud.groupFrames`, `hud.cooldownViewer`, `hud.objectiveTracker` | `HUDCompatibility.IsExternallyOwnedEditModeSystem`: unit frame systems, party and raid systems (with `hud.partyFrames`), CooldownViewer, ObjectiveTracker |
+| `hud.layoutSignature` | The saved HUD layout ownership signature: present owner names joined with `:` in role order (the stored strings depend on it), then `native-status` when an owner with `statusOwner = true` is present but status bars are not externally owned; a new owner matching a `suitePattern` counts as that suite gaining ownership |
 | `hud.editModeBlocker` | Edit Mode HUD recovery (`Core/Recovery.lua`) skips its rebuild |
-| `report.actionBars` | Action bar owners in the compatibility report, in role order |
+| `report.actionBars`, `report.unitFrames`, `report.chat`, `report.movers` | Owner lists of `CanvasCompatibility.GetActiveExternalOwners()`, in role order, each name once |
+| `report.minimap` | The compatibility report's minimap owner (first present owner) |
 | rule `diagnosticFrame` | Extra roots in the panel placement diagnostics, after core's own |
 
 Settings live under the same key as before (`legacyKey`, else `key`) in
@@ -227,6 +234,13 @@ UI exists and waits for the vendor's `ADDON_LOADED`
 `hud.controller`, `hud.actionBars`, `hud.statusBars` and `hud.editModeBlocker`
 (while the `ConsolePort` global exists), `report.actionBars` (order 40, loaded
 or global) and the `diagnosticFrame` name `ConsolePortCrosshair`.
+
+The HUD and report owners are data bridges of the same kind, one folder per
+addon: `Bartender4`, `BlizzMove`, `Carbonite`, `Cell`, `Chattynator`,
+`Dominos`, `EllesmereUI`, `ElvUI`, `MoveAny`, `MoveMyBags`, `PitBull4`,
+`SexyMap`, `ShadowedUnitFrames`, `Tukui`, `XPerl` and `ZPerl`. Each file's
+header lists its roles, orders, guidance and diagnostic segments; the orders
+reproduce the lists core used to hold (`tests/bridges-contract.lua` pins them).
 
 ## 7. Error isolation and tests
 
