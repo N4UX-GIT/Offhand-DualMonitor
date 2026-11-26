@@ -62,7 +62,47 @@ local ok, problem = API.RegisterBridge("MyAddon", bridge)
 `"id"`, `"bridge"`, `"contract"`, or `"duplicate"`.
 
 If `bridge.catalog` is a table, registering the bridge attaches it under
-`Offhand.AddonWindowCatalog[id]` automatically.
+`Offhand.AddonWindowCatalog[id]` automatically. If `bridge.data` is a table it
+is merged as addon data for `id` (section 3.1). If `bridge.mapProvider` is a
+table with a non-empty `owner`, it becomes that world map owner's provider for
+`Bridges:CallMap` (the first bridge to claim an owner keeps it).
+
+### 3.1 Addon data
+
+`Offhand.API.RegisterAddonData(addon, data)` merges plain facts once into
+lookup tables in `Core/Bridges.lua`. It creates no bridge (nothing in
+`Bridges:List()`), so it may run unconditionally on every client. It returns
+`true`, or `false` and `"id"` or `"data"`. The same data table merges only
+once. Only a detector's `active` and a matcher's `verify` run in `pcall`, and
+only after the declarative part passed; a throw counts as false and is
+recorded in `Offhand.Bridges.errors[addon]`. Both must return a literal `true`.
+
+A *detector* is a table whose given fields must all pass: `loaded="Folder"`
+(IsAddOnLoaded), `global="Name"` (`_G[Name] ~= nil`), `present="Name"` (either),
+`anyOf={detector, ...}`, `forever=true` (Forever client), `active=function()`.
+No detector means present.
+
+A *frame matcher* selects a frame by any one of `names={...}`, `patterns={...}`
+(on the name), `identity={"Global", ...}` (`frame == _G[Global]`),
+`widget={global, key}` (`rawget(_G[global], key) == frame`),
+`index={global, key}` (`_G[name] == frame` and `_G[global][name][key] == name`),
+`field="key"` (`frame[key] ~= nil`), `fieldTrue="key"` (`frame[key] == true`),
+then requires every qualifier: `when=detector`, `parent="GlobalFrame"`,
+`verify=function(frame, name)`. A plain string is a name. Name-only matchers
+compile into one set.
+
+| Key | Shape | Read by |
+| --- | --- | --- |
+| `ownership` | Array of `{ role, name, order, detect, ... }`, sorted by `(order, registration)`, unordered last | `Bridges:HasRole(role)`, `Bridges:GetRoleOwners(role)` (names, entries), `Bridges:FirstRoleOwner(role)` (name, entry) |
+| `frameRules` | `{ [rule] = { matcher, ... } }` | `Bridges:MatchFrame(rule, frame, name)`, `Bridges:MatchName(rule, name)`, `Bridges:GetRuleNames(rule)` (literal names, qualifiers not evaluated) |
+| `moverFields` | `{ movable = { "field" }, moving = { "field" } }` | `Bridges.IsExternallyMovable(frame)` (a field `== true`), `Bridges.IsExternallyMoving(frame)` (a field set) |
+| `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` |
+| `settings` | `{ [key] = { store = "profile" or "character", legacyKey, default, resetOnCharacterChange } }` | `Offhand.API.Get/SetBridgeSetting`, `Get/SetBridgeCharacterSetting`, `Bridges:GetSettingDefaults()`, `Bridges:GetCharacterResetKeys()` |
+
+Settings live under the same key as before (`legacyKey`, else `key`) in
+Offhand's profile settings or `OffhandCharDB`, so nothing migrates. A read of an
+unset key gives `default`; an undeclared key, or one of the other store, reads
+`nil` and does not write. A character write never creates `OffhandCharDB`.
 
 ## 4. Callbacks the core makes
 
@@ -80,6 +120,9 @@ Every callback is optional and runs inside `pcall`:
 | `IdentifyLearnPlacement(frame, name, file)` | Learned-window opt-in check for cataloged bridge frames | Role string matching `bridge.catalog[role].learnPlacementFile` |
 | `IsExternallyOwnedFrame(frame, name)` | `HUDCompatibility.IsExternallyOwnedHUDFrame`, so generic popup rescue and panel movement skip a vendor HUD root the bridge places itself | Literal `true` to keep core away from the frame |
 | `RefreshTransientFrames(phase)` | With the Mainhand transient passes: `"hook"` (discovery) and `"position"` (placement, ahead of core's own popups and alerts) | Ignored |
+| `GetSettingsContributions(slot)` | `Bridges:GetSettingsContributions(slot)` for an Options slot (`map`, `alerts`, `recovery`, `help:EDIT_MODE`, `mapScaleTitle`, `mapDescription`) | Array of `{ id, kind, text, tooltip, get, set, onClick, shown, width, height, order }`; entries without an id are dropped, the rest sorted by `order` then bridge order |
+| `mapProvider` | `Bridges:CallMap(owner, method, ...)`: one `pcall` into the provider of the owner the caller resolved | The method's own results; nothing when absent or failing |
+| `slashCommands` | `Bridges:RunSlashCommand(cmd, arg)` calls `slashCommands[cmd](arg)` of the first bridge naming `cmd` | `RunSlashCommand` returns `true` when a bridge claimed `cmd` (even if it failed) |
 | `mapAddons` | Map integration diagnostics | Array of addon folder names |
 | `catalog` | Registered into `Offhand.AddonWindowCatalog[id]` | Catalog table (supports `suitePrefix` and role entries) |
 
@@ -97,6 +140,10 @@ Added by `Core/Bridges.lua`:
 - `Offhand.API.IsPopupRedirectEnabled()`: whether Offhand is enabled with its popup and alert redirection on; a bridge that re-anchors a vendor's alerts releases them when this is false
 - `Offhand.API.GetMainhandPixelHeightRatio()`: Mainhand's game pixel height over the physical window height while spanned, else `1`; a bridge multiplies a vendor's native frame scale by it
 - `Offhand.API.QueuePopupBounds(frame)`: queues a tooltip-like frame for Offhand's popup bounds pass, which fits it inside the game rectangle once shown; `true` when queued
+- `Offhand.API.RegisterAddonData(addon, data)` and the settings services of section 3.1
+- `Offhand.API.RegisterHUDTransfer(provider)`: sets `Offhand.HUDTransfer` to the one HUD layout transfer provider (`provider.id` required); `false, "provider"` or `false, "duplicate"` otherwise
+- Core state, read as core reads it: `IsEnabled()`, `IsForeverClient()`, `IsInputReserved()`, `IsGamepadUIEnabled()`, `IsNativeGamepadInterface()`, `IsGeometryTransitionActive()`, `IsLoggingOut()`, `GetExternalMapOwner()`, `GetOptionsMetrics()` (viewport metrics while enabled and spanned, else `nil`)
+- Core actions: `Print(fmt, ...)`, `GetText(key)`, `ShowPopup(popupKey, textArg1, textArg2, data)`, `RequestFullLayout(preserveScale)`, `RefreshWorkspaceChrome()`, `RegisterDynamicChromeFrame(name)`, `GetReloadFunction()`, `GetControls()`
 
 Existing geometry services (`Core/MainhandGeometry.lua`): `GetMainhandFrame`,
 `GetMainhandRect`, `GetGeometryRevision`, `RegisterGeometryCallback`,

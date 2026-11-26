@@ -357,6 +357,343 @@ assert(addon.API.QueuePopupBounds(queuedFrame) == true and queued[1] == queuedFr
 addon.PopupBounds = {Queue = function() error("queue boom") end}
 assert(addon.API.QueuePopupBounds(queuedFrame) == false, "a throwing popup bounds pass must not escape")
 
+-- RegisterAddonData, bridge.data and catalogs
+local loadedAddons = {}
+C_AddOns = {IsAddOnLoaded = function(name) return loadedAddons[name] == true end}
+addon, Bridges = Load()
+local function Rejects(reason, ...)
+    local ok, why = addon.API.RegisterAddonData(...)
+    assert(ok == false and why == reason, "addon data must be rejected with " .. reason)
+end
+Rejects("id", nil, {})
+Rejects("id", "", {})
+Rejects("data", "Facts", "not a table")
+local factCatalog, dataCatalog = {settings = {position = "addon"}}, {main = {position = "addon"}}
+assert(addon.API.RegisterAddonData("Facts", {catalogs = {FactsFolder = factCatalog, [""] = {}, Other = "x"}}) == true,
+    "valid addon data must register")
+assert(addon.AddonWindowCatalog.FactsFolder == factCatalog and addon.AddonWindowCatalog[""] == nil
+    and addon.AddonWindowCatalog.Other == nil, "data catalogs must merge into AddonWindowCatalog by folder")
+assert(#Bridges:List() == 0 and Bridges:Get("Facts") == nil, "addon data must not create a bridge")
+local carrier = {contract = 1, data = {catalogs = {CarrierSuite = dataCatalog},
+    ownership = {{role = "test.repeat", name = "Carrier"}}}}
+assert(Bridges:Register("Carrier", carrier) == true and addon.AddonWindowCatalog.CarrierSuite == dataCatalog,
+    "Register must merge bridge.data catalogs")
+assert(Bridges:Register("Carrier", carrier) == true and #Bridges:GetRoleOwners("test.repeat") == 1,
+    "re-registering a bridge must not merge its data twice")
+
+-- Ownership roles: order sorting, first wins and detectors
+addon, Bridges = Load()
+loadedAddons = {}
+addon.API.RegisterAddonData("Late", {ownership = {
+    {role = "test.owner", name = "Third", order = 30},
+    {role = "test.owner", name = "Unordered"},
+    {role = "test.owner", name = "FirstTie", order = 10},
+}})
+addon.API.RegisterAddonData("Early", {ownership = {
+    {role = "test.owner", name = "SecondTie", order = 10},
+    {role = "test.owner", name = "Lowest", order = 5, detect = {loaded = "LowestAddon"}},
+    {role = "", name = "Invalid"}, {role = "test.owner"}, "junk",
+}})
+local ownerNames, ownerEntries = Bridges:GetRoleOwners("test.owner")
+assert(table.concat(ownerNames, ",") == "FirstTie,SecondTie,Third,Unordered" and #ownerEntries == 4
+    and ownerEntries[1].name == "FirstTie", "owners must sort by order, then registration, unordered last")
+assert(Bridges:FirstRoleOwner("test.owner") == "FirstTie", "the first present owner must win")
+loadedAddons.LowestAddon = true
+local firstName, firstEntry = Bridges:FirstRoleOwner("test.owner")
+assert(firstName == "Lowest" and firstEntry.order == 5, "a detected lower order must win and return its entry")
+assert(Bridges:HasRole("test.owner") == true and Bridges:HasRole("test.none") == false
+    and Bridges:FirstRoleOwner("test.none") == nil and #Bridges:GetRoleOwners("test.none") == 0,
+    "unknown roles must have no owner")
+local activeCalls = 0
+addon.isForever = false
+addon.API.RegisterAddonData("Detectors", {ownership = {
+    {role = "d.loaded", name = "L", detect = {loaded = "LoadedAddon"}},
+    {role = "d.global", name = "G", detect = {global = "DetectorGlobal"}},
+    {role = "d.present", name = "P", detect = {present = "PresentAddon"}},
+    {role = "d.any", name = "A", detect = {anyOf = {{global = "AnyOne"}, {loaded = "AnyTwo"}}}},
+    {role = "d.forever", name = "F", detect = {forever = true}},
+    {role = "d.active", name = "Act", detect = {global = "ActiveGlobal",
+        active = function() activeCalls = activeCalls + 1; return activeCalls end}},
+    {role = "d.throw", name = "T", detect = {active = function() error("detector boom") end}},
+}})
+for _, role in ipairs({"d.loaded", "d.global", "d.present", "d.any", "d.forever", "d.active"}) do
+    assert(Bridges:HasRole(role) == false, role .. " must be absent before its addon appears")
+end
+assert(activeCalls == 0, "active must not run before the declarative detector passed")
+loadedAddons.LoadedAddon = true
+_G.DetectorGlobal = {}
+_G.PresentAddon = {}
+loadedAddons.AnyTwo = true
+addon.isForever = true
+_G.ActiveGlobal = true
+assert(Bridges:HasRole("d.loaded") and Bridges:HasRole("d.global") and Bridges:HasRole("d.present")
+    and Bridges:HasRole("d.any") and Bridges:HasRole("d.forever"), "each detector field must detect its addon")
+_G.PresentAddon = nil
+loadedAddons.PresentAddon = true
+assert(Bridges:HasRole("d.present") == true, "present must also accept a loaded addon")
+assert(Bridges:HasRole("d.active") == false and activeCalls == 1,
+    "active must run once the declarative part passed and must return a literal true")
+addon.API.RegisterAddonData("Yes", {ownership = {
+    {role = "d.yes", name = "Yes", detect = {active = function() return true end}},
+}})
+assert(Bridges:HasRole("d.yes") == true, "a literal true active must detect")
+assert(Bridges:HasRole("d.throw") == false and Bridges.errors.Detectors
+    and Bridges.errors.Detectors:find("detector boom", 1, true), "a throwing active must be recorded and fail")
+_G.DetectorGlobal, _G.ActiveGlobal = nil, nil
+
+-- Frame rules: every FrameMatcher field, verify only after a hit
+addon, Bridges = Load()
+loadedAddons = {}
+local verified = {}
+local plainFrame, patternFrame, identityFrame, widgetFrame = {}, {}, {}, {}
+local indexFrame, fieldFrame, trueFrame, childFrame = {}, {moverMark = false}, {flag = true}, {}
+_G.IdentityRoot = identityFrame
+_G.WidgetHolder = setmetatable({}, {__index = function() return widgetFrame end})
+_G.IndexedBar = indexFrame
+_G.IndexStore = {IndexedBar = {frame_name = "IndexedBar"}}
+function childFrame:GetParent() return UIParent end
+addon.API.RegisterAddonData("Rules", {frameRules = {
+    test = {
+        "PlainName",
+        {names = {"ListedName", ""}},
+        {patterns = {"^Pattern%d+$"}},
+        {identity = {"IdentityRoot"}},
+        {widget = {"WidgetHolder", "frame"}},
+        {index = {"IndexStore", "frame_name"}},
+        {field = "moverMark"},
+        {fieldTrue = "flag"},
+        {names = {"WhenName"}, when = {loaded = "WhenAddon"}},
+        {names = {"ChildRoot"}, parent = "UIParent"},
+        {names = {"Checked"}, verify = function(frame, name)
+            verified[#verified + 1] = name
+            return frame == plainFrame
+        end},
+        {names = {"Throws"}, verify = function() error("verify boom") end},
+    },
+}})
+assert(Bridges:MatchFrame("test", plainFrame, "PlainName") and Bridges:MatchFrame("test", plainFrame, "ListedName"),
+    "plain names and names-only matchers must match by name")
+assert(Bridges:MatchFrame("test", patternFrame, "Pattern12") and not Bridges:MatchFrame("test", patternFrame, "Pattern"),
+    "patterns must match the name")
+assert(Bridges:MatchFrame("test", identityFrame, nil) and not Bridges:MatchFrame("test", {}, "IdentityRoot"),
+    "identity must compare the frame with the global")
+_G.WidgetHolder = {frame = widgetFrame}
+assert(Bridges:MatchFrame("test", widgetFrame, nil), "widget must read the holder's field")
+_G.WidgetHolder = setmetatable({}, {__index = function() return widgetFrame end})
+assert(not Bridges:MatchFrame("test", widgetFrame, nil), "widget must read the holder's own field only")
+assert(Bridges:MatchFrame("test", indexFrame, "IndexedBar") and not Bridges:MatchFrame("test", {}, "IndexedBar"),
+    "index must require the global frame and its store entry")
+_G.IndexStore.IndexedBar.frame_name = "Other"
+assert(not Bridges:MatchFrame("test", indexFrame, "IndexedBar"), "index must require the entry to name the frame")
+assert(Bridges:MatchFrame("test", fieldFrame, nil) and not Bridges:MatchFrame("test", {}, nil),
+    "field must match any value set on the frame")
+assert(Bridges:MatchFrame("test", trueFrame, nil) and not Bridges:MatchFrame("test", {flag = 1}, nil),
+    "fieldTrue must require a literal true")
+assert(not Bridges:MatchFrame("test", {}, "WhenName"), "when must hold the matcher back while its addon is absent")
+loadedAddons.WhenAddon = true
+assert(Bridges:MatchFrame("test", {}, "WhenName"), "when must let the matcher through once its addon is present")
+assert(Bridges:MatchFrame("test", childFrame, "ChildRoot") and not Bridges:MatchFrame("test", {}, "ChildRoot"),
+    "parent must require the named parent frame")
+assert(#verified == 0, "verify must not run before a declarative hit")
+assert(not Bridges:MatchFrame("test", patternFrame, "Unrelated") and #verified == 0,
+    "verify must not run for a frame no selector chose")
+assert(Bridges:MatchFrame("test", plainFrame, "Checked") and verified[1] == "Checked",
+    "verify must run after a hit and receive frame and name")
+assert(not Bridges:MatchFrame("test", patternFrame, "Checked"), "a false verify must reject the frame")
+assert(not Bridges:MatchFrame("test", plainFrame, "Throws") and Bridges.errors.Rules
+    and Bridges.errors.Rules:find("verify boom", 1, true), "a throwing verify must be recorded and fail")
+assert(Bridges:MatchName("test", "PlainName") and Bridges:MatchName("test", "Pattern3")
+    and not Bridges:MatchName("test", "ChildRoot") and not Bridges:MatchName("test", "IndexedBar"),
+    "MatchName must use names and patterns only")
+assert(not Bridges:MatchFrame("missing", plainFrame, "PlainName"), "an unknown rule must not match")
+addon.API.RegisterAddonData("MoreRules", {frameRules = {test = {"Later", {names = {"PlainName"}}}}})
+assert(table.concat(Bridges:GetRuleNames("test"), ",")
+    == "PlainName,ListedName,WhenName,ChildRoot,Checked,Throws,Later",
+    "rule names must keep registration order once each")
+local ruleNames = Bridges:GetRuleNames("test")
+ruleNames[1] = "changed"
+assert(Bridges:GetRuleNames("test")[1] == "PlainName" and #Bridges:GetRuleNames("missing") == 0,
+    "GetRuleNames must return a copy")
+_G.IdentityRoot, _G.WidgetHolder, _G.IndexedBar, _G.IndexStore = nil, nil, nil, nil
+
+-- Mover fields
+addon, Bridges = Load()
+assert(Bridges.IsExternallyMovable({ofaMovable = true}) == false, "no mover fields must mean not movable")
+addon.API.RegisterAddonData("Mover", {moverFields = {movable = {"markMovable"}, moving = {"markMoving"}}})
+addon.API.RegisterAddonData("Mover2", {moverFields = {movable = {"markMovable", "otherMovable"}}})
+assert(Bridges.IsExternallyMovable({markMovable = true}) and Bridges.IsExternallyMovable({otherMovable = true})
+    and not Bridges.IsExternallyMovable({markMovable = 1}) and not Bridges.IsExternallyMovable(nil),
+    "a movable field must be a literal true")
+assert(Bridges.IsExternallyMoving({markMoving = 1}) and not Bridges.IsExternallyMoving({})
+    and not Bridges.IsExternallyMoving(nil), "a moving field must be set")
+
+-- Settings: legacy keys, defaults, stores and character reset keys
+addon, Bridges = Load()
+addon.API.RegisterAddonData("Setter", {settings = {
+    center = {legacyKey = "legacyCenterKey", default = false},
+    plain = {default = 3},
+    open = {store = "character", legacyKey = "legacyOpenKey", resetOnCharacterChange = true},
+    kept = {store = "character"},
+}})
+assert(addon.API.GetBridgeSetting("Setter", "center") == false, "an unset setting must read its default")
+addon.db = {legacyCenterKey = true}
+assert(addon.API.GetBridgeSetting("Setter", "center") == true, "a setting must read its legacy key")
+assert(addon.API.SetBridgeSetting("Setter", "center", false) == true and addon.db.legacyCenterKey == false
+    and addon.API.GetBridgeSetting("Setter", "center") == false, "a setting must write its legacy key")
+assert(addon.API.SetBridgeSetting("Setter", "plain", 7) == true and addon.db.plain == 7,
+    "a setting without a legacy key must use its own key")
+assert(addon.API.GetBridgeSetting("Setter", "open") == nil and addon.API.SetBridgeSetting("Setter", "open", 1) == false
+    and addon.API.GetBridgeSetting("Setter", "missing") == nil and addon.API.GetBridgeSetting("Nobody", "center") == nil,
+    "undeclared keys and other stores must neither read nor write")
+_G.OffhandCharDB = nil
+assert(addon.API.SetBridgeCharacterSetting("Setter", "open", true) == false and _G.OffhandCharDB == nil,
+    "a character write must not create the character table")
+_G.OffhandCharDB = {legacyOpenKey = true}
+assert(addon.API.GetBridgeCharacterSetting("Setter", "open") == true, "a character setting must read its legacy key")
+assert(addon.API.SetBridgeCharacterSetting("Setter", "kept", "x") == true and _G.OffhandCharDB.kept == "x",
+    "a character setting must write its key")
+local resetList = Bridges:GetCharacterResetKeys()
+assert(#resetList == 1 and resetList[1] == "legacyOpenKey", "only reset-on-change character keys must be listed")
+local defaults = Bridges:GetSettingDefaults()
+assert(defaults.legacyCenterKey == false and defaults.plain == 3 and defaults.legacyOpenKey == nil,
+    "profile defaults must be keyed by their stored key")
+addon.db, _G.OffhandCharDB = nil, nil
+
+-- CallMap
+addon, Bridges = Load()
+assert(Bridges:CallMap("MapOwner", "ReadFade") == nil and Bridges:CallMap(nil, "ReadFade") == nil,
+    "no provider must return nothing")
+local providerSelf, providerArg
+local provider = {owner = "MapOwner"}
+function provider:GetScaleState(arg) providerSelf, providerArg = self, arg; return {max = 2, step = 0.1}, "second" end
+function provider:Recover() error("map boom") end
+local shadow = {owner = "MapOwner"}
+function shadow:GetScaleState() return "shadow" end
+assert(Bridges:Register("MapBridge", {contract = 1, mapProvider = provider})
+    and Bridges:Register("Shadow", {contract = 1, mapProvider = shadow}))
+local scaleState, extra = Bridges:CallMap("MapOwner", "GetScaleState", "arg")
+assert(type(scaleState) == "table" and scaleState.max == 2 and extra == "second" and providerSelf == provider
+    and providerArg == "arg", "CallMap must call the first provider of the owner with self and return its results")
+assert(Bridges:CallMap("MapOwner", "Missing") == nil and Bridges:CallMap("Other", "GetScaleState") == nil,
+    "a missing method or owner must return nothing")
+assert(Bridges:CallMap("MapOwner", "Recover") == nil and Bridges.errors.MapBridge
+    and Bridges.errors.MapBridge:find("map boom", 1, true), "a throwing map method must be recorded")
+
+-- GetSettingsContributions
+addon, Bridges = Load()
+assert(#Bridges:GetSettingsContributions("map") == 0, "no bridge must mean no contributions")
+local slotsSeen = {}
+local contributorA, contributorB, contributorC = {contract = 1}, {contract = 1}, {contract = 1}
+function contributorA:GetSettingsContributions(slot)
+    slotsSeen[#slotsSeen + 1] = slot
+    return {{id = "a1", order = 20}, {id = "a2"}, {id = ""}, "junk"}
+end
+function contributorB:GetSettingsContributions() error("options boom") end
+function contributorC:GetSettingsContributions() return {{id = "c1", order = 20}, {id = "c2", order = 5}} end
+assert(Bridges:Register("ContribA", contributorA) and Bridges:Register("ContribB", contributorB)
+    and Bridges:Register("ContribC", contributorC))
+local contributionIds = {}
+for _, entry in ipairs(Bridges:GetSettingsContributions("alerts")) do contributionIds[#contributionIds + 1] = entry.id end
+assert(table.concat(contributionIds, ",") == "c2,a1,c1,a2" and slotsSeen[1] == "alerts",
+    "contributions must sort by order, then bridge order, and skip entries without an id")
+assert(Bridges.errors.ContribB and Bridges.errors.ContribB:find("options boom", 1, true),
+    "a throwing contribution must be recorded")
+
+-- RegisterHUDTransfer
+addon = Load()
+local transfer = {id = "Suite"}
+assert(select(2, addon.API.RegisterHUDTransfer({})) == "provider"
+    and select(2, addon.API.RegisterHUDTransfer("x")) == "provider", "a transfer provider needs an id")
+assert(addon.API.RegisterHUDTransfer(transfer) == true and addon.HUDTransfer == transfer,
+    "a transfer provider must register as Offhand.HUDTransfer")
+assert(addon.API.RegisterHUDTransfer(transfer) == true, "re-registering the same provider must succeed")
+local ok, why = addon.API.RegisterHUDTransfer({id = "Other"})
+assert(ok == false and why == "duplicate" and addon.HUDTransfer == transfer, "a second provider must be refused")
+
+-- RunSlashCommand
+addon, Bridges = Load()
+local slashArgs = {}
+assert(Bridges:RunSlashCommand("recover", "x") == false, "no bridge must leave a command unhandled")
+assert(Bridges:Register("SlashA", {contract = 1, slashCommands = {
+    recover = function(arg) slashArgs[#slashArgs + 1] = "A:" .. tostring(arg) end,
+    broken = function() error("slash boom") end,
+}}) and Bridges:Register("SlashB", {contract = 1, slashCommands = {
+    recover = function() slashArgs[#slashArgs + 1] = "B" end,
+    other = function(arg) slashArgs[#slashArgs + 1] = "B:" .. tostring(arg) end,
+}}))
+assert(Bridges:RunSlashCommand("recover", "now") == true and Bridges:RunSlashCommand("other", "y") == true
+    and table.concat(slashArgs, ",") == "A:now,B:y", "the first bridge naming a command must handle it")
+assert(Bridges:RunSlashCommand("unknown") == false and Bridges:RunSlashCommand(nil) == false,
+    "unclaimed commands must stay unhandled")
+assert(Bridges:RunSlashCommand("broken") == true and Bridges.errors.SlashA
+    and Bridges.errors.SlashA:find("slash boom", 1, true), "a throwing command must be handled and recorded")
+
+-- Core state services
+addon = Load()
+local API = addon.API
+assert(API.IsEnabled() == false and API.IsForeverClient() == false and API.IsInputReserved() == false
+    and API.IsGamepadUIEnabled() == false and API.IsNativeGamepadInterface() == false
+    and API.IsGeometryTransitionActive() == false and API.IsLoggingOut() == false,
+    "services must be false before core state exists")
+addon.db = {enabled = true}
+addon.isForever = true
+addon._displayGeometryTransitionActive = true
+addon._loggingOut = true
+local reserved, gamepad = true, true
+function addon:IsBlizzardInputReserved() return reserved end
+function addon:IsGamepadUIEnabled() return gamepad end
+addon.MainhandCompatibility = {IsNativeGamepadInterface = function() return gamepad end}
+assert(API.IsEnabled() == true and API.IsForeverClient() == true and API.IsInputReserved() == true
+    and API.IsGamepadUIEnabled() == true and API.IsNativeGamepadInterface() == true
+    and API.IsGeometryTransitionActive() == true and API.IsLoggingOut() == true,
+    "services must reflect core state")
+reserved, gamepad = false, false
+assert(API.IsInputReserved() == false and API.IsGamepadUIEnabled() == false and API.IsNativeGamepadInterface() == false,
+    "services must follow core state changes")
+local printed, layout, chromeCalls, dynamic = {}, {}, 0, {}
+function addon:Print(fmt, ...) printed[#printed + 1] = string.format(fmt, ...) end
+function addon:ShowPopup(key, a, b, data) return key .. ":" .. tostring(a) .. tostring(b) .. tostring(data) end
+function addon:ApplyFullLayout(preserve) layout[#layout + 1] = preserve end
+function addon:GetReloadUIFunction() return print end
+addon.L = setmetatable({KNOWN = "Known"}, {__index = function(_, key) return key end})
+addon.WorkspaceChrome = {Refresh = function() chromeCalls = chromeCalls + 1 end,
+    RegisterDynamicFrame = function(_, name) dynamic[#dynamic + 1] = name end}
+addon.CanvasCompatibility = {GetWorldMapExternalOwner = function() return "MapOwner" end}
+addon.UIControls = {}
+API.Print("%s=%d", "x", 2)
+assert(printed[1] == "x=2", "Print must go through Offhand's chat line")
+assert(API.GetText("KNOWN") == "Known" and API.GetText("MISSING") == "MISSING", "GetText must read the locale table")
+assert(API.ShowPopup("KEY", 1, 2, 3) == "KEY:123", "ShowPopup must pass its arguments to Offhand's popups")
+assert(API.RequestFullLayout(true) == true and layout[1] == true, "RequestFullLayout must run the full layout")
+assert(API.RefreshWorkspaceChrome() == true and chromeCalls == 1, "RefreshWorkspaceChrome must refresh the chrome")
+assert(API.RegisterDynamicChromeFrame("AddonWindow") == true and dynamic[1] == "AddonWindow",
+    "RegisterDynamicChromeFrame must register the name")
+assert(API.GetExternalMapOwner() == "MapOwner" and API.GetReloadFunction() == print
+    and API.GetControls() == addon.UIControls, "map owner, reload and controls must come from core")
+addon.Viewport = {GetMetrics = function() return {isSpanned = true, gameLeft = 1} end}
+assert(API.GetOptionsMetrics().gameLeft == 1, "spanned options metrics must be returned")
+addon.Viewport = {GetMetrics = function() return {isSpanned = false} end}
+assert(API.GetOptionsMetrics() == nil, "unspanned options metrics must be nil")
+addon.db.enabled = false
+assert(API.IsEnabled() == false and API.GetOptionsMetrics() == nil, "disabled Offhand must report disabled")
+addon = Load()
+assert(addon.API.RequestFullLayout(true) == false and addon.API.RefreshWorkspaceChrome() == false
+    and addon.API.RegisterDynamicChromeFrame("X") == false and addon.API.GetExternalMapOwner() == nil
+    and addon.API.GetReloadFunction() == nil and addon.API.GetText("KEY") == nil,
+    "services must be safe before their core modules load")
+addon.API.Print("unused")
+C_AddOns = nil
+
+-- Test support loader
+local CoreBridges = dofile("tests/support/core-bridges.lua")
+local supported = {AddonWindowCatalog = {}}
+local supportBridges = CoreBridges.Load(supported)
+assert(supportBridges == supported.Bridges and supported.API.RegisterAddonData,
+    "the support loader must load the real registry")
+assert(supported.API.RegisterBridge("Kept", {contract = 1}) == true)
+assert(CoreBridges.Load(supported, {}) == supportBridges and supportBridges:Get("Kept"),
+    "the support loader must keep an already loaded registry")
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",

@@ -18,8 +18,11 @@ Offhand.API.BRIDGE_CONTRACT = Bridges.CONTRACT
 
 local registry, order = {}, {}
 local namespaces, fallbackStorage = {}, {}
+local mapProviders = {}
 
 -- Returns true, or false and one of "id", "bridge", "contract", "duplicate".
+-- bridge.data is merged like Offhand.API.RegisterAddonData(id, bridge.data),
+-- and bridge.mapProvider claims its owner for Bridges:CallMap (first wins).
 function Bridges:Register(id, bridge)
     if type(id) ~= "string" or id == "" then return false, "id" end
     if type(bridge) ~= "table" then return false, "bridge" end
@@ -32,6 +35,12 @@ function Bridges:Register(id, bridge)
     bridge.id = id
     if type(bridge.catalog) == "table" and type(Offhand.AddonWindowCatalog) == "table" then
         Offhand.AddonWindowCatalog[id] = bridge.catalog
+    end
+    if type(bridge.data) == "table" then self:MergeData(id, bridge.data) end
+    local provider = bridge.mapProvider
+    if type(provider) == "table" and type(provider.owner) == "string" and provider.owner ~= ""
+        and not mapProviders[provider.owner] then
+        mapProviders[provider.owner] = { id = id, provider = provider }
     end
     return true
 end
@@ -237,12 +246,546 @@ function Bridges:GetMapAddons()
     return names
 end
 
+-- Settings controls a bridge adds to one Options slot ("map", "alerts",
+-- "recovery", "help:EDIT_MODE", "mapScaleTitle", "mapDescription"). Each entry
+-- needs a non-empty id; entries come out by their order field (unordered ones
+-- last), then in bridge registration order.
+function Bridges:GetSettingsContributions(slot)
+    local found = {}
+    for _, id in ipairs(order) do
+        local ok, list = Call(id, "GetSettingsContributions", slot)
+        if ok and type(list) == "table" then
+            for _, entry in ipairs(list) do
+                if type(entry) == "table" and type(entry.id) == "string" and entry.id ~= "" then
+                    found[#found + 1] = { entry = entry, index = #found + 1,
+                        order = type(entry.order) == "number" and entry.order or math.huge }
+                end
+            end
+        end
+    end
+    table.sort(found, function(a, b)
+        if a.order ~= b.order then return a.order < b.order end
+        return a.index < b.index
+    end)
+    local contributions = {}
+    for index, item in ipairs(found) do contributions[index] = item.entry end
+    return contributions
+end
+
+-- Runs a bridge's slashCommands[cmd](arg) for a command core does not handle
+-- itself. The first registered bridge naming cmd wins. True when a bridge
+-- claimed the command, even if its handler failed (the error is recorded).
+function Bridges:RunSlashCommand(cmd, arg)
+    if type(cmd) ~= "string" or cmd == "" then return false end
+    for _, id in ipairs(order) do
+        local commands = registry[id].slashCommands
+        local handler = type(commands) == "table" and commands[cmd]
+        if type(handler) == "function" then
+            local ok, problem = pcall(handler, arg)
+            if not ok then self.errors[id] = tostring(problem) end
+            return true
+        end
+    end
+    return false
+end
+
+local function MapResult(id, ok, ...)
+    if not ok then
+        Bridges.errors[id] = tostring((...))
+        return
+    end
+    return ...
+end
+
+-- One call into the map provider of the world map owner the caller already
+-- resolved: no loop over bridges. Returns the method's own results, or
+-- nothing when that owner has no provider or method, or the method failed.
+function Bridges:CallMap(owner, method, ...)
+    local entry = owner ~= nil and mapProviders[owner]
+    local handler = entry and entry.provider[method]
+    if type(handler) ~= "function" then return end
+    return MapResult(entry.id, pcall(handler, entry.provider, ...))
+end
+
+-- ---------------------------------------------------------------------
+-- Declarative addon data (Offhand.API.RegisterAddonData and bridge.data)
+-- ---------------------------------------------------------------------
+
+-- Facts are merged once into the lookup tables below, so the core consumers
+-- that read them cost a table read and a short loop, never a pcall per bridge.
+-- Only a detector's active or a matcher's verify function runs in pcall, and
+-- only after the declarative part has passed.
+local merged, sequence = {}, 0
+local roles, rules, settings = {}, {}, {}
+local resetKeys, movableFields, movingFields = {}, {}, {}
+
+local function NonEmpty(value)
+    return type(value) == "string" and value ~= ""
+end
+
+-- A failing data function counts as false and is recorded under its addon.
+local function Guarded(addon, fn, ...)
+    if type(fn) ~= "function" then return false end
+    local ok, result = pcall(fn, ...)
+    if not ok then
+        Bridges.errors[addon] = tostring(result)
+        return false
+    end
+    return result == true
+end
+
+local function AddonLoaded(name)
+    local query = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
+    return type(query) == "function" and query(name) and true or false
+end
+
+-- Detector: loaded="Folder", global="Name", present="Name" (loaded or a global
+-- of that name), anyOf={Detector, ...}, forever=true, active=function(). Every
+-- field given must pass. No detector means always present.
+local function Detect(spec, addon)
+    if spec == nil then return true end
+    if type(spec) ~= "table" then return false end
+    if spec.forever and Offhand.isForever ~= true then return false end
+    if spec.global ~= nil and _G[spec.global] == nil then return false end
+    if spec.loaded ~= nil and not AddonLoaded(spec.loaded) then return false end
+    if spec.present ~= nil and not AddonLoaded(spec.present) and _G[spec.present] == nil then
+        return false
+    end
+    if type(spec.anyOf) == "table" then
+        local any = false
+        for _, option in ipairs(spec.anyOf) do
+            if Detect(option, addon) then any = true; break end
+        end
+        if not any then return false end
+    end
+    if spec.active ~= nil then return Guarded(addon, spec.active) end
+    return true
+end
+
+-- FrameMatcher selectors (any one selects the frame): names, patterns,
+-- identity={"Global", ...}, widget={global, key}, index={global, key},
+-- field="key", fieldTrue="key". Qualifiers (all must pass): when=Detector,
+-- parent="GlobalFrame", then verify=function(frame, name).
+local function Selects(matcher, names, frame, name)
+    if type(name) == "string" then
+        if names[name] then return true end
+        if type(matcher.patterns) == "table" then
+            for _, pattern in ipairs(matcher.patterns) do
+                if name:match(pattern) then return true end
+            end
+        end
+    end
+    if frame == nil then return false end
+    if type(matcher.identity) == "table" then
+        for _, global in ipairs(matcher.identity) do
+            if _G[global] == frame then return true end
+        end
+    end
+    local widget = matcher.widget
+    if type(widget) == "table" then
+        local holder = _G[widget[1]]
+        if type(holder) == "table" and rawget(holder, widget[2]) == frame then return true end
+    end
+    local index = matcher.index
+    if type(index) == "table" and type(name) == "string" and _G[name] == frame then
+        local store = _G[index[1]]
+        local entry = type(store) == "table" and store[name]
+        if type(entry) == "table" and entry[index[2]] == name then return true end
+    end
+    if type(frame) == "table" then
+        if matcher.field ~= nil and frame[matcher.field] ~= nil then return true end
+        if matcher.fieldTrue ~= nil and frame[matcher.fieldTrue] == true then return true end
+    end
+    return false
+end
+
+local function Matches(compiled, frame, name)
+    local matcher = compiled.matcher
+    if not Selects(matcher, compiled.names, frame, name) then return false end
+    if matcher.when ~= nil and not Detect(matcher.when, compiled.addon) then return false end
+    if matcher.parent ~= nil and (type(frame) ~= "table" or type(frame.GetParent) ~= "function"
+        or frame:GetParent() ~= _G[matcher.parent]) then return false end
+    if matcher.verify ~= nil then return Guarded(compiled.addon, matcher.verify, frame, name) end
+    return true
+end
+
+local function Rule(ruleName)
+    local rule = rules[ruleName]
+    if not rule then
+        rule = { set = {}, list = {}, names = {}, listed = {} }
+        rules[ruleName] = rule
+    end
+    return rule
+end
+
+local function ListName(rule, name)
+    if not rule.listed[name] then
+        rule.listed[name] = true
+        rule.names[#rule.names + 1] = name
+    end
+end
+
+-- A plain name, or a matcher with only names, compiles into the rule's name
+-- set; every other matcher goes into the rule's short list.
+local function CompileMatcher(rule, matcher, addon)
+    if NonEmpty(matcher) then
+        rule.set[matcher] = true
+        ListName(rule, matcher)
+        return
+    end
+    if type(matcher) ~= "table" then return end
+    local plain, names = true, {}
+    for key in pairs(matcher) do
+        if key ~= "names" then plain = false; break end
+    end
+    if type(matcher.names) == "table" then
+        for _, name in ipairs(matcher.names) do
+            if NonEmpty(name) then
+                names[name] = true
+                ListName(rule, name)
+            end
+        end
+    end
+    if plain then
+        for name in pairs(names) do rule.set[name] = true end
+    else
+        rule.list[#rule.list + 1] = { matcher = matcher, names = names, addon = addon }
+    end
+end
+
+local function AddField(list, field)
+    if not NonEmpty(field) then return end
+    for _, known in ipairs(list) do
+        if known == field then return end
+    end
+    list[#list + 1] = field
+end
+
+local function ByOrder(a, b)
+    if a.order ~= b.order then return a.order < b.order end
+    return a.sequence < b.sequence
+end
+
+-- data: ownership, frameRules, moverFields, catalogs and settings (see
+-- docs/BRIDGES.md). Unknown keys are ignored. A data table merges only once.
+-- Returns true, or false and one of "id", "data".
+function Bridges:MergeData(addon, data)
+    if not NonEmpty(addon) then return false, "id" end
+    if type(data) ~= "table" then return false, "data" end
+    if merged[data] then return true end
+    merged[data] = true
+    if type(data.ownership) == "table" then
+        for _, entry in ipairs(data.ownership) do
+            if type(entry) == "table" and NonEmpty(entry.role) and NonEmpty(entry.name) then
+                sequence = sequence + 1
+                local list = roles[entry.role] or {}
+                roles[entry.role] = list
+                list[#list + 1] = { entry = entry, addon = addon, sequence = sequence,
+                    order = type(entry.order) == "number" and entry.order or math.huge }
+                table.sort(list, ByOrder)
+            end
+        end
+    end
+    if type(data.frameRules) == "table" then
+        for ruleName, matchers in pairs(data.frameRules) do
+            if NonEmpty(ruleName) and type(matchers) == "table" then
+                local rule = Rule(ruleName)
+                for _, matcher in ipairs(matchers) do CompileMatcher(rule, matcher, addon) end
+            end
+        end
+    end
+    local fields = data.moverFields
+    if type(fields) == "table" then
+        for _, field in ipairs(type(fields.movable) == "table" and fields.movable or {}) do
+            AddField(movableFields, field)
+        end
+        for _, field in ipairs(type(fields.moving) == "table" and fields.moving or {}) do
+            AddField(movingFields, field)
+        end
+    end
+    if type(data.catalogs) == "table" and type(Offhand.AddonWindowCatalog) == "table" then
+        for folder, catalog in pairs(data.catalogs) do
+            if NonEmpty(folder) and type(catalog) == "table" then
+                Offhand.AddonWindowCatalog[folder] = catalog
+            end
+        end
+    end
+    if type(data.settings) == "table" then
+        local own = settings[addon] or {}
+        settings[addon] = own
+        for key, spec in pairs(data.settings) do
+            if NonEmpty(key) and type(spec) == "table" and not own[key] then
+                local compiled = {
+                    key = NonEmpty(spec.legacyKey) and spec.legacyKey or key,
+                    store = spec.store == "character" and "character" or "profile",
+                    default = spec.default,
+                }
+                own[key] = compiled
+                if compiled.store == "character" and spec.resetOnCharacterChange == true then
+                    resetKeys[#resetKeys + 1] = compiled.key
+                end
+            end
+        end
+    end
+    return true
+end
+
+-- Ownership roles: entries come in (order, registration) order, and only
+-- entries whose detector passes count.
+function Bridges:HasRole(role)
+    local list = roles[role]
+    if not list then return false end
+    for _, item in ipairs(list) do
+        if Detect(item.entry.detect, item.addon) then return true end
+    end
+    return false
+end
+
+-- Returns the names of the present owners of role and their entries.
+function Bridges:GetRoleOwners(role)
+    local names, entries = {}, {}
+    for _, item in ipairs(roles[role] or {}) do
+        if Detect(item.entry.detect, item.addon) then
+            names[#names + 1] = item.entry.name
+            entries[#entries + 1] = item.entry
+        end
+    end
+    return names, entries
+end
+
+-- Returns the name and entry of the first present owner of role, or nil.
+function Bridges:FirstRoleOwner(role)
+    for _, item in ipairs(roles[role] or {}) do
+        if Detect(item.entry.detect, item.addon) then return item.entry.name, item.entry end
+    end
+    return nil
+end
+
+-- True when a frame rule matches. The name set is one table read; the other
+-- matchers of the rule are tried in registration order.
+function Bridges:MatchFrame(ruleName, frame, name)
+    local rule = rules[ruleName]
+    if not rule then return false end
+    if type(name) == "string" and rule.set[name] then return true end
+    for _, compiled in ipairs(rule.list) do
+        if Matches(compiled, frame, name) then return true end
+    end
+    return false
+end
+
+-- The same rule tested by name alone: frame selectors and parent never match.
+function Bridges:MatchName(ruleName, name)
+    return self:MatchFrame(ruleName, nil, name)
+end
+
+-- Every literal name the rule's matchers list, in registration order, without
+-- evaluating qualifiers.
+function Bridges:GetRuleNames(ruleName)
+    local copy = {}
+    for index, name in ipairs(rules[ruleName] and rules[ruleName].names or {}) do copy[index] = name end
+    return copy
+end
+
+-- True when an external mover marks the frame movable (a field equal to
+-- true) or moving (a set field). Plain field reads, no pcall: hot path.
+function Bridges.IsExternallyMovable(frame)
+    if not frame then return false end
+    for index = 1, #movableFields do
+        if frame[movableFields[index]] == true then return true end
+    end
+    return false
+end
+
+function Bridges.IsExternallyMoving(frame)
+    if not frame then return false end
+    for index = 1, #movingFields do
+        if frame[movingFields[index]] then return true end
+    end
+    return false
+end
+
+-- Stored keys of character settings that a character change clears.
+function Bridges:GetCharacterResetKeys()
+    local copy = {}
+    for index, key in ipairs(resetKeys) do copy[index] = key end
+    return copy
+end
+
+-- Stored key to declared default for every profile setting with a default.
+function Bridges:GetSettingDefaults()
+    local defaults = {}
+    for _, own in pairs(settings) do
+        for _, spec in pairs(own) do
+            if spec.store == "profile" and spec.default ~= nil then defaults[spec.key] = spec.default end
+        end
+    end
+    return defaults
+end
+
+local function SettingSpec(id, key, store)
+    local own = settings[id]
+    local spec = own and own[key]
+    if spec and spec.store == store then return spec end
+end
+
+local function ReadSetting(spec, store)
+    if not spec then return nil end
+    local value
+    if type(store) == "table" then value = store[spec.key] end
+    if value == nil then return spec.default end
+    return value
+end
+
+local function WriteSetting(spec, store, value)
+    if not spec or type(store) ~= "table" then return false end
+    store[spec.key] = value
+    return true
+end
+
 -- ---------------------------------------------------------------------
 -- Public services for bridges (Offhand.API)
 -- ---------------------------------------------------------------------
 
 function Offhand.API.RegisterBridge(id, bridge)
     return Bridges:Register(id, bridge)
+end
+
+-- Facts about an addon without a bridge object: it never appears in
+-- Bridges:List() and needs no Refresh. Returns true, or false and one of
+-- "id", "data".
+function Offhand.API.RegisterAddonData(addon, data)
+    return Bridges:MergeData(addon, data)
+end
+
+-- The one HUD layout transfer provider (an addon suite whose layout Offhand
+-- can import). Returns true, or false and one of "provider", "duplicate".
+function Offhand.API.RegisterHUDTransfer(provider)
+    if type(provider) ~= "table" or not NonEmpty(provider.id) then return false, "provider" end
+    if Offhand.HUDTransfer and Offhand.HUDTransfer ~= provider then return false, "duplicate" end
+    Offhand.HUDTransfer = provider
+    return true
+end
+
+-- Settings a bridge declared in data.settings, read from and written to the
+-- same profile (Offhand's settings) or character (OffhandCharDB) key as
+-- before, so nothing migrates. A read of an unset key gives the declared
+-- default; an undeclared key or a key of the other store reads nil and does
+-- not write. A write returns true when it was stored.
+function Offhand.API.GetBridgeSetting(id, key)
+    return ReadSetting(SettingSpec(id, key, "profile"), Offhand.db)
+end
+
+function Offhand.API.SetBridgeSetting(id, key, value)
+    return WriteSetting(SettingSpec(id, key, "profile"), Offhand.db, value)
+end
+
+function Offhand.API.GetBridgeCharacterSetting(id, key)
+    return ReadSetting(SettingSpec(id, key, "character"), _G.OffhandCharDB)
+end
+
+function Offhand.API.SetBridgeCharacterSetting(id, key, value)
+    return WriteSetting(SettingSpec(id, key, "character"), _G.OffhandCharDB, value)
+end
+
+-- Core state a bridge needs, each read the way core itself reads it.
+function Offhand.API.IsEnabled()
+    local db = Offhand.db
+    return type(db) == "table" and db.enabled and true or false
+end
+
+function Offhand.API.IsForeverClient()
+    return Offhand.isForever == true
+end
+
+-- Blizzard owns keyboard input (cinematic, movie or lost player control).
+function Offhand.API.IsInputReserved()
+    return Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() or false
+end
+
+function Offhand.API.IsGamepadUIEnabled()
+    return type(Offhand.IsGamepadUIEnabled) == "function" and Offhand:IsGamepadUIEnabled() or false
+end
+
+function Offhand.API.IsNativeGamepadInterface()
+    local compatibility = Offhand.MainhandCompatibility
+    return compatibility and type(compatibility.IsNativeGamepadInterface) == "function"
+        and compatibility.IsNativeGamepadInterface() and true or false
+end
+
+-- True while Offhand is switching between a single window and a span.
+function Offhand.API.IsGeometryTransitionActive()
+    return Offhand._displayGeometryTransitionActive and true or false
+end
+
+function Offhand.API.IsLoggingOut()
+    return Offhand._loggingOut and true or false
+end
+
+-- Offhand's own chat line, with its prefix and safe formatting.
+function Offhand.API.Print(fmt, ...)
+    if type(Offhand.Print) == "function" then Offhand:Print(fmt, ...) end
+end
+
+-- Offhand's localized text for key (the locale table's own fallback applies).
+function Offhand.API.GetText(key)
+    local L = Offhand.L
+    if type(L) == "table" then return L[key] end
+end
+
+-- Shows one of Offhand's own popups: ShowPopup(popupKey, textArg1, textArg2, data).
+function Offhand.API.ShowPopup(...)
+    if type(Offhand.ShowPopup) == "function" then return Offhand:ShowPopup(...) end
+end
+
+-- Offhand's full layout pass; preserveScale keeps the player's UI scale.
+-- True when the request reached the layout code.
+function Offhand.API.RequestFullLayout(preserveScale)
+    if type(Offhand.ApplyFullLayout) ~= "function" then return false end
+    Offhand:ApplyFullLayout(preserveScale)
+    return true
+end
+
+-- Re-applies workspace close and map maximize button hiding now.
+function Offhand.API.RefreshWorkspaceChrome()
+    local chrome = Offhand.WorkspaceChrome
+    if not chrome or type(chrome.Refresh) ~= "function" then return false end
+    chrome:Refresh()
+    return true
+end
+
+-- Adds a named addon window to the workspace close button handling.
+function Offhand.API.RegisterDynamicChromeFrame(name)
+    local chrome = Offhand.WorkspaceChrome
+    if not chrome or type(chrome.RegisterDynamicFrame) ~= "function" then return false end
+    chrome:RegisterDynamicFrame(name)
+    return true
+end
+
+-- The addon that owns world map geometry, or nil when Offhand does.
+function Offhand.API.GetExternalMapOwner()
+    local compatibility = Offhand.CanvasCompatibility
+    if compatibility and type(compatibility.GetWorldMapExternalOwner) == "function" then
+        return compatibility.GetWorldMapExternalOwner()
+    end
+end
+
+-- The reload function to call from a live click, or nil where a reload must
+-- be done by hand (Forever controller UI, or no reload API).
+function Offhand.API.GetReloadFunction()
+    if type(Offhand.GetReloadUIFunction) == "function" then return Offhand:GetReloadUIFunction() end
+end
+
+-- Offhand's UI control factory (UI/Controls.lua), or nil before it loads.
+function Offhand.API.GetControls()
+    return Offhand.UIControls
+end
+
+-- Viewport metrics while Offhand is enabled and spanned, else nil; the same
+-- table addon options windows are fitted with.
+function Offhand.API.GetOptionsMetrics()
+    local viewport = Offhand.Viewport
+    local metrics = Offhand.db and Offhand.db.enabled and viewport and viewport:GetMetrics()
+    return metrics and metrics.isSpanned and metrics or nil
 end
 
 -- Private shared namespace for multi-file built-in bridges hosted inside
