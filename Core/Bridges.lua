@@ -167,6 +167,24 @@ function Bridges:IsParkedNativePanel(frame)
     return false
 end
 
+-- True when a bridge has placed this vendor HUD root itself, so generic popup
+-- rescue and panel movement must leave it alone.
+function Bridges:IsExternallyOwnedFrame(frame, name)
+    if not frame then return false end
+    for _, id in ipairs(order) do
+        local ok, owned = Call(id, "IsExternallyOwnedFrame", frame, name)
+        if ok and owned == true then return true end
+    end
+    return false
+end
+
+-- Runs with the Mainhand transient passes (popups, alerts, toasts), ahead of
+-- core's own frames. phase: "hook" (discovery only) or "position". A separate
+-- callback rather than a Refresh reason, so other bridges keep their cadence.
+function Bridges:RefreshTransientFrames(phase)
+    for _, id in ipairs(order) do Call(id, "RefreshTransientFrames", phase) end
+end
+
 -- Optional HUD alignment/reset actions offered by active bridges for Offhand's
 -- Settings panel, keeping bridge-specific UI text out of core options code.
 function Bridges:GetHUDLayoutActions()
@@ -313,6 +331,13 @@ function Offhand.API.OwnsWorldMapPlacement()
     local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
     if not metrics or not metrics.isSpanned then return false end
     return true
+end
+
+-- True when Offhand is enabled and its popup and alert redirection is on. A
+-- bridge that re-anchors a vendor's alerts releases them when this is false.
+function Offhand.API.IsPopupRedirectEnabled()
+    local db = Offhand.db
+    return type(db) == "table" and db.enabled and db.seamRedirect and true or false
 end
 
 -- Where Offhand puts group loot roll pop-ups: the centre of a slot of the

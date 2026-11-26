@@ -1,7 +1,27 @@
--- Translate only ForeverPlus's default warning bars, after its own layout.
-local _, Offhand = ...
-local Warnings = {}
-Offhand.ForeverPlusWarnings = Warnings
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/ForeverPlus/Bridge.lua: built-in bridge for ForeverPlus warning bars
+
+    Translate only ForeverPlus's default warning bars, after its own layout.
+    This is the former Core/ForeverPlusWarnings.lua moved behind the bridge
+    contract; its behaviour is unchanged. It reads the game rectangle and the
+    popup redirection setting through Offhand.API only.
+
+    The bridge registers on the Forever client even before ForeverPlus exists:
+    the vendor can load after Offhand, so every refresh tries the hook again
+    until ForeverPlus appears. Late vendor loading must stay supported.
+--]]
+
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterBridge) ~= "function"
+    or type(API.GetGameRect) ~= "function" or type(API.IsPopupRedirectEnabled) ~= "function"
+    or type(API.GetBridgeNamespace) ~= "function" then return end
+local Shared = API.GetBridgeNamespace("Shared")
+if type(Shared) ~= "table" or type(Shared.IsForever) ~= "function" or not Shared.IsForever() then return end
+local ns = API.GetBridgeNamespace("ForeverPlus")
+
 local tracked = setmetatable({}, { __mode = "k" })
 local hooked = setmetatable({}, { __mode = "k" })
 
@@ -56,7 +76,7 @@ local function DefaultOffset(state, original, height, gameHeight)
     return math.max(gameHeight * 0.30, gameHeight * 0.22 + clearance)
 end
 
-local function Position(frame, state, metrics)
+local function Position(frame, state, rect)
     if not Accessible(frame) then return end
     local current = ReadPoint(frame)
     local owned = SamePoint(current, state.applied)
@@ -67,8 +87,7 @@ local function Position(frame, state, metrics)
         state.original, state.applied = nil, nil
         return
     end
-    local active = Offhand.isForever and Offhand.db and Offhand.db.enabled
-        and Offhand.db.seamRedirect and metrics and metrics.isSpanned
+    local active = rect and rect.isSpanned and API.IsPopupRedirectEnabled()
     if not active then
         if owned then
             frame:ClearAllPoints()
@@ -85,8 +104,8 @@ local function Position(frame, state, metrics)
     end
     local parentScale, scale = UIParent:GetEffectiveScale(), frame:GetEffectiveScale()
     local height = UIParent:GetHeight()
-    local left, right = metrics.gameLeft, metrics.gameRight
-    local bottom, top = metrics.gameBottom, metrics.gameTop
+    local left, right = rect.left, rect.right
+    local bottom, top = rect.bottom, rect.top
     if not (Number(parentScale) and Number(scale) and Number(height)
         and Number(left) and Number(right) and Number(bottom) and Number(top))
         or parentScale <= 0 or scale <= 0 or height <= 0
@@ -105,18 +124,23 @@ local function Position(frame, state, metrics)
     end
 end
 
-function Warnings:IsOwnedFrame(frame)
+local function GameRect()
+    local ok, rect = pcall(API.GetGameRect)
+    return ok and type(rect) == "table" and rect or nil
+end
+
+function ns.IsOwnedFrame(frame)
     return frame ~= nil and tracked[frame] ~= nil
 end
 
-function Warnings:ApplyLayout(metrics)
+function ns.ApplyLayout()
     if InCombatLockdown and InCombatLockdown() then return end
-    metrics = metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
-    for frame, state in pairs(tracked) do pcall(Position, frame, state, metrics) end
+    local rect = GameRect()
+    for frame, state in pairs(tracked) do pcall(Position, frame, state, rect) end
 end
 
-function Warnings:Hook()
-    if not Offhand.isForever or not hooksecurefunc
+function ns.Hook()
+    if not hooksecurefunc
         or (InCombatLockdown and InCombatLockdown()) then return end
     local owner = _G.ForeverPlus
     if type(owner) ~= "table" or type(owner.PlaceAsBar) ~= "function"
@@ -131,8 +155,32 @@ function Warnings:Hook()
             local state = { owner = owner, bar = bar, id = id, store = store }
             tracked[frame] = state
             if not (InCombatLockdown and InCombatLockdown()) then
-                Position(frame, state, Offhand.Viewport and Offhand.Viewport:GetMetrics())
+                Position(frame, state, GameRect())
             end
         end)
     end)
+end
+
+local bridge = { contract = API.BRIDGE_CONTRACT }
+
+-- Only discovery here: placement keeps its old cadence (the transient pass,
+-- the vendor's own redraws and geometry changes), not every refresh.
+function bridge:Refresh()
+    ns.Hook()
+end
+
+function bridge:RefreshTransientFrames(phase)
+    ns.Hook()
+    if phase ~= "hook" then ns.ApplyLayout() end
+end
+
+function bridge:IsExternallyOwnedFrame(frame)
+    return ns.IsOwnedFrame(frame)
+end
+
+if API.RegisterBridge("ForeverPlus", bridge) then
+    if type(API.RegisterGeometryCallback) == "function" then
+        API.RegisterGeometryCallback(bridge, function() pcall(ns.ApplyLayout); return true end)
+    end
+    ns.Hook()
 end

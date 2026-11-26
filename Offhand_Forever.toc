@@ -16,7 +16,7 @@
 ## X-Website: https://offhandwow.com/
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
 ## LoadSavedVariablesFirst: 1
-## OptionalDeps: DaylightUI, Beastfinder, EasyFishing, ForeverLedger, Gathercraft, MobInfo2, Questie, QuestieTrace, RareScanner
+## OptionalDeps: DaylightUI, Beastfinder, EasyFishing, ForeverLedger, ForeverPlus, Gathercraft, MobInfo2, Questie, QuestieTrace, RareScanner
 ## SavedVariables: OffhandDB
 ## SavedVariablesPerCharacter: OffhandCharDB
 
@@ -51,7 +51,6 @@ Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
 Core\ProcDocCompatibility.lua
-Core\ForeverPlusWarnings.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
 Core\HUDRecovery.lua
@@ -120,6 +119,7 @@ Bridges\Shared\DefaultAnchors.lua
 Bridges\Beastfinder\Bridge.lua
 Bridges\EasyFishing\Bridge.lua
 Bridges\ForeverLedger\Bridge.lua
+Bridges\ForeverPlus\Bridge.lua
 Bridges\Gathercraft\Bridge.lua
 Bridges\MobInfo2\Bridge.lua
 Bridges\Questie\Bridge.lua

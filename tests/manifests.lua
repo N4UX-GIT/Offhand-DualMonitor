@@ -212,6 +212,7 @@ local expectedAnchorBridges = {
     "Bridges/Beastfinder/Bridge.lua",
     "Bridges/EasyFishing/Bridge.lua",
     "Bridges/ForeverLedger/Bridge.lua",
+    "Bridges/ForeverPlus/Bridge.lua",
     "Bridges/Gathercraft/Bridge.lua",
     "Bridges/MobInfo2/Bridge.lua",
     "Bridges/Questie/Bridge.lua",
@@ -225,12 +226,14 @@ end
 local foreverText = assert(io.open("Offhand_Forever.toc", "rb")):read("*a")
 assert(foreverText:match("## OptionalDeps:%s*DaylightUI"), "Forever manifest should declare OptionalDeps: DaylightUI for load order")
 local foreverOptionalDeps = "," .. (assert(foreverText:match("## OptionalDeps:([^\r\n]*)")):gsub("%s", "")) .. ","
-for _, target in ipairs({ "Beastfinder", "EasyFishing", "ForeverLedger", "Gathercraft", "MobInfo2", "Questie",
-    "QuestieTrace", "RareScanner" }) do
+for _, target in ipairs({ "Beastfinder", "EasyFishing", "ForeverLedger", "ForeverPlus", "Gathercraft", "MobInfo2",
+    "Questie", "QuestieTrace", "RareScanner" }) do
     assert(foreverOptionalDeps:find("," .. target .. ",", 1, true),
         "Forever manifest should declare OptionalDeps: " .. target .. " so its bridge loads after it")
 end
 assert(not foreverText:match("## Dependencies:"), "Offhand must never require third-party addons via Dependencies")
+assert(io.open("Core/ForeverPlusWarnings.lua", "rb") == nil,
+    "Core/ForeverPlusWarnings.lua must remain retired into Bridges/ForeverPlus/Bridge.lua")
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")

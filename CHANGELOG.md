@@ -6,6 +6,7 @@
 - Questie's automatic tracker width and its quest item tooltips use Mainhand, not the whole span. Questie and Gathercraft map icons no longer pile up as hidden frames on the main UI.
 - RareScanner's **Reset position** saves the Mainhand spot, so the button does not return to the seam at the next login.
 - The 2 second maintenance pass no longer stops when an addon leaves the main UI with more frames than one scan can read; that scan is skipped and the passes after it still run.
+- Internal: the ForeverPlus warning bar handling moved from the core into a built-in bridge. Its behaviour is unchanged.
 
 ## [2.1.5-beta.42] - 2026-11-25
 

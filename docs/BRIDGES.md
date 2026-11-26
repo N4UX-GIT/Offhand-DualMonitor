@@ -77,6 +77,8 @@ Every callback is optional and runs inside `pcall`:
 | `GetBagFrames()` | Workspace bag toggle check | Table of bag frames |
 | `IsEditModeActive()` | Before learned-window selection or refresh | Literal `true` to pause Offhand selection |
 | `IdentifyLearnPlacement(frame, name, file)` | Learned-window opt-in check for cataloged bridge frames | Role string matching `bridge.catalog[role].learnPlacementFile` |
+| `IsExternallyOwnedFrame(frame, name)` | `HUDCompatibility.IsExternallyOwnedHUDFrame`, so generic popup rescue and panel movement skip a vendor HUD root the bridge places itself | Literal `true` to keep core away from the frame |
+| `RefreshTransientFrames(phase)` | With the Mainhand transient passes: `"hook"` (discovery) and `"position"` (placement, ahead of core's own popups and alerts) | Ignored |
 | `mapAddons` | Map integration diagnostics | Array of addon folder names |
 | `catalog` | Registered into `Offhand.AddonWindowCatalog[id]` | Catalog table (supports `suitePrefix` and role entries) |
 
@@ -91,6 +93,7 @@ Added by `Core/Bridges.lua`:
 - `Offhand.API.GetGameRect()`: live Mainhand game rectangle in `UIParent` units (`left, bottom, right, top, width, height, screenWidth, screenHeight, isSpanned`)
 - `Offhand.API.OwnsWorldMapPlacement()`: whether Offhand currently owns compact world map placement
 - `Offhand.API.GetGroupLootSpot(height)`: center `x, y` for group loot roll slots on the game rectangle, or `nil` when unspanned
+- `Offhand.API.IsPopupRedirectEnabled()`: whether Offhand is enabled with its popup and alert redirection on; a bridge that re-anchors a vendor's alerts releases them when this is false
 
 Existing geometry services (`Core/MainhandGeometry.lua`): `GetMainhandFrame`,
 `GetMainhandRect`, `GetGeometryRevision`, `RegisterGeometryCallback`,
@@ -143,6 +146,12 @@ Built-in default-anchor bridges (each has a README beside it):
 
 They were written against the Forever builds of those addons, so `Available`
 limits them to the Forever client, where core's 0.5 s `"tick"` refresh exists.
+
+`Bridges/ForeverPlus` is not a default-anchor bridge: it is the former
+`Core/ForeverPlusWarnings.lua`, moved behind the contract with unchanged
+behaviour. It uses `IsExternallyOwnedFrame`, `RefreshTransientFrames` and
+`IsPopupRedirectEnabled`, and registers on Forever before ForeverPlus exists so
+a vendor that loads late is still hooked (`tests/forever-plus-warnings.lua`).
 
 ## 7. Error isolation and tests
 

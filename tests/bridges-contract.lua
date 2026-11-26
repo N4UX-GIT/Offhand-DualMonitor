@@ -261,6 +261,60 @@ addon.db.enabled = false
 assert(addon.API.IsEscapeProtectionEnabled() == false,
     "IsEscapeProtectionEnabled must be false when Offhand is disabled")
 
+-- IsExternallyOwnedFrame
+addon, Bridges = Load()
+local owned = {}
+assert(Bridges:IsExternallyOwnedFrame(owned, "Owned") == false, "no bridge must mean not externally owned")
+local throwing = {contract = 1}
+function throwing:IsExternallyOwnedFrame() error("boom") end
+local truthy = {contract = 1}
+function truthy:IsExternallyOwnedFrame() return 1 end
+assert(Bridges:Register("Throwing", throwing) and Bridges:Register("Truthy", truthy))
+assert(Bridges:IsExternallyOwnedFrame(owned, "Owned") == false, "only a literal true may claim a frame")
+assert(Bridges.errors.Throwing and Bridges.errors.Throwing:find("boom", 1, true),
+    "a throwing ownership check must be recorded")
+local owner = {contract = 1}
+local ownerFrame, ownerName
+function owner:IsExternallyOwnedFrame(frame, name)
+    ownerFrame, ownerName = frame, name
+    return true
+end
+assert(Bridges:Register("Owner", owner))
+assert(Bridges:IsExternallyOwnedFrame(nil, "Owned") == false and ownerFrame == nil,
+    "a nil frame must never be externally owned")
+assert(Bridges:IsExternallyOwnedFrame(owned, "Owned") == true and ownerFrame == owned and ownerName == "Owned",
+    "a literal true after a throwing bridge must claim the frame and receive frame and name")
+
+-- RefreshTransientFrames
+addon, Bridges = Load()
+local phases = {}
+local plain = {contract = 1}
+local failing = {contract = 1}
+function failing:RefreshTransientFrames(phase) phases[#phases + 1] = "failing:" .. phase; error("boom") end
+local later = {contract = 1}
+function later:RefreshTransientFrames(phase) phases[#phases + 1] = "later:" .. phase end
+assert(Bridges:Register("Plain", plain) and Bridges:Register("Failing", failing) and Bridges:Register("Later", later))
+Bridges:RefreshTransientFrames("hook")
+Bridges:RefreshTransientFrames("position")
+assert(#phases == 4 and phases[1] == "failing:hook" and phases[2] == "later:hook"
+    and phases[3] == "failing:position" and phases[4] == "later:position",
+    "transient phases must reach every bridge with the method in order despite a throwing bridge")
+assert(Bridges.errors.Failing and Bridges.errors.Failing:find("boom", 1, true),
+    "a throwing transient refresh must be recorded")
+
+-- IsPopupRedirectEnabled
+addon = Load()
+addon.db = nil
+assert(addon.API.IsPopupRedirectEnabled() == false, "missing settings must not redirect popups")
+addon.db = {enabled = false, seamRedirect = true}
+assert(addon.API.IsPopupRedirectEnabled() == false, "disabled Offhand must not redirect popups")
+addon.db = {enabled = true, seamRedirect = false}
+assert(addon.API.IsPopupRedirectEnabled() == false, "popup redirection off must not redirect popups")
+addon.db = {enabled = true}
+assert(addon.API.IsPopupRedirectEnabled() == false, "an unset popup redirection must not redirect popups")
+addon.db = {enabled = true, seamRedirect = true}
+assert(addon.API.IsPopupRedirectEnabled() == true, "enabled popup redirection must return a literal true")
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -282,4 +336,4 @@ end
 assert(io.open("Core/DaylightMapCompatibility.lua", "rb") == nil,
     "Core/DaylightMapCompatibility.lua must remain retired into Bridges/DaylightUI/Map.lua")
 
-print("PASS: bridge registry, dispatch, isolation, public services, storage and core purity")
+print("PASS: bridge registry, dispatch, isolation, public services, storage, ownership and transient dispatch and core purity")

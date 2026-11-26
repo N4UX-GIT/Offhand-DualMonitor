@@ -166,7 +166,8 @@ end
 
 function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
     if Offhand.IsDaylightParkedPanel(frame) then return true end
-    if Offhand.ForeverPlusWarnings and Offhand.ForeverPlusWarnings:IsOwnedFrame(frame) then return true end
+    if Offhand.Bridges and Offhand.Bridges.IsExternallyOwnedFrame
+        and Offhand.Bridges:IsExternallyOwnedFrame(frame, name) then return true end
     name = name or (frame and frame.GetName and frame:GetName())
     -- Replacement minimaps detach the visible canvas from MinimapCluster.
     -- Treat that canvas as HUD even when it overhangs Mainhand or sits at the
