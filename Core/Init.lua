@@ -676,7 +676,8 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         or popupKey == "OFFHAND_MAINHAND_LAYOUT_SELECT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
         or popupKey == "OFFHAND_CHARACTER_SETUP"
-        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD" or readyPopup
+        or (popupKey ~= nil and Offhand.HUDTransfer and Offhand.HUDTransfer.reloadPopup == popupKey)
+        or readyPopup
         or (definition and definition.offhandAltBeforeHide)
     if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup and not helpPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
@@ -1931,8 +1932,6 @@ SlashCmdList["OFFHAND"] = function(msg)
         Offhand.LearnedAddonWindows:Run(input:match("^%S+%s*(.*)$"))
     elseif Offhand.Bridges and Offhand.Bridges:RunSlashCommand(cmd, arg) then
         -- A built-in bridge's own command (Bridges:RunSlashCommand ran it).
-    elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
-        Offhand.EllesmereLayout:Run(strtrim(arg or ""))
     elseif cmd == "centerline" or cmd == "centre" or cmd == "center" then
         if Offhand.CenterGuide and not Offhand.CenterGuide:Toggle() then
             Offhand:Print(L["MSG_CENTER_GUIDE_REQUIRES_SPAN"])

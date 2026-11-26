@@ -883,17 +883,17 @@ do
         return layout.Mainhand:GetLayoutStatus("geometry", {generatedName = "Offhand", ownershipSignature = signature})
     end
     local status = Status(LEGACY_SIGNATURE)
-    assert(status.currentOwnership == true and status.ellesmereGainedOwnership == false,
+    assert(status.currentOwnership == true and status.suiteGainedOwnership == false,
         "a legacy signature saved with every owner present must still match")
-    assert(Status(LEGACY_SIGNATURE:gsub("EllesmereUIRaidFrames:", "")).ellesmereGainedOwnership == true,
+    assert(Status(LEGACY_SIGNATURE:gsub("EllesmereUIRaidFrames:", "")).suiteGainedOwnership == true,
         "a suite module gaining ownership must be recognised")
-    assert(Status(LEGACY_SIGNATURE:gsub(":Chattynator", "")).ellesmereGainedOwnership == false,
+    assert(Status(LEGACY_SIGNATURE:gsub(":Chattynator", "")).suiteGainedOwnership == false,
         "another addon gaining ownership must not count as the suite")
     -- Only the bar addons' globals own status bars; loaded folders keep the signature.
     Bartender4, Dominos, ElvUI, Tukui, ConsolePort = nil, nil, nil, nil, nil
     EllesmereUI = {Lite = {GetAddon = function() return {db = {profile = {useBlizzardDataBars = true}}} end}}
     status = Status(LEGACY_SIGNATURE)
-    assert(status.currentOwnership == false and status.ellesmereGainedOwnership == false
+    assert(status.currentOwnership == false and status.suiteGainedOwnership == false
         and Status(LEGACY_SIGNATURE .. ":native-status").currentOwnership == true,
         "Blizzard XP/Rep bars must append native-status to the signature")
     EllesmereUI = nil
@@ -1169,6 +1169,155 @@ do
         "the EllesmereUI scale bridge must register on every client")
     registry:RefreshScale()
     assert(registry.errors.EllesmereUI == nil, "the scale bridge must be inert without EllesmereUI")
+end
+
+-- InitializePopupWindows and OwnsFeature: registration order, bridges without
+-- the method skipped, a throwing bridge recorded; the first literal true names
+-- the owning bridge. The EllesmereUI window bridge shares the suite's bridge
+-- object and starts its 0.2 s ticker only on Forever with EllesmereUI present.
+addon, Bridges = Load()
+local popupCalls = {}
+local popupA, popupB, popupC = {contract = 1}, {contract = 1}, {contract = 1}
+function popupA:InitializePopupWindows(...) popupCalls[#popupCalls + 1] = "A" .. select("#", ...) end
+function popupB:InitializePopupWindows() error("popup boom") end
+function popupA:OwnsFeature(feature) popupCalls[#popupCalls + 1] = "own:" .. tostring(feature); return 1 end
+function popupB:OwnsFeature() error("feature boom") end
+function popupC:OwnsFeature(feature) return feature == "chatBubbles" end
+assert(Bridges:Register("PopupA", popupA) and Bridges:Register("PopupB", popupB)
+    and Bridges:Register("PopupD", {contract = 1}) and Bridges:Register("PopupC", popupC))
+Bridges:InitializePopupWindows()
+assert(popupCalls[1] == "A0" and #popupCalls == 1, "InitializePopupWindows must skip bridges without it")
+assert(Bridges.errors.PopupB and Bridges.errors.PopupB:find("popup boom", 1, true),
+    "a throwing InitializePopupWindows must be recorded")
+assert(Bridges:OwnsFeature("chatBubbles") == "PopupC" and popupCalls[2] == "own:chatBubbles",
+    "only a literal true claims a feature, for the first bridge returning it")
+assert(Bridges.errors.PopupB:find("feature boom", 1, true), "a throwing OwnsFeature must be recorded")
+assert(Bridges:OwnsFeature("other") == nil, "an unclaimed feature has no owner")
+do
+    local savedTimer, savedSuite = C_Timer, EllesmereUI
+    local tickers = {}
+    C_Timer = {NewTicker = function(interval, callback) tickers[#tickers + 1] = {interval, callback}; return {} end}
+    local function Suite(forever)
+        local suite = {AddonWindowCatalog = {}, isForever = forever}
+        local registry = CoreBridges.Load(suite, {"Bridges/EllesmereUI/Bridge.lua", "Bridges/EllesmereUI/Scale.lua",
+            "Bridges/EllesmereUI/Windows.lua"})
+        return suite, registry
+    end
+    EllesmereUI = nil
+    local suite, registry = Suite(true)
+    local ids = registry:List()
+    assert(#ids == 1 and ids[1] == "EllesmereUI" and suite.API.GetBridgeNamespace("EllesmereUI").Windows
+        and registry:Get("EllesmereUI").RefreshScale and registry:Get("EllesmereUI").OwnsFeature,
+        "the EllesmereUI files must share one bridge registered on every client")
+    registry:InitializePopupWindows()
+    assert(#tickers == 0 and registry:OwnsFeature("chatBubbles") == nil,
+        "without EllesmereUI there is no window ticker and no bubble owner")
+    EllesmereUI = {GetActiveProfileData = function() return {chatBubbles = {enabled = true}} end}
+    suite, registry = Suite(false)
+    registry:InitializePopupWindows()
+    assert(#tickers == 0 and registry:OwnsFeature("chatBubbles") == "EllesmereUI",
+        "the window ticker is Forever only; enabled EllesmereUI bubbles are owned by its bridge on every client")
+    suite, registry = Suite(true)
+    registry:InitializePopupWindows()
+    assert(#tickers == 1 and tickers[1][1] == 0.2, "Forever with EllesmereUI must observe its windows every 0.2 s")
+    tickers[1][2]()
+    assert(registry.errors.EllesmereUI == nil, "a window pass without windows must be clean")
+    EllesmereUI.GetActiveProfileData = function() return {chatBubbles = {enabled = false}} end
+    assert(registry:OwnsFeature("chatBubbles") == nil, "disabled EllesmereUI bubbles must stay Offhand's")
+    C_Timer, EllesmereUI = savedTimer, savedSuite
+end
+
+-- GetSetupNotes: non-empty answers joined in registration order, a throwing
+-- bridge recorded. The HUD transfer services reach the Mainhand layout source,
+-- the fallback save, the geometry signature and the layout failure text, and are
+-- safe before those modules load.
+do
+    local suite, registry = Load()
+    local notesA, notesB = {contract = 1}, {contract = 1}
+    function notesA:GetSetupNotes(context) return context == "before-span" and "A" or "" end
+    function notesB:GetSetupNotes() error("notes boom") end
+    assert(registry:GetSetupNotes("before-span") == nil, "no bridge must give no setup notes")
+    assert(registry:Register("NotesA", notesA) and registry:Register("NotesB", notesB)
+        and registry:Register("NotesC", {contract = 1, GetSetupNotes = function() return "C" end}))
+    assert(registry:GetSetupNotes("before-span") == "A\n\nC" and registry:GetSetupNotes("other") == "C",
+        "setup notes must join in registration order and skip empty answers")
+    assert(registry.errors.NotesB:find("notes boom", 1, true), "a throwing GetSetupNotes must be recorded")
+    local api = suite.API
+    local unsaved, unsavedReason = api.SaveHUDTransferFallback({}, {})
+    assert(api.GetHUDTransferSource(true) == nil and unsaved == false and unsavedReason == "unavailable"
+        and api.GetGeometrySignature({}) == nil and api.GetLayoutFailureText("span") == nil,
+        "the transfer services must be safe before their core modules load")
+    local sources = {}
+    suite.Mainhand = {
+        GetHUDTransferSource = function(self, geometryOnly, sizes)
+            sources[#sources + 1] = tostring(self == suite.Mainhand) .. ":" .. tostring(geometryOnly)
+            return {sizes = sizes}
+        end,
+        SaveHUDTransferFallback = function(_, context, rows) return context.ok and rows.ok, "Offhand HUD - Blizzard" end,
+    }
+    suite.MainhandGeometry = {Signature = function(rect) return "signature:" .. tostring(rect.left) end}
+    suite.Options = {GetMainhandLayoutFailureText = function(_, reason) return "failure:" .. reason end}
+    local sizes = {}
+    assert(api.GetHUDTransferSource(false, sizes).sizes == sizes and api.GetHUDTransferSource(true)
+        and sources[1] == "true:false" and sources[2] == "true:true",
+        "GetHUDTransferSource must ask Offhand's Mainhand with its arguments")
+    local saved, savedName = api.SaveHUDTransferFallback({ok = true}, {ok = true})
+    assert(saved == true and savedName == "Offhand HUD - Blizzard", "SaveHUDTransferFallback must return the save result")
+    assert(api.GetGeometrySignature({left = 3}) == "signature:3" and api.GetLayoutFailureText("span") == "failure:span",
+        "the geometry signature and failure text must come from core")
+end
+
+-- The EllesmereUI HUD transfer provider exists on Forever only (with or without
+-- EllesmereUI), names its texts with locale keys that exist, and its
+-- /offhand ellesmere command runs at the old slash branch with the same output.
+-- Its profile backup advice is a before-span setup note on Forever only.
+do
+    local savedTrim, savedOffhand = strtrim, _G.Offhand
+    strtrim = function(text) return (text:gsub("^%s+", ""):gsub("%s+$", "")) end
+    local files = {"Bridges/EllesmereUI/Bridge.lua", "Bridges/EllesmereUI/Bags.lua", "Bridges/EllesmereUI/Layout.lua",
+        "Bridges/EllesmereUI/Preview.lua", "Bridges/EllesmereUI/Scale.lua", "Bridges/EllesmereUI/Windows.lua"}
+    local standard = {AddonWindowCatalog = {}}
+    local registry = CoreBridges.Load(standard, files)
+    assert(standard.HUDTransfer == nil and registry:RunSlashCommand("ellesmere", "") == false,
+        "off Forever there must be no transfer provider and no ellesmere command")
+    local forever = {AddonWindowCatalog = {}, isForever = true}
+    registry = CoreBridges.Load(forever, files)
+    local transfer = forever.HUDTransfer
+    assert(transfer and transfer.id == "EllesmereUI" and transfer.addon == "EllesmereUI"
+        and transfer.copyDirection == "ellesmere" and transfer.reloadPopup == "OFFHAND_ELLESMERE_HUD_RELOAD"
+        and transfer.ShowPreview and transfer.PromptImportReload and transfer.Preview and transfer.Run
+        and forever.API.GetBridgeNamespace("EllesmereUI").Transfer == transfer,
+        "the Forever client must register the EllesmereUI transfer provider with its preview")
+    assert(table.concat(registry:List(), ",") == "EllesmereUIBags,EllesmereUI"
+        and registry:Get("EllesmereUI").slashCommands.ellesmere,
+        "the transfer command must join the suite's one bridge")
+    local locale = {}
+    assert(loadfile("Locales/enUS.lua"))("Offhand", locale)
+    local names = {}
+    for name, key in pairs(transfer.text) do
+        names[#names + 1] = name
+        assert(rawget(locale.L, key) ~= nil, "the transfer text " .. name .. " must name a locale key: " .. key)
+    end
+    table.sort(names)
+    assert(table.concat(names, ",") == "busy,characterReview,finishCurrent,finishReload,helpBody,importReady,"
+        .. "previewDesc,savedInactive,setupDesc,stage,title,wizardBody,wizardExisting,wizardIntro,wizardReload,"
+        .. "wizardSelect,wizardSelectManual", "the transfer texts core shows must all be named")
+    assert(transfer.text.title == "ELLESMERE_HUD_VISUAL" and transfer.text.stage == "SETUP_STAGE_ELLESMERE"
+        and transfer.text.characterReview == "CHARACTER_SETUP_ELLESMERE",
+        "the transfer keys must keep their stored locale names")
+    local printed = {}
+    forever.Print = function(_, text) printed[#printed + 1] = text end
+    forever.L = setmetatable({}, {__index = function(_, key) return key end})
+    assert(registry:RunSlashCommand("ellesmere", " nonsense ") and printed[1] == "ELLESMERE_HUD_HELP"
+        and registry:RunSlashCommand("ellesmere", "") and #printed == 1 and registry.errors.EllesmereUI == nil,
+        "/offhand ellesmere must print its help for an unknown action and preview silently without EllesmereUI")
+    local savedSuite = EllesmereUI
+    EllesmereUI = {ExportProfile = function() error("advice must not export a profile") end}
+    assert(registry:GetSetupNotes("before-span") == "ELLESMERE_HUD_BACKUP_BEFORE_SPAN"
+        and registry:GetSetupNotes("first-panel") == nil, "Forever must advise a profile backup before the span")
+    forever.isForever = false
+    assert(registry:GetSetupNotes("before-span") == nil, "the backup advice is Forever only")
+    EllesmereUI, strtrim, _G.Offhand = savedSuite, savedTrim, savedOffhand
 end
 
 -- Addon window index (data.windows): a sourceless name is answered before the
@@ -2211,6 +2360,9 @@ for line in io.lines("Offhand.toc") do
         end
         assert(not text:find("%f[%w]BGR"), "core file must not name BGR: " .. file)
         assert(not text:find("%f[%w]EUI_"), "core file must not name EUI_ frames: " .. file)
+        -- The EllesmereUI suite, its frames and its HUD layout transfer, in any case.
+        assert(not lowerText:find("ellesmere", 1, true), "core file must not name ellesmere: " .. file)
+        assert(not text:find("%f[%w]EUI%u"), "core file must not name EUI frames: " .. file)
     end
 end
 -- Core purity: the bag detection, name rules, toggle keys and close buttons moved out of these files.
@@ -2226,9 +2378,7 @@ for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/CanvasCompatibility.lu
         assert(not lower:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
     end
     assert(not text:find("%f[%w]EUI_"), "core file must not name EUI_ frames: " .. file)
-    if file ~= "Core/HUDCompatibility.lua" and file ~= "Core/Init.lua" then
-        assert(not lower:find("ellesmere", 1, true), "core file must not name ellesmere: " .. file)
-    end
+    assert(not lower:find("ellesmere", 1, true), "core file must not name ellesmere: " .. file)
 end
 assert(coreFiles > 50, "the purity scan must read the manifest's core files")
 -- Core purity: popup roots, menu names, tooltip owners and mover marks moved out of these files.

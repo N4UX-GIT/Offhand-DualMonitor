@@ -46,6 +46,14 @@ local function IsIntegrationActive(name)
     return true
 end
 
+-- Locale text the HUD transfer provider (Offhand.HUDTransfer) names for one
+-- of its texts, or "" without one.
+local function HUDTransferText(name)
+    local transfer = Offhand.HUDTransfer
+    local key = transfer and type(transfer.text) == "table" and transfer.text[name]
+    return key and L[key] or ""
+end
+
 local function BackdropTemplate()
     return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
 end
@@ -1358,7 +1366,9 @@ function Options:CreateFloatingPanel()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
     local recoveryHeight = Offhand.isForever and 374 or (supportsMainhandLayout and 302 or 152)
-    local transfer = Offhand.EllesmereLayout
+    -- The HUD transfer provider (an addon suite whose layout Offhand can
+    -- import); the load and enable state of its addon show its controls.
+    local transfer = Offhand.HUDTransfer
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight,
         L["RECOVERY_MISSING_LABEL"], L["GATHER_MAINHAND_UI_DESC"])
     local advancedCard
@@ -1772,18 +1782,18 @@ function Options:CreateFloatingPanel()
         autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
     end
 
-    local ellesmereCaption, ellesmerePreview
+    local transferCaption, transferPreview
     if transfer and transfer.ShowPreview then
-        ellesmereCaption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        ellesmereCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
-        ellesmereCaption:SetJustifyH("LEFT")
-        ellesmereCaption:SetWordWrap(true)
-        ellesmereCaption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
-        ellesmerePreview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
-        ellesmerePreview:SetSize(220, 26)
-        ellesmerePreview:SetText(L["ELLESMERE_HUD_VISUAL"])
-        ellesmerePreview:SetScript("OnClick", function()
-            if IsIntegrationActive("EllesmereUI") then transfer:ShowPreview() end
+        transferCaption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        transferCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+        transferCaption:SetJustifyH("LEFT")
+        transferCaption:SetWordWrap(true)
+        transferCaption:SetText(HUDTransferText("previewDesc"))
+        transferPreview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        transferPreview:SetSize(220, 26)
+        transferPreview:SetText(HUDTransferText("title"))
+        transferPreview:SetScript("OnClick", function()
+            if IsIntegrationActive(transfer.addon) then transfer:ShowPreview() end
         end)
     end
 
@@ -1803,20 +1813,20 @@ function Options:CreateFloatingPanel()
         end)
     end
 
-    function recoveryCard.RefreshIntegration(showEllesmere)
+    function recoveryCard.RefreshIntegration(showTransfer)
         local extraHeight = 0
-        if ellesmerePreview and ellesmereCaption then
-            SetShown(ellesmerePreview, showEllesmere)
-            SetShown(ellesmereCaption, showEllesmere)
-            if showEllesmere then
+        if transferPreview and transferCaption then
+            SetShown(transferPreview, showTransfer)
+            SetShown(transferCaption, showTransfer)
+            if showTransfer then
                 local topOffset = -(recoveryHeight + extraHeight)
-                ellesmerePreview:ClearAllPoints()
-                ellesmerePreview:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, topOffset)
-                ellesmereCaption:ClearAllPoints()
-                ellesmereCaption:SetPoint("TOPLEFT", ellesmerePreview, "BOTTOMLEFT", 0, -6)
-                ellesmereCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+                transferPreview:ClearAllPoints()
+                transferPreview:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, topOffset)
+                transferCaption:ClearAllPoints()
+                transferCaption:SetPoint("TOPLEFT", transferPreview, "BOTTOMLEFT", 0, -6)
+                transferCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
                 extraHeight = extraHeight + 48 + Controls.MeasureWrappedText(
-                    ellesmereCaption, ellesmereCaption:GetText(), 638)
+                    transferCaption, transferCaption:GetText(), 638)
             end
         end
 
@@ -1922,10 +1932,10 @@ function Options:CreateFloatingPanel()
     compatDesc:SetWordWrap(true)
     local function RefreshWindowCompatibility()
         alertsExtras.Layout()
-        local hasEllesmere = transfer and transfer.ShowPreview and IsIntegrationActive("EllesmereUI")
+        local hasTransfer = transfer and transfer.ShowPreview and IsIntegrationActive(transfer.addon)
             and transfer:IsAvailable() and true or false
-        if recoveryCard.RefreshIntegration then recoveryCard.RefreshIntegration(hasEllesmere) end
-        if tab5.RefreshEllesmereHelp then tab5.RefreshEllesmereHelp(hasEllesmere) end
+        if recoveryCard.RefreshIntegration then recoveryCard.RefreshIntegration(hasTransfer) end
+        if tab5.RefreshTransferHelp then tab5.RefreshTransferHelp(hasTransfer) end
         local bagAddon = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
         local minimapAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
         local key = bagAddon and (minimapAddon and "COMPAT_BOTH" or "COMPAT_BAGS")
@@ -2773,8 +2783,8 @@ function Options:CreateFloatingPanel()
         FitHelpCard(card, body, text, contentTop + 16, 88)
         helpCards[#helpCards + 1] = card
         if topic == "EDIT_MODE" and Offhand.isForever then
-            function tab5.RefreshEllesmereHelp(show)
-                local description = show and text .. "\n\n" .. L["ELLESMERE_HUD_HELP_BODY"] or text
+            function tab5.RefreshTransferHelp(show)
+                local description = show and text .. "\n\n" .. HUDTransferText("helpBody") or text
                 if description == body:GetText() then return end
                 body:SetText(description)
                 FitHelpCard(card, body, description, contentTop + 16, 88)
@@ -2793,7 +2803,9 @@ function Options:CreateFloatingPanel()
     RefreshWindowCompatibility()
     configFrame:RegisterEvent("ADDON_LOADED")
     configFrame:SetScript("OnEvent", function(_, _, addonName)
-        if alertsExtras.addons[addonName] or addonName == "EllesmereUI" then RefreshWindowCompatibility() end
+        if alertsExtras.addons[addonName] or (transfer and addonName == transfer.addon) then
+            RefreshWindowCompatibility()
+        end
     end)
     do
         local appearanceCards = {card3_1, card3_2, card3_3, card3_4}

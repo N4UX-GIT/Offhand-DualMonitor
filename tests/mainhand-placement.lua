@@ -2568,13 +2568,13 @@ do
     C_EditMode.SetActiveLayout = function(id) layoutData.activeLayout=id end
     Constants.EditModeConsts.EditModeMaxLayoutsPerType = 5
 
-    local legacyContext = addon.Mainhand:GetEllesmereLayoutSource()
+    local legacyContext = addon.Mainhand:GetHUDTransferSource()
     assert(legacyContext.generatedActive and legacyContext.characterOwned == false,
         "a shared layout remains available for preview, but must not skip character HUD creation")
     local registry = OffhandDB.sharedMainhandLayouts["Offhand (3)"]
     local character = OffhandCharDB
     registry.ownershipSignature, OffhandCharDB = "old-owner", {}
-    assert(not addon.Mainhand:GetEllesmereLayoutSource().generated,
+    assert(not addon.Mainhand:GetHUDTransferSource().generated,
         "the shared preview fallback must reject a mismatched ownership signature")
     registry.ownershipSignature, OffhandCharDB = "", character
     local success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
@@ -2588,13 +2588,13 @@ do
 
     eui = true
     layoutData.activeLayout = 1
-    assert(not addon.Mainhand:GetEllesmereLayoutSource().generated,
+    assert(not addon.Mainhand:GetHUDTransferSource().generated,
         "the EllesmereUI review must require the saved character layout to be active")
     layoutData.activeLayout = 9
-    local review = addon.Mainhand:GetEllesmereLayoutSource()
+    local review = addon.Mainhand:GetHUDTransferSource()
     local reviewStatus = addon.Mainhand:GetCharacterSetupLayoutStatus()
-    assert(review.generatedActive and review.characterOwned and review.ellesmereReview
-        and reviewStatus.ellesmereReview and not reviewStatus.ready,
+    assert(review.generatedActive and review.characterOwned and review.transferReview
+        and reviewStatus.transferReview and not reviewStatus.ready,
         "enabling EllesmereUI alone should offer review of the active character layout")
     local accepted, refusal = addon.Mainhand:UseExistingEditModeLayout()
     assert(not accepted and refusal == "review", "review should be explicit")
@@ -2612,7 +2612,7 @@ do
     assert(addon.Mainhand:GetLayoutStatus().currentOwnership)
     nativeStatus = true
     assert(not addon.Mainhand:GetLayoutStatus().currentOwnership
-        and not addon.Mainhand:GetEllesmereLayoutSource().generated
+        and not addon.Mainhand:GetHUDTransferSource().generated
         and addon.Mainhand:GetCharacterSetupLayoutStatus().reason == "ownership",
         "switching to Blizzard XP/Rep must invalidate a layout even with the same loaded addons")
     success, name = addon.Mainhand:CreateOrUpdateEditModeLayout()
@@ -2825,7 +2825,7 @@ for _,eui in ipairs({false,true}) do
   EllesmereUI={IsUnlockAnchored=function() return false end,
    GetActiveProfileData=function() return {} end,
    _unlockRegisteredElements={Bar4=element(60,.8),Bar5=element(40,1.1)}}
-  assert(loadfile("Core/ForeverEllesmereLayout.lua"))("Offhand",addon)
+  dofile("tests/support/core-bridges.lua").Load(addon,{"Bridges/EllesmereUI/Layout.lua"})
  end
  for _,barScale in ipairs({.65,1,1.25}) do
  MultiBarRight.scale,MultiBarLeft.scale=barScale,barScale*.9
@@ -2852,7 +2852,7 @@ for _,eui in ipairs({false,true}) do
   local overlap=a.point==b.point and a.relativeTo==b.relativeTo and a.relativePoint==b.relativePoint
    and a.offsetX==b.offsetX and a.offsetY==b.offsetY
   if eui then
-   local rows=addon.EllesmereLayout:Preview("ellesmere")
+   local rows=addon.HUDTransfer:Preview("ellesmere")
    local a,b=rows[6].proposed,rows[7].proposed
    assert(a and b and b.left+b.width<=a.left-4.99,
     case.name..": replacement right bars must have separate columns at their actual scales")

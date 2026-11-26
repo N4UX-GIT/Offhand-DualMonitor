@@ -163,6 +163,9 @@ Every callback is optional and runs inside `pcall`:
 | `PrepareTransition()` | Once per reload or logout teardown, before the workspace capture and whether or not it runs | Ignored |
 | `BeginSession()` | Every `PLAYER_ENTERING_WORLD` (login, reload, zone change), before any workspace restore | Ignored |
 | `RefreshScale()` | Every full layout pass, right after Offhand applies its global UI scale and before the viewport updates | Ignored |
+| `InitializePopupWindows()` | Once, when the popup bounds handling initializes (a bridge may start observing its addon's presentation windows) | Ignored |
+| `GetSetupNotes(context)` | `Bridges:GetSetupNotes(context)` for an onboarding moment: `"before-span"` (the span step's instructions) | Non-empty string, or `nil`; the answers are joined by a blank line in registration order |
+| `OwnsFeature(feature)` | `Bridges:OwnsFeature(feature)`: `"chatBubbles"` in the chat bubble replacement decision, not per frame | Literal `true` when the addon handles the feature itself; `OwnsFeature` returns the first such bridge id (the chat bubble diagnostics' `replacementConflict`), else `nil` |
 | `RefreshBags(services)` | Forever bag Escape pass (at bag provider order 60) with `{ UpdateEscapeRegistration, IsEscapeRegistered, CanSuppressVendorClose, IsGameMenuBagClose, IsSettingsBagClose, IsPaused, TrackEnabled, IsSpanned, InputReserved, CanOpenBagsFromAddon, IsFrameOnWorkspace, CloseParkedNativeBags, KeepsIndependentPanels }` | Ignored |
 | `GetDiagnostics()` | Compatibility diagnostics report | Non-empty string or `nil` |
 | `GetDebugDiagnostics()` | `/offhand diag debug` only, printed as `<label> diagnostics: <text>.` | `label, text` (both non-empty strings) or nothing |
@@ -197,7 +200,8 @@ Added by `Core/Bridges.lua`:
 - `Offhand.API.GetMainhandPixelHeightRatio()`: Mainhand's game pixel height over the physical window height while spanned, else `1`; a bridge multiplies a vendor's native frame scale by it
 - `Offhand.API.QueuePopupBounds(frame)`: queues a tooltip-like frame for Offhand's popup bounds pass, which fits it inside the game rectangle once shown; `true` when queued
 - `Offhand.API.RegisterAddonData(addon, data)` and the settings services of section 3.1
-- `Offhand.API.RegisterHUDTransfer(provider)`: sets `Offhand.HUDTransfer` to the one HUD layout transfer provider (`provider.id` required); `false, "provider"` or `false, "duplicate"` otherwise
+- `Offhand.API.RegisterHUDTransfer(provider)`: sets `Offhand.HUDTransfer` to the one HUD layout transfer provider (`provider.id` required); `false, "provider"` or `false, "duplicate"` otherwise. Core reads `IsAvailable()`, `ShowPreview(direction, onDismiss)` (its presence adds the setup wizard's transfer step after the HUD step, with the same step number, sizes and order as before), `HasPendingReload()`, `PromptImportReload()`, `addon` (the folder whose load and enable state show the Options controls and whose `ADDON_LOADED` refreshes them), `reloadPopup` (its import reload popup gets Offhand's controller-safe popup), `copyDirection` (the preview direction that copies Offhand's native layout into the suite) and `text` (locale keys by name: `title`, `stage`, `wizardIntro`, `wizardBody`, `wizardSelect`, `wizardReload`, `wizardExisting`, `wizardSelectManual`, `setupDesc`, `finishCurrent`, `finishReload`, `importReady`, `savedInactive`, `busy`, `previewDesc`, `helpBody`, `characterReview`; a missing name shows empty text)
+- HUD transfer services: `GetHUDTransferSource(geometryOnly, targetSizes)` (the Mainhand Edit Mode layout to transfer, read only), `SaveHUDTransferFallback(context, rows)` (saves the rows as a separate inactive native layout: `true, name` or `false, reason`), `GetGeometrySignature(rect)`, `GetLayoutFailureText(reason)`
 - Map services: `GetViewportMetrics()` (the live viewport metrics, enabled or not), `GetWorkspaceRegion(metrics)` (the workspace region those metrics resolve to), `KeepsWorkspacePanelsOpen()` (false only when the player turned workspace panel persistence off)
 - Core state, read as core reads it: `IsEnabled()`, `IsForeverClient()`, `IsInputReserved()`, `IsControllerOwned()` (an owner of the `hud.controller` role is present), `IsGamepadUIEnabled()`, `IsNativeGamepadInterface()`, `IsGeometryTransitionActive()`, `IsLoggingOut()`, `GetExternalMapOwner()`, `GetOptionsMetrics()` (viewport metrics while enabled and spanned, else `nil`)
 - Core actions: `Print(fmt, ...)`, `GetText(key)`, `ShowPopup(popupKey, textArg1, textArg2, data)`, `RequestFullLayout(preserveScale)`, `RefreshWorkspaceChrome()`, `RegisterDynamicChromeFrame(name)`, `GetReloadFunction()`, `GetControls()`
@@ -304,6 +308,22 @@ EllesmereUI exists and looks `EllesmereUI.PP` up on each `RefreshScale()`, so a
 late EllesmereUI is still hooked. It keeps the pixel grid on the live root while
 Offhand is enabled and spanned, and after EllesmereUI's own scale setter asks for
 `RequestFullLayout(true)` (`tests/ellesmere-scale-compatibility.lua`).
+`Bridges/EllesmereUI/Windows.lua` is the former EllesmereUI window fitting of
+`Core/PopupBounds.lua` (settings window, popups, Unlock Mode toolbar) and the chat
+bubble ownership probe of `Core/ChatBubbles.lua`, with unchanged behaviour. Its
+`InitializePopupWindows()` starts the 0.2 s window ticker on Forever only when
+EllesmereUI exists at that moment, as before, and `OwnsFeature("chatBubbles")`
+makes the bubble replacement yield while EllesmereUI's bubble styling is enabled
+(`tests/popup-bounds.lua`, `tests/chat-bubble-scale.lua`). The suite's files share
+one bridge object registered as `EllesmereUI`. Its `GetSetupNotes("before-span")`
+is the former onboarding profile backup advice (Forever, while EllesmereUI can
+export its profile). `Bridges/EllesmereUI/Layout.lua` and `Preview.lua` are the
+former `Core/ForeverEllesmereLayout.lua` and `UI/EllesmereLayoutPreview.lua`, moved
+with unchanged behaviour: on the Forever client (with or without EllesmereUI, as
+before) they register the HUD transfer provider and the `ellesmere` slash
+command, and `Bridge.lua` names the provider's locale keys
+(`tests/forever-ellesmere-layout.lua`, `tests/wizard-autoconfig.lua`,
+`tests/character-setup.lua`).
 
 `Bridges/ConsolePort` is a data bridge: it registers through
 `Offhand.API.RegisterAddonData` on every client and supplies the roles

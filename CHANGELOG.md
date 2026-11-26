@@ -21,6 +21,8 @@
 - Internal: the MapWise position guard and fade reader, the MapUtils fade reader and the Leatrix Maps coordinate label refresh and settings description moved from the core into built-in bridges. Behaviour is unchanged.
 - Internal: the replacement bag addon detection, bag owner report order, bag name lists, bag toggle keys, the EllesmereUI bag close button and the Forever bag Escape adapters for ArkInventory, Bagnaros, BetterBags, BagSmith, ElvUI and EllesmereUI moved from the core into built-in bridges. Behaviour is unchanged.
 - Internal: the persistent workspace bag roots of Baganator, Bagnon and EllesmereUI (root discovery, script and Escape handling, reopen after Escape, panels, Talents and reload, parked native bags and diagnostics) moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the EllesmereUI settings window, popup and Unlock Mode toolbar fitting and its chat bubble ownership check moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the EllesmereUI HUD layout transfer (visual preview, profile import, Blizzard fallback layout, /offhand ellesmere, its setup wizard step, settings, onboarding and character review texts) moved from the core into a built-in bridge. Behaviour is unchanged.
 
 ## [2.1.5-beta.42] - 2026-11-25
 

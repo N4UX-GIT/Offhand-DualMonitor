@@ -78,12 +78,15 @@ function Compatibility:Refresh()
     SyncGrid(pp)
 end
 
-local bridge = { contract = API.BRIDGE_CONTRACT }
+-- The EllesmereUI files share one bridge object (the namespace's bridge).
+local ns = API.GetBridgeNamespace("EllesmereUI")
+local bridge = ns.bridge or { contract = API.BRIDGE_CONTRACT }
+ns.bridge = bridge
 
 function bridge:RefreshScale()
     Compatibility:Refresh()
 end
 
 if API.RegisterBridge("EllesmereUI", bridge) then
-    API.GetBridgeNamespace("EllesmereUI").Scale = Compatibility
+    ns.Scale = Compatibility
 end

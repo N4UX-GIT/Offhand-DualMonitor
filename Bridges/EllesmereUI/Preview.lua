@@ -1,8 +1,26 @@
-local _, Offhand = ...
-local Transfer = Offhand.EllesmereLayout
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/EllesmereUI/Preview.lua: visual preview of the EllesmereUI HUD
+    layout transfer
+
+    This is the former UI/EllesmereLayoutPreview.lua moved behind the bridge
+    contract; its behaviour is unchanged. It builds its dialog with Offhand's UI
+    controls and reaches the viewport, layout geometry signature, popups,
+    reload, fallback save and failure text through Offhand.API only. It adds
+    ShowPreview and PromptImportReload to the transfer provider of Layout.lua
+    and exists wherever that provider does (the Forever client).
+--]]
+
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.GetBridgeNamespace) ~= "function"
+    or type(API.GetControls) ~= "function" or type(API.GetText) ~= "function" then return end
+local Transfer = API.GetBridgeNamespace("EllesmereUI").Transfer
 if not Transfer then return end
 
-local Controls, L = Offhand.UIControls, Offhand.L
+-- Offhand's locale table, read through the text service.
+local Controls, L = API.GetControls(), setmetatable({}, {__index = function(_, key) return API.GetText(key) end})
 local dialog
 local importReturn, watchedImporter
 local directions = {"fit", "ellesmere", "blizzard"}
@@ -122,7 +140,7 @@ local function ReadPlan(direction)
     if not ok then return nil, "ELLESMERE_HUD_UNAVAILABLE" end
     if not rows then return nil, source end
     local signature = {context.profileName or "", source or "", context.controller and "1" or "0",
-        Offhand.MainhandGeometry.Signature(context.rect)}
+        API.GetGeometrySignature(context.rect)}
     local workspace = context.workspace
     if workspace then
         signature[#signature + 1] = string.format("%f,%f,%f,%f", workspace.left, workspace.bottom, workspace.right, workspace.top)
@@ -154,8 +172,9 @@ local function Render(direction)
         button.selected = button.direction == direction
         Controls.StyleSurface(button, "button")
     end
+    -- The placeholder for a missing name is an em dash (its UTF-8 bytes).
     dialog.subtitle:SetText(context and string.format(L["ELLESMERE_HUD_VISUAL_SOURCE"],
-        context.profileName or "—", plan.source or "—") or L[reason])
+        context.profileName or "\226\128\148", plan.source or "\226\128\148") or L[reason])
     dialog.guide:SetText(L[modeGuidance[direction]])
     local pages = math.max(1, math.ceil(#rows / #colors))
     dialog.page = math.min(dialog.page or 1, pages)
@@ -204,10 +223,9 @@ local function Render(direction)
 end
 
 function Transfer:PromptImportReload()
-    if not self:HasPendingReload() or not (StaticPopupDialogs and Offhand.ShowPopup) then return end
-    local mainhand = Offhand.Mainhand
-    local manual = not Offhand:GetReloadUIFunction() or (InCombatLockdown and InCombatLockdown())
-        or mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()
+    if not self:HasPendingReload() or not (StaticPopupDialogs and API.ShowPopup) then return end
+    local manual = not API.GetReloadFunction() or (InCombatLockdown and InCombatLockdown())
+        or API.IsNativeGamepadInterface()
     StaticPopupDialogs.OFFHAND_ELLESMERE_HUD_RELOAD = {
         offhandAcceptBeforeHide = true,
         text = L[manual and "ELLESMERE_HUD_IMPORT_RELOAD_MANUAL" or "ELLESMERE_HUD_IMPORT_RELOAD_PROMPT"],
@@ -215,9 +233,9 @@ function Transfer:PromptImportReload()
         button2 = not manual and L["CHARACTER_SETUP_LATER"] or nil,
         OnAccept = not manual and function()
             if not self:HasPendingReload() then return end
-            local reload = Offhand:GetReloadUIFunction()
+            local reload = API.GetReloadFunction()
             if reload and not (InCombatLockdown and InCombatLockdown())
-                and not (mainhand and mainhand.IsNativeGamepadInterface and mainhand:IsNativeGamepadInterface()) then
+                and not API.IsNativeGamepadInterface() then
                 reload()
             else
                 self:PromptImportReload()
@@ -225,7 +243,7 @@ function Transfer:PromptImportReload()
         end or nil,
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
     }
-    return Offhand:ShowPopup("OFFHAND_ELLESMERE_HUD_RELOAD")
+    return API.ShowPopup("OFFHAND_ELLESMERE_HUD_RELOAD")
 end
 
 local function ReviewImport(plan, rows)
@@ -337,12 +355,12 @@ local function Apply()
     end
     if not canApply then return end
     if dialog.direction == "blizzard" then
-        local ok, result = Offhand.Mainhand:SaveEllesmereFallback(current.context, rows)
+        local ok, result = API.SaveHUDTransferFallback(current.context, rows)
         if ok then
             dialog.apply:Disable()
             dialog.status:SetText(string.format(L["ELLESMERE_HUD_FALLBACK_SAVED"], result))
         else
-            dialog.status:SetText(Offhand.Options:GetMainhandLayoutFailureText(result))
+            dialog.status:SetText(API.GetLayoutFailureText(result))
         end
     else
         ReviewImport(current, rows)
@@ -437,7 +455,7 @@ end
 function Transfer:ShowPreview(direction, onDismiss)
     if not self:IsAvailable() then return end
     if not dialog then dialog = CreateDialog() end
-    local m = Offhand.Viewport:GetMetrics()
+    local m = API.GetViewportMetrics()
     local scale = Controls.FitDialog(dialog, m)
     dialog:ClearAllPoints()
     if m and m.isSpanned then

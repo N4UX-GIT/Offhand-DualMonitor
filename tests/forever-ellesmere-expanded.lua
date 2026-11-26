@@ -10,7 +10,7 @@ Enum={EditModeSystem={ActionBar=0,Minimap=1,UnitFrame=2},EditModeActionBarSystem
 InCombatLockdown=function() return false end
 local context={rect={left=2000,right=4000,bottom=0,top=1400,width=2000,height=1400,screenWidth=4000,screenHeight=1400},
     source={systems={}},generated={systems={}}}
-local addon={isForever=true,db={enabled=true},Mainhand={GetEllesmereLayoutSource=function() return context end}}
+local addon={isForever=true,db={enabled=true},Mainhand={GetHUDTransferSource=function() return context end}}
 local apiState,dependency='disabled',false
 C_AddOns={GetAddOnInfo=function(name) if apiState~='missing' then return name,name,nil,false,apiState=='incarnation-disabled' and 'DISABLED' or nil end end,
     GetAddOnEnableState=function(name) return (apiState=='disabled' or dependency and name=='EllesmereUI') and 0 or 2 end,
@@ -28,8 +28,8 @@ EllesmereUI={_unlockRegisteredElements=elements,IsUnlockAnchored=function() retu
     SnapshotAllAddons=function() return {addons={EllesmereUICooldownManager={style='keep'},EllesmereUIResourceBars={castBar={enabled=true}}}} end,
     _ModuleNS={EllesmereUICooldownManager={GetActiveSpecKey=function() return specKey end,
         GetTrackedBuffBars=function() return spec.trackedBuffBars end,TBBBarGroupID=function(cfg) return cfg.group end}}}
-assert(loadfile('Core/ForeverEllesmereLayout.lua'))('Offhand',addon)
-local transfer=addon.EllesmereLayout
+dofile('tests/support/core-bridges.lua').Load(addon,{'Bridges/EllesmereUI/Layout.lua'})
+local transfer=addon.HUDTransfer
 local rows=transfer:Preview('fit')
 assert(rows[1].reason=='ELLESMERE_HUD_ENABLE_MODULE' and rows[1].reasonArgs[1]=='EllesmereUIActionBars')
 apiState='missing';assert(transfer:Preview('fit')[1].reason=='ELLESMERE_HUD_INSTALL_MODULE')

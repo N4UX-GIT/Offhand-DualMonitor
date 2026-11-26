@@ -228,7 +228,10 @@ local expectedAnchorBridges = {
     "Bridges/EasyFishing/Bridge.lua",
     "Bridges/EllesmereUI/Bridge.lua",
     "Bridges/EllesmereUI/Bags.lua",
+    "Bridges/EllesmereUI/Layout.lua",
+    "Bridges/EllesmereUI/Preview.lua",
     "Bridges/EllesmereUI/Scale.lua",
+    "Bridges/EllesmereUI/Windows.lua",
     "Bridges/ElvUI/Bridge.lua",
     "Bridges/ElvUI/Bags.lua",
     "Bridges/FlareUI/Bridge.lua",
@@ -298,6 +301,10 @@ assert(io.open("Core/EllesmereScaleCompatibility.lua", "rb") == nil,
     "Core/EllesmereScaleCompatibility.lua must remain retired into Bridges/EllesmereUI/Scale.lua")
 assert(io.open("Core/OpenMapRecovery.lua", "rb") == nil,
     "Core/OpenMapRecovery.lua must remain retired into Bridges/OpenMap/Recovery.lua")
+assert(io.open("Core/ForeverEllesmereLayout.lua", "rb") == nil,
+    "Core/ForeverEllesmereLayout.lua must remain retired into Bridges/EllesmereUI/Layout.lua")
+assert(io.open("UI/EllesmereLayoutPreview.lua", "rb") == nil,
+    "UI/EllesmereLayoutPreview.lua must remain retired into Bridges/EllesmereUI/Preview.lua")
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")

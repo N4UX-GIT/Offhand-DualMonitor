@@ -41,7 +41,6 @@ Core\MainhandCompatibility.lua
 Core\MainhandGamepad.lua
 Core\MainhandEditMode.lua
 Core\Mainhand.lua
-Core\ForeverEllesmereLayout.lua
 Core\CharacterSetup.lua
 Core\RetailFullscreen.lua
 Core\CinematicPresentation.lua
@@ -107,7 +106,6 @@ UI\Minimap.lua
 UI\Onboarding.lua
 UI\WhatsNew.lua
 UI\Wizard.lua
-UI\EllesmereLayoutPreview.lua
 # Built-in Bridges
 Bridges\Shared\DefaultAnchors.lua
 Bridges\AdiBags\Bridge.lua
@@ -139,7 +137,10 @@ Bridges\DonCore\Bridge.lua
 Bridges\EasyFishing\Bridge.lua
 Bridges\EllesmereUI\Bridge.lua
 Bridges\EllesmereUI\Bags.lua
+Bridges\EllesmereUI\Layout.lua
+Bridges\EllesmereUI\Preview.lua
 Bridges\EllesmereUI\Scale.lua
+Bridges\EllesmereUI\Windows.lua
 Bridges\ElvUI\Bridge.lua
 Bridges\ElvUI\Bags.lua
 Bridges\FlareUI\Bridge.lua

@@ -29,7 +29,7 @@ local context = {
         screenWidth = 4000, screenHeight = 2560},
 }
 local addon = {isForever = true, db = {enabled = true}, Mainhand = {
-    GetEllesmereLayoutSource = function() return context end,
+    GetHUDTransferSource = function() return context end,
 }}
 -- This partial addon fixture needs only the reload capability; keep its
 -- existing client/input ownership doubles independent of other runtime APIs.
@@ -66,8 +66,8 @@ EllesmereUI = {
     ImportProfileInteractive = function(options) importOptions = options; return true end,
 }
 
-assert(loadfile("Core/ForeverEllesmereLayout.lua"))("Offhand", addon)
-local transfer = assert(addon.EllesmereLayout)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/EllesmereUI/Layout.lua" })
+local transfer = assert(addon.HUDTransfer)
 local rows, name = transfer:Preview("ellesmere")
 assert(name == "Offhand" and snapshots == 0 and not importOptions, "preview must only read geometry")
 assert(rows[1].position.x == 720 and rows[1].position.y == 200,
@@ -312,28 +312,28 @@ OffhandCharDB = {mainhandLayout = {
     sourceName = "Modern", generatedName = "Offhand", geometrySignature = "current",
 }}
 assert(loadfile("Core/MainhandEditMode.lua"))("Offhand", addon)
-local selection = addon.Mainhand:GetEllesmereLayoutSource()
+local selection = addon.Mainhand:GetHUDTransferSource()
 assert(selection.source == context.source and selection.generated == context.generated)
 signature = "changed"
-selection = addon.Mainhand:GetEllesmereLayoutSource()
+selection = addon.Mainhand:GetHUDTransferSource()
 assert(selection.source == context.source and not selection.generated,
     "a layout from another span must be projected from its source")
 OffhandCharDB = {}
-assert(not addon.Mainhand:GetEllesmereLayoutSource(), "an untracked Offhand layout must not be translated twice")
+assert(not addon.Mainhand:GetHUDTransferSource(), "an untracked Offhand layout must not be translated twice")
 OffhandCharDB = {foreverEditModeLayoutName = "Offhand", foreverEditModeLayoutID = 4,
     characterSetup = {geometrySignature = "current", gamepad = false}}
-assert(not addon.Mainhand:GetEllesmereLayoutSource(), "a legacy layout must match this span")
+assert(not addon.Mainhand:GetHUDTransferSource(), "a legacy layout must match this span")
 signature = "current"
-selection = addon.Mainhand:GetEllesmereLayoutSource()
+selection = addon.Mainhand:GetHUDTransferSource()
 assert(selection.generated == context.generated and selection.generatedActive and not selection.source,
     "a confirmed legacy layout may reuse its coordinates without projection")
 activeID = 1
-assert(addon.Mainhand:GetEllesmereLayoutSource().source == context.source)
+assert(addon.Mainhand:GetHUDTransferSource().source == context.source)
 
 local gamepadPreset = {layoutName = "Gamepad", systems = {system(1, nil, "TOPRIGHT", 0, 0)}}
 EditModePresetLayoutManager.GetCopyOfPresetLayouts = function() return {context.source, gamepadPreset} end
 nativeGamepad, activeID = true, 4
-selection = addon.Mainhand:GetEllesmereLayoutSource()
+selection = addon.Mainhand:GetHUDTransferSource()
 assert(selection.source == gamepadPreset and not selection.generated,
     "Gamepad preview must use its own preset while a standard layout is still active")
 
@@ -355,7 +355,7 @@ local oldGetLayouts, oldMainhandLayout = C_EditMode.GetLayouts, OffhandCharDB.ma
 C_EditMode.GetLayouts = function() return {activeLayout = 4, layouts = {padLayout}} end
 OffhandCharDB.mainhandLayout = {sourceName = "Gamepad", generatedName = padLayout.layoutName,
     geometrySignature = "current", controllerLayout = true}
-selection = addon.Mainhand:GetEllesmereLayoutSource()
+selection = addon.Mainhand:GetHUDTransferSource()
 local projected = selection.transferLayout.systems
 assert(projected[1].anchorInfo.relativePoint == "TOPRIGHT"
     and projected[1].anchorInfo.offsetX == 0 and projected[1].anchorInfo.offsetY == -1120,
@@ -383,7 +383,7 @@ assert(transfer:Preview("ellesmere")[5].proposed.left == 3000,
     "fitting the stock focus must not reposition an explicit saved focus anchor")
 padLayout.systems[5], registry.target = stockFocus, nil
 padMap.isInDefaultPosition = false
-assert(addon.Mainhand:GetEllesmereLayoutSource().transferLayout.systems[1].anchorInfo.offsetY == 0,
+assert(addon.Mainhand:GetHUDTransferSource().transferLayout.systems[1].anchorInfo.offsetY == 0,
     "an explicit minimap position must stay available for review")
 C_EditMode.GetLayouts, OffhandCharDB.mainhandLayout = oldGetLayouts, oldMainhandLayout
 nativeGamepad = false
@@ -393,16 +393,16 @@ local saves = 0
 C_EditMode.GetLayouts = function() return savedLayouts end
 C_EditMode.SaveLayouts = function(value) saves = saves + 1; savedLayouts = value end
 Constants = {EditModeConsts = {EditModeMaxLayoutsPerType = 2}}
-local saved, fallbackName = addon.Mainhand:SaveEllesmereFallback(context, rows)
+local saved, fallbackName = addon.Mainhand:SaveHUDTransferFallback(context, rows)
 assert(saved and savedLayouts.activeLayout == 4 and #savedLayouts.layouts == 2
     and savedLayouts.layouts[2].layoutName == fallbackName
     and savedLayouts.layouts[2].systems[3].anchorInfo.offsetX == 1785
     and savedLayouts.layouts[1].systems[3].anchorInfo.offsetX == -300,
     "the reverse transfer must create an inactive copy and preserve the source layout")
-assert(addon.Mainhand:SaveEllesmereFallback(context, rows) and saves == 1,
+assert(addon.Mainhand:SaveHUDTransferFallback(context, rows) and saves == 1,
     "an identical fallback must reuse its slot even when the layout list is full")
 rows[3].anchor.offsetX = 1800
-local success, failure = addon.Mainhand:SaveEllesmereFallback(context, rows)
+local success, failure = addon.Mainhand:SaveHUDTransferFallback(context, rows)
 assert(not success and failure == "maximum" and saves == 1, "a full list must preserve both existing layouts")
 
 local preview, review
@@ -455,7 +455,7 @@ EllesmereUI.RefreshPage = function(_, force)
     rebuilds = rebuilds + 1
     profilesReady = true
 end
-assert(loadfile("UI/EllesmereLayoutPreview.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/EllesmereUI/Preview.lua" })
 importOptions, overrides = nil, nil
 transfer:ShowPreview("ellesmere")
 assert(not preview.selected, "the preview's row selection must not accent the dialog border")
@@ -563,7 +563,7 @@ EllesmereUI.GetMainFrame = function() return optionsFrame end
 local popup, reloads, gamepad = nil, 0, false
 StaticPopupDialogs = {}
 addon.ShowPopup = function(_, key) popup = assert(StaticPopupDialogs[key]) end
-addon.Mainhand.IsNativeGamepadInterface = function() return gamepad end
+addon.MainhandCompatibility.IsNativeGamepadInterface = function() return gamepad end
 ReloadUI = function() reloads = reloads + 1 end
 local function StartReview(callback)
     importOptions = nil

@@ -273,7 +273,8 @@ assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Chattynator/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua" })
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Chattynator/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/EllesmereUI/Windows.lua" })
 assert(loadfile("Core/CanvasFrameState.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelRegistry.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPersistence.lua"))("Offhand", addon)
@@ -3235,7 +3236,9 @@ do
     local generated, reopen, reloads
     local characterOwned = false
     local ellesmereReview, importReload, importPrompts, previewGamepad
-    addon.EllesmereLayout = {
+    addon.HUDTransfer = {
+        id = "EllesmereUI", addon = "EllesmereUI", copyDirection = "ellesmere",
+        text = addon.API.GetBridgeNamespace("EllesmereUI").transferText,
         IsAvailable = function() return true end,
         ShowPreview = function(_, direction, callback)
             assert(direction == ((previewGamepad or ellesmereReview) and "ellesmere" or "fit")
@@ -3251,7 +3254,7 @@ do
             importPrompts = (importPrompts or 0) + 1
         end,
     }
-    addon.Mainhand.GetEllesmereLayoutSource = function()
+    addon.Mainhand.GetHUDTransferSource = function()
         return {generated = generated, generatedActive = true, characterOwned = characterOwned,
             controller = previewGamepad}
     end
@@ -3332,19 +3335,19 @@ do
     wizardFrame.finishBtn.scripts.OnClick()
     assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
         "a matching existing layout must advance without being recreated or reloaded")
-    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
+    addon.Mainhand.GetHUDTransferSource = function() return {generated = generated, generatedActive = false} end
     keepButton.scripts.OnClick()
     assert(wizardFrame:IsShown() and wizardFrame.step == 5,
         "Finish Setup must recheck that Blizzard still has the matching layout active")
-    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = true} end
+    addon.Mainhand.GetHUDTransferSource = function() return {generated = generated, generatedActive = true} end
     wizardFrame.finishBtn.scripts.OnClick()
     keepButton.scripts.OnClick()
     assert(not wizardFrame:IsShown() and not OffhandCharDB.wizardProgressStep
         and not OffhandCharDB.wizardRecoveryStep, "Finish Setup must be available without an import")
 
     ellesmereReview = true
-    addon.Mainhand.GetEllesmereLayoutSource = function()
-        return {generated = generated, generatedActive = true, characterOwned = true, ellesmereReview = true}
+    addon.Mainhand.GetHUDTransferSource = function()
+        return {generated = generated, generatedActive = true, characterOwned = true, transferReview = true}
     end
     addon.Wizard:OpenHUDSetup(true)
     assert(wizardFrame.step == 6 and createMainhandLayoutCount == creates + 1 and reloads == 1,
@@ -3363,7 +3366,7 @@ do
     importReload, ellesmereReview = nil, nil
 
     local selectPrompt
-    addon.Mainhand.GetEllesmereLayoutSource = function() return {generated = generated, generatedActive = false} end
+    addon.Mainhand.GetHUDTransferSource = function() return {generated = generated, generatedActive = false} end
     addon.Mainhand.GetLayoutStatus = function() return {generatedName = "Other mode"} end
     addon.Mainhand.UseExistingEditModeLayout = function(_, name)
         assert(name == "Offhand", "wizard activation must target the current mode's matching layout")

@@ -294,6 +294,36 @@ function Bridges:RefreshScale()
     for _, id in ipairs(order) do Call(id, "RefreshScale") end
 end
 
+-- Once, when the popup bounds handling initializes: a bridge may start its
+-- own observation of an addon's presentation windows.
+function Bridges:InitializePopupWindows()
+    for _, id in ipairs(order) do Call(id, "InitializePopupWindows") end
+end
+
+-- Extra setup advice for one onboarding moment ("before-span": the span
+-- step's instructions): the non-empty strings bridges return, in
+-- registration order, joined by a blank line, or nil.
+function Bridges:GetSetupNotes(context)
+    local notes = {}
+    for _, id in ipairs(order) do
+        local ok, note = Call(id, "GetSetupNotes", context)
+        if ok and type(note) == "string" and note ~= "" then notes[#notes + 1] = note end
+    end
+    if #notes == 0 then return nil end
+    return table.concat(notes, "\n\n")
+end
+
+-- The id of the first bridge whose OwnsFeature(feature) returns a literal
+-- true (its addon handles that feature itself, so Offhand yields), or nil.
+-- Features: "chatBubbles".
+function Bridges:OwnsFeature(feature)
+    for _, id in ipairs(order) do
+        local ok, owns = Call(id, "OwnsFeature", feature)
+        if ok and owns == true then return id end
+    end
+    return nil
+end
+
 -- With the addon window Escape refresh, before its openers are observed:
 -- forget placement records older Offhand passes saved for frames whose addon
 -- now owns them. services: HasPlacement(name), IsVendorGameplayFrame(frame,
@@ -1043,6 +1073,26 @@ function Offhand.API.RegisterHUDTransfer(provider)
     return true
 end
 
+-- The Mainhand Edit Mode layout a HUD transfer reads (read only): with
+-- geometryOnly just { rect, controller }, else the source and generated
+-- layouts, the projected transfer layout and the review state, or nil when
+-- there is no layout to transfer. targetSizes: replacement bar sizes by
+-- action bar system index.
+function Offhand.API.GetHUDTransferSource(geometryOnly, targetSizes)
+    local mainhand = Offhand.Mainhand
+    if not mainhand or type(mainhand.GetHUDTransferSource) ~= "function" then return nil end
+    return mainhand:GetHUDTransferSource(geometryOnly, targetSizes)
+end
+
+-- Saves the rows' native anchors as a separate, inactive Edit Mode layout
+-- (Offhand HUD - Blizzard). Returns true and the layout name, or false and a
+-- reason (see GetLayoutFailureText).
+function Offhand.API.SaveHUDTransferFallback(context, rows)
+    local mainhand = Offhand.Mainhand
+    if not mainhand or type(mainhand.SaveHUDTransferFallback) ~= "function" then return false, "unavailable" end
+    return mainhand:SaveHUDTransferFallback(context, rows)
+end
+
 -- Settings a bridge declared in data.settings, read from and written to the
 -- same profile (Offhand's settings) or character (OffhandCharDB) key as
 -- before, so nothing migrates. A read of an unset key gives the declared
@@ -1161,6 +1211,22 @@ end
 -- Offhand's UI control factory (UI/Controls.lua), or nil before it loads.
 function Offhand.API.GetControls()
     return Offhand.UIControls
+end
+
+-- The geometry signature Offhand stores for a game rectangle, or nil before
+-- the geometry module loads.
+function Offhand.API.GetGeometrySignature(rect)
+    local geometry = Offhand.MainhandGeometry
+    if not geometry or type(geometry.Signature) ~= "function" then return nil end
+    return geometry.Signature(rect)
+end
+
+-- Offhand's own text for a Mainhand layout failure reason, or nil before the
+-- options load.
+function Offhand.API.GetLayoutFailureText(reason)
+    local options = Offhand.Options
+    if not options or type(options.GetMainhandLayoutFailureText) ~= "function" then return nil end
+    return options:GetMainhandLayoutFailureText(reason)
 end
 
 -- The current viewport metrics (game rectangle, workspace and spanned state

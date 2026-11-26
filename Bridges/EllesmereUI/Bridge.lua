@@ -1,6 +1,7 @@
 -- EllesmereUI data bridge (built into Offhand). Facts only: no frame, hook or timer.
--- Ownership and frame-rule facts only for now; the layout transfer stays in the core.
--- The pixel-grid scale adapter is Scale.lua beside this file.
+-- The bag provider is Bags.lua, the HUD layout transfer Layout.lua and Preview.lua, the
+-- pixel-grid scale adapter Scale.lua and the window fitting and chat bubble probe Windows.lua
+-- beside this file.
 -- EllesmereUI ships one addon folder per module; each module owns its frame family while
 -- loaded or present: ActionBars the action bars (hud.actionBars) and, unless the player opts
 -- back into Blizzard's XP/Rep bars, the status bars (hud.statusBars); Minimap the minimap
@@ -32,6 +33,9 @@
 -- and keeps its open state in the custom bag workspace record (customBagRoot). Its bag
 -- Escape adapter, close button finder and persistent-root provider are in Bags.lua beside
 -- this file.
+-- HUD layout transfer texts: the locale keys the transfer provider of Layout.lua names for the
+-- setup wizard step, the Options controls, the onboarding notes and the character review
+-- prompt (core shows provider.text[name]; the keys keep their EllesmereUI names).
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...
@@ -68,6 +72,28 @@ local function MinimapProfileEnabled()
     local module = type(get) == "function" and get("EllesmereUIMinimap", true)
     return module and module.db and module.db.profile and module.db.profile.minimap
         and module.db.profile.minimap.enabled
+end
+
+if type(API.GetBridgeNamespace) == "function" then
+    API.GetBridgeNamespace("EllesmereUI").transferText = {
+        title = "ELLESMERE_HUD_VISUAL",
+        stage = "SETUP_STAGE_ELLESMERE",
+        wizardIntro = "ELLESMERE_HUD_WIZARD_INTRO",
+        wizardBody = "ELLESMERE_HUD_WIZARD_BODY",
+        wizardSelect = "ELLESMERE_HUD_WIZARD_SELECT",
+        wizardReload = "ELLESMERE_HUD_WIZARD_RELOAD",
+        wizardExisting = "ELLESMERE_HUD_WIZARD_EXISTING",
+        wizardSelectManual = "ELLESMERE_HUD_WIZARD_SELECT_MANUAL",
+        setupDesc = "ELLESMERE_HUD_SETUP_DESC",
+        finishCurrent = "ELLESMERE_HUD_FINISH_CURRENT",
+        finishReload = "ELLESMERE_HUD_FINISH_RELOAD",
+        importReady = "ELLESMERE_HUD_IMPORT_READY",
+        savedInactive = "ELLESMERE_HUD_SAVED_INACTIVE",
+        busy = "ELLESMERE_HUD_BUSY",
+        previewDesc = "ELLESMERE_HUD_PREVIEW_DESC",
+        helpBody = "ELLESMERE_HUD_HELP_BODY",
+        characterReview = "CHARACTER_SETUP_ELLESMERE",
+    }
 end
 
 API.RegisterAddonData("EllesmereUI", {

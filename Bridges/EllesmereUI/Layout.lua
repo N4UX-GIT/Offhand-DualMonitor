@@ -1,8 +1,28 @@
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/EllesmereUI/Layout.lua: built-in HUD layout transfer for EllesmereUI
+
+    This is the former Core/ForeverEllesmereLayout.lua moved behind the bridge
+    contract; its behaviour is unchanged. It reads the layout transfer source,
+    Offhand's enabled, input and viewport state and its locale text, and prints,
+    through Offhand.API only.
+
+    Like the core module it exists on the Forever client only, whether or not
+    EllesmereUI is loaded (IsAvailable checks EllesmereUI when it is asked). It
+    registers as Offhand's HUD transfer provider (Offhand.API.RegisterHUDTransfer)
+    and adds the /offhand ellesmere command to the suite's bridge. Preview.lua
+    beside this file adds the visual preview. See README.md.
+--]]
+
 -- One-time handoffs between Forever Edit Mode and EllesmereUI profiles.
-local _, Offhand = ...
-if not Offhand.isForever then return end
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterBridge) ~= "function"
+    or type(API.RegisterHUDTransfer) ~= "function" or type(API.GetBridgeNamespace) ~= "function"
+    or type(API.IsForeverClient) ~= "function" or type(API.GetHUDTransferSource) ~= "function" then return end
+if not API.IsForeverClient() then return end
 local Transfer = {}
-Offhand.EllesmereLayout = Transfer
 
 local actionBars = "EllesmereUIActionBars"
 local minimap = "EllesmereUIMinimap"
@@ -475,7 +495,7 @@ end
 
 
 local function GetWorkspaceRect()
-    local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local metrics = API.GetViewportMetrics()
     if metrics and metrics.isSpanned and metrics.workspaceRight > metrics.workspaceLeft
         and metrics.workspaceTop > metrics.workspaceBottom then
         return {left = metrics.workspaceLeft, bottom = metrics.workspaceBottom,
@@ -485,7 +505,7 @@ end
 
 function Transfer:IsAvailable()
     local eui = _G.EllesmereUI
-    return Offhand.db and Offhand.db.enabled and eui and type(eui.IsUnlockAnchored) == "function"
+    return API.IsEnabled() and eui and type(eui.IsUnlockAnchored) == "function"
 end
 
 function Transfer:Preview(direction)
@@ -496,7 +516,7 @@ function Transfer:Preview(direction)
     if InCombatLockdown() or (manager and (manager.editModeActive or (manager.IsShown and manager:IsShown())))
         or (eui.IsUnlockModeActive and eui:IsUnlockModeActive())
         or (eui.SpecOverrides_EditSessionActive and eui.SpecOverrides_EditSessionActive())
-        or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then
+        or API.IsInputReserved() then
         return nil, "ELLESMERE_HUD_BUSY"
     end
     local targetSizes = {}
@@ -508,9 +528,9 @@ function Transfer:Preview(direction)
             if bounds and index then targetSizes[index] = {width = bounds.width, height = bounds.height} end
         end
     end
-    local context = Offhand.Mainhand:GetEllesmereLayoutSource(direction == "fit", targetSizes)
+    local context = API.GetHUDTransferSource(direction == "fit", targetSizes)
     if not context and direction ~= "fit" then
-        context = Offhand.Mainhand:GetEllesmereLayoutSource(true)
+        context = API.GetHUDTransferSource(true)
     end
     if not context then return nil, "ELLESMERE_HUD_NO_LAYOUT" end
     local rect = context.rect
@@ -712,27 +732,50 @@ function Transfer:OpenImport(rows, onComplete)
                 else
                     result = "inactive"
                 end
-                if result == "inactive" then Offhand:Print(Offhand.L["ELLESMERE_HUD_SAVED_INACTIVE"]) end
+                if result == "inactive" then API.Print(API.GetText("ELLESMERE_HUD_SAVED_INACTIVE")) end
             end
             if onComplete then
                 onComplete(result)
             elseif result == "reload" then
                 if self.PromptImportReload then self:PromptImportReload()
-                else Offhand:Print(Offhand.L["ELLESMERE_HUD_RELOAD"]) end
+                else API.Print(API.GetText("ELLESMERE_HUD_RELOAD")) end
             end
         end,
     })
 end
 
 function Transfer:Run(action)
-    local L = Offhand.L
     if action ~= "" and action ~= "preview" and action ~= "import" and action ~= "fallback" then
-        Offhand:Print(L["ELLESMERE_HUD_HELP"])
+        API.Print(API.GetText("ELLESMERE_HUD_HELP"))
         return
     end
     if self.ShowPreview then
         self:ShowPreview(action == "import" and "ellesmere" or action == "fallback" and "blizzard" or "fit")
     else
-        Offhand:Print(L["ELLESMERE_HUD_UNAVAILABLE"])
+        API.Print(API.GetText("ELLESMERE_HUD_UNAVAILABLE"))
     end
+end
+
+-- What core reads from the HUD transfer provider (docs/BRIDGES.md): the addon
+-- whose load and enable state show the transfer controls, the import reload
+-- popup, the preview direction that copies Offhand's native layout into the
+-- profile, and the locale keys of the provider's texts (Bridge.lua beside this
+-- file names them).
+local ns = API.GetBridgeNamespace("EllesmereUI")
+Transfer.id = "EllesmereUI"
+Transfer.addon = "EllesmereUI"
+Transfer.reloadPopup = "OFFHAND_ELLESMERE_HUD_RELOAD"
+Transfer.copyDirection = "ellesmere"
+Transfer.text = ns.transferText
+
+-- The EllesmereUI files share one bridge object (the namespace's bridge).
+local bridge = ns.bridge or { contract = API.BRIDGE_CONTRACT }
+ns.bridge = bridge
+
+if API.RegisterHUDTransfer(Transfer) then
+    ns.Transfer = Transfer
+    bridge.slashCommands = {
+        ellesmere = function(arg) Transfer:Run(strtrim(arg or "")) end,
+    }
+    API.RegisterBridge("EllesmereUI", bridge)
 end

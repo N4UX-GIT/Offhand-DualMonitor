@@ -16,7 +16,7 @@ element("player", 550)
 local context = {rect = {left = 1000, right = 2000, bottom = 0, top = 1000,
     width = 1000, height = 1000, screenWidth = 2000, screenHeight = 1000}, generated = {systems = {}}}
 local addon = {isForever = true, db = {enabled = true}, Mainhand = {
-    GetEllesmereLayoutSource = function() return context end}}
+    GetHUDTransferSource = function() return context end}}
 EllesmereUIDB = {unlockAnchors = {}}
 local links = EllesmereUIDB.unlockAnchors
 EllesmereUI = {_unlockRegisteredElements = registry,
@@ -30,8 +30,8 @@ EllesmereUI = {_unlockRegisteredElements = registry,
     end,
     EncodePayload = function(value) payload = value; return "fixture" end,
     ImportProfileInteractive = function() return true end}
-assert(loadfile("Core/ForeverEllesmereLayout.lua"))("Offhand", addon)
-local transfer = addon.EllesmereLayout
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/EllesmereUI/Layout.lua" })
+local transfer = addon.HUDTransfer
 local stores = {"specOverrides", "condOverrides",
     "specUnlockOverrides", "condUnlockOverrides", "specBmOverrides", "condBmOverrides",
     "specDmOverrides", "condDmOverrides", "unlockOverrideAnchors"}

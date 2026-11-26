@@ -136,7 +136,7 @@ function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
     name = name or (frame and frame.GetName and frame:GetName())
     -- Replacement minimaps detach the visible canvas from MinimapCluster.
     -- Treat that canvas as HUD even when it overhangs Mainhand or sits at the
-    -- seam. Cropped Ellesmere maps can also use an anonymous UIParent root.
+    -- seam. Cropped replacement maps can also use an anonymous UIParent root.
     if name == "Minimap" or (frame and frame == _G.Minimap) then return true end
     if frame and frame ~= UIParent and Compatibility.HasCustomMinimapAddon() then
         local ok, owned = pcall(function()
