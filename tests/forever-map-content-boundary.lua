@@ -6,18 +6,20 @@ local pending={}
 InCombatLockdown=function() return combat end
 C_Timer={After=function(_,fn) pending[#pending+1]=fn end}
 UIParent={GetEffectiveScale=function() return 1 end}
-local owner
+local owner, registry
 local addon={isForever=true,db={enabled=true,persistentWorkspacePanels=true,
     savedWorkspacePositions={WorldMapFrame={x=20,y=600}}},
     CanvasFrameState={IsEvicting=function() return false end},
-    CanvasCompatibility={HasLeatrixMaps=function() return false end,
+    CanvasCompatibility={HasWorldMapConfigurationOwner=function() return false end,
         GetWorldMapExternalOwner=function() return owner end,
         IsExternallyPositionedWorldMap=function() return false end,
+        GetWorldMapOwnerFacts=function(name) return registry:GetRoleEntry('map.owner',name) end,
         ShouldYieldWorldMap=function() return owner~=nil end}}
 local metrics={isSpanned=true,workspaceLeft=0,workspaceRight=1000,
     workspaceBottom=0,workspaceTop=1000,workspaceWidth=1000,workspaceHeight=1000,
     gameLeft=1000,gameRight=2000,gameBottom=0,gameTop=1000}
 addon.Viewport={GetMetrics=function() return metrics end}
+registry=dofile(base..'/tests/support/core-bridges.lua').Load(addon,{base..'/Bridges/MoveAny/Bridge.lua'})
 local contentCalls=0
 local map={}
 WorldMapFrame=map

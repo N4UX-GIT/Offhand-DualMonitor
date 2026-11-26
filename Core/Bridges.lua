@@ -671,6 +671,15 @@ function Bridges:GetRoleEntries(role)
     return entries
 end
 
+-- The first entry of role named name, present or not, or nil (for facts about
+-- an owner a caller already resolved by name). No detector runs.
+function Bridges:GetRoleEntry(role, name)
+    for _, item in ipairs(roles[role] or {}) do
+        if item.entry.name == name then return item.entry end
+    end
+    return nil
+end
+
 -- Guidance entries in (order, registration) order, and for each one whether
 -- its suffixWhen detector passes (a suffix is added only then).
 function Bridges:GetGuidanceEntries()
@@ -682,12 +691,16 @@ function Bridges:GetGuidanceEntries()
     return entries, suffixes
 end
 
--- Diagnostic segments of slot in (order, registration) order. The consumer
--- formats them; a segment's value function is its to pcall.
+-- Diagnostic segments of slot in (order, registration) order, and for each
+-- one whether its detect detector passes (false when it has none). The
+-- consumer formats them; a segment's value function is its to pcall.
 function Bridges:GetDiagnosticSegments(slot)
-    local entries = {}
-    for index, item in ipairs(diagnostics[slot] or {}) do entries[index] = item.entry end
-    return entries
+    local entries, present = {}, {}
+    for index, item in ipairs(diagnostics[slot] or {}) do
+        entries[index] = item.entry
+        present[index] = item.entry.detect ~= nil and Detect(item.entry.detect, item.addon) or false
+    end
+    return entries, present
 end
 
 -- True when a frame rule matches. The name set is one table read; the other
@@ -1033,6 +1046,28 @@ end
 -- Offhand's UI control factory (UI/Controls.lua), or nil before it loads.
 function Offhand.API.GetControls()
     return Offhand.UIControls
+end
+
+-- The current viewport metrics (game rectangle, workspace and spanned state
+-- in UIParent units), whether or not Offhand is enabled, or nil before the
+-- viewport loads.
+function Offhand.API.GetViewportMetrics()
+    local viewport = Offhand.Viewport
+    return viewport and viewport:GetMetrics() or nil
+end
+
+-- The workspace region metrics resolve to (x, y, width, height in UIParent
+-- units), or nil without workspace regions.
+function Offhand.API.GetWorkspaceRegion(metrics)
+    local regions = Offhand.WorkspaceRegions
+    return regions and regions:Get(metrics) or nil
+end
+
+-- The player's Escape persistence preference for workspace panels on its
+-- own, as the map follow reads it: false only when they chose to close them.
+function Offhand.API.KeepsWorkspacePanelsOpen()
+    local db = Offhand.db
+    return not (type(db) == "table" and db.persistentWorkspacePanels == false)
 end
 
 -- Viewport metrics while Offhand is enabled and spanned, else nil; the same

@@ -22,7 +22,7 @@ do
     local e=env()
     local addon={tocVersion=20506,db={}}
     loadLocal('Core/CanvasPanelRegistry.lua',e,addon)
-    addon.CanvasCompatibility={HasClassicUIForever=function() return false end}
+    addon.CanvasCompatibility={GetExternalOwnerFrames=function() return nil end}
     addon.CanvasBackpackState={IsRoot=function() return false end}
     addon.CanvasFrameState={IsEvicting=function() return false end}
     e.InCombatLockdown=function() return false end
@@ -53,7 +53,7 @@ do
     local addon={tocVersion=20506,db={enabled=true,persistentWorkspacePanels=true,
         savedWorkspacePositions={WorldMapFrame={},SpellBookFrame={}}},
         Viewport={GetMetrics=function() return {isSpanned=true} end},
-        CanvasCompatibility={ShouldYieldFrameToClassicUIForever=function() return false end},
+        CanvasCompatibility={ShouldYieldFrameToExternalOwner=function() return false end},
         CanvasBackpackState={IsForeverContainerName=function() return false end},
         HasCustomBagAddon=function() return true end}
     loadLocal('Core/CanvasPanelRegistry.lua',e,addon)

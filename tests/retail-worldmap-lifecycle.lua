@@ -1,7 +1,7 @@
 -- Preserve native map registration instead of detaching its provider lifecycle.
 local addon={isRetail=true,db={enabled=true,persistentWorkspacePanels=true}}
 assert(loadfile('Core/CanvasPanelRegistry.lua'))('Offhand',addon)
-addon.CanvasCompatibility={HasClassicUIForever=function() return false end}
+addon.CanvasCompatibility={GetExternalOwnerFrames=function() return nil end}
 addon.CanvasBackpackState={IsRoot=function() return false end}
 addon.CanvasFrameState={IsEvicting=function() return false end,
     SetEvicting=function() error('native map must not enter a hide/show eviction') end,

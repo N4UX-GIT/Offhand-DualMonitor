@@ -30,15 +30,6 @@ local function IsSpanned()
     return metrics and metrics.isSpanned == true
 end
 
-local function IsAddonLoadedCompat(name)
-    local checker = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
-    if checker then
-        local ok, loaded = pcall(checker, name)
-        if ok then return loaded == true end
-    end
-    return _G[name] ~= nil
-end
-
 local function WindowType(name)
     if name == "WorldMapFrame" then return "map" end
     if name == "CharacterFrame" then return "character" end
@@ -137,7 +128,8 @@ function Behavior:RefreshCharacterScale(metrics, onWorkspace)
     end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
     local owned = db and db.enabled and metrics and metrics.isSpanned and onWorkspace
-        and not IsAddonLoadedCompat("ClassicUIForever")
+        and not (Offhand.CanvasCompatibility
+            and Offhand.CanvasCompatibility.ShouldYieldFrameToExternalOwner("CharacterFrame"))
     local multiplier = self:GetCharacterScale()
 
     if owned then

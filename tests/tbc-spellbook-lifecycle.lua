@@ -9,7 +9,7 @@ for _,toc in ipairs({11200,16000,20400,30300,50504,120107}) do
     assert(not registry.RequiresNativePanelRegistration('SpellBookFrame'))
 end
 addon.tocVersion=20506
-addon.CanvasCompatibility={HasClassicUIForever=function() return false end}
+addon.CanvasCompatibility={GetExternalOwnerFrames=function() return nil end}
 addon.CanvasBackpackState={IsRoot=function() return false end}
 addon.CanvasFrameState={IsEvicting=function() return false end,
     SetEvicting=function() error('secure spellbook must not be synthetically evicted') end}

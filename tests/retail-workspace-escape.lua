@@ -1,7 +1,7 @@
 -- Models the native captured callback and later dynamic cleanup lookup.
 -- It cannot simulate the client's taint engine; live acceptance is separate.
 local addon={isRetail=true,db={enabled=true,persistentWorkspacePanels=true},
- CanvasCompatibility={ShouldYieldFrameToClassicUIForever=function() return false end},
+ CanvasCompatibility={ShouldYieldFrameToExternalOwner=function() return false end},
  CanvasBackpackState={IsForeverContainerName=function() return false end},
  Viewport={GetMetrics=function() return {isSpanned=true} end}}
 assert(loadfile('Core/CanvasPanelRegistry.lua'))('Offhand',addon)

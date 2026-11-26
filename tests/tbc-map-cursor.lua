@@ -1,7 +1,7 @@
 local owner, leatrix, combat = false, false, false
 local addon = {tocVersion=20506, db={enabled=true}, CanvasFrameState={IsEvicting=function() return false end}}
 addon.CanvasCompatibility = {
-    HasLeatrixMaps=function() return leatrix end,
+    HasWorldMapConfigurationOwner=function() return leatrix end,
     ShouldYieldWorldMap=function() return owner end,
 }
 InCombatLockdown=function() return combat end

@@ -1803,8 +1803,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 if (not displayMetrics or displayMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                     Offhand.Canvas:RestorePersistentFrames()
                 end
-                if Offhand.Canvas and Offhand.Canvas.RefreshLeatrixMapCoordinateFonts then
-                    Offhand.Canvas:RefreshLeatrixMapCoordinateFonts()
+                if Offhand.Canvas and Offhand.Canvas.RefreshExternalMapCoordinateFonts then
+                    Offhand.Canvas:RefreshExternalMapCoordinateFonts()
                 end
                 if generation == Offhand._displayGeometryGeneration then
                     Offhand._displayGeometryTransitionActive = false
@@ -1929,8 +1929,8 @@ SlashCmdList["OFFHAND"] = function(msg)
 
     if cmd == "window" and Offhand.LearnedAddonWindows then
         Offhand.LearnedAddonWindows:Run(input:match("^%S+%s*(.*)$"))
-    elseif cmd == "recovermap" and Offhand.OpenMapRecovery then
-        Offhand.OpenMapRecovery:RunAndReport(strtrim(arg or "") == "offhand")
+    elseif Offhand.Bridges and Offhand.Bridges:RunSlashCommand(cmd, arg) then
+        -- A built-in bridge's own command (Bridges:RunSlashCommand ran it).
     elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
         Offhand.EllesmereLayout:Run(strtrim(arg or ""))
     elseif cmd == "centerline" or cmd == "centre" or cmd == "center" then

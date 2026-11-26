@@ -177,8 +177,8 @@ function Persistence.SideTabWidth(frame)
 end
 
 function Persistence.InstallDrag(Canvas, services)
-    local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
-    local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
+    local ShouldYieldFrameToExternalOwner = services.ShouldYieldFrameToExternalOwner
+    local ShouldYieldWorldMap = services.ShouldYieldWorldMap
     local IsForeverProfessionsPanel = services.IsForeverProfessionsPanel
     local IsExperimentalForeverProfessionsMovementEnabled = services.IsExperimentalForeverProfessionsMovementEnabled
     local IsPersistentForeverProfessionsPanelName = services.IsPersistentForeverProfessionsPanelName
@@ -216,11 +216,11 @@ function Persistence.InstallDrag(Canvas, services)
             SetPanelDragging(frame, false)
             return
         end
-        if ShouldYieldFrameToClassicUIForever(frame) then
+        if ShouldYieldFrameToExternalOwner(frame) then
             SetPanelDragging(frame, false)
             return
         end
-        if ShouldYieldWorldMapToMoveAny(frame) then
+        if ShouldYieldWorldMap(frame) then
             SetPanelDragging(frame, false)
             return
         end
@@ -619,8 +619,8 @@ local function HasReachableNativeBaganatorAnchor(frame, name, metrics)
 end
 
 function Persistence.InstallRestore(Canvas, services)
-    local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
-    local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
+    local ShouldYieldFrameToExternalOwner = services.ShouldYieldFrameToExternalOwner
+    local ShouldYieldWorldMap = services.ShouldYieldWorldMap
     local IsForeverProfessionsPanel = services.IsForeverProfessionsPanel
     local IsExperimentalForeverProfessionsMovementEnabled = services.IsExperimentalForeverProfessionsMovementEnabled
     local IsForeverEditModeFrame = services.IsForeverEditModeFrame
@@ -648,10 +648,10 @@ function Persistence.InstallRestore(Canvas, services)
         local name = frame:GetName()
         if not name or IsVendorGameplayFrame(frame, name) then return end
         if frame._OffhandDragging then return end
-        if ShouldYieldFrameToClassicUIForever(frame, name) then return end
+        if ShouldYieldFrameToExternalOwner(frame, name) then return end
         if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.ShouldYieldNativeContainer
             and Offhand.CanvasCompatibility.ShouldYieldNativeContainer(frame, name) then return end
-        if ShouldYieldWorldMapToMoveAny(name) then return end
+        if ShouldYieldWorldMap(name) then return end
         if name:match("^ChatFrame%d+$") and HasCustomChatAddon() then
             ClearTrackedChatState(name)
             return

@@ -96,7 +96,9 @@ assert(loadfile("Core/MainhandGamepad.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand", addon)
 assert(loadfile("Core/MainhandEditMode.lua"))("Offhand", addon)
 assert(loadfile("Core/Mainhand.lua"))("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua" })
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/MapUtils/Bridge.lua", "Bridges/MapWise/Data.lua", "Bridges/MapWise/Bridge.lua",
+    "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua" })
 
 local callbackRect, callbackRevision
 assert(addon.API.RegisterGeometryCallback("test", function(rect, _, revision)

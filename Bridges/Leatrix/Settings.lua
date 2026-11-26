@@ -7,7 +7,8 @@
     contract; their behaviour is unchanged. Its window index matches the
     anonymous configuration panels (17-character F names) for the addon window
     Escape adapter, with the three catalogs and their close buttons. The
-    Leatrix Maps world map handling stays in the core for now.
+    Leatrix Maps world map provider and Options contribution of Maps.lua,
+    loaded before this file, join the same bridge object.
 
     Registered on every client, like the core code it replaces; the adapter
     itself runs on the Forever client only, and the addons are read when asked.
@@ -69,6 +70,12 @@ function bridge:IdentifyWindow(frame, name, source)
             end
         end
     end
+end
+
+local maps = API.GetBridgeNamespace("Leatrix").Maps
+if type(maps) == "table" then
+    bridge.mapProvider = maps.mapProvider
+    bridge.GetSettingsContributions = maps.GetSettingsContributions
 end
 
 function bridge:GetWindowCloseButtons(frame, owner)

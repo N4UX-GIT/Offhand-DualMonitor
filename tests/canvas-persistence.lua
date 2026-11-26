@@ -149,7 +149,7 @@ assert(loadfile("Core/BagPersistence.lua"))("Offhand", addon)
 local restore = persistence.InstallRestore({ShouldDeferSecondaryChatRestore=no, PlacePanelOnMainhand=function(_,frame)
     anchor(frame, "TOPLEFT", UIParent, "BOTTOMLEFT")
 end}, {
-    IsWorldMapMaximized=no, ShouldYieldFrameToClassicUIForever=no, ShouldYieldWorldMapToMoveAny=no,
+    IsWorldMapMaximized=no, ShouldYieldFrameToExternalOwner=no, ShouldYieldWorldMap=no,
     IsForeverEditModeFrame=no, IsUnsafeForPanelMutation=no, IsForeverProfessionsPanel=no,
     IsRetailChatEditModeActive=no, WithWorkspace=function(metrics) return metrics end,
     UnregisterSpecialFrame=function() specialFrameRemovals = specialFrameRemovals + 1 end,

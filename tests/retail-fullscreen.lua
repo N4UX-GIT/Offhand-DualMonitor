@@ -351,8 +351,8 @@ do
         },
         CanvasCompatibility = {
             IsForeverEllesmereBag = function() return false end,
-            HasMoveAny = function() return false end,
-            HasClassicUIForever = function() return false end,
+            HasPanelSlotRepairOwner = function() return false end,
+            HasPanelManagementOwner = function() return false end,
             IsPersistentForeverProfessionsPanelName = function() return false end,
         },
         CanvasFrameState = { IsDragging = function() return false end },
@@ -380,8 +380,8 @@ do
     end
     local services = {
         RemodalizePanel = function() end,
-        ShouldYieldFrameToClassicUIForever = function() return false end,
-        ShouldYieldWorldMapToMoveAny = function() return false end,
+        ShouldYieldFrameToExternalOwner = function() return false end,
+        ShouldYieldWorldMap = function() return false end,
         IsForeverProfessionsPanel = function() return false end,
         IsForeverEditModeFrame = function() return false end,
         IsWorldMapMaximized = function() return false end,

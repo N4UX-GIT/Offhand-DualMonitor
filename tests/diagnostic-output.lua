@@ -117,8 +117,10 @@ addon.Canvas = {
     GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
 -- Long per-bridge reports reach the debug mode through the bridge registry.
-addon.Bridges = addon.Bridges or { GetMapAddons = function() return {} end,
-    GetRoleOwners = function() return {}, {} end, FirstRoleOwner = function() return nil end }
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/BlizzMove/Bridge.lua", "Bridges/ClassicUIForever/Bridge.lua",
+    "Bridges/Leatrix/Maps.lua", "Bridges/MapUtils/Bridge.lua", "Bridges/MapWise/Data.lua", "Bridges/MoveAny/Bridge.lua",
+    "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua",
+    "Bridges/OpenMap/Init.lua" })
 local dialogueProbe = probe("dialogue", "animation")
 addon.Bridges.GetDebugDiagnostics = function()
     return { { label = "Dialogue UI", text = dialogueProbe() } }

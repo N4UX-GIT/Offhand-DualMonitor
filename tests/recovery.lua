@@ -39,7 +39,7 @@ local function no() return false end
 local nativeGamepad, externalMap = false, false
 canvas.CanManagePanelsFromAddon = function() return not nativeGamepad end
 addon.CanvasPanelPlacement.InstallMainhand(canvas,{
-    ShouldYieldFrameToClassicUIForever=no,ShouldYieldWorldMapToMoveAny=function(name) return externalMap and name=='WorldMapFrame' end,
+    ShouldYieldFrameToExternalOwner=no,ShouldYieldWorldMap=function(name) return externalMap and name=='WorldMapFrame' end,
     IsForeverProfessionsPanel=no,IsForeverEditModeFrame=function(f) return f.hud end,
     IsWorldMapMaximized=function(f) return f==WorldMapFrame and f.maximized end,WithWorkspace=function(m) return m end,
     IsForeverSocialPositionRoot=no,IsUnsafeForPanelMutation=function(f) return f.protected end,RegisterSpecialFrame=function() end,

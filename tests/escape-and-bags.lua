@@ -261,6 +261,8 @@ assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDTransientFrames.lua"))("Offhand", addon)
 assert(loadfile("Core/MenuPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/SeamRedirect.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ClassicUIForever/Bridge.lua", "Bridges/Leatrix/Maps.lua",
+    "Bridges/Leatrix/Settings.lua", "Bridges/MoveAny/Bridge.lua", "Bridges/OpenMap/Data.lua" })
 
 -- Initialize Canvas and SeamRedirect
 addon.Canvas:EnableFreeDragging()
@@ -669,7 +671,7 @@ WorldMapFrame.overlayFrames = {{
     CrosshairCoords = {Label = coordinateRegion("Crosshair: 50.0, 50.0")},
 }}
 local originalScale, originalPoint = WorldMapFrame.scale, WorldMapFrame.points[1]
-assert(addon.Canvas:RefreshLeatrixMapCoordinateFonts() == 3 and refreshedLabels == 3,
+assert(addon.Canvas:RefreshExternalMapCoordinateFonts() == 3 and refreshedLabels == 3,
     "Leatrix's built-in coordinate labels were not refreshed after a live span")
 assert(WorldMapFrame.scale == originalScale and WorldMapFrame.points[1] == originalPoint,
     "Leatrix coordinate refresh changed World Map geometry")
@@ -689,7 +691,7 @@ WorldMapFrame:Show()
 delegate.left = WorldMapFrame
 table.insert(UISpecialFrames, "WorldMapFrame")
 local leatrixPoint = WorldMapFrame.points[1]
-assert(addon.Canvas:PreserveLeatrixWorldMapOpenState(WorldMapFrame),
+assert(addon.Canvas:PreserveExternalWorldMapOpenState(WorldMapFrame),
     "a Leatrix-owned workspace map must retain Offhand open-state handling")
 assert(WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
     "Offhand changed Leatrix-owned map geometry while preserving visibility")
@@ -708,7 +710,7 @@ assert(WorldMapFrame:IsShown() and addon.db.openWorkspacePanels.WorldMapFrame
         and WorldMapFrame.points[1] == leatrixPoint and WorldMapFrame.scale == 0.83,
     "a Leatrix-owned map did not preserve its open state across restoration")
 WorldMapFrame.points = { { "TOPLEFT", UIParent, "BOTTOMLEFT", 1900, 1180 } }
-addon.Canvas:PreserveLeatrixWorldMapOpenState(WorldMapFrame)
+addon.Canvas:PreserveExternalWorldMapOpenState(WorldMapFrame)
 assert(not addon.db.openWorkspacePanels.WorldMapFrame and inSpecial("WorldMapFrame"),
     "moving a Leatrix-owned map to Mainhand must restore native Escape behavior")
 addon.db.savedWorkspacePositions.WorldMapFrame = dormantMapPosition

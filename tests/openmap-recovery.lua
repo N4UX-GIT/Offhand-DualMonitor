@@ -41,9 +41,9 @@ function map:SetPoint(point, relative, relativePoint, x, y)
     local saved=db.window
     if saved then self.point={saved[1], UIParent, saved[2], saved[3], saved[4]} end
 end
-assert(loadfile("Core/OpenMapRecovery.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, {"Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua"})
 assert(writes==0, "loading recovery changed the map")
-local recovery=addon.OpenMapRecovery
+local recovery=addon.API.GetBridgeNamespace("OpenMap").Recovery
 local oldSize, oldScale = db.windowSize, db.windowScale
 assert(recovery:Run())
 assert(db.window[1]=="TOP" and db.window[2]=="BOTTOMLEFT"
@@ -122,7 +122,7 @@ combat=false
 -- for both explicit placement and their own movement fader.
 assert(loadfile("Core/CanvasForeverMap.lua"))("Offhand", addon)
 local mapAdapter = addon.CanvasForeverMap
-addon.CanvasCompatibility.IsAddonLoaded = function(name) return name == "OpenMap" end
+C_AddOns = {IsAddOnLoaded = function(name) return name == "OpenMap" end}
 local workspace, refreshes = false, 0
 addon.Canvas = {IsFrameOnWorkspace=function(frame) return frame==map and workspace end}
 module.enabled = true

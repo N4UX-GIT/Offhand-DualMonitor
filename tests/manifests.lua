@@ -229,12 +229,20 @@ local expectedAnchorBridges = {
     "Bridges/ForeverXPBar/Bridge.lua",
     "Bridges/Gathercraft/Bridge.lua",
     "Bridges/KerzoQuestLog/Bridge.lua",
+    "Bridges/Leatrix/Maps.lua",
     "Bridges/Leatrix/Settings.lua",
+    "Bridges/MapUtils/Bridge.lua",
+    "Bridges/MapWise/Data.lua",
+    "Bridges/MapWise/Bridge.lua",
     "Bridges/MobInfo2/Bridge.lua",
     "Bridges/MoveAny/Bridge.lua",
     "Bridges/MoveMyBags/Bridge.lua",
     "Bridges/OneForAll/Data.lua",
     "Bridges/OpenMap/Data.lua",
+    "Bridges/OpenMap/Contract.lua",
+    "Bridges/OpenMap/Recovery.lua",
+    "Bridges/OpenMap/Map.lua",
+    "Bridges/OpenMap/Init.lua",
     "Bridges/PitBull4/Bridge.lua",
     "Bridges/Platynator/Bridge.lua",
     "Bridges/ProcDoc/Data.lua",
@@ -278,6 +286,8 @@ assert(io.open("Core/CanvasKerzoQuestLog.lua", "rb") == nil,
     "Core/CanvasKerzoQuestLog.lua must remain retired into Bridges/KerzoQuestLog/Bridge.lua")
 assert(io.open("Core/EllesmereScaleCompatibility.lua", "rb") == nil,
     "Core/EllesmereScaleCompatibility.lua must remain retired into Bridges/EllesmereUI/Scale.lua")
+assert(io.open("Core/OpenMapRecovery.lua", "rb") == nil,
+    "Core/OpenMapRecovery.lua must remain retired into Bridges/OpenMap/Recovery.lua")
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")

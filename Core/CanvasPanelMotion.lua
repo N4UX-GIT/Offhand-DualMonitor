@@ -4,8 +4,8 @@ local Motion = {}
 Offhand.CanvasPanelMotion = Motion
 
 function Motion.InstallGenericDragging(Canvas, services)
-    local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
-    local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
+    local ShouldYieldFrameToExternalOwner = services.ShouldYieldFrameToExternalOwner
+    local ShouldYieldWorldMap = services.ShouldYieldWorldMap
     local IsForeverEditModeFrame = services.IsForeverEditModeFrame
     local IsForeverWorldMap = services.IsForeverWorldMap
     local SetPanelDragging = services.SetPanelDragging
@@ -40,8 +40,8 @@ function Motion.InstallGenericDragging(Canvas, services)
     local function MakePanelDraggable(frame)
         if not frame then return end
         if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
-        if ShouldYieldFrameToClassicUIForever(frame) then return end
-        if ShouldYieldWorldMapToMoveAny(frame) then return end
+        if ShouldYieldFrameToExternalOwner(frame) then return end
+        if ShouldYieldWorldMap(frame) then return end
         if IsForeverWorldMap(frame) then
             AttachForeverWorldMapDragHandle(frame)
             return
@@ -86,13 +86,13 @@ function Motion.InstallGenericDragging(Canvas, services)
                 surface:RegisterForDrag("LeftButton")
                 surface:HookScript("OnDragStart", function()
                     if InCombatLockdown() or not Offhand.db.enabled
-                        or ShouldYieldFrameToClassicUIForever(frame, name) then return end
+                        or ShouldYieldFrameToExternalOwner(frame, name) then return end
                     local started = pcall(function() frame:StartMoving() end)
                     frame._OffhandDragging = started and true or false
                     if started then WatchInteractionRelease(frame, name) end
                 end)
                 surface:HookScript("OnDragStop", function()
-                    if ShouldYieldFrameToClassicUIForever(frame, name) then
+                    if ShouldYieldFrameToExternalOwner(frame, name) then
                         SetPanelDragging(frame, false)
                         return
                     end
@@ -138,14 +138,14 @@ function Motion.InstallGenericDragging(Canvas, services)
 
             frame:HookScript("OnDragStart", function(self)
                 if InCombatLockdown() or not Offhand.db.enabled
-                    or ShouldYieldFrameToClassicUIForever(frame, name) then return end
+                    or ShouldYieldFrameToExternalOwner(frame, name) then return end
                 local started = pcall(frame.StartMoving, frame)
                 frame._OffhandDragging = started and true or false
                 if started then WatchInteractionRelease(frame, name) end
             end)
 
             frame:HookScript("OnDragStop", function(self)
-                if ShouldYieldFrameToClassicUIForever(frame, name) then
+                if ShouldYieldFrameToExternalOwner(frame, name) then
                     SetPanelDragging(frame, false)
                     return
                 end
@@ -202,7 +202,7 @@ function Motion.InstallGenericDragging(Canvas, services)
                 WorldMapTitleButton:RegisterForDrag("LeftButton")
                 WorldMapTitleButton:HookScript("OnDragStart", function(self)
                     if InCombatLockdown() or not Offhand.db.enabled
-                        or ShouldYieldFrameToClassicUIForever(frame) then return end
+                        or ShouldYieldFrameToExternalOwner(frame) then return end
                     frame._OffhandDragging = true
                 end)
                 WorldMapTitleButton:HookScript("OnDragStop", function(self)

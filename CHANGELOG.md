@@ -16,6 +16,9 @@
 - Internal: the Kerzo Classic Quest Log Escape and reload handling, its catalog entry, close button frame and saved open state moved from the core into a built-in bridge. Behaviour is unchanged.
 - Internal: the EllesmereUI pixel grid scale adapter moved from the core into a built-in bridge. Behaviour is unchanged.
 - Internal: the addon window catalog, the addon settings window Escape handling for the Don addons, Platynator, ForeverDungeonJournal and Leatrix, and the vendor gameplay frames moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the World Map owner and fade addon detection (MoveAny, ClassicUI Forever, OpenMap, Leatrix Maps, MapUtils, MapWise), their yield, panel management and diagnostics facts and the map integration list moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the OpenMap world map handling (contract checks, recovery and /offhand recovermap, camera follow, movement fade, map scale, expanded and fullscreen map, conflict notice, diagnostics and its World Map settings controls) moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the MapWise position guard and fade reader, the MapUtils fade reader and the Leatrix Maps coordinate label refresh and settings description moved from the core into built-in bridges. Behaviour is unchanged.
 
 ## [2.1.5-beta.42] - 2026-11-25
 

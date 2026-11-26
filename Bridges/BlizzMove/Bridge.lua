@@ -1,6 +1,7 @@
 -- BlizzMove data bridge (built into Offhand). Facts only: no frame, hook or timer.
 -- Listed among frame movers in the compatibility report when loaded or present, after
--- MoveAny (report.movers, order 20), with its guidance line (order 40).
+-- MoveAny (report.movers, order 20), with its guidance line (order 40). Its version is listed
+-- among the map integrations while loaded (map.integration, order 50).
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...
@@ -11,6 +12,7 @@ if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterAddonDat
 API.RegisterAddonData("BlizzMove", {
     ownership = {
         { role = "report.movers", name = "BlizzMove", order = 20, detect = { present = "BlizzMove" } },
+        { role = "map.integration", name = "BlizzMove", order = 50 },
     },
     guidance = {
         { id = "blizzmove", order = 40, addon = "BlizzMove", when = { movers = "BlizzMove" },

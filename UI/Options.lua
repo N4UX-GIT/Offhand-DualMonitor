@@ -1151,22 +1151,57 @@ function Options:CreateFloatingPanel()
     mapTip:SetPoint("TOPLEFT", 12, -88)
     mapTip:SetWidth(530)
     mapTip:SetWordWrap(true)
+    -- Controls bridges add to this card: a scale title suffix and its help
+    -- (slot mapScaleTitle, kind suffix), a description prefix (slot
+    -- mapDescription, kind prefix) and buttons below the description (slot
+    -- map), each shown while its owner holds the map and its addon is loaded
+    -- and enabled for this character; and a description shown instead of the
+    -- default one off Forever while its addon is (slot mapDescription, kind
+    -- fallback). One table, because this builder is at Lua's limit of 200
+    -- locals.
+    local mapExtras = { suffix = {}, prefix = {}, fallback = {}, button = {} }
+    for _, slot in ipairs({ { "mapScaleTitle", suffix = true }, { "mapDescription", prefix = true, fallback = true },
+        { "map", button = true } }) do
+        for _, entry in ipairs(Offhand.Bridges and Offhand.Bridges:GetSettingsContributions(slot[1]) or {}) do
+            local kind = entry.kind
+            if type(kind) == "string" and slot[kind] and type(entry.text) == "string" and type(entry.addon) == "string"
+                and (kind ~= "button" or type(entry.onClick) == "function") then
+                mapExtras[kind][#mapExtras[kind] + 1] = { entry = entry }
+            end
+        end
+    end
+    function mapExtras.IsShown(entry, owner)
+        return IsIntegrationActive(entry.addon) and owner == entry.owner
+    end
+    -- The current map owner, read only while an owner control's addon is active.
+    function mapExtras.ActiveOwner()
+        for _, list in ipairs({ mapExtras.prefix, mapExtras.button }) do
+            for _, item in ipairs(list) do
+                if IsIntegrationActive(item.entry.addon) then return Offhand.MapScale:GetState().owner end
+            end
+        end
+    end
     local function RefreshMapScaleControls()
         local state = Offhand.MapScale:GetState()
-        local openMapActive = IsIntegrationActive("OpenMap")
-        local openMapOwner = openMapActive and state.owner == "OpenMap"
+        local titleSuffix, titleHelp = "", nil
+        for _, item in ipairs(mapExtras.suffix) do
+            if mapExtras.IsShown(item.entry, state.owner) then
+                titleSuffix = titleSuffix .. item.entry.text
+                titleHelp = titleHelp or item.entry.help
+            end
+        end
         mapScaleSlider:SetRange(state.min, state.max, state.step)
-        mapScaleSlider.title:SetText(L["MAP_SCALE"] .. (openMapOwner and " (OpenMap)" or ""))
+        mapScaleSlider.title:SetText(L["MAP_SCALE"] .. titleSuffix)
         Controls.SetSliderEnabled(mapScaleSlider, state.available)
         autoFitBtn:SetEnabled(state.available)
         p100Btn:SetEnabled(state.available and state.max >= 1)
         p150Btn:SetEnabled(state.available and state.max >= 1.5)
         p200Btn:SetEnabled(state.available and state.max >= 2)
         p250Btn:SetEnabled(state.available and state.max >= 2.5)
-        mapTip:SetText(L[not state.available and "MAP_SCALE_UNAVAILABLE"
-            or (openMapOwner and "MAP_SCALE_OPENMAP_HELP" or "MAP_SCALE_TARGET_HELP")])
+        mapTip:SetText(not state.available and L["MAP_SCALE_UNAVAILABLE"]
+            or titleHelp or L["MAP_SCALE_TARGET_HELP"])
         mapScaleSlider:UpdateText()
-        if card2_1.RefreshIntegration then card2_1.RefreshIntegration(openMapOwner) end
+        if card2_1.RefreshIntegration then card2_1.RefreshIntegration(state.owner) end
     end
     card2_1:SetScript("OnShow", RefreshMapScaleControls)
     card2_1:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -1205,22 +1240,20 @@ function Options:CreateFloatingPanel()
         mapDesc:SetJustifyH("LEFT")
         mapDesc:SetWidth(530)
         mapDesc:SetWordWrap(true)
-        local recoverMap, placeOpenMap
-        if Offhand.isForever and Offhand.OpenMapRecovery then
-            recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
-            recoverMap:SetHeight(24)
-            recoverMap:SetText(L["OPENMAP_RECOVERY_BUTTON"])
-            recoverMap:SetScript("OnClick", function()
-                if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport() end
+        for _, item in ipairs(mapExtras.button) do
+            local entry = item.entry
+            item.button = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
+            item.button:SetHeight(24)
+            item.button:SetText(entry.text)
+            item.button:SetScript("OnClick", function()
+                if IsIntegrationActive(entry.addon) then entry.onClick() end
             end)
-            placeOpenMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
-            placeOpenMap:SetHeight(24)
-            placeOpenMap:SetText(L["OPENMAP_WORKSPACE_BUTTON"])
-            placeOpenMap:SetScript("OnClick", function()
-                if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport(true) end
-            end)
-            if Offhand.SetTooltip then
-                Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
+        end
+        if Offhand.SetTooltip then
+            for _, item in ipairs(mapExtras.button) do
+                if type(item.entry.tooltip) == "string" then
+                    Offhand:SetTooltip(item.button, item.entry.text, item.entry.tooltip)
+                end
             end
         end
         local keepOpenChecks = {}
@@ -1239,35 +1272,50 @@ function Options:CreateFloatingPanel()
             AddKeepOpenCheck("keepMapToggleOpen", "KEEP_MAP_TOGGLE_OPEN")
             AddKeepOpenCheck("keepBagToggleOpen", "KEEP_BAG_TOGGLE_OPEN")
         end
-        function card2_1.RefreshIntegration(openMapOwner)
+        -- owner: the World Map's external owner, or nil.
+        function card2_1.RefreshIntegration(owner)
             local fadeHelp
             if Offhand.isForever then
                 local fadeAddon = Offhand.CanvasCompatibility.GetWorldMapFadeAddon()
                 local mapAdapter = Offhand.CanvasForeverMap
+                -- The fade addon's map.fade entry names its help (helpKey).
+                local fadeFacts = fadeAddon and Offhand.Bridges and Offhand.Bridges:GetRoleEntry("map.fade", fadeAddon)
                 if mapAdapter and mapAdapter.SupportsAddonMovementFade(fadeAddon, WorldMapFrame) then
                     fadeHelp = "MAP_MOVEMENT_FOREVER"
-                elseif fadeAddon == "OpenMap" then fadeHelp = "MAP_MOVEMENT_OPENMAP"
-                elseif fadeAddon == "MapUtils" then fadeHelp = "MAP_MOVEMENT_MAPUTILS"
-                elseif fadeAddon == "MapWise" then fadeHelp = "MAP_MOVEMENT_MAPWISE"
+                elseif fadeFacts and type(fadeFacts.helpKey) == "string" then fadeHelp = fadeFacts.helpKey
                 else fadeHelp = "MAP_MOVEMENT_FOREVER" end
             end
-            local description = L[fadeHelp
-                or (IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX")
-                or "MAP_KEEP_OPEN_DESC"]
-            if openMapOwner then
-                description = L["OPENMAP_WORKSPACE_HELP"] .. " " .. description
+            local description
+            if fadeHelp then
+                description = L[fadeHelp]
+            else
+                for _, item in ipairs(mapExtras.fallback) do
+                    if IsIntegrationActive(item.entry.addon) then
+                        description = item.entry.text
+                        break
+                    end
+                end
+                description = description or L["MAP_KEEP_OPEN_DESC"]
+            end
+            for _, item in ipairs(mapExtras.prefix) do
+                if mapExtras.IsShown(item.entry, owner) then
+                    description = item.entry.text .. " " .. description
+                end
             end
             mapDesc:SetText(description)
             local top = descriptionTop + 12 + Controls.FitCompactParagraph(mapDesc, description, 530)
-            if recoverMap then
-                SetShown(recoverMap, openMapOwner)
-                recoverMap:SetPoint("TOPLEFT", 12, -top)
-                recoverMap:SetPoint("TOPRIGHT", -12, -top)
-                SetShown(placeOpenMap, openMapOwner)
-                placeOpenMap:SetPoint("TOPLEFT", 12, -top - 30)
-                placeOpenMap:SetPoint("TOPRIGHT", -12, -top - 30)
+            -- Each button takes its entry's height (default 30) below the
+            -- previous one; the card grows to the last shown button.
+            local offset, used = 0, 0
+            for _, item in ipairs(mapExtras.button) do
+                local shown = mapExtras.IsShown(item.entry, owner)
+                SetShown(item.button, shown)
+                item.button:SetPoint("TOPLEFT", 12, -top - offset)
+                item.button:SetPoint("TOPRIGHT", -12, -top - offset)
+                offset = offset + (item.entry.height or 30)
+                if shown then used = offset end
             end
-            top = top + (recoverMap and openMapOwner and 66 or 0)
+            top = top + used
             for _, entry in ipairs(keepOpenChecks) do
                 entry.check:SetPoint("TOPLEFT", 10, -top)
                 entry.check:SetChecked(Offhand.db and Offhand.db[entry.key] == true)
@@ -1275,7 +1323,7 @@ function Options:CreateFloatingPanel()
             end
             ResizeMonitorCard(card2_1, top)
         end
-        card2_1.RefreshIntegration(IsIntegrationActive("OpenMap") and Offhand.MapScale:GetState().owner == "OpenMap")
+        card2_1.RefreshIntegration(mapExtras.ActiveOwner())
     end
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374,

@@ -9,6 +9,8 @@
 -- container (ContainerFrameCombinedBags, ContainerFrame<n>) and keeps dormant Offhand coordinates
 -- (frame rule yieldNativeContainer); a container MoveMyBags marked with its moveMyBags field
 -- yields too. Automatic popup recovery leaves the same frames alone (frame rule preservePopup).
+-- While the combined backpack yields this way, its saved open workspace state is not taken as
+-- proof of a native bag when the bag restore decides whether a custom bag addon is present.
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...

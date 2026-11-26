@@ -1449,6 +1449,281 @@ do
         "the minimap report must list the journal's button between the minimap and the queue buttons")
 end
 
+-- GetRoleEntry finds an entry by name, present or not; diagnostic segments
+-- report whether each detector passes.
+addon, Bridges = Load()
+addon.API.RegisterAddonData("RoleA", {
+    ownership = {{role = "facts", name = "First", order = 20, detect = {global = "AbsentGlobal"}, flag = 1},
+        {role = "facts", name = "Second", order = 10, flag = 2}},
+    diagnostics = {{slot = "probe", order = 20, label = "Off", detect = {global = "AbsentGlobal"}},
+        {slot = "probe", order = 10, label = "On", detect = {}}, {slot = "probe", order = 30, label = "Plain"}},
+})
+assert(Bridges:GetRoleEntry("facts", "First").flag == 1 and Bridges:GetRoleEntry("facts", "Second").flag == 2
+    and Bridges:GetRoleEntry("facts", "Third") == nil and Bridges:GetRoleEntry("none", "First") == nil,
+    "GetRoleEntry must find an entry by name whether or not its owner is present")
+do
+    local entries, present = Bridges:GetDiagnosticSegments("probe")
+    assert(entries[1].label == "On" and entries[2].label == "Off" and entries[3].label == "Plain"
+        and present[1] == true and present[2] == false and present[3] == false,
+        "diagnostic segments must come in order with whether each detector passes")
+end
+
+-- World map owners: map.owner and map.fade are first-wins in fixed orders, and
+-- their facts, yield frames, panel roles, integration order and diagnostics
+-- reproduce what the core held.
+do
+    local maps = {AddonWindowCatalog = {}}
+    local loaded = {}
+    local savedAddOns = C_AddOns
+    C_AddOns = {IsAddOnLoaded = function(name) return loaded[name] == true end}
+    assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", maps)
+    local registry = CoreBridges.Load(maps, {"Bridges/BlizzMove/Bridge.lua", "Bridges/ClassicUIForever/Bridge.lua",
+        "Bridges/Leatrix/Maps.lua", "Bridges/Leatrix/Settings.lua", "Bridges/MapUtils/Bridge.lua",
+        "Bridges/MapWise/Data.lua", "Bridges/MapWise/Bridge.lua", "Bridges/MoveAny/Bridge.lua", "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua",
+        "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua"})
+    assert(table.concat(registry:List(), ",") == "Leatrix,MapWise,OpenMap",
+        "only the Leatrix, MapWise and OpenMap bridges may register bridge objects among the map addons")
+    local compat = maps.CanvasCompatibility
+    local function Combinations(names, check)
+        for mask = 0, 2 ^ #names - 1 do
+            loaded = {}
+            local present = {}
+            for index, name in ipairs(names) do
+                if math.floor(mask / 2 ^ (index - 1)) % 2 == 1 then
+                    loaded[name] = true
+                    present[#present + 1] = name
+                end
+            end
+            check(present, table.concat(present, "+"))
+        end
+    end
+    local ownerNames = {MoveAny = "MoveAny", ClassicUIForever = "ClassicUIForever", OpenMap = "OpenMap",
+        Leatrix_Maps = "LeatrixMaps"}
+    Combinations({"MoveAny", "ClassicUIForever", "OpenMap", "Leatrix_Maps"}, function(present, label)
+        local expected = present[1] and ownerNames[present[1]]
+        local owner = compat.GetWorldMapExternalOwner()
+        assert(owner == (expected or nil), "map owner for " .. label .. ": " .. tostring(owner))
+        assert(compat.ShouldYieldWorldMap("WorldMapFrame") == (expected ~= nil),
+            "the map must yield exactly while it has an owner: " .. label)
+        assert(compat.IsExternallyPositionedWorldMap("WorldMapFrame")
+            == (expected == "OpenMap" or expected == "LeatrixMaps"), "positioned map for " .. label)
+        maps.isForever = true
+        assert(not not compat.SupportsExternalWorldMapEscapeProtection("WorldMapFrame")
+            == (expected == "OpenMap" or expected == "LeatrixMaps" or expected == "MoveAny"),
+            "Forever escape protection for " .. label)
+        maps.isForever = nil
+        assert(not not compat.SupportsExternalWorldMapEscapeProtection("WorldMapFrame")
+            == (expected == "OpenMap" or expected == "LeatrixMaps"), "escape protection for " .. label)
+        assert(compat.HasPanelManagementOwner() == (loaded.MoveAny or loaded.ClassicUIForever or false)
+            and compat.HasPanelSlotRepairOwner() == (loaded.MoveAny or false)
+            and compat.HasWorldMapConfigurationOwner() == (loaded.Leatrix_Maps or false),
+            "panel and configuration roles for " .. label)
+        assert(compat.ShouldYieldFrameToExternalOwner("CharacterFrame") == (loaded.ClassicUIForever or false)
+            and compat.ShouldYieldFrameToExternalOwner({GetName = function() return "WorldMapFrame" end})
+                == (loaded.ClassicUIForever or false)
+            and not compat.ShouldYieldFrameToExternalOwner("SpellBookFrame"), "yield frames for " .. label)
+    end)
+    Combinations({"OpenMap", "MapUtils", "MapWise", "Leatrix_Maps"}, function(present, label)
+        assert(compat.GetWorldMapFadeAddon() == present[1], "fade addon for " .. label)
+    end)
+    loaded = {}
+    MoveAnything = {}
+    assert(compat.GetWorldMapExternalOwner() == "MoveAny" and compat.HasPanelManagementOwner(),
+        "a MoveAnything global must make MoveAny the owner")
+    MoveAnything = nil
+    loaded = {MoveAnything = true, ClassicUIForever = true}
+    assert(compat.GetWorldMapExternalOwner() == "MoveAny"
+        and table.concat(compat.GetExternalOwnerFrames(), ",") == "WorldMapFrame,CharacterFrame",
+        "a loaded MoveAnything must win the map while ClassicUI Forever keeps its frames")
+    assert(compat.GetActiveExternalOwners().map == "MoveAny", "the MoveAny label is its name")
+    loaded = {ClassicUIForever = true}
+    assert(compat.GetActiveExternalOwners().map == "ClassicUI Forever", "the ClassicUI Forever label changed")
+    loaded = {Leatrix_Maps = true}
+    assert(compat.GetActiveExternalOwners().map == "Leatrix Maps", "the Leatrix Maps label changed")
+
+    -- Diagnostics strings, byte for byte.
+    loaded = {}
+    assert(compat.GetDiagnostics(true) == "WorldMapOwner=Offhand | LeatrixMaps=absent | OpenMap=absent"
+        and compat.GetDiagnostics(false) == "MoveAny=absent | WorldMapOwner=Offhand",
+        "diagnostics without a map owner changed")
+    loaded = {Leatrix_Maps = true}
+    assert(compat.GetDiagnostics(false) == "MoveAny=absent | WorldMapOwner=LeatrixMaps | LeatrixMaps=loaded | CoordinateFontRefresh=pending"
+        and compat.GetDiagnostics(false, 4) == "MoveAny=absent | WorldMapOwner=LeatrixMaps | LeatrixMaps=loaded | CoordinateFontRefresh=4"
+        and compat.GetDiagnostics(true) == "WorldMapOwner=LeatrixMaps | LeatrixMaps=loaded | OpenMap=absent",
+        "Leatrix Maps diagnostics changed")
+    loaded = {OpenMap = true}
+    assert(compat.GetDiagnostics(true) == "WorldMapOwner=OpenMap | LeatrixMaps=absent | OpenMap=loaded",
+        "OpenMap compact diagnostics changed")
+    loaded = {ClassicUIForever = true, Leatrix_Maps = true}
+    assert(compat.GetDiagnostics(false, 2) == "MoveAny=absent | ClassicUIForever=loaded | WorldMapOwner=ClassicUIForever"
+        .. " | CharacterFrameOwner=ClassicUIForever | LeatrixMaps=loaded | CoordinateFontRefresh=2",
+        "ClassicUI Forever diagnostics changed")
+    loaded = {MoveAny = true, ClassicUIForever = true}
+    assert(compat.GetDiagnostics(false) == "MoveAny=loaded | ClassicUIForever=loaded | WorldMapOwner=MoveAny"
+        .. " | CharacterFrameOwner=ClassicUIForever", "MoveAny diagnostics changed")
+
+    -- Map integrations keep the former core order, then the bridges' mapAddons.
+    loaded = {OpenMap = true, MapWise = true, MapUtils = true, Leatrix_Maps = true, BlizzMove = true,
+        MoveAny = true, MoveAnything = true, ClassicUIForever = true}
+    OpenMap, MapWiseAPI = {version = "v0.9"}, {version = "2.4"}
+    assert(compat.GetMapIntegrationDiagnostics() == "OpenMap=v0.9 | MapWise=2.4 | MapUtils=unknown version"
+        .. " | Leatrix_Maps=unknown version | BlizzMove=unknown version | MoveAny=unknown version"
+        .. " | MoveAnything=unknown version | ClassicUIForever=unknown version", "map integration order changed")
+    OpenMap, MapWiseAPI = nil, nil
+
+    -- OpenMap: one bridge object with the map provider, its fade entry, the
+    -- recovermap command and the World Map card controls.
+    local openMap = registry:Get("OpenMap")
+    local maxScale, scaleStep = registry:CallMap("OpenMap", "GetScaleRange")
+    assert(openMap.mapProvider.owner == "OpenMap" and maxScale == 1.6 and scaleStep == .05
+        and registry:CallMap("MoveAny", "GetScaleRange") == nil, "the OpenMap provider must answer only for OpenMap")
+    local fade = registry:GetRoleEntry("map.fade", "OpenMap")
+    assert(type(fade.read) == "function" and fade.key == "moveFade" and fade.opaque == 0
+        and type(fade.refresh) == "function" and fade.helpKey == "MAP_MOVEMENT_OPENMAP",
+        "the OpenMap fade entry must carry its reader, key, no-fade value, refresh and help")
+    local printed = {}
+    maps.L = setmetatable({}, {__index = function(_, key) return key end})
+    maps.Print = function(_, text) printed[#printed + 1] = text end
+    local savedCombat, savedTrim = InCombatLockdown, strtrim
+    InCombatLockdown = function() return false end
+    strtrim = function(text) return (text:gsub("^%s+", ""):gsub("%s+$", "")) end
+    assert(registry:RunSlashCommand("recovermap", "") and registry:RunSlashCommand("recovermap", " offhand ")
+        and printed[1] == "OPENMAP_RECOVERY_UNAVAILABLE" and printed[2] == "OPENMAP_RECOVERY_UNAVAILABLE"
+        and registry.errors.OpenMap == nil, "recovermap must run OpenMap's recovery and report")
+    local coreCommands = {}
+    for name in assert(io.open("Core/Init.lua", "rb")):read("*a"):gmatch('cmd == "([%w_]+)"') do coreCommands[name] = true end
+    assert(coreCommands.window and coreCommands.centerline, "the core command scan must find the slash handler")
+    for _, id in ipairs(registry:List()) do
+        for name in pairs(registry:Get(id).slashCommands or {}) do
+            assert(not coreCommands[name], id .. " must not shadow the core command " .. name)
+        end
+    end
+    maps.isForever = nil
+    assert(#(openMap:GetSettingsContributions("map") or {}) == 0, "the OpenMap recovery buttons exist on Forever only")
+    maps.isForever = true
+    local buttons = openMap:GetSettingsContributions("map")
+    local title = openMap:GetSettingsContributions("mapScaleTitle")[1]
+    local prefix = openMap:GetSettingsContributions("mapDescription")[1]
+    assert(#buttons == 2 and buttons[1].kind == "button" and buttons[1].text == "OPENMAP_RECOVERY_BUTTON"
+        and buttons[1].tooltip == "OPENMAP_RECOVERY_TIP" and buttons[1].height == 30
+        and buttons[2].text == "OPENMAP_WORKSPACE_BUTTON" and buttons[2].tooltip == nil and buttons[2].height == 36
+        and buttons[1].owner == "OpenMap" and buttons[2].addon == "OpenMap",
+        "the OpenMap buttons must keep their texts, tooltip and 66 units of height")
+    assert(title.kind == "suffix" and title.text == " (OpenMap)" and title.help == "MAP_SCALE_OPENMAP_HELP"
+        and prefix.kind == "prefix" and prefix.text == "OPENMAP_WORKSPACE_HELP" and prefix.owner == "OpenMap",
+        "the OpenMap scale title and description must keep their texts")
+
+    -- The contract notice, its wording and the Forever diagnostics.
+    maps.L = {}
+    loaded = {OpenMap = true}
+    OpenMap = {version = "v1", GetModule = function() end}
+    OpenMapAPI = {major = 2, version = 5}
+    local conflicts = compat.GetOwnershipConflicts()
+    assert(#conflicts == 1 and conflicts[1].id == "openmap-contract:unsupported-major"
+        and conflicts[1].kind == "openmap-contract" and conflicts[1].reason == "unsupported-major",
+        "a breaking OpenMap contract must be one notice")
+    assert(compat.FormatConflictMessage(conflicts[1]) == "Notice: OpenMap updated to an unsupported contract"
+        .. " (unsupported-major). Offhand stood down its OpenMap drag sync and recovery helpers.",
+        "the OpenMap contract notice wording changed")
+    OpenMapDB = {worldmap = {}}
+    assert(compat.GetDiagnostics(false) == "MoveAny=absent | WorldMapOwner=OpenMap | OpenMap=v1 | MapFPSCap=unavailable"
+        .. " | maxFPS=unavailable | OpenMapWindow=none | OpenMapContract=unsupported-major"
+        .. " | Conflicts=openmap-contract:unsupported-major", "the Forever OpenMap diagnostics changed")
+    maps.isForever = nil
+    assert(#compat.GetOwnershipConflicts() == 0 and compat.GetDiagnostics(false) == "MoveAny=absent | WorldMapOwner=OpenMap",
+        "the OpenMap notice and diagnostics are Forever only")
+    OpenMap, OpenMapAPI, OpenMapDB = nil, nil, nil
+    InCombatLockdown, strtrim = savedCombat, savedTrim
+    C_AddOns = savedAddOns
+end
+
+-- MapUtils, MapWise and Leatrix Maps: the fade readers in the former order,
+-- each with its Options help, the MapWise layout guard roles and provider,
+-- and the Leatrix coordinate label refresh behind the configuration owner.
+do
+    local maps = {AddonWindowCatalog = {}}
+    local loaded = {}
+    local savedAddOns, savedCombat = C_AddOns, InCombatLockdown
+    C_AddOns = {IsAddOnLoaded = function(name) return loaded[name] == true end}
+    InCombatLockdown = function() return false end
+    local registry = CoreBridges.Load(maps, {"Bridges/Leatrix/Maps.lua", "Bridges/Leatrix/Settings.lua",
+        "Bridges/MapUtils/Bridge.lua", "Bridges/MapWise/Data.lua", "Bridges/MapWise/Bridge.lua",
+        "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua",
+        "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua"})
+    local readers, helps = {}, {}
+    for _, entry in ipairs(registry:GetRoleEntries("map.fade")) do
+        if type(entry.read) == "function" then readers[#readers + 1] = entry.name end
+        helps[#helps + 1] = entry.name .. "=" .. tostring(entry.helpKey)
+    end
+    assert(table.concat(readers, ",") == "OpenMap,MapUtils,MapWise"
+        and table.concat(helps, ",") == "OpenMap=MAP_MOVEMENT_OPENMAP,MapUtils=MAP_MOVEMENT_MAPUTILS,"
+            .. "MapWise=MAP_MOVEMENT_MAPWISE,Leatrix_Maps=nil",
+        "the fade readers and their help must keep the former order")
+    local mapUtils = registry:GetRoleEntry("map.fade", "MapUtils")
+    local mapWise = registry:GetRoleEntry("map.fade", "MapWise")
+    assert(mapUtils.key == "WORLDMAPFADE" and mapUtils.opaque == false and mapUtils.refresh == nil
+        and mapWise.key == "fadeMapWhileMoving" and mapWise.opaque == false, "the fade keys changed")
+    assert(registry:Get("MapWise").mapProvider.owner == "MapWise"
+        and type(registry:Get("MapWise").mapProvider.InstallPositionGuard) == "function"
+        and type(registry:Get("MapWise").mapProvider.UpdateLayout) == "function",
+        "the MapWise guard must be its provider")
+    assert(not registry:HasRole("map.layoutGuard") and not registry:HasRole("map.blocksCombatAnchorRepair"),
+        "the MapWise roles need MapWise")
+    MapWiseAPI = {}
+    assert(registry:FirstRoleOwner("map.layoutGuard") == "MapWise", "MapWiseAPI must install the MapWise guard")
+    MapWiseAPI = nil
+    loaded.MapWise = true
+    assert(registry:HasRole("map.blocksCombatAnchorRepair"), "a loaded MapWise keeps the combat anchor")
+    MAUTTAB = {WORLDMAPFADE = true}
+    loaded.MapUtils = true
+    C_AddOns.GetAddOnMetadata = function(name) return name == "MapUtils" and "1.7.0" or nil end
+    assert(mapUtils.read() == MAUTTAB, "a MapUtils 1.x fade preference must be read")
+    C_AddOns.GetAddOnMetadata = function() return "2.0.0" end
+    assert(mapUtils.read() == nil, "another MapUtils major version keeps its setting")
+    MAUTTAB = nil
+
+    -- The coordinate label refresh: the configuration owner's provider, with
+    -- its last count in the compatibility line.
+    maps.CanvasCompatibility = {}
+    maps.CanvasFrameState = {IsEvicting = function() return false end}
+    assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", maps)
+    local canvas = {}
+    maps.CanvasMapPresentation.InstallFonts(canvas, {})
+    local refreshed = 0
+    local function Label(text)
+        return {GetObjectType = function() return "FontString" end, GetText = function() return text end,
+            GetFont = function() return "font", 12, "" end, SetFont = function() refreshed = refreshed + 1 end}
+    end
+    local savedMap = WorldMapFrame
+    WorldMapFrame = {overlayFrames = {{PlayerCoords = {Label = Label("1, 2")}, CursorCoords = {Label = Label("3, 4")}}}}
+    assert(canvas:RefreshExternalMapCoordinateFonts() == 0 and refreshed == 0
+        and canvas._lastExternalCoordinateFontRefreshCount == nil, "without Leatrix Maps nothing is refreshed")
+    loaded.Leatrix_Maps = true
+    assert(registry:Get("Leatrix").mapProvider.owner == "LeatrixMaps"
+        and canvas:RefreshExternalMapCoordinateFonts() == 2 and refreshed == 2
+        and canvas._lastExternalCoordinateFontRefreshCount == 2, "the Leatrix coordinate labels must be refreshed")
+    InCombatLockdown = function() return true end
+    assert(canvas:RefreshExternalMapCoordinateFonts() == 0 and refreshed == 2, "no refresh in combat")
+    local fallback = registry:Get("Leatrix"):GetSettingsContributions("mapDescription")[1]
+    assert(fallback.kind == "fallback" and fallback.addon == "Leatrix_Maps",
+        "the Leatrix Maps description must be a fallback while Leatrix Maps is loaded")
+    WorldMapFrame, C_AddOns, InCombatLockdown = savedMap, savedAddOns, savedCombat
+end
+
+-- Map provider services: viewport metrics, the workspace region and the
+-- workspace panel persistence preference, read as core reads them.
+addon, Bridges = Load()
+assert(addon.API.GetViewportMetrics() == nil and addon.API.GetWorkspaceRegion({}) == nil
+    and addon.API.KeepsWorkspacePanelsOpen() == true, "the map services must be safe before the core loads")
+local viewportMetrics, region = {isSpanned = true}, {x = 1}
+addon.Viewport = {GetMetrics = function() return viewportMetrics end}
+addon.WorkspaceRegions = {Get = function(_, metrics) return metrics == viewportMetrics and region or nil end}
+addon.db = {persistentWorkspacePanels = false}
+assert(addon.API.GetViewportMetrics() == viewportMetrics and addon.API.GetWorkspaceRegion(viewportMetrics) == region
+    and addon.API.KeepsWorkspacePanelsOpen() == false, "the map services must read the live core state")
+addon.db.persistentWorkspacePanels = nil
+assert(addon.API.KeepsWorkspacePanelsOpen() == true, "only an explicit false closes workspace panels")
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -1484,8 +1759,15 @@ for line in io.lines("Offhand.toc") do
             "Titan", "DetailsBaseFrame", "ForeverXPBar", "BugSack", "RedIsFriend", "TipTac", "TinyTooltip",
             "RXPV2", "RestedXP", "Questie_BaseFrame", "EllesmereUIPlayerAuraBars", "moveMyBags", "ofaMoving",
             "ProcDoc", "Kerzo", "kerzo", "EllesmereScale", "Leveldon", "Questdon", "DonMap", "DonCore",
-            "Platynator", "DungeonJournal", "Leatrix_Sounds", "RXP", "restedXP", "FlareUI", "flareui"}) do
+            "Platynator", "DungeonJournal", "Leatrix_Sounds", "RXP", "restedXP", "FlareUI", "flareui",
+            "recovermap", "MAUTTAB"}) do
             assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+        end
+        -- The World Map owners, fade addons and map integrations, in any case.
+        -- Options:OpenMapSettings opens Offhand's own map settings (Open Map Settings).
+        local mapText = text:gsub("OpenMapSettings", ""):lower()
+        for _, token in ipairs({"openmap", "moveany", "classicui", "leatrix", "mapwise", "maputils", "blizzmove"}) do
+            assert(not mapText:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
         assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)
     end

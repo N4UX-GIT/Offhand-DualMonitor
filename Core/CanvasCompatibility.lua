@@ -72,30 +72,31 @@ function Compatibility.IsAddonLoaded(addonName)
     return false
 end
 
-function Compatibility.HasLeatrixMaps()
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded("Leatrix_Maps")
-    elseif IsAddOnLoaded then
-        return IsAddOnLoaded("Leatrix_Maps")
-    end
-    return false
+local function HasRole(role)
+    local bridges = Offhand.Bridges
+    return bridges ~= nil and bridges:HasRole(role)
 end
 
--- MoveAny registers and manages WorldMapFrame on every supported modern client.
--- Canvas must leave scale, anchor, persistence, drag, and post-toggle behavior
--- to a single owner while retaining dormant Offhand coordinates.
-function Compatibility.HasMoveAny()
-    return _G.MoveAny ~= nil or _G.MoveAnything ~= nil
-        or Compatibility.IsAddonLoaded("MoveAny")
-        or Compatibility.IsAddonLoaded("MoveAnything")
+-- An addon that owns the World Map's own configuration (scale, anchors,
+-- scripts and settings) keeps Offhand's map configuration and cursor
+-- conversion away (role map.configurationOwner).
+function Compatibility.HasWorldMapConfigurationOwner()
+    return HasRole("map.configurationOwner")
 end
 
-function Compatibility.HasClassicUIForever()
-    return Compatibility.IsAddonLoaded("ClassicUIForever")
+-- An addon that manages the native panels themselves (role
+-- map.blocksPanelManagement) keeps Offhand's native panel origin, cold combat
+-- panel loading, combat clamps and combat anchor repair away. Canvas leaves
+-- scale, anchor, persistence, drag, and post-toggle behavior to a single
+-- owner while retaining dormant Offhand coordinates.
+function Compatibility.HasPanelManagementOwner()
+    return HasRole("map.blocksPanelManagement")
 end
 
-function Compatibility.HasMoveMyBags()
-    return Compatibility.IsAddonLoaded("MoveMyBags") or rawget(_G, "MoveMyBags") ~= nil
+-- Role map.blocksSlotRepair: an addon whose panel movement replaces Offhand's
+-- default native slot repair.
+function Compatibility.HasPanelSlotRepairOwner()
+    return HasRole("map.blocksSlotRepair")
 end
 
 -- An addon that moves Blizzard's native ContainerFrame windows directly can
@@ -120,38 +121,53 @@ function Compatibility.IsForeverEllesmereBag(name)
         and (name == "EUI_MainBagFrame" or name == "EUI_ReagentBagFrame" or name == "EUI_BagsWindowFrame")
 end
 
--- ClassicUI Forever has its own persistent movement for these native frames.
--- The addon name is independent of Offhand.isForever, which identifies a
--- client family rather than a frame owner.
-function Compatibility.ShouldYieldFrameToClassicUIForever(frameOrName, suppliedName)
-    if not Compatibility.HasClassicUIForever() then return false end
+-- An addon with its own persistent movement for some native frames (role
+-- panels.externalOwner, the first present owner's frames list) keeps them.
+-- The owner is independent of Offhand.isForever, which identifies a client
+-- family rather than a frame owner.
+function Compatibility.ShouldYieldFrameToExternalOwner(frameOrName, suppliedName)
+    local bridges = Offhand.Bridges
+    if not bridges then return false end
+    local _, owner = bridges:FirstRoleOwner("panels.externalOwner")
+    if not owner or type(owner.frames) ~= "table" then return false end
     local name = suppliedName
         or (type(frameOrName) == "string" and frameOrName)
         or (frameOrName and frameOrName.GetName and frameOrName:GetName())
-    return name == "WorldMapFrame" or name == "CharacterFrame"
+    for _, frameName in ipairs(owner.frames) do
+        if name == frameName then return true end
+    end
+    return false
 end
 
-function Compatibility.GetWorldMapExternalOwner()
-    if Compatibility.HasMoveAny() then return "MoveAny" end
-    if Compatibility.HasClassicUIForever() then return "ClassicUIForever" end
-    -- OpenMap restores its private anchor and scale after native writes. Keep
-    -- it ahead of Leatrix so diagnostics identify the active geometry owner
-    -- when both addons are loaded.
-    if Compatibility.IsAddonLoaded("OpenMap") then return "OpenMap" end
-    if Compatibility.HasLeatrixMaps() then return "LeatrixMaps" end
-    return nil
+-- The names of the frames that owner keeps, in its order, or nil when no
+-- such owner is present.
+function Compatibility.GetExternalOwnerFrames()
+    local bridges = Offhand.Bridges
+    if not bridges then return nil end
+    local _, owner = bridges:FirstRoleOwner("panels.externalOwner")
+    if not owner or type(owner.frames) ~= "table" then return nil end
+    return owner.frames
 end
+
+-- The World Map's geometry owner: the first present owner of role map.owner
+-- in its fixed order, or nil when Offhand owns the map.
+function Compatibility.GetWorldMapExternalOwner()
+    local bridges = Offhand.Bridges
+    return bridges and bridges:FirstRoleOwner("map.owner") or nil
+end
+
+-- Facts the map.owner entry of owner declares (positionsMap,
+-- escapeProtection, bootstrapsAnchor, label), or nil.
+local function MapOwnerFacts(owner)
+    local bridges = Offhand.Bridges
+    return owner ~= nil and bridges and bridges:GetRoleEntry("map.owner", owner) or nil
+end
+Compatibility.GetWorldMapOwnerFacts = MapOwnerFacts
 
 function Compatibility.GetWorldMapFadeAddon()
-    if Compatibility.IsAddonLoaded("OpenMap") then return "OpenMap" end
-    if Compatibility.IsAddonLoaded("MapUtils") then return "MapUtils" end
-    if Compatibility.IsAddonLoaded("MapWise") then return "MapWise" end
-    if Compatibility.HasLeatrixMaps() then return "Leatrix_Maps" end
+    local bridges = Offhand.Bridges
+    return bridges and bridges:FirstRoleOwner("map.fade") or nil
 end
-
-local mapAddons = {"OpenMap", "MapWise", "MapUtils", "Leatrix_Maps",
-    "BlizzMove", "MoveAny", "MoveAnything", "ClassicUIForever"}
-local mapVersionNamespaces = {OpenMap = "OpenMap", MapWise = "MapWiseAPI"}
 
 local function DiagnosticVersion(value)
     if type(value) ~= "string" or (issecretvalue and issecretvalue(value)) then return end
@@ -159,14 +175,26 @@ local function DiagnosticVersion(value)
     if version ~= "" then return version:sub(1, 64) end
 end
 
+-- Map addons come from role map.integration in its fixed order (present or
+-- not; each is reported only while loaded), then from the bridges' mapAddons.
+-- An entry's versionNamespace names a global table whose version field wins
+-- over the addon's metadata.
 function Compatibility.GetMapIntegrationDiagnostics()
     local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local bridges = Offhand.Bridges
+    local integrations = bridges and bridges:GetRoleEntries("map.integration") or {}
+    local versionNamespaces = {}
+    for _, entry in ipairs(integrations) do
+        if versionNamespaces[entry.name] == nil and type(entry.versionNamespace) == "string" then
+            versionNamespaces[entry.name] = entry.versionNamespace
+        end
+    end
     local detected, seen = {}, {}
     local function Report(name)
         if seen[name] then return end
         seen[name] = true
         if Compatibility.IsAddonLoaded(name) then
-            local namespaceName = mapVersionNamespaces[name]
+            local namespaceName = versionNamespaces[name]
             local namespace = namespaceName and rawget(_G, namespaceName)
             local version
             if type(namespace) == "table" then version = DiagnosticVersion(rawget(namespace, "version")) end
@@ -177,78 +205,9 @@ function Compatibility.GetMapIntegrationDiagnostics()
             detected[#detected + 1] = name .. "=" .. (version or "unknown version")
         end
     end
-    for _, name in ipairs(mapAddons) do Report(name) end
-    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetMapAddons() or {}) do Report(name) end
+    for _, entry in ipairs(integrations) do Report(entry.name) end
+    for _, name in ipairs(bridges and bridges:GetMapAddons() or {}) do Report(name) end
     return #detected > 0 and table.concat(detected, " | ") or "none detected"
-end
-
-local function IsFiniteNumber(value)
-    if type(issecretvalue) == "function" then
-        local ok, secret = pcall(issecretvalue, value)
-        if not ok or secret then return false end
-    end
-    return type(value) == "number" and value == value and math.abs(value) < math.huge
-end
-
-local function ValidOpenMapWindowSchema(db, requireWindowFields)
-    if type(db) ~= "table" then return false end
-    if db.windowScale ~= nil or requireWindowFields then
-        if not IsFiniteNumber(db.windowScale) or db.windowScale <= 0 then return false end
-    end
-    local win = db.window
-    if win ~= nil and win ~= false then
-        if type(win) ~= "table" or type(win[1]) ~= "string" or type(win[2]) ~= "string"
-            or not IsFiniteNumber(win[3]) or not IsFiniteNumber(win[4]) then
-            return false
-        end
-    end
-    local size = db.windowSize
-    if size ~= nil and size ~= false then
-        if type(size) ~= "table" or not IsFiniteNumber(size[1]) or not IsFiniteNumber(size[2])
-            or size[1] <= 0 or size[2] <= 0 then
-            return false
-        end
-    end
-    return true
-end
-
--- Read-only contract check (safe for diagnostics; never calls GetModule).
--- Uses OpenMapAPI.major == 1 (OpenMap's documented semver boundary) and
--- version >= 4 plus runtime OpenMapDB.worldmap schema validation instead of
--- pinning exact patch strings.
-function Compatibility.InspectOpenMapContract()
-    local namespace, api = _G.OpenMap, _G.OpenMapAPI
-    if type(namespace) ~= "table" or type(namespace.GetModule) ~= "function"
-        or type(api) ~= "table" then return "absent" end
-    if api.major ~= 1 then return "unsupported-major" end
-    if type(api.version) ~= "number" or api.version < 4 then return "unsupported-api" end
-    local db = type(_G.OpenMapDB) == "table" and _G.OpenMapDB.worldmap
-    if type(db) ~= "table" then return "schema-mismatch" end
-    if db.enabled == false then return "disabled" end
-    if not ValidOpenMapWindowSchema(db) then return "schema-mismatch" end
-    return "ok"
-end
-
-function Compatibility.GetOpenMapWorldMapModule()
-    if Compatibility.InspectOpenMapContract() ~= "ok" then return end
-    local namespace = _G.OpenMap
-    local ok, module = pcall(namespace.GetModule, namespace, "worldmap")
-    local db = ok and type(module) == "table" and module.db
-    if type(db) ~= "table" or db.enabled == false or db ~= _G.OpenMapDB.worldmap
-        or not ValidOpenMapWindowSchema(db) then return end
-    return module, db
-end
-
--- Placement and expanded-map recovery require the stitched map; windowScale
--- itself applies to every windowed OpenMap view (allowUnstitched = true).
-function Compatibility.GetOpenMapWindowModule(allowUnstitched)
-    if not Offhand.isForever or Compatibility.GetWorldMapExternalOwner() ~= "OpenMap" then return end
-    local module, db = Compatibility.GetOpenMapWorldMapModule()
-    local api = _G.OpenMapAPI
-    if not module or not ValidOpenMapWindowSchema(db, true) then return end
-    if not allowUnstitched and (type(api.IsStitched) ~= "function" or not api.IsStitched()) then return end
-    if type(module.MoveAnyOn) == "function" and module.MoveAnyOn() then return end
-    return module, db
 end
 
 local function IsWorldMapFrame(frameOrName)
@@ -256,15 +215,19 @@ local function IsWorldMapFrame(frameOrName)
     return frameOrName ~= nil and frameOrName == _G.WorldMapFrame
 end
 
+-- The owner positions the map itself (its map.owner entry's positionsMap).
 function Compatibility.IsExternallyPositionedWorldMap(frameOrName)
-    local owner = Compatibility.GetWorldMapExternalOwner()
-    return (owner == "LeatrixMaps" or owner == "OpenMap") and IsWorldMapFrame(frameOrName)
+    local facts = MapOwnerFacts(Compatibility.GetWorldMapExternalOwner())
+    return (facts ~= nil and facts.positionsMap == true) and IsWorldMapFrame(frameOrName)
 end
 
+-- The owner keeps Offhand's Escape protection for the map: escapeProtection
+-- true, or "forever" on the Forever client only, where such an owner keeps
+-- the map's placement and reopening.
 function Compatibility.SupportsExternalWorldMapEscapeProtection(frameOrName)
-    local owner = Compatibility.GetWorldMapExternalOwner()
-    -- MoveAny continues to own the map's placement and reopening on Forever.
-    return (owner == "LeatrixMaps" or owner == "OpenMap" or (Offhand.isForever and owner == "MoveAny"))
+    local facts = MapOwnerFacts(Compatibility.GetWorldMapExternalOwner())
+    local protection = facts and facts.escapeProtection
+    return (protection == true or (Offhand.isForever and protection == "forever"))
         and IsWorldMapFrame(frameOrName)
 end
 
@@ -303,10 +266,34 @@ function Compatibility.GetTBCSpellbookDiagnostics()
     return " | Spellbook=" .. (ok and report or "unresolved")
 end
 
+-- The owner's display label (its map.owner entry's label), else its name.
 local function FormatMapOwnerLabel(owner)
-    if owner == "LeatrixMaps" then return "Leatrix Maps" end
-    if owner == "ClassicUIForever" then return "ClassicUI Forever" end
+    local facts = MapOwnerFacts(owner)
+    if facts and type(facts.label) == "string" then return facts.label end
     return owner
+end
+
+-- " | "-separable "label=text" parts of a diagnostics slot, in order. A
+-- segment with a detector shows text (default "loaded") while it passes,
+-- else its absent text, and is skipped when it has none; a value function is
+-- called with ... in pcall ("unavailable" when it fails or is not a string).
+local function DiagnosticParts(parts, slot, ...)
+    local bridges = Offhand.Bridges
+    if not bridges then return parts end
+    local entries, present = bridges:GetDiagnosticSegments(slot)
+    for index, entry in ipairs(entries) do
+        local text
+        if entry.detect ~= nil and not present[index] then
+            text = entry.absent
+        elseif type(entry.value) == "function" then
+            local ok, value = pcall(entry.value, ...)
+            text = ok and type(value) == "string" and value or "unavailable"
+        else
+            text = entry.text or "loaded"
+        end
+        if type(text) == "string" then parts[#parts + 1] = entry.label .. "=" .. text end
+    end
+    return parts
 end
 
 local function IsOneForAllMoveWindowsDisabled()
@@ -492,17 +479,15 @@ end
 function Compatibility.GetOwnershipConflicts()
     local conflicts = {}
     local mapOwner = Compatibility.GetWorldMapExternalOwner()
-    local openMapContract = (Offhand.isForever and mapOwner == "OpenMap")
-        and Compatibility.InspectOpenMapContract() or nil
-    if openMapContract and openMapContract ~= "ok" and openMapContract ~= "absent" and openMapContract ~= "disabled" then
-        conflicts[#conflicts + 1] = {
-            id = "openmap-contract:" .. openMapContract,
-            kind = "openmap-contract",
-            reason = openMapContract,
-        }
-    end
-    if (mapOwner == "LeatrixMaps" or mapOwner == "OpenMap") and IsOneForAllMovingWorldMap() then
-        local mitigated = (mapOwner == "OpenMap" and openMapContract == "ok")
+    local bridges = Offhand.Bridges
+    -- On Forever the map owner's provider reports its own contract notice and
+    -- whether it keeps a window mover's writes in sync.
+    local ownerConflict = Offhand.isForever and bridges and bridges:CallMap(mapOwner, "GetContractConflict") or nil
+    if type(ownerConflict) == "table" then conflicts[#conflicts + 1] = ownerConflict end
+    local mapFacts = MapOwnerFacts(mapOwner)
+    if (mapFacts ~= nil and mapFacts.positionsMap == true) and IsOneForAllMovingWorldMap() then
+        local mitigated = Offhand.isForever and bridges ~= nil
+            and bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
         if not mitigated then
             conflicts[#conflicts + 1] = {
                 id = "worldmap-mover:OneForAll+" .. mapOwner,
@@ -544,15 +529,14 @@ function Compatibility.FormatConflictMessage(conflict)
         local fmt = L["COMPAT_CONFLICT_WINDOW_MOVER"]
             or "Conflict: %s's Move Blizzard windows option is active alongside Offhand. Disable Move Blizzard windows in %s if windows, bags, or the World Map flicker or snap back."
         return string.format(fmt, conflict.mover, conflict.mover)
-    elseif conflict.kind == "openmap-contract" then
-        local fmt = L["COMPAT_CONFLICT_OPENMAP_CONTRACT"]
-            or "Notice: OpenMap updated to an unsupported contract (%s). Offhand stood down its OpenMap drag sync and recovery helpers."
-        return string.format(fmt, conflict.reason)
     elseif conflict.kind == "bags-conflict" then
         local fmt = L["COMPAT_CONFLICT_BAGS"]
             or "Conflict: multiple bag addons are active (%s). Keep only one bag addon enabled for reliable Offhand bag persistence."
         return string.format(fmt, conflict.addons)
     end
+    -- A conflict the map owner's provider reported is worded by that provider.
+    local bridges = Offhand.Bridges
+    if bridges then return bridges:CallMap(Compatibility.GetWorldMapExternalOwner(), "FormatConflict", conflict) end
 end
 
 function Compatibility.NotifyActiveConflicts()
@@ -578,37 +562,28 @@ function Compatibility.ResetConflictNotifications()
     notifiedConflicts = {}
 end
 
+-- The map owner's segments come from the bridges' diagnostics slots:
+-- "compact" after WorldMapOwner in the compact line; "compat.head" before it
+-- and "compat.map" after it in the full line, whose value functions receive
+-- coordinateFontRefreshCount (the last external map coordinate font refresh).
 function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
     local mapOwner = Compatibility.GetWorldMapExternalOwner() or "Offhand"
     if compact then
-        return string.format("WorldMapOwner=%s | LeatrixMaps=%s | OpenMap=%s",
-            mapOwner, Compatibility.HasLeatrixMaps() and "loaded" or "absent",
-            Compatibility.IsAddonLoaded("OpenMap") and "loaded" or "absent")
+        return table.concat(DiagnosticParts({"WorldMapOwner=" .. mapOwner}, "compact"), " | ")
     end
-    local leatrixStatus = Compatibility.HasLeatrixMaps() and string.format(
-        " | LeatrixMaps=loaded | CoordinateFontRefresh=%s",
-        tostring(coordinateFontRefreshCount or "pending")) or ""
+    local head = DiagnosticParts({}, "compat.head")
+    head[#head + 1] = "WorldMapOwner=" .. mapOwner
+    local ownerStatus = table.concat(DiagnosticParts(head, "compat.map", coordinateFontRefreshCount), " | ")
     local spellbookStatus = Compatibility.GetTBCSpellbookDiagnostics()
-    local openMapStatus = ""
-    if Offhand.isForever and mapOwner == "OpenMap" then
-        local ok, status = pcall(function()
-            local namespace, data = _G.OpenMap, _G.OpenMapDB
-            local version = type(namespace) == "table" and namespace.version
-            local db = type(data) == "table" and data.worldmap
-            if type(version) ~= "string" or type(db) ~= "table" then return end
-            local getCVar = C_CVar and C_CVar.GetCVar or _G.GetCVar
-            local cap = tonumber(db.mapFpsCap)
-            local current = type(getCVar) == "function" and tonumber(getCVar("maxFPS"))
-            local contract = Compatibility.InspectOpenMapContract()
-            return string.format(" | OpenMap=%s | MapFPSCap=%s | maxFPS=%s | OpenMapWindow=%s | OpenMapContract=%s",
-                version, cap or "unavailable", current or "unavailable",
-                type(db.window) == "table" and "saved" or "none", contract)
-        end)
-        if ok and status then openMapStatus = status end
-    end
+    -- On Forever the map owner's provider adds its own part of the line.
+    local bridges = Offhand.Bridges
+    local ownerDetail = ""
+    local status = Offhand.isForever and bridges and bridges:CallMap(mapOwner, "GetOwnerDiagnostics") or nil
+    if type(status) == "string" then ownerDetail = " | " .. status end
     local moverStatus = ""
-    if (mapOwner == "OpenMap" or mapOwner == "LeatrixMaps") and IsOneForAllMovingWorldMap() then
-        local mitigated = (mapOwner == "OpenMap" and Compatibility.InspectOpenMapContract() == "ok")
+    local mapFacts = MapOwnerFacts(mapOwner)
+    if (mapFacts ~= nil and mapFacts.positionsMap == true) and IsOneForAllMovingWorldMap() then
+        local mitigated = bridges ~= nil and bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
         moverStatus = " | WorldMapMover=OneForAll(" .. (mitigated and "synced" or "conflict") .. ")"
     end
     if IsOneForAllMovingAnyWindow() then
@@ -647,15 +622,7 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
             .. tostring(Offhand.Canvas and Offhand.Canvas.tbcBagIDRestoreStatus or "idle")
             .. ",capture=" .. tostring(Offhand.Canvas and Offhand.Canvas.tbcBagCaptureStatus or "idle")
     end
-    if Compatibility.HasClassicUIForever() then
-        return string.format(
-            "MoveAny=%s | ClassicUIForever=loaded | WorldMapOwner=%s | CharacterFrameOwner=ClassicUIForever",
-            Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner)
-            .. leatrixStatus .. spellbookStatus .. bagStatus .. moverStatus .. controllerStatus .. conflictStatus
-    end
-    return string.format("MoveAny=%s | WorldMapOwner=%s",
-        Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner)
-        .. leatrixStatus .. spellbookStatus .. bagStatus .. openMapStatus .. moverStatus .. controllerStatus .. conflictStatus
+    return ownerStatus .. spellbookStatus .. bagStatus .. ownerDetail .. moverStatus .. controllerStatus .. conflictStatus
 end
 
 -- Support-only inspection. Never move, show, hook or read guide contents from

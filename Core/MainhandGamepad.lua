@@ -22,7 +22,7 @@ local gamepadDestinationPanelState = setmetatable({}, { __mode = "k" })
 local gamepadDestinationPanelStatus = {}
 local gamepadDestinationDragHandles = setmetatable({}, { __mode = "k" })
 local fullscreenMapState
-local openMapWindowedLayout
+local ownerWindowedLayout
 local GAMEPAD_INTERFACE_SETTLE_SECONDS = 1.0
 local GAMEPAD_ACTIVE_PANEL_INTERVAL = 0.05
 local GAMEPAD_INACTIVE_PANEL_INTERVAL = 0.20
@@ -715,7 +715,9 @@ local function IsMapOnWorkspace(map)
     return ok and workspace
 end
 
-local function ReadOpenMapWindowedLayout(map)
+-- The windowed workspace layout a fullscreen-handling map owner leaves
+-- behind, read before it maximizes the map.
+local function ReadOwnerWindowedLayout(map)
     if not IsMapOnWorkspace(map) then return nil end
     local ok, layout = pcall(function()
         local anchors, width, height = ReadAnchors(map), map:GetWidth(), map:GetHeight()
@@ -725,22 +727,22 @@ local function ReadOpenMapWindowedLayout(map)
     return ok and layout or nil
 end
 
-local function UpdateFullscreenMap(map, maximized, active, inCombat, openMapOwnsMap)
+local function UpdateFullscreenMap(map, maximized, active, inCombat, ownerHandlesFullscreen)
     if inCombat then return "combat" end
     local state = fullscreenMapState
     local ok, status = pcall(function()
         if state and (not active or not maximized or state.map ~= map
-            or state.openMapOwnsMap ~= openMapOwnsMap) then
+            or state.ownerHandlesFullscreen ~= ownerHandlesFullscreen) then
             if OwnsFullscreenBox(state.blackout, state.region, 0, 0) then
                 RestoreFullscreenBox(state.blackout, state.blackoutAnchors)
             end
             local ownsBox = OwnsFullscreenBox(state.map, state.region, state.x, state.y)
             local windowed = state.windowedLayout
-            if windowed and active and openMapOwnsMap and not maximized and state.map == map
+            if windowed and active and ownerHandlesFullscreen and not maximized and state.map == map
                 and map:IsShown() and (ownsBox or not IsMapOnWorkspace(map)) then
-                -- OpenMap only reapplies a position it saved itself. Return a
-                -- workspace map to its visible pre-maximize layout when native
-                -- minimize and OpenMap leave it on Mainhand.
+                -- Such an owner may only reapply a position it saved itself.
+                -- Return a workspace map to its visible pre-maximize layout
+                -- when native minimize and the owner leave it on Mainhand.
                 RestoreFullscreenBox(map, windowed.anchors)
                 if math.abs(map:GetWidth() - windowed.width) > 0.5
                     or math.abs(map:GetHeight() - windowed.height) > 0.5 then
@@ -754,7 +756,7 @@ local function UpdateFullscreenMap(map, maximized, active, inCombat, openMapOwns
         if not active or not maximized then return "native" end
         local blackout, canvas = map.BlackoutFrame, map.ScrollContainer
         if map:GetParent() ~= UIParent or not WorldMapMixin or type(map.Maximize) ~= "function"
-            or (map.Maximize ~= WorldMapMixin.Maximize and not openMapOwnsMap)
+            or (map.Maximize ~= WorldMapMixin.Maximize and not ownerHandlesFullscreen)
             or not IsUsableGamepadDestinationPanel(map, "WorldMapFrame")
             or not IsUsableGamepadDestinationPanel(blackout) or not canvas then return "fullscreen-native" end
 
@@ -771,9 +773,9 @@ local function UpdateFullscreenMap(map, maximized, active, inCombat, openMapOwns
             end
             state = {
                 map = map, blackout = blackout, region = region, mapAnchors = mapAnchors,
-                openMapOwnsMap = openMapOwnsMap,
-                windowedLayout = openMapOwnsMap and openMapWindowedLayout
-                    and openMapWindowedLayout.map == map and openMapWindowedLayout or nil,
+                ownerHandlesFullscreen = ownerHandlesFullscreen,
+                windowedLayout = ownerHandlesFullscreen and ownerWindowedLayout
+                    and ownerWindowedLayout.map == map and ownerWindowedLayout or nil,
                 blackoutAnchors = state and state.blackoutAnchors or blackoutAnchors,
                 canvasWidth = canvasWidth, canvasHeight = canvasHeight,
                 chromeWidth = width - canvasWidth, chromeHeight = height - canvasHeight,
@@ -989,22 +991,26 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
         local mapCompatibility = Offhand.CanvasCompatibility
         local externalMap = mapShown and mapCompatibility and mapCompatibility.GetWorldMapExternalOwner
             and mapCompatibility.GetWorldMapExternalOwner()
-        if gamepad and externalMap == "OpenMap" and WorldMapMixin
+        local bridges = Offhand.Bridges
+        local ownerFacts = externalMap and bridges and bridges:GetRoleEntry("map.owner", externalMap)
+        if gamepad and ownerFacts and ownerFacts.gamepadNative == true and WorldMapMixin
             and frame.Maximize == WorldMapMixin.Maximize then
-            -- OpenMap's Gamepad fallback leaves Blizzard's map unmodified.
+            -- This owner's Gamepad fallback leaves Blizzard's map unmodified.
             externalMap = nil
         end
-        local openMapFullscreen = not gamepad and externalMap == "OpenMap" and type(_G.OpenMapAPI) == "table"
+        -- In standard UI the owner's provider may take over the maximized map.
+        local ownerFullscreen = not gamepad and externalMap ~= nil and bridges ~= nil
+            and bridges:CallMap(externalMap, "HandlesFullscreen") == true
         local fullscreenStatus
         if isWorldMap and (maximized or fullscreenMapState) then
             fullscreenStatus = UpdateFullscreenMap(frame, maximized,
-                spanned and (not externalMap or openMapFullscreen), inCombat, openMapFullscreen)
+                spanned and (not externalMap or ownerFullscreen), inCombat, ownerFullscreen)
         end
         if isWorldMap and not inCombat then
-            if not spanned or not openMapFullscreen then
-                openMapWindowedLayout = nil
+            if not spanned or not ownerFullscreen then
+                ownerWindowedLayout = nil
             elseif not maximized then
-                openMapWindowedLayout = ReadOpenMapWindowedLayout(frame)
+                ownerWindowedLayout = ReadOwnerWindowedLayout(frame)
             end
         end
         if maximized then

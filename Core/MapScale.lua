@@ -13,7 +13,11 @@ local function Inspect()
     local db, map = Offhand.db, _G.WorldMapFrame
     local owner = Offhand.CanvasCompatibility.GetWorldMapExternalOwner()
     local state = {available=false, owner=owner, min=.5, max=2.5, step=.01, value=1}
-    if owner == "OpenMap" then state.max, state.step = 1.6, .05 end
+    -- An owner's provider can narrow the range to the one its own scale uses.
+    local bridges = Offhand.Bridges
+    local max, step
+    if owner and bridges then max, step = bridges:CallMap(owner, "GetScaleRange") end
+    if max and step then state.max, state.step = max, step end
     if not db or not db.enabled or not map or (map.IsForbidden and map:IsForbidden()) then return state end
     state.value = Number(map:GetScale()) or 1
     if (InCombatLockdown and InCombatLockdown())
@@ -33,22 +37,14 @@ local function Inspect()
     end
     if owner then
         state.workspace = Offhand.Canvas.IsFrameOnWorkspace(map)
-        if owner ~= "OpenMap" or not Offhand.isForever then return state end
-        -- Reviewed internal contract, not a public setter API. No mod:Refresh:
-        -- rebuilding MapCanvas data providers is outside this settings action.
-        local module, ownerDB = Offhand.CanvasCompatibility.GetOpenMapWindowModule(true)
-        if not module or not Number(ownerDB.windowScale)
-            or type(module.WindowOptions) ~= "function" then return state end
-        local options = {}
-        module:WindowOptions(options, function() return ownerDB.windowScale end,
-            function(_, value) ownerDB.windowScale = value end,
-            function() return ownerDB.enabled == false end)
-        local option = options.windowScale
-        if type(option) ~= "table" or option.min ~= .5 or option.max ~= 1.6
-            or option.step ~= .05 or type(option.set) ~= "function"
-            or type(option.disabled) ~= "function" or option.disabled() then return state end
-        state.option, state.ownerDB = option, ownerDB
-        state.value = ownerDB.windowScale
+        if not Offhand.isForever or not bridges then return state end
+        -- On Forever the owner's provider can offer its own scale setting: the
+        -- option whose set({key}, value) applies it, the settings it writes,
+        -- the current value and the setting's key.
+        local option, ownerDB, value, key = bridges:CallMap(owner, "ReadScaleOption")
+        if type(option) ~= "table" then return state end
+        state.option, state.ownerDB, state.optionKey = option, ownerDB, key
+        state.value = value
     else
         if not metrics or not metrics.isSpanned then return state end
         state.value = tonumber(db[state.key]) or Number(map:GetScale()) or 1
@@ -105,7 +101,7 @@ function Scale:Set(value)
     if state.option then
         -- Invoke the owner's narrow Apply closure with a DB-only setter.
         -- Its existing Hold hook, reopen and reload paths now agree with it.
-        state.option.set({"windowScale"}, requested)
+        state.option.set({state.optionKey}, requested)
     else
         Offhand.db[state.key] = value == "AUTO" and "AUTO" or requested
         Offhand.Canvas:ConfigureWorldMap()

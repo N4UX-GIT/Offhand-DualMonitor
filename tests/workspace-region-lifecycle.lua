@@ -51,7 +51,7 @@ local function boot(db,topology,frameName)
     local services=setmetatable({WithWorkspace=function(m)return m end,
         IsFrameOnWorkspace=canvas.IsFrameOnWorkspace,
         IsUnsafeForPanelMutation=function()return env.unsafe==true end,
-        ShouldYieldFrameToClassicUIForever=function()return env.externalOwner==true end},
+        ShouldYieldFrameToExternalOwner=function()return env.externalOwner==true end},
         {__index=function()return function()return false end end})
     addon.CanvasPanelPlacement.InstallMainhand(canvas,services)
     canvas.RestoreWorkspacePosition=addon.CanvasPersistence.InstallRestore(canvas,services)

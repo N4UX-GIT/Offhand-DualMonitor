@@ -25,9 +25,10 @@ local addon = {db = {}, CanvasCompatibility = {GetWorldMapExternalOwner = functi
     Viewport = {GetMetrics = function() return {isSpanned = true} end},
     Canvas = {IsFrameOnWorkspace = function() return onWorkspace end}}
 assert(loadfile(base .. "/Core/CanvasForeverMap.lua"))("Offhand", addon)
+dofile(base .. "/tests/support/core-bridges.lua").Load(addon, {"Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua"})
 local map = {IsMouseOver = function() return true end}
 local state = {}
-local function tick() addon.CanvasForeverMap.UpdateOpenMapFollow(map, state) end
+local function tick() addon.CanvasForeverMap.UpdateExternalMapFollow(map, state) end
 tick()
 zone, px = 1426, 0.53
 tick()

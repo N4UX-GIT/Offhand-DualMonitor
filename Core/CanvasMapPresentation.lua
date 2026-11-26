@@ -3,11 +3,11 @@ local _, Offhand = ...
 local Map = {}
 Offhand.CanvasMapPresentation = Map
 local Compatibility = Offhand.CanvasCompatibility
-local HasLeatrixMaps = Compatibility.HasLeatrixMaps
-local ShouldYieldFrameToClassicUIForever = Compatibility.ShouldYieldFrameToClassicUIForever
+local HasWorldMapConfigurationOwner = Compatibility.HasWorldMapConfigurationOwner
+local ShouldYieldFrameToExternalOwner = Compatibility.ShouldYieldFrameToExternalOwner
 local GetWorldMapExternalOwner = Compatibility.GetWorldMapExternalOwner
 local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorldMap
-local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
+local ShouldYieldWorldMap = Compatibility.ShouldYieldWorldMap
 local IsPanelEvicting = Offhand.CanvasFrameState.IsEvicting
 
 function Map.IsNativeGamepadOwned(Canvas)
@@ -39,7 +39,7 @@ function Map.InstallTBCCursorAdapter(map)
     if Offhand.isForever or toc < 20500 or toc >= 20600
         or not map or not map.ScrollContainer
         or not Offhand.db or not Offhand.db.enabled
-        or HasLeatrixMaps() or ShouldYieldWorldMapToMoveAny(map)
+        or HasWorldMapConfigurationOwner() or ShouldYieldWorldMap(map)
         or (InCombatLockdown and InCombatLockdown()) then return false end
     local scroll = map.ScrollContainer
     local native = MapCanvasScrollControllerMixin and MapCanvasScrollControllerMixin.GetCursorPosition
@@ -47,8 +47,8 @@ function Map.InstallTBCCursorAdapter(map)
         or type(scroll.GetEffectiveScale) ~= "function" or tbcCursorAdapters[scroll] then return false end
     local function GetScaledCursor(self)
         local x, y = native(self)
-        if not Offhand.db or not Offhand.db.enabled or HasLeatrixMaps()
-            or ShouldYieldWorldMapToMoveAny(map) then return x, y end
+        if not Offhand.db or not Offhand.db.enabled or HasWorldMapConfigurationOwner()
+            or ShouldYieldWorldMap(map) then return x, y end
         local scale = self:GetEffectiveScale()
         if type(scale) ~= "number" or scale ~= scale or scale <= 0 or scale >= math.huge then return x, y end
         return x / scale, y / scale
@@ -58,91 +58,21 @@ function Map.InstallTBCCursorAdapter(map)
     return true
 end
 
+-- A World Map configuration owner (role map.configurationOwner) can keep
+-- the map's coordinate labels at their pre-span raster size after a live span
+-- changes UIParent's effective scale. Its provider re-applies their fonts
+-- (RefreshCoordinateFonts(map), the number refreshed); the last count is kept
+-- for the compatibility diagnostics.
 function Map.InstallFonts(Canvas, services)
-
-    local function IsCoordinateLabelText(text)
-        if type(text) ~= "string" or not text:find(":", 1, true) then return false end
-        local values = 0
-        for _ in text:gmatch("%d+[%.,]?%d*") do
-            values = values + 1
-            if values >= 2 then return true end
-        end
-        return false
-    end
-
-    function Canvas:RefreshLeatrixMapCoordinateFonts()
-        if InCombatLockdown() or not HasLeatrixMaps() then return 0 end
+    function Canvas:RefreshExternalMapCoordinateFonts()
+        local bridges = Offhand.Bridges
+        local owner = bridges and bridges:FirstRoleOwner("map.configurationOwner")
+        if InCombatLockdown() or not owner then return 0 end
         local map = _G.WorldMapFrame
         if not map then return 0 end
-
-        local refreshed = 0
-        local seen = {}
-        local function RefreshLabel(region, requireCoordinateText)
-            if not region or seen[region] then return false end
-            seen[region] = true
-            local okType, objectType = pcall(region.GetObjectType, region)
-            local okText, label = pcall(region.GetText, region)
-            if not okType or objectType ~= "FontString"
-                or (requireCoordinateText and (not okText or not IsCoordinateLabelText(label)))
-                or not region.GetFont or not region.SetFont then return false end
-            local okFont, file, height, flags = pcall(region.GetFont, region)
-            local okObject, fontObject = false, nil
-            if region.GetFontObject then
-                okObject, fontObject = pcall(region.GetFontObject, region)
-            end
-            fontObject = okObject and fontObject or nil
-            if not okFont or not file or not height then return false end
-            local ok = pcall(region.SetFont, region, file, height, flags or "")
-            if ok and fontObject and region.SetFontObject then
-                pcall(region.SetFontObject, region, fontObject)
-            end
-            if ok then refreshed = refreshed + 1 end
-            return ok
-        end
-
-        -- Forever Leatrix Maps 1.60.20 enables Blizzard's coordinate overlay and
-        -- reparents these three frames into the map canvas. Refer only to Blizzard's
-        -- feature-detected overlay fields; no Leatrix namespace or method is used.
-        if type(map.overlayFrames) == "table" then
-            for _, overlay in ipairs(map.overlayFrames) do
-                for _, key in ipairs({"PlayerCoords", "CursorCoords", "CrosshairCoords"}) do
-                    local coordinateFrame = type(overlay) == "table" and overlay[key]
-                    if coordinateFrame then RefreshLabel(coordinateFrame.Label, false) end
-                end
-            end
-        end
-
-        -- Older Leatrix branches used direct, anonymous WorldMapFrame children.
-        if refreshed == 0 and map.GetChildren then
-            local children = { pcall(map.GetChildren, map) }
-            if table.remove(children, 1) then
-                for _, child in ipairs(children) do
-                    local bottomAnchored = false
-                    local okPoints, points = false, 0
-                    if child and child.GetNumPoints then
-                        okPoints, points = pcall(child.GetNumPoints, child)
-                    end
-                    points = okPoints and tonumber(points) or 0
-                    for index = 1, points do
-                        local ok, point = pcall(child.GetPoint, child, index)
-                        if ok and type(point) == "string" and point:find("BOTTOM", 1, true) then
-                            bottomAnchored = true
-                            break
-                        end
-                    end
-
-                    if bottomAnchored and child.GetRegions then
-                        local regions = { pcall(child.GetRegions, child) }
-                        if table.remove(regions, 1) then
-                            for _, region in ipairs(regions) do
-                                RefreshLabel(region, true)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        self._lastLeatrixCoordinateFontRefreshCount = refreshed
+        local refreshed = bridges:CallMap(owner, "RefreshCoordinateFonts", map)
+        if type(refreshed) ~= "number" then return 0 end
+        self._lastExternalCoordinateFontRefreshCount = refreshed
         return refreshed
     end
 end
@@ -177,12 +107,10 @@ function Map.InstallBehavior(Canvas, services)
         return true
     end
 
-    Canvas.PreserveLeatrixWorldMapOpenState = Canvas.PreserveExternalWorldMapOpenState
-
     function Canvas:UpdateMapMovementBehavior()
         local map = WorldMapFrame
         if not map then return end
-        if ShouldYieldWorldMapToMoveAny(map) then return end
+        if ShouldYieldWorldMap(map) then return end
         -- Forever routes map-pin mouse actions through restricted Blizzard code.
         -- Do not change the native map event registration on that client; even an
         -- unrelated movement-event mutation can taint the shared map frame before
@@ -212,7 +140,7 @@ function Map.InstallBehavior(Canvas, services)
         -- including keyboard mode; deferring addon calls does not untaint them.
         if Offhand.isForever then return false end
         local map = _G.WorldMapFrame
-        -- MoveAny owns geometry, not content. Other clients retain refocusing
+        -- A yielding map owner owns geometry, not content. Other clients retain refocusing
         -- while the persistent frame stays open, without applying geometry here.
         if InCombatLockdown() or not map or not map.IsShown or not map:IsShown()
             or IsExternallyPositionedWorldMap(map) or not Offhand.db or not Offhand.db.enabled
@@ -275,7 +203,8 @@ function Map.InstallBehavior(Canvas, services)
             local old = previousZone
             previousZone = current
             if not old or not Offhand.db or not Offhand.db.enabled or Offhand.db.persistentWorkspacePanels == false
-                or GetWorldMapExternalOwner() or OpenMapAPI
+                or GetWorldMapExternalOwner()
+                or (Offhand.Bridges and Offhand.Bridges:HasRole("map.cameraOwner"))
                 or (Compatibility.GetWorldMapFadeAddon and Compatibility.GetWorldMapFadeAddon())
                 or IsInInstance() or Map.IsNativeGamepadOwned(Canvas) then return end
             local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
@@ -373,7 +302,7 @@ function Map.InstallConfiguration(Canvas, services)
     local UnregisterSpecialFrame = services.UnregisterSpecialFrame
     local EvictWorkspacePanelSlot = services.EvictWorkspacePanelSlot
     local function AdjustWorldMapScale(map, delta)
-        if ShouldYieldWorldMapToMoveAny(map) then return false end
+        if ShouldYieldWorldMap(map) then return false end
         if IsWorldMapMaximized(map) then return false end
         if InCombatLockdown() or not IsControlKeyDown() then return false end
         if not Offhand.db or not Offhand.db.enabled or not map then return false end
@@ -411,11 +340,11 @@ function Map.InstallConfiguration(Canvas, services)
         if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
             Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots()
         end
-        if InCombatLockdown() or not map or HasLeatrixMaps() or not Offhand.db or not Offhand.db.enabled then return end
+        if InCombatLockdown() or not map or HasWorldMapConfigurationOwner() or not Offhand.db or not Offhand.db.enabled then return end
         -- The fullscreen layout has its own fit on Forever. Keep windowed
         -- scale, UIPanel registration and saved geometry out of it.
         if IsWorldMapMaximized(map) then return end
-        if ShouldYieldWorldMapToMoveAny(map) then
+        if ShouldYieldWorldMap(map) then
             self:RepairYieldedWorldMapAnchor(map)
             return
         end
@@ -453,7 +382,7 @@ function Map.InstallConfiguration(Canvas, services)
                 C_Timer.After(0, function()
                     map._OffhandWindowedPending = nil
                     local function ApplyWindowed()
-                        if not Offhand.db or not Offhand.db.enabled or HasLeatrixMaps() then return end
+                        if not Offhand.db or not Offhand.db.enabled or HasWorldMapConfigurationOwner() then return end
                         if map.IsShown and map:IsShown() then
                             Canvas:ConfigureWorldMap()
                             RestoreWorkspacePosition(map)
@@ -475,7 +404,7 @@ function Map.InstallConfiguration(Canvas, services)
             WorldMapTitleButton:RegisterForDrag("LeftButton")
             WorldMapTitleButton:HookScript("OnDragStart", function(self)
                 if InCombatLockdown() or not Offhand.db.enabled
-                    or ShouldYieldFrameToClassicUIForever(map) then return end
+                    or ShouldYieldFrameToExternalOwner(map) then return end
                 map._OffhandDragging = true
             end)
             WorldMapTitleButton:HookScript("OnDragStop", function(self)
@@ -557,8 +486,13 @@ end
 function Map.InstallBootstrap(Canvas, services)
     local IsWorldMapMaximized = services.IsWorldMapMaximized
     local WithWorkspace = services.WithWorkspace
+    -- Only for an owner whose map.owner entry sets bootstrapsAnchor.
+    local function OwnerBootstrapsAnchor()
+        local facts = Compatibility.GetWorldMapOwnerFacts(GetWorldMapExternalOwner())
+        return facts ~= nil and facts.bootstrapsAnchor == true
+    end
     function Canvas:RepairYieldedWorldMapAnchor(frame, metrics)
-        if not frame or GetWorldMapExternalOwner() ~= "MoveAny"
+        if not frame or not OwnerBootstrapsAnchor()
             or IsWorldMapMaximized(frame)
             or (InCombatLockdown and InCombatLockdown())
             or not Offhand.db or not Offhand.db.enabled

@@ -208,8 +208,8 @@ function Placement.InstallSingleScreen(Canvas, services)
 end
 
 function Placement.InstallMainhand(Canvas, services)
-    local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
-    local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
+    local ShouldYieldFrameToExternalOwner = services.ShouldYieldFrameToExternalOwner
+    local ShouldYieldWorldMap = services.ShouldYieldWorldMap
     local IsForeverProfessionsPanel = services.IsForeverProfessionsPanel
     local IsForeverEditModeFrame = services.IsForeverEditModeFrame
     local IsWorldMapMaximized = services.IsWorldMapMaximized
@@ -316,8 +316,8 @@ function Placement.InstallMainhand(Canvas, services)
             anchorOnly = true
         end
         if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name) then return false end
-        if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
-        if ShouldYieldWorldMapToMoveAny(name or frame) then return false end
+        if ShouldYieldFrameToExternalOwner(frame, name) then return false end
+        if ShouldYieldWorldMap(name or frame) then return false end
         if recoveryAction and name and not vendorGameplay and services.RemodalizePanel
             and not (frame.IsForbidden and frame:IsForbidden())
             and not IsForeverEditModeFrame(frame, name) then
@@ -411,7 +411,7 @@ function Placement.InstallMainhand(Canvas, services)
         local db, compatibility = Offhand.db, Offhand.CanvasCompatibility
         if not Offhand.isForever or not db or not db.enabled or not GetUIPanel
             or not self.CanManagePanelsFromAddon or not self.CanManagePanelsFromAddon()
-            or InCombatLockdown() or compatibility.HasMoveAny()
+            or InCombatLockdown() or compatibility.HasPanelSlotRepairOwner()
             or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
         local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
         if not metrics or not metrics.isSpanned then return end
@@ -556,8 +556,8 @@ function Placement.InstallMainhand(Canvas, services)
             if inspected and recover and reportName
                 and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
                 and not IsForeverEditModeFrame(frame, name)
-                and not ShouldYieldFrameToClassicUIForever(frame, name)
-                and not ShouldYieldWorldMapToMoveAny(name or frame) then
+                and not ShouldYieldFrameToExternalOwner(frame, name)
+                and not ShouldYieldWorldMap(name or frame) then
                 local foreverMap = Offhand.isForever and frame == _G.WorldMapFrame
                 if frame == _G.WorldMapFrame and frame.SetScale and not foreverMap then
                     pcall(frame.SetScale, frame, 1)
@@ -882,8 +882,7 @@ function Placement.Install(Canvas, services)
     function Canvas:PrepareCombatPanelClamps()
         local db = Offhand.db
         if not Offhand.isForever or not db or not db.enabled or InCombatLockdown() or not UIPanelWindows
-            or not self.CanManagePanelsFromAddon() or Offhand.CanvasCompatibility.HasMoveAny()
-            or Offhand.CanvasCompatibility.HasClassicUIForever()
+            or not self.CanManagePanelsFromAddon() or Offhand.CanvasCompatibility.HasPanelManagementOwner()
             or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
         local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
         if not metrics or not metrics.isSpanned then return end
@@ -933,8 +932,7 @@ function Placement.Install(Canvas, services)
         if not Offhand.isForever or not db or not db.savedWorkspacePositions then return end
         local function RefitVisiblePair()
             if db ~= Offhand.db or not db.enabled or Offhand._loggingOut or InCombatLockdown()
-                or not self.CanManagePanelsFromAddon() or Offhand.CanvasCompatibility.HasMoveAny()
-                or Offhand.CanvasCompatibility.HasClassicUIForever()
+                or not self.CanManagePanelsFromAddon() or Offhand.CanvasCompatibility.HasPanelManagementOwner()
                 or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return end
             local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
             if not metrics or not metrics.isSpanned then return end
@@ -971,8 +969,7 @@ function Placement.Install(Canvas, services)
         if combatAnchorRepairing[frame] or type(position) ~= "table" or position.autoRoute
             or not IsPublicNumber(position.x) or not IsPublicNumber(position.y)
             or not Canvas.CanManagePanelsFromAddon()
-            or Offhand.CanvasCompatibility.HasMoveAny()
-            or Offhand.CanvasCompatibility.HasClassicUIForever()
+            or Offhand.CanvasCompatibility.HasPanelManagementOwner()
             or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved()) then return false end
         local ok, restored = pcall(function()
             if not frame.IsForbidden or not IsPublic(frame:IsForbidden()) or frame:IsForbidden()
@@ -1039,7 +1036,7 @@ function Placement.Install(Canvas, services)
             or map ~= _G.WorldMapFrame or not InCombatLockdown() or IsPanelDragging(map)
             or not map:IsShown() or map:IsMaximized()
             or Offhand.CanvasCompatibility.ShouldYieldWorldMap(map)
-            or Offhand.CanvasCompatibility.IsAddonLoaded("MapWise") then return false end
+            or (Offhand.Bridges and Offhand.Bridges:HasRole("map.blocksCombatAnchorRepair")) then return false end
         local saved = db.savedWorkspacePositions and db.savedWorkspacePositions.WorldMapFrame
         return RestoreCombatSavedAnchor(map, true, saved)
     end

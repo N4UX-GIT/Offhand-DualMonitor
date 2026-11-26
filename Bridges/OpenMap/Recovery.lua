@@ -1,7 +1,27 @@
--- Version-scoped compatibility for OpenMap's saved window placement.
-local _, Offhand = ...
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/OpenMap/Recovery.lua: version-scoped compatibility for OpenMap's
+    saved window placement
+
+    The former Core/OpenMapRecovery.lua, moved behind the bridge contract with
+    unchanged behaviour: the user drag observer that saves a released map
+    point in OpenMap's own settings, and the one-shot recovery of the windowed
+    map to Mainhand or the workspace. Creates no frame, hook or timer at load.
+
+    Registered on every client, like the core module it replaces; OpenMap is
+    read when asked.
+--]]
+
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.GetBridgeNamespace) ~= "function" then return end
+
+local namespace = API.GetBridgeNamespace("OpenMap")
+local Contract = namespace.Contract
+if type(Contract) ~= "table" then return end
 local Recovery = {}
-Offhand.OpenMapRecovery = Recovery
+namespace.Recovery = Recovery
 
 local function Number(value)
     if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
@@ -12,12 +32,11 @@ end
 local dragObservers = setmetatable({}, { __mode = "k" })
 
 local function GetDraggableOpenMapDB(map)
-    if Offhand._loggingOut or not Offhand.db or not Offhand.db.enabled or InCombatLockdown()
-        or (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled())
+    if API.IsLoggingOut() or not API.IsEnabled() or InCombatLockdown()
+        or API.IsGamepadUIEnabled()
         or map:IsForbidden() or not map:IsShown() or map:IsMaximized() then return end
-    local compatibility = Offhand.CanvasCompatibility
-    if compatibility.GetWorldMapExternalOwner() ~= "OpenMap" then return end
-    local module, db = compatibility.GetOpenMapWorldMapModule()
+    if API.GetExternalMapOwner() ~= "OpenMap" then return end
+    local module, db = Contract.GetOpenMapWorldMapModule()
     -- OpenMap's window code is active even when its stitched canvas is not.
     if not module or (module.MoveAnyOn and module.MoveAnyOn()) then return end
     local scale, savedScale = Number(map:GetScale()), Number(db.windowScale)
@@ -64,11 +83,10 @@ function Recovery:ObserveUserDrag(map)
 end
 
 local function Inspect(workspace)
-    local compatibility = Offhand.CanvasCompatibility
-    if not Offhand.db or not Offhand.db.enabled or not compatibility then return end
-    if Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled() then return end
+    if not API.IsEnabled() then return end
+    if API.IsGamepadUIEnabled() then return end
     if IsMouseButtonDown and IsMouseButtonDown("LeftButton") then return end
-    local _, db = compatibility.GetOpenMapWindowModule()
+    local _, db = Contract.GetOpenMapWindowModule()
     if not db or not Number(db.windowScale) or db.windowScale <= 0
         or (db.window ~= false and type(db.window) ~= "table") then return end
     if type(db.window) == "table" and (type(db.window[1]) ~= "string" or type(db.window[2]) ~= "string"
@@ -90,12 +108,12 @@ local function Inspect(workspace)
         or not width or not height or width <= 0 or height <= 0 then return end
     local factor = Number(scale / parentScale)
     if not factor or factor <= 0 then return end
-    local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
+    local metrics = API.GetViewportMetrics()
     if not metrics then return end
     local left, right, bottom, top
     if workspace then
         if not metrics.isSpanned then return end
-        local region = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:Get(metrics)
+        local region = API.GetWorkspaceRegion(metrics)
         if region then
             left, bottom = Number(region.x), Number(region.y)
             local regionWidth, regionHeight = Number(region.width), Number(region.height)
@@ -174,6 +192,6 @@ function Recovery:RunAndReport(workspace)
     local key = ok and (workspace and "OPENMAP_WORKSPACE_DONE" or "OPENMAP_RECOVERY_DONE")
         or (reason == "workspace-fit" and "OPENMAP_WORKSPACE_FIT")
         or (reason == "combat" and "OPENMAP_RECOVERY_COMBAT" or "OPENMAP_RECOVERY_UNAVAILABLE")
-    Offhand:Print(Offhand.L[key])
+    API.Print(API.GetText(key))
     return ok, reason
 end

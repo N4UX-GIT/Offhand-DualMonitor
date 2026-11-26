@@ -15,7 +15,7 @@ addon.tocVersion, addon.isForever = 20506, true
 assert(not registry.RequiresNativePanelRegistration('WorldMapFrame'))
 addon.isForever = nil
 
-addon.CanvasCompatibility = {HasClassicUIForever=function() return false end}
+addon.CanvasCompatibility = {GetExternalOwnerFrames=function() return nil end}
 addon.CanvasBackpackState = {IsRoot=function() return false end}
 addon.CanvasFrameState = {
     IsEvicting=function() return false end,
