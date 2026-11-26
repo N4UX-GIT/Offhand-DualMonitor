@@ -2231,9 +2231,10 @@ SlashCmdList["OFFHAND"] = function(msg)
             local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
             if bags then Offhand:Print("Native bag diagnostics: %s.", bags) end
         end
-        if debugDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
-            Offhand:Print("Dialogue UI diagnostics: %s.",
-                Offhand.DialogueUICompat:GetDiagnostics())
+        if debugDiagnostics and Offhand.Bridges and Offhand.Bridges.GetDebugDiagnostics then
+            for _, report in ipairs(Offhand.Bridges:GetDebugDiagnostics()) do
+                Offhand:Print("%s diagnostics: %s.", report.label, report.text)
+            end
         end
         if Offhand.UserMedia and Offhand.UserMedia.GetDiagnostics then
             local media = Offhand.UserMedia:GetDiagnostics()

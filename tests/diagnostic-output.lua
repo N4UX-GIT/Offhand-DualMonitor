@@ -116,7 +116,12 @@ addon.Canvas = {
     GetPanelPlacementDiagnostics = probe("placement", {"CharacterFrame | parent=UIParent | rectUI=10/20/30/40"}),
     GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
-addon.DialogueUICompat = { GetDiagnostics = probe("dialogue", "animation") }
+-- Long per-bridge reports reach the debug mode through the bridge registry.
+addon.Bridges = addon.Bridges or { GetMapAddons = function() return {} end }
+local dialogueProbe = probe("dialogue", "animation")
+addon.Bridges.GetDebugDiagnostics = function()
+    return { { label = "Dialogue UI", text = dialogueProbe() } }
+end
 local media = { status = "MISSING", installed = false, reason = "NOT_INSTALLED" }
 addon.UserMedia = { GetDiagnostics = function() return media end }
 local function run(command)

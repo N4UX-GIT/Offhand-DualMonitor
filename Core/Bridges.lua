@@ -82,6 +82,24 @@ function Bridges:GetDiagnostics()
     return table.concat(parts, " | ")
 end
 
+-- Long per-bridge reports for the debug diagnostics mode only; they never
+-- join the compact line above. Each entry is { label = ..., text = ... }.
+function Bridges:GetDebugDiagnostics()
+    local reports = {}
+    for _, id in ipairs(order) do
+        local handler = registry[id].GetDebugDiagnostics
+        if type(handler) == "function" then
+            local ok, label, text = pcall(handler, registry[id])
+            if not ok then
+                self.errors[id] = tostring(label)
+            elseif type(label) == "string" and label ~= "" and type(text) == "string" and text ~= "" then
+                reports[#reports + 1] = { label = label, text = text }
+            end
+        end
+    end
+    return reports
+end
+
 -- True when a bridge's addon has just restored its own single-screen position
 -- for this frame, so generic single-screen recovery must leave it alone.
 function Bridges:ShouldPreserveSingleScreenPosition(frame, metrics)
@@ -338,6 +356,31 @@ end
 function Offhand.API.IsPopupRedirectEnabled()
     local db = Offhand.db
     return type(db) == "table" and db.enabled and db.seamRedirect and true or false
+end
+
+-- Mainhand's share of the physical window height (game pixel height over
+-- physical height) while WoW is spanned, else 1. A bridge multiplies a
+-- vendor's native frame scale by it to keep the frame's on-screen size.
+function Offhand.API.GetMainhandPixelHeightRatio()
+    local viewport = Offhand.Viewport
+    if not viewport or not viewport.GetMetrics then return 1 end
+    local ok, metrics = pcall(viewport.GetMetrics, viewport)
+    if not ok or not metrics or metrics.isSpanned ~= true then return 1 end
+    local canvasHeight = tonumber(metrics.physicalHeight)
+    local gameHeight = tonumber(metrics.gamePixelHeight)
+    if not canvasHeight or canvasHeight <= 0 or not gameHeight or gameHeight <= 0 then
+        return 1
+    end
+    return gameHeight / canvasHeight
+end
+
+-- Queue a tooltip-like frame for Offhand's popup bounds pass, which fits it
+-- inside the game rectangle on the next frame while popup redirection is on.
+-- True when it was queued.
+function Offhand.API.QueuePopupBounds(frame)
+    local bounds = Offhand.PopupBounds
+    if not frame or not bounds or type(bounds.Queue) ~= "function" then return false end
+    return pcall(bounds.Queue, bounds, frame) == true
 end
 
 -- Where Offhand puts group loot roll pop-ups: the centre of a slot of the

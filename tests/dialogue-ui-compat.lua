@@ -1,4 +1,6 @@
 -- Dialogue UI confinement must translate only its UIParent-relative anchors.
+-- The handling is the built-in bridge Bridges/DialogueUI/Bridge.lua, loaded
+-- through the real Core/MainhandGeometry.lua and Core/Bridges.lua.
 local function NewFrame(name)
     local frame = {name = name, points = {}, children = {}, scale = 1, width = 100, height = 100, scripts = {}}
     function frame:GetName() return self.name end
@@ -21,17 +23,24 @@ local function NewFrame(name)
     return frame
 end
 
+local function ReadSource(path)
+    local handle = assert(io.open(path, "rb"), "missing " .. path)
+    local text = handle:read("*a")
+    handle:close()
+    return text
+end
+
 UIParent = NewFrame("UIParent")
+UIParent.width = 1366
 UIParent.height = 768
 WorldFrame = NewFrame("WorldFrame")
 WorldFrame.height = 432
 DialogueUI_DB = {FrameSize = 3}
-local mainhand = NewFrame("OffhandMainhandFrame")
-local metrics = {isSpanned = true, physicalHeight = 2560, gamePixelHeight = 1440}
+local metrics = {isSpanned = true, physicalHeight = 2560, gamePixelHeight = 1440,
+    gameLeft = 0, gameBottom = 0, gameRight = 1366, gameTop = 432}
 local addon = {
     db = {enabled = true},
     Viewport = {GetMetrics = function() return metrics end},
-    Mainhand = {CreateAnchor = function() return mainhand end},
     PopupBounds = {Queue = function(self, frame)
         self.queued = frame
         self.queueCount = (self.queueCount or 0) + 1
@@ -39,16 +48,28 @@ local addon = {
 }
 
 local loader
-CreateFrame = function()
+local createdFrames = 0
+CreateFrame = function(_, name)
+    createdFrames = createdFrames + 1
+    if name == "OffhandMainhandFrame" then
+        local anchor = NewFrame(name)
+        function anchor:SetFrameStrata() end
+        function anchor:SetFrameLevel() end
+        function anchor:SetAllPoints() end
+        return anchor
+    end
     loader = {
         RegisterEvent = function() end,
         SetScript = function(self, _, callback) self.callback = callback end,
     }
     return loader
 end
-C_AddOns = {IsAddOnLoaded = function(name) return name == "DialogueUI" end}
+local loaded = false
+C_AddOns = {IsAddOnLoaded = function(name) return loaded and name == "DialogueUI" end}
 
+local hookCount = 0
 hooksecurefunc = function(target, method, callback)
+    hookCount = hookCount + 1
     local original = target[method]
     target[method] = function(self, ...)
         local results = {original(self, ...)}
@@ -57,6 +78,27 @@ hooksecurefunc = function(target, method, callback)
     end
 end
 
+assert(loadfile("Core/MainhandGeometry.lua"))("Offhand", addon)
+assert(loadfile("Core/Bridges.lua"))("Offhand", addon)
+
+-- Without the bridge contract the file does nothing.
+assert(loadfile("Bridges/DialogueUI/Bridge.lua"))("Offhand", {})
+
+-- Dialogue UI absent at load: the bridge registers and only waits for it, as
+-- the core module did (its loader always existed, so a vendor that loads
+-- after Offhand is still attached). It hooks nothing until then.
+do
+    local early = {}
+    assert(loadfile("Core/Bridges.lua"))("Offhand", early)
+    early.API.GetMainhandFrame = function() end
+    assert(loadfile("Bridges/DialogueUI/Bridge.lua"))("Offhand", early)
+    assert(early.Bridges:Get("DialogueUI") ~= nil and createdFrames == 1 and loader ~= nil and hookCount == 0,
+        "without Dialogue UI the bridge must only register and wait for it to load")
+    assert(early.Bridges:GetDiagnostics() == nil, "a waiting bridge adds nothing to compact diagnostics")
+    loader = nil
+end
+
+loaded = true
 DUIQuestFrame = NewFrame("DUIQuestFrame")
 DUIQuestFrame.visible = true
 DUIQuestFrame.frameWidth = 504
@@ -96,8 +138,15 @@ dialogueTooltip.ReprocessInfo = function() end
 dialogueTooltip.Layout = function() end
 UIParent.children = {dialogueTooltip}
 
-assert(loadfile("Core/DialogueUICompat.lua"))("Offhand", addon)
-local compat = addon.DialogueUICompat
+assert(loadfile("Bridges/DialogueUI/Bridge.lua"))("Offhand", addon)
+local ids = addon.Bridges:List()
+assert(#ids == 1 and ids[1] == "DialogueUI" and addon.Bridges:Get("DialogueUI") ~= nil,
+    "the bridge must register as DialogueUI")
+assert(addon.Bridges:GetDiagnostics() == nil,
+    "the bridge must not add to the compact diagnostics line")
+local compat = addon.API.GetBridgeNamespace("DialogueUI").Compat
+local mainhand = addon.API.GetMainhandFrame()
+assert(compat and mainhand, "the bridge must expose its handler and use the Mainhand frame")
 assert(DUIQuestFrame:GetPoint(1) == "CENTER"
         and select(2, DUIQuestFrame:GetPoint(1)) == mainhand,
     "Dialogue root was not translated to Mainhand")
@@ -175,5 +224,32 @@ local diagnostics = compat:GetDiagnostics()
 assert(diagnostics:find("DialogueUI=loaded", 1, true)
         and diagnostics:find("MainhandConfinement=inactive", 1, true),
     "Dialogue UI compatibility state was not diagnosable")
+
+-- The bridge reaches Offhand through Offhand.API only.
+local source = ReadSource("Bridges/DialogueUI/Bridge.lua")
+for _, needle in ipairs({"Offhand.db", "Offhand.Viewport", "Offhand.Canvas", "Offhand.isForever",
+    "Offhand.Mainhand", "Offhand.PopupBounds", "Offhand.DialogueUICompat"}) do
+    assert(not source:find(needle, 1, true), "the DialogueUI bridge must not reach " .. needle)
+end
+
+-- The core stays free of Dialogue UI specifics. Core/Init.lua keeps a guarded
+-- debug print of the retired module, which is now inert. Every Core file is
+-- listed in at least one manifest.
+assert(io.open("Core/DialogueUICompat.lua", "rb") == nil,
+    "Core/DialogueUICompat.lua must remain retired into Bridges/DialogueUI/Bridge.lua")
+local coreFiles = {}
+for _, manifest in ipairs({"Offhand.toc", "Offhand_Classic.toc", "Offhand_Forever.toc",
+    "Offhand_Mainline.toc", "Offhand_Vanilla.toc", "Offhand_Wrath335a.toc"}) do
+    for line in ReadSource(manifest):gmatch("[^\r\n]+") do
+        local file = line:match("^Core\\([^\\]+%.lua)$")
+        if file then coreFiles["Core/" .. file] = true end
+    end
+end
+assert(coreFiles["Core/Bridges.lua"] and coreFiles["Core/Init.lua"], "manifest Core files were not read")
+for file in pairs(coreFiles) do
+    if file ~= "Core/Init.lua" then
+        assert(not ReadSource(file):find("DialogueUI", 1, true), "core module must not name DialogueUI: " .. file)
+    end
+end
 
 print("PASS: Dialogue UI Mainhand confinement, animation repair, restore, and safety boundary")

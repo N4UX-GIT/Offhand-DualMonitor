@@ -73,6 +73,7 @@ Every callback is optional and runs inside `pcall`:
 | `Refresh(reason)` | `"layout"` (`Canvas:UpdateLayout`), `"map"` (`Canvas:ConfigureWorldMap`), `"tick"` (Forever 0.5s ticker; can run in combat) | Ignored |
 | `RefreshBags(services)` | Forever bag Escape pass with `{ UpdateEscapeRegistration, IsEscapeRegistered, CanSuppressVendorClose, IsGameMenuBagClose, IsSettingsBagClose }` | Ignored |
 | `GetDiagnostics()` | Compatibility diagnostics report | Non-empty string or `nil` |
+| `GetDebugDiagnostics()` | `/offhand diag debug` only, printed as `<label> diagnostics: <text>.` | `label, text` (both non-empty strings) or nothing |
 | `ShouldPreserveSingleScreenPosition(frame, metrics)` | Single-screen recovery for saved workspace panels | Literal `true` to preserve vendor placement |
 | `GetBagFrames()` | Workspace bag toggle check | Table of bag frames |
 | `IsEditModeActive()` | Before learned-window selection or refresh | Literal `true` to pause Offhand selection |
@@ -94,6 +95,8 @@ Added by `Core/Bridges.lua`:
 - `Offhand.API.OwnsWorldMapPlacement()`: whether Offhand currently owns compact world map placement
 - `Offhand.API.GetGroupLootSpot(height)`: center `x, y` for group loot roll slots on the game rectangle, or `nil` when unspanned
 - `Offhand.API.IsPopupRedirectEnabled()`: whether Offhand is enabled with its popup and alert redirection on; a bridge that re-anchors a vendor's alerts releases them when this is false
+- `Offhand.API.GetMainhandPixelHeightRatio()`: Mainhand's game pixel height over the physical window height while spanned, else `1`; a bridge multiplies a vendor's native frame scale by it
+- `Offhand.API.QueuePopupBounds(frame)`: queues a tooltip-like frame for Offhand's popup bounds pass, which fits it inside the game rectangle once shown; `true` when queued
 
 Existing geometry services (`Core/MainhandGeometry.lua`): `GetMainhandFrame`,
 `GetMainhandRect`, `GetGeometryRevision`, `RegisterGeometryCallback`,
@@ -152,6 +155,15 @@ limits them to the Forever client, where core's 0.5 s `"tick"` refresh exists.
 behaviour. It uses `IsExternallyOwnedFrame`, `RefreshTransientFrames` and
 `IsPopupRedirectEnabled`, and registers on Forever before ForeverPlus exists so
 a vendor that loads late is still hooked (`tests/forever-plus-warnings.lua`).
+
+`Bridges/DialogueUI` is not a default-anchor bridge either: it is the former
+`Core/DialogueUICompat.lua`, moved behind the contract with unchanged
+behaviour, and it is not limited to the Forever client. It uses `GetGameRect`,
+`GetMainhandFrame`, `GetMainhandPixelHeightRatio` and `QueuePopupBounds`,
+keeps its own event refreshes, and offers its long report through
+`GetDebugDiagnostics` only. Like the core module it registers before Dialogue
+UI exists and waits for the vendor's `ADDON_LOADED`
+(`tests/dialogue-ui-compat.lua`).
 
 ## 7. Error isolation and tests
 

@@ -45,7 +45,6 @@ Core\ForeverEllesmereLayout.lua
 Core\CharacterSetup.lua
 Core\RetailFullscreen.lua
 Core\CinematicPresentation.lua
-Core\DialogueUICompat.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
 Core\ProcDocCompatibility.lua
@@ -115,6 +114,7 @@ UI\EllesmereLayoutPreview.lua
 # Built-in Bridges
 Bridges\Shared\DefaultAnchors.lua
 Bridges\Beastfinder\Bridge.lua
+Bridges\DialogueUI\Bridge.lua
 Bridges\EasyFishing\Bridge.lua
 Bridges\ForeverLedger\Bridge.lua
 Bridges\ForeverPlus\Bridge.lua

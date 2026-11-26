@@ -261,6 +261,22 @@ addon.db.enabled = false
 assert(addon.API.IsEscapeProtectionEnabled() == false,
     "IsEscapeProtectionEnabled must be false when Offhand is disabled")
 
+-- GetDebugDiagnostics
+addon, Bridges = Load()
+assert(#Bridges:GetDebugDiagnostics() == 0, "no bridge must mean no debug reports")
+local quiet, chatty, failing, partial = {contract = 1}, {contract = 1}, {contract = 1}, {contract = 1}
+function chatty:GetDebugDiagnostics() return "Chatty", "state=ready" end
+function failing:GetDebugDiagnostics() error("boom") end
+function partial:GetDebugDiagnostics() return "Partial", "" end
+assert(Bridges:Register("Quiet", quiet) and Bridges:Register("Failing", failing)
+    and Bridges:Register("Partial", partial) and Bridges:Register("Chatty", chatty))
+local debugReports = Bridges:GetDebugDiagnostics()
+assert(#debugReports == 1 and debugReports[1].label == "Chatty" and debugReports[1].text == "state=ready",
+    "debug reports must skip silent, empty and failing bridges")
+assert(Bridges.errors.Failing and Bridges.errors.Failing:find("boom", 1, true),
+    "a failing debug report must be recorded")
+assert(not Bridges:GetDiagnostics():find("Chatty", 1, true), "debug reports must stay out of compact diagnostics")
+
 -- IsExternallyOwnedFrame
 addon, Bridges = Load()
 local owned = {}
@@ -314,6 +330,32 @@ addon.db = {enabled = true}
 assert(addon.API.IsPopupRedirectEnabled() == false, "an unset popup redirection must not redirect popups")
 addon.db = {enabled = true, seamRedirect = true}
 assert(addon.API.IsPopupRedirectEnabled() == true, "enabled popup redirection must return a literal true")
+
+-- GetMainhandPixelHeightRatio
+addon = Load()
+assert(addon.API.GetMainhandPixelHeightRatio() == 1, "a missing viewport must give ratio 1")
+local viewportMetrics = {isSpanned = false, physicalHeight = 2560, gamePixelHeight = 1440}
+addon.Viewport = {GetMetrics = function() return viewportMetrics end}
+assert(addon.API.GetMainhandPixelHeightRatio() == 1, "an unspanned window must give ratio 1")
+viewportMetrics.isSpanned = true
+assert(math.abs(addon.API.GetMainhandPixelHeightRatio() - 0.5625) < 1e-9,
+    "a spanned window must give game pixel height over physical height")
+viewportMetrics.gamePixelHeight = 0
+assert(addon.API.GetMainhandPixelHeightRatio() == 1, "an empty game height must give ratio 1")
+addon.Viewport = {GetMetrics = function() error("metrics boom") end}
+assert(addon.API.GetMainhandPixelHeightRatio() == 1, "a throwing viewport must give ratio 1")
+
+-- QueuePopupBounds
+addon = Load()
+local queuedFrame = {}
+assert(addon.API.QueuePopupBounds(queuedFrame) == false, "missing popup bounds must not queue")
+local queued = {}
+addon.PopupBounds = {Queue = function(self, frame) queued[#queued + 1] = frame end}
+assert(addon.API.QueuePopupBounds(nil) == false and #queued == 0, "a missing frame must not queue")
+assert(addon.API.QueuePopupBounds(queuedFrame) == true and queued[1] == queuedFrame,
+    "QueuePopupBounds must hand the frame to the popup bounds pass")
+addon.PopupBounds = {Queue = function() error("queue boom") end}
+assert(addon.API.QueuePopupBounds(queuedFrame) == false, "a throwing popup bounds pass must not escape")
 
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({

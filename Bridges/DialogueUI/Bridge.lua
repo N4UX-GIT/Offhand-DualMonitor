@@ -1,12 +1,32 @@
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/DialogueUI/Bridge.lua: built-in bridge for Dialogue UI
+
+    This is the former Core/DialogueUICompat.lua moved behind the bridge
+    contract; its behaviour is unchanged. It reads the game rectangle, the
+    Mainhand frame and pixel-height ratio, and queues its tooltip for popup
+    bounds through Offhand.API only.
+
+    Unlike the default-anchor bridges it is not limited to the Forever client,
+    and it registers before Dialogue UI exists: the core module always kept a
+    loader waiting for the vendor's ADDON_LOADED, so a Dialogue UI that loads
+    after Offhand is still attached. Until then it hooks nothing.
+--]]
+
 -- Dialogue UI positions its presentation frames against UIParent. On a
 -- spanned window that is the complete monitor canvas, not the bounded game
 -- viewport. Translate only Dialogue UI's own UIParent-relative anchors to the
 -- addon-owned Mainhand region while leaving its sizing, animations, camera,
 -- interaction scripts, and saved variables under Dialogue UI ownership.
-local _, Offhand = ...
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterBridge) ~= "function"
+    or type(API.GetGameRect) ~= "function" or type(API.GetMainhandFrame) ~= "function"
+    or type(API.GetMainhandPixelHeightRatio) ~= "function" or type(API.QueuePopupBounds) ~= "function"
+    or type(API.GetBridgeNamespace) ~= "function" then return end
 
 local Compat = {}
-Offhand.DialogueUICompat = Compat
 
 local observed = setmetatable({}, { __mode = "k" })
 local observedTooltips = setmetatable({}, { __mode = "k" })
@@ -72,23 +92,13 @@ local function CanTouch(frame)
 end
 
 function Compat:ShouldConstrain()
-    if not Offhand.db or not Offhand.db.enabled or not Offhand.Viewport
-        or not Offhand.Viewport.GetMetrics or not Offhand.Mainhand
-        or not Offhand.Mainhand.CreateAnchor then return false end
-    local ok, metrics = pcall(Offhand.Viewport.GetMetrics, Offhand.Viewport)
-    return ok and metrics and metrics.isSpanned == true
+    local ok, rect = pcall(API.GetGameRect)
+    return ok and type(rect) == "table" and rect.isSpanned == true
 end
 
 function Compat:GetScaleRatio()
-    if not Offhand.Viewport or not Offhand.Viewport.GetMetrics then return 1 end
-    local ok, metrics = pcall(Offhand.Viewport.GetMetrics, Offhand.Viewport)
-    if not ok or not metrics or metrics.isSpanned ~= true then return 1 end
-    local canvasHeight = tonumber(metrics.physicalHeight)
-    local gameHeight = tonumber(metrics.gamePixelHeight)
-    if not canvasHeight or canvasHeight <= 0 or not gameHeight or gameHeight <= 0 then
-        return 1
-    end
-    return gameHeight / canvasHeight
+    local ok, ratio = pcall(API.GetMainhandPixelHeightRatio)
+    return ok and tonumber(ratio) or 1
 end
 
 function Compat:ApplyScale(frame, state, constrain)
@@ -255,7 +265,7 @@ function Compat:RewriteAnchors(frame)
     if rewriting[frame] or not CanTouch(frame) then return false end
     local state = observed[frame]
     if not state then return false end
-    local mainhand = Offhand.Mainhand and Offhand.Mainhand:CreateAnchor() or nil
+    local mainhand = API.GetMainhandFrame()
     if not mainhand then return false end
 
     local constrain = self:ShouldConstrain()
@@ -347,8 +357,7 @@ local function IsDialogueTooltip(frame)
 end
 
 function Compat:QueueTooltip(frame)
-    local bounds = Offhand.PopupBounds
-    if bounds and bounds.Queue then bounds:Queue(frame) end
+    API.QueuePopupBounds(frame)
 end
 
 function Compat:ObserveTooltip(frame)
@@ -449,6 +458,17 @@ function Compat:GetDiagnostics()
         finish and finish.generation or 0,
         writes)
 end
+
+-- The refresh cadence stays this file's own events. Its long report is
+-- offered to the debug diagnostics mode only, never to the compact line.
+local bridge = { contract = API.BRIDGE_CONTRACT }
+
+function bridge:GetDebugDiagnostics()
+    return "Dialogue UI", Compat:GetDiagnostics()
+end
+
+if not API.RegisterBridge("DialogueUI", bridge) then return end
+API.GetBridgeNamespace("DialogueUI").Compat = Compat
 
 local loader = CreateFrame and CreateFrame("Frame") or nil
 if loader then
