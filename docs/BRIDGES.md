@@ -34,8 +34,9 @@ Bridges/<Name>/README.md   (repo docs only; packaging copies only *.lua)
 ```
 
 Built-in bridge `.lua` files are listed at the end of all six `Offhand*.toc`
-manifests (preserving identical load lists across flavors) and check at file
-load whether their target addon global is present. When the target addon is not
+manifests (preserving identical load lists across flavors, with the shared
+helper of section 6 first and the DaylightUI block last) and check at file
+load whether their target addon is present. When the target addon is not
 installed or enabled, the bridge exits immediately with zero frames, hooks,
 slash commands, or runtime overhead. `Offhand_Forever.toc` may list the target
 under `## OptionalDeps:` (never `## Dependencies:`) purely to guarantee load
@@ -95,7 +96,55 @@ Existing geometry services (`Core/MainhandGeometry.lua`): `GetMainhandFrame`,
 `GetMainhandRect`, `GetGeometryRevision`, `RegisterGeometryCallback`,
 `UnregisterGeometryCallback`, `AnchorToMainhand`.
 
-## 6. Error isolation and tests
+## 6. Default-anchor bridges and the shared helper
+
+Many addons place a window, button or alert with one anchor on `UIParent`'s
+centre, top, bottom or a corner. Under a span that is the seam between displays
+or the far display. `Bridges/Shared/DefaultAnchors.lua` holds the common
+handling so such a bridge is a short table of frames plus whatever is special
+about its addon. It loads ahead of every bridge, creates nothing by itself, and
+fills `Offhand.API.GetBridgeNamespace("Shared")`:
+
+| Member | Purpose |
+| --- | --- |
+| `Available(addonName)` | Contract version 1, the Forever client, and the addon loaded. A bridge returns at file load when this is false |
+| `IsForever()`, `IsLoaded(addonName)` | The two tests behind `Available` |
+| `GameRect()` | `left, bottom, right, top, screenWidth, screenHeight` from `Offhand.API.GetGameRect()`; the whole screen when not spanned |
+| `IsSpanned()`, `PointDelta(point)`, `Near(a, b)` | Geometry helpers. `PointDelta` is how far a point of the game rectangle is from the same point of the screen |
+| `NewAnchorFitter(spots)` | `spots` maps a frame's global name to the addon's own default anchor `{ point, relativePoint, x, y }`. Returns a fitter with `Refresh()`, `Fit(name)`, `Holds(name)`, `Count()` and `moves` |
+| `NewParentHolder(name)` | A named 1x1 frame with `Adopt(frame)`: an adopted frame that is sent back to `UIParent` goes under the holder instead |
+| `Register(id, bridge)` | `RegisterBridge` plus a geometry callback that calls `bridge:Refresh("geometry")` |
+| `Describe(label, fitter)` | `"<label>=<moved>/<total>"` for `GetDiagnostics` |
+
+The fitter moves a frame only while it has exactly one anchor, on `UIParent`,
+equal to the addon's default (within 0.6) or to the spot the fitter last gave
+it. The frame is re-anchored to the same point of the game rectangle, with the
+offsets converted to the frame's own scale. A frame the player dragged no longer
+matches and is left alone. A protected frame is never moved in combat and gets
+no `OnShow` hook; the next `Refresh` tries again. When Offhand is off or not
+spanned the shift is zero and a frame the fitter moved returns to the addon's
+default. Nothing is saved.
+
+These bridges have no `catalog`, so learned addon windows are unaffected: a
+window the player placed with **Addon windows** no longer matches its default
+and the bridge stands aside.
+
+Built-in default-anchor bridges (each has a README beside it):
+
+| Bridge | Also handles |
+| --- | --- |
+| `Bridges/Beastfinder` | |
+| `Bridges/EasyFishing` | The unnamed skill-up popup |
+| `Bridges/ForeverLedger` | |
+| `Bridges/Gathercraft` | World-map pins kept off `UIParent` |
+| `Bridges/MobInfo2` | |
+| `Bridges/Questie` | Popup stack dialogs, the QuestieTrace consent prompt, map icons kept off `UIParent`, the tracker width cap, quest item tooltips |
+| `Bridges/RareScanner` | The button position RareScanner saves on reset |
+
+They were written against the Forever builds of those addons, so `Available`
+limits them to the Forever client, where core's 0.5 s `"tick"` refresh exists.
+
+## 7. Error isolation and tests
 
 Every core-to-bridge callback runs inside `pcall`. Failing bridges stay
 registered, record their latest error in `Offhand.Bridges.errors[id]`, and
@@ -103,6 +152,8 @@ surface `Bridge:<id>=error` in compatibility diagnostics without breaking
 Offhand or other bridges.
 
 Regression suites:
+- `tests/bridge-shared-anchors.lua`: the shared helper's fit rule, holder, registration and inert load.
+- `tests/bridge-beastfinder.lua`, `bridge-easyfishing.lua`, `bridge-foreverledger.lua`, `bridge-gathercraft.lua`, `bridge-mobinfo2.lua`, `bridge-questie.lua`, `bridge-rarescanner.lua`: each bridge's inert load, default spots, dragged frames, unspanned release and addon-specific parts, on the mock client in `tests/support/bridge-client.lua`.
 - `tests/bridges-contract.lua`: registry, storage, dispatch, isolation, public API, and core purity.
 - `tests/bridge-daylightui-layout.lua`: built-in DaylightUI bridge inert load, layout, Edit Mode (`Replace` 2.2.3+ and `ImportLayout` 2.2.1), scenes, rolls, and legacy `DaylightOffhand` stand-down.
 - `tests/bridge-daylightui-map.lua`: DaylightUI world map mover stand-down (mock and optional live vendor `MapMove.lua`).

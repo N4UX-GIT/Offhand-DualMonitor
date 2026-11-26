@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added built-in Forever bridges for Beastfinder, EasyFishing, ForeverLedger, Gathercraft, MobInfo2, Questie (with QuestieTrace) and RareScanner. Windows, buttons and alerts those addons open at the middle, top or bottom of the whole screen, or against its right edge, now open at the same spot of Mainhand. A frame you have dragged is left where you put it. Each bridge does nothing unless its addon is loaded. Live Forever testing is pending.
+- Questie's automatic tracker width and its quest item tooltips use Mainhand, not the whole span. Questie and Gathercraft map icons no longer pile up as hidden frames on the main UI.
+- RareScanner's **Reset position** saves the Mainhand spot, so the button does not return to the seam at the next login.
+
 ## [2.1.5-beta.42] - 2026-11-25
 
 Paired with **Windows Companion 2.1.9-beta.4**.

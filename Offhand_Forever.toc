@@ -16,7 +16,7 @@
 ## X-Website: https://offhandwow.com/
 ## IconTexture: Interface\AddOns\Offhand\Media\OffhandLogo64x64.blp
 ## LoadSavedVariablesFirst: 1
-## OptionalDeps: DaylightUI
+## OptionalDeps: DaylightUI, Beastfinder, EasyFishing, ForeverLedger, Gathercraft, MobInfo2, Questie, QuestieTrace, RareScanner
 ## SavedVariables: OffhandDB
 ## SavedVariablesPerCharacter: OffhandCharDB
 
@@ -116,6 +116,14 @@ UI\WhatsNew.lua
 UI\Wizard.lua
 UI\EllesmereLayoutPreview.lua
 # Built-in Bridges
+Bridges\Shared\DefaultAnchors.lua
+Bridges\Beastfinder\Bridge.lua
+Bridges\EasyFishing\Bridge.lua
+Bridges\ForeverLedger\Bridge.lua
+Bridges\Gathercraft\Bridge.lua
+Bridges\MobInfo2\Bridge.lua
+Bridges\Questie\Bridge.lua
+Bridges\RareScanner\Bridge.lua
 Bridges\DaylightUI\Core.lua
 Bridges\DaylightUI\Placement.lua
 Bridges\DaylightUI\Scenes.lua
