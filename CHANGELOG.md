@@ -12,6 +12,9 @@
 - Internal: the ConsolePort controller ownership checks moved from the core into built-in bridges. Behaviour is unchanged.
 - Internal: the HUD and compatibility report ownership checks (action, status and unit frames, minimap, chat, movers, Edit Mode systems, layout ownership signature, guidance and minimap and chat diagnostics) moved from the core into built-in bridges. Behaviour is unchanged.
 - Internal: the addon popup roots, addon menu names, tooltip owners, native container yield and external window mover marks moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the ProcDoc alert centering, its setting and its diagnostics moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the Kerzo Classic Quest Log Escape and reload handling, its catalog entry, close button frame and saved open state moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the EllesmereUI pixel grid scale adapter moved from the core into a built-in bridge. Behaviour is unchanged.
 
 ## [2.1.5-beta.42] - 2026-11-25
 

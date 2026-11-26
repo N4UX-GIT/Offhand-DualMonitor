@@ -55,10 +55,6 @@ assert(classicText:match("## Interface:%s*30300"),
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
-local procDocIndex
-for index, file in ipairs(main) do
-    if file == "Core/ProcDocCompatibility.lua" then procDocIndex = index end
-end
 local initIndex
 local viewportIndex
 local topologyDetectionIndex
@@ -74,7 +70,6 @@ local hudRecoveryIndex
 local hudTransientFramesIndex
 local seamRedirectIndex
 local compatibilityIndex
-local kerzoQuestLogIndex
 local addonEscapeIndex
 local frameStateIndex
 local panelRegistryIndex
@@ -108,7 +103,6 @@ for index, file in ipairs(main) do
     if file == "Core/HUDRecovery.lua" then hudRecoveryIndex = index end
     if file == "Core/HUDTransientFrames.lua" then hudTransientFramesIndex = index end
     if file == "Core/SeamRedirect.lua" then seamRedirectIndex = index end
-    if file == "Core/CanvasKerzoQuestLog.lua" then kerzoQuestLogIndex = index end
     if file == "Core/CanvasAddonEscape.lua" then addonEscapeIndex = index end
     if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
@@ -168,11 +162,7 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
-assert(kerzoQuestLogIndex and kerzoQuestLogIndex + 1 == compatibilityIndex,
-    "Kerzo Escape adapter must load before Canvas initializes its persistence policy")
-assert(procDocIndex and procDocIndex > viewportIndex and procDocIndex < canvasIndex,
-    "ProcDoc adapter must load after viewport services and before Canvas refresh")
-assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
+assert(addonEscapeIndex and addonEscapeIndex + 1 == compatibilityIndex,
     "addon settings Escape adapters must load before Canvas persistence initialization")
 assert(main[addonEscapeIndex - 1] == "Core/AddonWindowCatalog.lua",
     "the addon window catalog must load before the Escape adapter")
@@ -224,17 +214,20 @@ local expectedAnchorBridges = {
     "Bridges/Dominos/Bridge.lua",
     "Bridges/EasyFishing/Bridge.lua",
     "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/EllesmereUI/Scale.lua",
     "Bridges/ElvUI/Bridge.lua",
     "Bridges/ForeverLedger/Bridge.lua",
     "Bridges/ForeverPlus/Bridge.lua",
     "Bridges/ForeverXPBar/Bridge.lua",
     "Bridges/Gathercraft/Bridge.lua",
+    "Bridges/KerzoQuestLog/Bridge.lua",
     "Bridges/MobInfo2/Bridge.lua",
     "Bridges/MoveAny/Bridge.lua",
     "Bridges/MoveMyBags/Bridge.lua",
     "Bridges/OneForAll/Data.lua",
     "Bridges/PitBull4/Bridge.lua",
     "Bridges/ProcDoc/Data.lua",
+    "Bridges/ProcDoc/Bridge.lua",
     "Bridges/Questie/Bridge.lua",
     "Bridges/Questie/Rules.lua",
     "Bridges/RareScanner/Bridge.lua",
@@ -268,6 +261,12 @@ assert(io.open("Core/ForeverPlusWarnings.lua", "rb") == nil,
     "Core/ForeverPlusWarnings.lua must remain retired into Bridges/ForeverPlus/Bridge.lua")
 assert(io.open("Core/DialogueUICompat.lua", "rb") == nil,
     "Core/DialogueUICompat.lua must remain retired into Bridges/DialogueUI/Bridge.lua")
+assert(io.open("Core/ProcDocCompatibility.lua", "rb") == nil,
+    "Core/ProcDocCompatibility.lua must remain retired into Bridges/ProcDoc/Bridge.lua")
+assert(io.open("Core/CanvasKerzoQuestLog.lua", "rb") == nil,
+    "Core/CanvasKerzoQuestLog.lua must remain retired into Bridges/KerzoQuestLog/Bridge.lua")
+assert(io.open("Core/EllesmereScaleCompatibility.lua", "rb") == nil,
+    "Core/EllesmereScaleCompatibility.lua must remain retired into Bridges/EllesmereUI/Scale.lua")
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")

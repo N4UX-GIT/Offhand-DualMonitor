@@ -1280,8 +1280,28 @@ function Options:CreateFloatingPanel()
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374,
         L["CHECK_ALLOW_DRAG_TIP_DESC"], Offhand.isForever and L["CHECK_ESC_PERSIST_TIP_DESC_FOREVER"] or L["CHECK_ESC_PERSIST_TIP_DESC"])
+    -- Checkboxes bridges add to the Pop-ups & alerts card, below the redirect
+    -- option. Each is shown only while its addon is loaded and enabled for
+    -- this character, and that addon's ADDON_LOADED refreshes the card. One
+    -- table, because this builder is at Lua's limit of 200 locals.
+    local alertsExtras = { items = {}, addons = {} }
+    for _, entry in ipairs(Offhand.Bridges and Offhand.Bridges:GetSettingsContributions("alerts") or {}) do
+        if entry.kind == "check" and type(entry.get) == "function" and type(entry.set) == "function" then
+            alertsExtras.items[#alertsExtras.items + 1] = { entry = entry }
+            if type(entry.addon) == "string" then alertsExtras.addons[entry.addon] = true end
+        end
+    end
+    function alertsExtras.IsShown(entry)
+        return entry.addon == nil or IsIntegrationActive(entry.addon)
+    end
     local alertsCard = CreateCard(tab2, L["CARD_POPUPS_ALERTS"], 92, L["SETTINGS_HELP_POPUPS"], function()
-        if Offhand.ProcDocCompatibility and IsIntegrationActive("ProcDoc") then return L["PROCDOC_MAINHAND_DESC"] end
+        local help = {}
+        for _, item in ipairs(alertsExtras.items) do
+            if type(item.entry.help) == "string" and alertsExtras.IsShown(item.entry) then
+                help[#help + 1] = item.entry.help
+            end
+        end
+        if #help > 0 then return table.concat(help, "\n\n") end
     end)
     alertsCard.title:SetJustifyH("LEFT")
     local controllerCard
@@ -1821,28 +1841,39 @@ function Options:CreateFloatingPanel()
         ResizeMonitorCard(recoveryCard, recoveryHeight + extraHeight)
     end
 
-    local procDocCheck = CreateNativeCheckbox(alertsCard, L["PROCDOC_MAINHAND"],
-        function() return Offhand.db and Offhand.db.centerProcDocOnMainhand == true end,
-        function(value)
-            Offhand.db.centerProcDocOnMainhand = value == true
-            if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
-        end, L["PROCDOC_MAINHAND"], L["PROCDOC_MAINHAND_DESC"])
+    for _, item in ipairs(alertsExtras.items) do
+        local entry = item.entry
+        item.check = CreateNativeCheckbox(alertsCard, entry.text, entry.get, entry.set, entry.text, entry.tooltip)
+    end
     local alertsTop = Controls.GetCardContentTop(alertsCard)
     seamCheck:SetPoint("TOPLEFT", 10, -alertsTop)
-    local procDocTop = alertsTop + math.max(30,
+    alertsExtras.top = alertsTop + math.max(30,
         Controls.MeasureWrappedText(seamCheck.Text, L["REDIRECT_POPUPS"], 600) + 12)
-    procDocCheck:SetPoint("TOPLEFT", 10, -procDocTop)
+    -- Stacks the shown checkboxes below the redirect option and sizes the card.
+    function alertsExtras.Layout()
+        local contributionTop = alertsExtras.top
+        for _, item in ipairs(alertsExtras.items) do
+            local entry, shown = item.entry, alertsExtras.IsShown(item.entry)
+            SetShown(item.check, shown)
+            if item.top ~= contributionTop then
+                item.check:SetPoint("TOPLEFT", 10, -contributionTop)
+                item.top = contributionTop
+            end
+            if shown then
+                contributionTop = contributionTop + math.max(entry.height or 32,
+                    Controls.MeasureWrappedText(item.check.Text, entry.text, entry.width or 600) + 14)
+            end
+        end
+        ResizeMonitorCard(alertsCard, contributionTop)
+        for _, item in ipairs(alertsExtras.items) do item.check:SetChecked(item.entry.get() == true) end
+    end
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     compatDesc:SetPoint("TOPLEFT", 32, -330)
     compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
     local function RefreshWindowCompatibility()
-        local hasProcDoc = Offhand.ProcDocCompatibility ~= nil and IsIntegrationActive("ProcDoc")
-        SetShown(procDocCheck, hasProcDoc)
-        ResizeMonitorCard(alertsCard, procDocTop + (hasProcDoc and math.max(32,
-            Controls.MeasureWrappedText(procDocCheck.Text, L["PROCDOC_MAINHAND"], 600) + 14) or 0))
-        procDocCheck:SetChecked(Offhand.db and Offhand.db.centerProcDocOnMainhand == true or false)
+        alertsExtras.Layout()
         local hasEllesmere = transfer and transfer.ShowPreview and IsIntegrationActive("EllesmereUI")
             and transfer:IsAvailable() and true or false
         if recoveryCard.RefreshIntegration then recoveryCard.RefreshIntegration(hasEllesmere) end
@@ -2714,7 +2745,7 @@ function Options:CreateFloatingPanel()
     RefreshWindowCompatibility()
     configFrame:RegisterEvent("ADDON_LOADED")
     configFrame:SetScript("OnEvent", function(_, _, addonName)
-        if addonName == "ProcDoc" or addonName == "EllesmereUI" then RefreshWindowCompatibility() end
+        if alertsExtras.addons[addonName] or addonName == "EllesmereUI" then RefreshWindowCompatibility() end
     end)
     do
         local appearanceCards = {card3_1, card3_2, card3_3, card3_4}

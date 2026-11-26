@@ -129,7 +129,6 @@ function Canvas:CreateFrames()
 end
 
 function Canvas:UpdateLayout()
-    if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
     if Offhand.Bridges then Offhand.Bridges:Refresh("layout") end
     if not rootCanvas then self:CreateFrames() end
 
@@ -230,8 +229,13 @@ function Canvas:GetCompatibilityDiagnostics(compact)
     )
     local bridges = Offhand.Bridges and Offhand.Bridges:GetDiagnostics()
     if bridges then report = report .. " | " .. bridges end
-    local procDoc = Offhand.ProcDocCompatibility
-    if procDoc then report = report .. " | ProcDocCenter=" .. (procDoc.status or "inactive") end
+    -- Segments a bridge keeps at the very end of the report: " | label=value".
+    for _, segment in ipairs(Offhand.Bridges and Offhand.Bridges:GetDiagnosticSegments("compat.tail") or {}) do
+        if type(segment.value) == "function" then
+            local ok, value = pcall(segment.value)
+            report = report .. " | " .. segment.label .. "=" .. (ok and type(value) == "string" and value or "unavailable")
+        end
+    end
     return report
 end
 
@@ -796,7 +800,6 @@ assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before
     })
 
 function Canvas:UpdatePersistenceBehavior()
-    if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
     if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
     if Offhand.Bridges then Offhand.Bridges:Refresh("persistence") end
     if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
@@ -2914,7 +2917,6 @@ function Offhand:InitializeCanvas()
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
             if Offhand.Bridges then Offhand.Bridges:Refresh("tick") end
             if Offhand._displayGeometryTransitionActive then return end
-            if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
             if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
             if Offhand.LearnedAddonWindows then Offhand.LearnedAddonWindows:Refresh() end
             Canvas:RetryMissingExperimentalForeverProfessionsMovement()

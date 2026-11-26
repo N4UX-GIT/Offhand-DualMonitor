@@ -172,6 +172,25 @@ function Bridges:CaptureWorkspaceState()
     for _, id in ipairs(order) do Call(id, "CaptureWorkspaceState") end
 end
 
+-- Once per reload or logout teardown, ahead of the workspace capture and
+-- whether or not that capture runs: stop sampling open state that the
+-- teardown is about to hide.
+function Bridges:PrepareTransition()
+    for _, id in ipairs(order) do Call(id, "PrepareTransition") end
+end
+
+-- Every PLAYER_ENTERING_WORLD (login, reload and zone change), before any
+-- workspace restore: resume sampling, and on the first one read saved intent.
+function Bridges:BeginSession()
+    for _, id in ipairs(order) do Call(id, "BeginSession") end
+end
+
+-- Every full layout pass, right after Offhand applies its global UI scale and
+-- before the viewport updates: re-sync a vendor's scale-dependent state.
+function Bridges:RefreshScale()
+    for _, id in ipairs(order) do Call(id, "RefreshScale") end
+end
+
 -- Restore bridge-owned workspace open state once the span is active.
 function Bridges:RestoreWorkspaceState(mode)
     for _, id in ipairs(order) do Call(id, "RestoreWorkspaceState", mode) end

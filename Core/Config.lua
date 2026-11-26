@@ -46,7 +46,6 @@ local defaultSettings = {
 
     -- Feature toggles
     seamRedirect = true,            -- Redirect popups and errors away from center bezel
-    centerProcDocOnMainhand = false, -- Optional reversible ProcDoc center adapter
     preventMapCloseOnMove = true,   -- Keep WorldMap open while running/walking
     independentWorkspacePanels = true, -- Panels placed on the secondary workspace stay open independently
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
@@ -73,6 +72,17 @@ local function CopyDefaults(src, dst)
         end
     end
     return dst
+end
+
+-- Profile settings that bridges declare (data.settings) join the defaults
+-- under their stored key, so profiles keep holding them as before. Bridges
+-- register at file load, before the configuration is initialized.
+local function MergeBridgeDefaults()
+    local bridges = Offhand.Bridges
+    if not bridges or type(bridges.GetSettingDefaults) ~= "function" then return end
+    for key, value in pairs(bridges:GetSettingDefaults()) do
+        if defaultSettings[key] == nil then defaultSettings[key] = value end
+    end
 end
 
 local FOREVER_EDIT_MODE_MIGRATION_VERSION = 1
@@ -975,8 +985,11 @@ function Offhand:EnsureCharacterIdentity()
             "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
             "foreverEditModeLayoutNameGamepad", "foreverEditModeLayoutIDGamepad",
             "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
-            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
-            "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end
+            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup"}) do OffhandCharDB[key] = nil end
+        -- Character settings bridges declare with resetOnCharacterChange.
+        for _, key in ipairs(Offhand.Bridges and Offhand.Bridges:GetCharacterResetKeys() or {}) do
+            OffhandCharDB[key] = nil
+        end
     end
     OffhandCharDB.characterGUID = guid
     if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then
@@ -1030,6 +1043,7 @@ local function BridgeRecoveryCharacter()
 end
 
 function Offhand:InitializeConfig()
+    MergeBridgeDefaults()
     -- ForeverState.lua loads before this module. A fresh bridge can recover
     -- missing or older SavedVariables, but a strictly newer disk revision
     -- already contains the state we would otherwise be trying to recover.

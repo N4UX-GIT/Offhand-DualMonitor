@@ -1550,7 +1550,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         if event == "PLAYER_LOGOUT" then BeginLogout() end
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
-        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:PauseForTransition() end
+        if Offhand.Bridges then Offhand.Bridges:PrepareTransition() end
         local transitionMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local preserveWorkspaceSnapshot = Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery
             and Offhand.Viewport:IsSingleScreenRecovery(transitionMetrics)
@@ -1636,7 +1636,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand.Canvas:ResetForeverMapZone(true)
         end
         Offhand._openPanelsCapturedForTransition = false
-        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:BeginSession() end
+        if Offhand.Bridges then Offhand.Bridges:BeginSession() end
         local shouldEvaluateNotices = not Offhand._hasEnteredWorld
         -- Both a fresh login and a UI reload start a workspace session. The
         -- first usable span consumes the request, even if it arrives later.
@@ -1851,7 +1851,7 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
         if preserveGlobalScale ~= true and Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then
             Offhand.Viewport:ApplyGlobalScale()
         end
-        if Offhand.EllesmereScaleCompatibility then Offhand.EllesmereScaleCompatibility:Refresh() end
+        if Offhand.Bridges then Offhand.Bridges:RefreshScale() end
         if Offhand.WorkspaceToggleKeys then Offhand.WorkspaceToggleKeys:Refresh() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()

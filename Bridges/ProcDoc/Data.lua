@@ -3,7 +3,7 @@
 -- Offhand's optional Mainhand centering is off. Automatic popup recovery leaves it alone (frame
 -- rule preservePopup): it must not supply an offset that the centering adapter would then apply
 -- again.
--- The centering adapter itself stays in the core for now.
+-- The centering adapter itself is Bridge.lua beside this file.
 -- Registered on every client, like the check it replaces.
 
 local ADDON_NAME, shared = ...

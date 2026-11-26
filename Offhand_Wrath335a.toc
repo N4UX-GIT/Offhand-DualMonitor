@@ -34,7 +34,6 @@ Core\WorkspaceRouting.lua
 Core\Viewport.lua
 Core\TopologyDetection.lua
 Core\CenterGuide.lua
-Core\EllesmereScaleCompatibility.lua
 Core\PopupBounds.lua
 Core\MainhandGeometry.lua
 Core\MainhandCompatibility.lua
@@ -47,7 +46,6 @@ Core\RetailFullscreen.lua
 Core\CinematicPresentation.lua
 Core\ChatBubbles.lua
 Core\MenuPlacement.lua
-Core\ProcDocCompatibility.lua
 Core\HUDCompatibility.lua
 Core\HUDTransientPolicy.lua
 Core\HUDRecovery.lua
@@ -56,7 +54,6 @@ Core\SeamRedirect.lua
 Core\PanelMotion.lua
 Core\AddonWindowCatalog.lua
 Core\CanvasAddonEscape.lua
-Core\CanvasKerzoQuestLog.lua
 Core\CanvasCompatibility.lua
 Core\CanvasFrameState.lua
 Core\CanvasPanelRegistry.lua
@@ -128,17 +125,20 @@ Bridges\DialogueUI\Bridge.lua
 Bridges\Dominos\Bridge.lua
 Bridges\EasyFishing\Bridge.lua
 Bridges\EllesmereUI\Bridge.lua
+Bridges\EllesmereUI\Scale.lua
 Bridges\ElvUI\Bridge.lua
 Bridges\ForeverLedger\Bridge.lua
 Bridges\ForeverPlus\Bridge.lua
 Bridges\ForeverXPBar\Bridge.lua
 Bridges\Gathercraft\Bridge.lua
+Bridges\KerzoQuestLog\Bridge.lua
 Bridges\MobInfo2\Bridge.lua
 Bridges\MoveAny\Bridge.lua
 Bridges\MoveMyBags\Bridge.lua
 Bridges\OneForAll\Data.lua
 Bridges\PitBull4\Bridge.lua
 Bridges\ProcDoc\Data.lua
+Bridges\ProcDoc\Bridge.lua
 Bridges\Questie\Bridge.lua
 Bridges\Questie\Rules.lua
 Bridges\RareScanner\Bridge.lua

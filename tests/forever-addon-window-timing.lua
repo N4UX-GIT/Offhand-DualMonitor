@@ -167,8 +167,9 @@ function kerzo:ActualizarEstadoEscapeModal()
 end
 function kerzo:MemorizarPosicion() end
 function kerzo:CalibrarCabeceraYCierre() self.CloseButton:SetAlpha(1);self.CloseButton:EnableMouse(true) end
-assert(loadfile(base..'/Core/CanvasKerzoQuestLog.lua'))('Offhand',addon)
-addon.CanvasKerzoQuestLog:Refresh()
+if addon.Bridges==nil then assert(loadfile(base..'/Core/Bridges.lua'))('Offhand',addon) end
+assert(loadfile(base..'/Bridges/KerzoQuestLog/Bridge.lua'))('Offhand',addon)
+addon.API.GetBridgeNamespace('KerzoQuestLog'):Refresh()
 kerzo:Show();kerzo:CalibrarCabeceraYCierre();kerzo:ActualizarEstadoEscapeModal()
 assert(kerzo.CloseButton.alpha==0 and not kerzo.CloseButton.mouse and not Has(kerzo.name),
     'Kerzo open/calibration transactions must hide X before any timer or render')

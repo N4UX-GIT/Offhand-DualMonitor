@@ -99,7 +99,7 @@ compile into one set.
 | `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` |
 | `settings` | `{ [key] = { store = "profile" or "character", legacyKey, default, resetOnCharacterChange } }` | `Offhand.API.Get/SetBridgeSetting`, `Get/SetBridgeCharacterSetting`, `Bridges:GetSettingDefaults()`, `Bridges:GetCharacterResetKeys()` |
 | `guidance` | Array of `{ id, order, addon, when = { [ownersList] = name }, key, fallback, args = 2, suffixWhen = detector, suffixKey, suffixFallback }`, sorted like ownership | `Bridges:GetGuidanceEntries()` (entries, and per entry whether `suffixWhen` passes); `CanvasCompatibility.GetExternalControlGuidance` shows an entry when a `when` name is in that list of `GetActiveExternalOwners()`, as `L[key] or fallback`, formatted with `addon` twice when `args = 2`, plus `" " .. (L[suffixKey] or suffixFallback)` |
-| `diagnostics` | Array of `{ slot, order, label, present = "Folder" }` or `{ slot, order, label, value = function() }`, sorted like ownership | `Bridges:GetDiagnosticSegments(slot)`; slot `minimap`: `label:yes/no` (present) or `label:value` in the minimap visibility report; slot `chat`: present labels joined as `ChatProviders=`; slot `panelPlacement` (entries also carry `frame = "GlobalName"`): ` | label=value` appended to that root's panel placement diagnostics line (`unavailable` when the value fails or is not a string) |
+| `diagnostics` | Array of `{ slot, order, label, present = "Folder" }` or `{ slot, order, label, value = function() }`, sorted like ownership | `Bridges:GetDiagnosticSegments(slot)`; slot `minimap`: `label:yes/no` (present) or `label:value` in the minimap visibility report; slot `chat`: present labels joined as `ChatProviders=`; slot `panelPlacement` (entries also carry `frame = "GlobalName"`): ` | label=value` appended to that root's panel placement diagnostics line (`unavailable` when the value fails or is not a string); slot `compat.tail` (value entries): ` | label=value` at the very end of the compatibility diagnostics, after the bridges' `GetDiagnostics` segment (`unavailable` likewise) |
 
 Roles and rules core reads:
 
@@ -115,6 +115,7 @@ Roles and rules core reads:
 | `report.actionBars`, `report.unitFrames`, `report.chat`, `report.movers` | Owner lists of `CanvasCompatibility.GetActiveExternalOwners()`, in role order, each name once |
 | `report.minimap` | The compatibility report's minimap owner (first present owner) |
 | rule `diagnosticFrame` | Extra roots in the panel placement diagnostics, after core's own |
+| rule `workspaceChrome` | `WorkspaceChrome`: addon windows whose close buttons are hidden while on the workspace, beside core's own names |
 | `tooltip.owner` | `PopupBounds`: the first present owner positions tooltips itself, so Offhand's tooltip fitting yields and the diagnostics name it |
 | rule `preservePopup` | `HUDCompatibility.ShouldPreservePopupPosition`: automatic popup recovery leaves a matched frame where its addon put it, before the user-placed test |
 | rule `externalHUD` | `HUDCompatibility.IsExternallyOwnedHUDFrame`: a matched frame is vendor HUD the generic popup and workspace passes leave alone |
@@ -127,6 +128,8 @@ Settings live under the same key as before (`legacyKey`, else `key`) in
 Offhand's profile settings or `OffhandCharDB`, so nothing migrates. A read of an
 unset key gives `default`; an undeclared key, or one of the other store, reads
 `nil` and does not write. A character write never creates `OffhandCharDB`.
+Profile defaults (`Bridges:GetSettingDefaults()`) join Offhand's own defaults
+when the configuration is initialized, so a fresh profile stores them as before.
 
 ## 4. Callbacks the core makes
 
@@ -134,7 +137,10 @@ Every callback is optional and runs inside `pcall`:
 
 | Method / Field | When called | Return value |
 | --- | --- | --- |
-| `Refresh(reason)` | `"layout"` (`Canvas:UpdateLayout`), `"map"` (`Canvas:ConfigureWorldMap`), `"tick"` (Forever 0.5s ticker; can run in combat) | Ignored |
+| `Refresh(reason)` | `"layout"` (`Canvas:UpdateLayout`), `"map"` (`Canvas:ConfigureWorldMap`), `"persistence"` (`Canvas:UpdatePersistenceBehavior`), `"tick"` (Forever 0.5s ticker; can run in combat) | Ignored |
+| `PrepareTransition()` | Once per reload or logout teardown, before the workspace capture and whether or not it runs | Ignored |
+| `BeginSession()` | Every `PLAYER_ENTERING_WORLD` (login, reload, zone change), before any workspace restore | Ignored |
+| `RefreshScale()` | Every full layout pass, right after Offhand applies its global UI scale and before the viewport updates | Ignored |
 | `RefreshBags(services)` | Forever bag Escape pass with `{ UpdateEscapeRegistration, IsEscapeRegistered, CanSuppressVendorClose, IsGameMenuBagClose, IsSettingsBagClose }` | Ignored |
 | `GetDiagnostics()` | Compatibility diagnostics report | Non-empty string or `nil` |
 | `GetDebugDiagnostics()` | `/offhand diag debug` only, printed as `<label> diagnostics: <text>.` | `label, text` (both non-empty strings) or nothing |
@@ -144,7 +150,7 @@ Every callback is optional and runs inside `pcall`:
 | `IdentifyLearnPlacement(frame, name, file)` | Learned-window opt-in check for cataloged bridge frames | Role string matching `bridge.catalog[role].learnPlacementFile` |
 | `IsExternallyOwnedFrame(frame, name)` | `HUDCompatibility.IsExternallyOwnedHUDFrame`, so generic popup rescue and panel movement skip a vendor HUD root the bridge places itself | Literal `true` to keep core away from the frame |
 | `RefreshTransientFrames(phase)` | With the Mainhand transient passes: `"hook"` (discovery) and `"position"` (placement, ahead of core's own popups and alerts) | Ignored |
-| `GetSettingsContributions(slot)` | `Bridges:GetSettingsContributions(slot)` for an Options slot (`map`, `alerts`, `recovery`, `help:EDIT_MODE`, `mapScaleTitle`, `mapDescription`) | Array of `{ id, kind, text, tooltip, get, set, onClick, shown, width, height, order }`; entries without an id are dropped, the rest sorted by `order` then bridge order |
+| `GetSettingsContributions(slot)` | `Bridges:GetSettingsContributions(slot)` for an Options slot (`map`, `alerts`, `recovery`, `help:EDIT_MODE`, `mapScaleTitle`, `mapDescription`) | Array of `{ id, kind, text, tooltip, get, set, onClick, shown, width, height, order }`; entries without an id are dropped, the rest sorted by `order` then bridge order. Slot `alerts` renders `kind = "check"` entries (with `get` and `set`) as checkboxes below the redirect option, titled `text` with tooltip `tooltip`, each row `max(height, wrapped text at width + 14)` high (defaults 32 and 600). `addon = "Folder"` shows an entry only while that addon is loaded and enabled for the character, and that addon's `ADDON_LOADED` refreshes the card; `help` is added to the card's help while the entry is shown |
 | `mapProvider` | `Bridges:CallMap(owner, method, ...)`: one `pcall` into the provider of the owner the caller resolved | The method's own results; nothing when absent or failing |
 | `slashCommands` | `Bridges:RunSlashCommand(cmd, arg)` calls `slashCommands[cmd](arg)` of the first bridge naming `cmd` | `RunSlashCommand` returns `true` when a bridge claimed `cmd` (even if it failed) |
 | `mapAddons` | Map integration diagnostics | Array of addon folder names |
@@ -235,6 +241,34 @@ keeps its own event refreshes, and offers its long report through
 `GetDebugDiagnostics` only. Like the core module it registers before Dialogue
 UI exists and waits for the vendor's `ADDON_LOADED`
 (`tests/dialogue-ui-compat.lua`).
+
+`Bridges/ProcDoc/Bridge.lua` is the former `Core/ProcDocCompatibility.lua`,
+moved behind the contract with unchanged behaviour, beside the folder's data
+file. It registers on every client before ProcDoc exists and keeps its own
+`ADDON_LOADED` and `PLAYER_REGEN_ENABLED` refreshes, so a ProcDoc that loads
+after Offhand is still centred. It runs on `Refresh("layout")` only, keeps its
+opt-in under the stored key `centerProcDocOnMainhand` (`data.settings`), offers
+it as an `alerts` checkbox and reports `ProcDocCenter=<status>` as a
+`compat.tail` segment (`tests/procdoc-compatibility.lua`).
+
+`Bridges/KerzoQuestLog` is the former `Core/CanvasKerzoQuestLog.lua`, moved
+behind the contract with unchanged behaviour. It registers on every client
+before Kerzo Classic Quest Log exists and looks its root up on each refresh, so
+a late Kerzo is still handled; hooks go in on Forever only. It runs on
+`Refresh("persistence")` and on `Refresh("tick")` outside a geometry
+transition, pauses on `PrepareTransition` and resumes on `BeginSession`. Its
+data holds the `Kerzo Classic Quest Log` catalog entry, the `workspaceChrome`
+name `KerzosQuestLog` and the character setting `kerzoQuestLogOpen` (stored key
+unchanged, cleared on a character change) (`tests/kerzo-quest-log.lua`,
+`tests/kerzo-quest-log-reload.lua`).
+
+`Bridges/EllesmereUI/Scale.lua` is the former
+`Core/EllesmereScaleCompatibility.lua`, moved behind the contract with unchanged
+behaviour, beside the folder's data file. It registers on every client before
+EllesmereUI exists and looks `EllesmereUI.PP` up on each `RefreshScale()`, so a
+late EllesmereUI is still hooked. It keeps the pixel grid on the live root while
+Offhand is enabled and spanned, and after EllesmereUI's own scale setter asks for
+`RequestFullLayout(true)` (`tests/ellesmere-scale-compatibility.lua`).
 
 `Bridges/ConsolePort` is a data bridge: it registers through
 `Offhand.API.RegisterAddonData` on every client and supplies the roles

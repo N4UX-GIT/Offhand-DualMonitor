@@ -17,8 +17,8 @@ EllesmereUI={PP={perfect=768/1440}}
 local pp=EllesmereUI.PP
 function pp.UpdateMult()pp.mult=pp.perfect/EllesmereUIDB.ppUIScale end
 function pp.SetUIScale(v)if combat then return end;EllesmereUIDB.ppUIScale=v;root=v;pp.UpdateMult()end
-assert(loadfile('Core/EllesmereScaleCompatibility.lua'))('Offhand',a)
-local c=a.EllesmereScaleCompatibility
+local Bridges=dofile('tests/support/core-bridges.lua').Load(a,{'Bridges/EllesmereUI/Bridge.lua','Bridges/EllesmereUI/Scale.lua'})
+local c=a.API.GetBridgeNamespace('EllesmereUI').Scale
 c:Refresh()
 root=.4344242424;c:Refresh()
 assert(math.abs(pp.mult-pp.perfect/root)<1e-9,'pixel grid retained saved scale after Offhand root change')
@@ -39,4 +39,21 @@ pp.SetUIScale(.75);assert(#timers==0,'unspanned setter requested spanned geometr
 pp.perfect=0/0;pp.UpdateMult=function()pp.mult=.123 end;c:Refresh()
 assert(pp.mult==.123,'invalid physical ratio overwrote the vendor result')
 EllesmereUI=nil;c:Refresh()
-print('PASS: Ellesmere pixel grid follows actual root; external scale refresh preserves preferences and yields when inactive/combat')
+
+-- The bridge contract: registered before EllesmereUI exists and reached
+-- through the RefreshScale dispatcher of the full layout pass.
+local ids=Bridges:List()
+assert(#ids==1 and ids[1]=='EllesmereUI','the scale bridge must register as EllesmereUI before EllesmereUI exists')
+local refreshed=0
+EllesmereUI={PP={perfect=768/1440,UpdateMult=function() refreshed=refreshed+1 end}}
+a.Viewport.GetMetrics=function()return{isSpanned=true}end
+root=.5;Bridges:Refresh('layout');Bridges:Refresh('tick')
+assert(refreshed==0,'only RefreshScale may reach the scale adapter')
+Bridges:RefreshScale()
+assert(refreshed==1 and math.abs(EllesmereUI.PP.mult-EllesmereUI.PP.perfect/.5)<1e-9,
+    'RefreshScale must hook a late EllesmereUI and sync its pixel grid')
+EllesmereUI.PP.UpdateMult=function() error('vendor boom') end;Bridges:RefreshScale()
+assert(Bridges.errors.EllesmereUI and Bridges.errors.EllesmereUI:find('vendor boom',1,true),
+    'a failing vendor refresh must be recorded by the dispatcher')
+EllesmereUI=nil
+print('PASS: Ellesmere pixel grid follows actual root; external scale refresh preserves preferences and yields when inactive/combat through the bridge contract')

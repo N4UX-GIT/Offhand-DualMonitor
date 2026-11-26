@@ -2335,7 +2335,7 @@ GetCVar = originalGuideCvar
 assert(loadfile("Core/WorkspaceProfiles.lua"))("Offhand", addon)
 assert(loadfile("Core/WorkspaceRouting.lua"))("Offhand", addon)
 assert(loadfile("UI/WorkspaceOptions.lua"))("Offhand", addon)
-assert(loadfile("Core/ProcDocCompatibility.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ProcDoc/Data.lua", "Bridges/ProcDoc/Bridge.lua" })
 local optPanel = addon.Options:CreateFloatingPanel()
 optPanel.identifyDisplaysButton.scripts.OnClick()
 assert(identifyCalls == 2, "settings must expose the same identification action")

@@ -21,11 +21,16 @@ for _, target in ipairs(TARGETS) do
     assert(listed, "manifest is missing the " .. target .. " bridge")
 end
 
+-- Former core modules that keep an event frame from file load on every
+-- client, so an addon loading after Offhand is still handled. Their own
+-- suites cover them; here they are only scanned for forbidden strings.
+local OWN_EVENT_FRAME = { ["Bridges/ProcDoc/Bridge.lua"] = true }
+
 local function LoadAll()
     Client.LoadOffhand()                       -- loads the shared helper itself
     for index = 2, #files do
         Client.ForbiddenStrings(files[index])
-        Client.Load(files[index])
+        if not OWN_EVENT_FRAME[files[index]] then Client.Load(files[index]) end
     end
 end
 

@@ -1,5 +1,6 @@
 -- EllesmereUI data bridge (built into Offhand). Facts only: no frame, hook or timer.
--- Ownership and frame-rule facts only for now; the layout transfer, scale and bag handling stay in the core.
+-- Ownership and frame-rule facts only for now; the layout transfer and bag handling stay in the core.
+-- The pixel-grid scale adapter is Scale.lua beside this file.
 -- EllesmereUI ships one addon folder per module; each module owns its frame family while
 -- loaded or present: ActionBars the action bars (hud.actionBars) and, unless the player opts
 -- back into Blizzard's XP/Rep bars, the status bars (hud.statusBars); Minimap the minimap

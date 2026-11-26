@@ -29,9 +29,6 @@ Offhand.AddonWindowCatalog = {
         journal = {position = "addon", close = "workspace-special-windows", opener = "FOREVERDUNGEONJOURNAL",
             learnPlacementFile = "core/journal.lua"},
     },
-    ["Kerzo Classic Quest Log"] = {
-        questLog = {position = "addon", close = "quest-log-adapter", restoreOpen = "adapter"},
-    },
     Baganator = {
         backpack = {position = "adapter", close = "bag-adapter", restoreOpen = "adapter"},
     },

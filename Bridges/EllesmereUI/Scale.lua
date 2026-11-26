@@ -1,7 +1,26 @@
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/EllesmereUI/Scale.lua: built-in bridge for EllesmereUI's pixel grid
+
+    This is the former Core/EllesmereScaleCompatibility.lua moved behind the
+    bridge contract; its behaviour is unchanged. It reads Offhand's enabled and
+    spanned state and requests a full layout through Offhand.API only.
+
+    Core calls RefreshScale() on every full layout pass, right after Offhand
+    applies its global UI scale. Like the core module it registers on every
+    client before EllesmereUI exists and looks EllesmereUI.PP up on each call,
+    so an EllesmereUI that loads after Offhand is still hooked.
+--]]
+
 -- Coordinate EllesmereUI's pixel grid with the live root used for spanning.
-local _, Offhand = ...
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterBridge) ~= "function"
+    or type(API.IsEnabled) ~= "function" or type(API.GetOptionsMetrics) ~= "function"
+    or type(API.RequestFullLayout) ~= "function" or type(API.GetBridgeNamespace) ~= "function" then return end
+
 local Compatibility = {}
-Offhand.EllesmereScaleCompatibility = Compatibility
 local updateHooks, scaleHooks = setmetatable({}, {__mode = "k"}), setmetatable({}, {__mode = "k"})
 local pending
 
@@ -14,12 +33,11 @@ local function Positive(value)
     return value == value and value > 0 and value < math.huge
 end
 
+-- Options metrics are the viewport metrics while Offhand is enabled and spanned.
 local function Active(pp)
     if InCombatLockdown and InCombatLockdown() then return false end
-    if not EllesmereUI or EllesmereUI.PP ~= pp or not Offhand.db or not Offhand.db.enabled then return false end
-    local viewport = Offhand.Viewport
-    local metrics = viewport and viewport.GetMetrics and viewport:GetMetrics()
-    return metrics and metrics.isSpanned == true
+    if not EllesmereUI or EllesmereUI.PP ~= pp or not API.IsEnabled() then return false end
+    return API.GetOptionsMetrics() ~= nil
 end
 
 local function SyncGrid(pp)
@@ -46,10 +64,10 @@ function Compatibility:Refresh()
                 pending = true
                 C_Timer.After(0, function()
                     pending = nil
-                    if Active(pp) and Offhand.ApplyFullLayout then
+                    if Active(pp) then
                         -- Recompute physical offsets after the vendor setter has
                         -- finished, retaining the scale the player just selected.
-                        Offhand:ApplyFullLayout(true)
+                        API.RequestFullLayout(true)
                     end
                 end)
             end)
@@ -58,4 +76,14 @@ function Compatibility:Refresh()
     end
     pp.UpdateMult()
     SyncGrid(pp)
+end
+
+local bridge = { contract = API.BRIDGE_CONTRACT }
+
+function bridge:RefreshScale()
+    Compatibility:Refresh()
+end
+
+if API.RegisterBridge("EllesmereUI", bridge) then
+    API.GetBridgeNamespace("EllesmereUI").Scale = Compatibility
 end

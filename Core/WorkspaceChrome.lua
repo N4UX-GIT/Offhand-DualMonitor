@@ -17,7 +17,6 @@ local knownFrameNames = {
     "ContainerFrame1",
     "ContainerFrameCombinedBags",
     "EUI_MainBagFrame",
-    "KerzosQuestLog",
 }
 
 local function CanUseFrame(frame)
@@ -171,6 +170,10 @@ function Chrome:Refresh()
     self:DiscoverDynamicFrames()
     local frameNames = {}
     for _, name in ipairs(knownFrameNames) do frameNames[name] = true end
+    -- Addon windows bridges name for this handling (frame rule workspaceChrome).
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRuleNames("workspaceChrome") or {}) do
+        frameNames[name] = true
+    end
     -- Separate native bags can exist without any saved placement. Discover
     -- their bounded names without scanning globals or claiming their layout.
     for index = 2, math.min(tonumber(NUM_CONTAINER_FRAMES) or 13, 40) do

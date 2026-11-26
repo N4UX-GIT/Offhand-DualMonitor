@@ -1024,6 +1024,153 @@ do
     ForeverXPBarDB, WorldMapFrame = nil, nil
 end
 
+-- ProcDoc: the centering bridge keeps its opt-in under the stored key
+-- centerProcDocOnMainhand, which joins the profile defaults, and its status is
+-- the compat.tail diagnostics segment rather than part of the bridges segment.
+do
+    local procDoc = {AddonWindowCatalog = {}, db = {centerProcDocOnMainhand = true}}
+    local registry = CoreBridges.Load(procDoc, {"Bridges/ProcDoc/Data.lua", "Bridges/ProcDoc/Bridge.lua"})
+    local ids = registry:List()
+    assert(#ids == 1 and ids[1] == "ProcDoc", "the ProcDoc bridge must register on every client")
+    assert(procDoc.API.GetBridgeSetting("ProcDoc", "centerProcDocOnMainhand") == true,
+        "a value saved under centerProcDocOnMainhand must be read back through the bridge setting")
+    assert(procDoc.API.SetBridgeSetting("ProcDoc", "centerProcDocOnMainhand", false) == true
+        and procDoc.db.centerProcDocOnMainhand == false, "the opt-in must be written under its stored key")
+    assert(registry:GetSettingDefaults().centerProcDocOnMainhand == false
+        and #registry:GetCharacterResetKeys() == 0, "the opt-in must be a profile default of false")
+    assert(registry:MatchName("preservePopup", "ProcDocAlertFrame"), "the data file must still preserve the alert root")
+    local tail = registry:GetDiagnosticSegments("compat.tail")
+    assert(#tail == 1 and tail[1].label == "ProcDocCenter" and tail[1].value() == "inactive"
+        and registry:GetDiagnostics() == nil, "the ProcDoc status must be the compat.tail segment")
+    local contributions = registry:GetSettingsContributions("alerts")
+    assert(#contributions == 1 and contributions[1].addon == "ProcDoc" and contributions[1].kind == "check",
+        "the ProcDoc opt-in must be an alerts checkbox for its addon")
+
+    -- Config fills a fresh profile with the bridge default and keeps a saved value.
+    local savedCreateFrame, savedUIParent = CreateFrame, UIParent
+    StaticPopupDialogs, SlashCmdList = {}, {}
+    GetBuildInfo = function() return "1.60.1", "70790", "synthetic", 16001 end
+    InCombatLockdown = function() return false end
+    CreateFrame = function() return {RegisterEvent = function() end, SetScript = function() end} end
+    UIParent = {GetEffectiveScale = function() return 1 end, GetWidth = function() return width end,
+        GetHeight = function() return height end}
+    local cvars = {}
+    RegisterCVar = function(name, default) if cvars[name] == nil then cvars[name] = default or "" end end
+    GetCVar = function(name) return cvars[name] end
+    SetCVar = function(name, value) cvars[name] = tostring(value) end
+    UnitName = function() return "Tester" end
+    UnitFullName = function() return "Tester", "Realm" end
+    GetNormalizedRealmName = function() return "Realm" end
+    C_Timer = {After = function() end}
+    local function Configured(account)
+        OffhandDB, OffhandCharDB = account, nil
+        local configured = {}
+        assert(loadfile("Core/Init.lua"))("Offhand", configured)
+        assert(loadfile("Core/ClientRuntime.lua"))("Offhand", configured)
+        assert(loadfile("Core/Config.lua"))("Offhand", configured)
+        CoreBridges.Load(configured, {"Bridges/ProcDoc/Data.lua", "Bridges/ProcDoc/Bridge.lua"})
+        configured:InitializeConfig()
+        return configured
+    end
+    local fresh = Configured(nil)
+    assert(fresh.db.centerProcDocOnMainhand == false, "a fresh profile must hold the ProcDoc opt-in default")
+    fresh.db.centerProcDocOnMainhand = true
+    local kept = Configured(OffhandDB)
+    assert(kept.db.centerProcDocOnMainhand == true
+        and kept.API.GetBridgeSetting("ProcDoc", "centerProcDocOnMainhand") == true,
+        "a saved ProcDoc opt-in must survive configuration and read back through the bridge")
+    OffhandDB, OffhandCharDB, StaticPopupDialogs, SlashCmdList, GetBuildInfo, InCombatLockdown = nil, nil, nil, nil, nil, nil
+    RegisterCVar, GetCVar, SetCVar, UnitName, UnitFullName, GetNormalizedRealmName, C_Timer = nil, nil, nil, nil, nil, nil, nil
+    CreateFrame, UIParent = savedCreateFrame, savedUIParent
+    _G.Offhand = nil
+end
+
+-- PrepareTransition and BeginSession: registration order, bridges without the
+-- method skipped, a throwing bridge recorded without stopping the others.
+addon, Bridges = Load()
+local sessionCalls = {}
+local sessionA, sessionB, sessionC = {contract = 1}, {contract = 1}, {contract = 1}
+function sessionA:PrepareTransition() sessionCalls[#sessionCalls + 1] = "A:prepare" end
+function sessionA:BeginSession(...) sessionCalls[#sessionCalls + 1] = "A:begin" .. select("#", ...) end
+function sessionB:PrepareTransition() error("prepare boom") end
+function sessionC:BeginSession() sessionCalls[#sessionCalls + 1] = "C:begin" end
+assert(Bridges:Register("SessionA", sessionA) and Bridges:Register("SessionB", sessionB)
+    and Bridges:Register("SessionC", sessionC))
+Bridges:PrepareTransition()
+Bridges:BeginSession()
+assert(table.concat(sessionCalls, ",") == "A:prepare,A:begin0,C:begin",
+    "session dispatch must keep registration order and skip bridges without the method")
+assert(Bridges.errors.SessionB and Bridges.errors.SessionB:find("prepare boom", 1, true),
+    "a throwing PrepareTransition must be recorded")
+
+-- Kerzo Classic Quest Log: its catalog entry, workspace close button frame and
+-- character open intent (stored key kerzoQuestLogOpen, cleared on a character
+-- change by Config) come from the bridge.
+do
+    local kerzo = {AddonWindowCatalog = {}}
+    local registry = CoreBridges.Load(kerzo, {"Bridges/KerzoQuestLog/Bridge.lua"})
+    assert(#registry:List() == 1 and registry:Get("KerzoQuestLog"), "the Kerzo bridge must register on every client")
+    assert(kerzo.AddonWindowCatalog["Kerzo Classic Quest Log"].questLog.close == "quest-log-adapter",
+        "the Kerzo catalog entry must be merged")
+    assert(table.concat(registry:GetRuleNames("workspaceChrome"), ",") == "KerzosQuestLog",
+        "the quest log must be a workspace chrome frame")
+    _G.OffhandCharDB = {kerzoQuestLogOpen = true}
+    assert(kerzo.API.GetBridgeCharacterSetting("KerzoQuestLog", "kerzoQuestLogOpen") == true,
+        "a value saved under kerzoQuestLogOpen must be read back through the bridge setting")
+    _G.OffhandCharDB = nil
+
+    local savedCreateFrame, savedUIParent = CreateFrame, UIParent
+    StaticPopupDialogs, SlashCmdList = {}, {}
+    GetBuildInfo = function() return "1.60.1", "70790", "synthetic", 16001 end
+    InCombatLockdown = function() return false end
+    CreateFrame = function() return {RegisterEvent = function() end, SetScript = function() end} end
+    UIParent = {GetEffectiveScale = function() return 1 end}
+    UnitName = function() return "Tester" end
+    local guid = "Player-1"
+    UnitGUID = function() return guid end
+    local configured = {}
+    assert(loadfile("Core/Init.lua"))("Offhand", configured)
+    assert(loadfile("Core/ClientRuntime.lua"))("Offhand", configured)
+    assert(loadfile("Core/Config.lua"))("Offhand", configured)
+    CoreBridges.Load(configured, {"Bridges/KerzoQuestLog/Bridge.lua"})
+    OffhandCharDB = {characterGUID = "Player-1", kerzoQuestLogOpen = true, characterSetup = {}}
+    configured:EnsureCharacterIdentity()
+    assert(OffhandCharDB.kerzoQuestLogOpen == true, "the same character must keep its open intent")
+    guid = "Player-2"
+    configured:EnsureCharacterIdentity()
+    assert(OffhandCharDB.kerzoQuestLogOpen == nil and OffhandCharDB.characterSetup == nil
+        and OffhandCharDB.characterGUID == "Player-2", "a character change must clear the bridge's reset keys")
+    OffhandCharDB, StaticPopupDialogs, SlashCmdList, GetBuildInfo, InCombatLockdown = nil, nil, nil, nil, nil
+    UnitName, UnitGUID = nil, nil
+    CreateFrame, UIParent = savedCreateFrame, savedUIParent
+    _G.Offhand = nil
+end
+
+-- RefreshScale: registration order, bridges without the method skipped, a
+-- throwing bridge recorded; the EllesmereUI scale bridge registers before
+-- EllesmereUI exists and stays inert without it.
+addon, Bridges = Load()
+local scaleCalls = {}
+local scaleA, scaleB, scaleC = {contract = 1}, {contract = 1}, {contract = 1}
+function scaleA:RefreshScale(...) scaleCalls[#scaleCalls + 1] = "A" .. select("#", ...) end
+function scaleB:RefreshScale() error("scale boom") end
+function scaleC:RefreshScale() scaleCalls[#scaleCalls + 1] = "C" end
+assert(Bridges:Register("ScaleA", scaleA) and Bridges:Register("ScaleB", scaleB)
+    and Bridges:Register("ScaleD", {contract = 1}) and Bridges:Register("ScaleC", scaleC))
+Bridges:RefreshScale()
+assert(table.concat(scaleCalls, ",") == "A0,C", "RefreshScale must keep registration order and skip bridges without it")
+assert(Bridges.errors.ScaleB and Bridges.errors.ScaleB:find("scale boom", 1, true),
+    "a throwing RefreshScale must be recorded")
+do
+    local suite = {AddonWindowCatalog = {}}
+    local registry = CoreBridges.Load(suite, {"Bridges/EllesmereUI/Bridge.lua", "Bridges/EllesmereUI/Scale.lua"})
+    local ids = registry:List()
+    assert(#ids == 1 and ids[1] == "EllesmereUI" and suite.API.GetBridgeNamespace("EllesmereUI").Scale,
+        "the EllesmereUI scale bridge must register on every client")
+    registry:RefreshScale()
+    assert(registry.errors.EllesmereUI == nil, "the scale bridge must be inert without EllesmereUI")
+end
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -1057,7 +1204,8 @@ for line in io.lines("Offhand.toc") do
             "TukuiPlayerFrame", "TukuiUnitFrames", "TukuiActionBars", "MoveMyBagsDB", "EllesmereUIRaidFrames",
             "EllesmereUIChat", "EllesmereUIQuestTracker", "COMPAT_GUIDE", "COMPAT_ELLESMERE_PARTY",
             "Titan", "DetailsBaseFrame", "ForeverXPBar", "BugSack", "RedIsFriend", "TipTac", "TinyTooltip",
-            "RXPV2", "RestedXP", "Questie_BaseFrame", "EllesmereUIPlayerAuraBars", "moveMyBags", "ofaMoving"}) do
+            "RXPV2", "RestedXP", "Questie_BaseFrame", "EllesmereUIPlayerAuraBars", "moveMyBags", "ofaMoving",
+            "ProcDoc", "Kerzo", "kerzo", "EllesmereScale"}) do
             assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
         assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)

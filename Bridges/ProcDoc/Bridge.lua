@@ -1,7 +1,30 @@
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/ProcDoc/Bridge.lua: built-in bridge for ProcDoc alert centering
+
+    This is the former Core/ProcDocCompatibility.lua moved behind the bridge
+    contract; its behaviour is unchanged. It reads Offhand's enabled state, the
+    game rectangle and its own opt-in setting (stored under its old key,
+    centerProcDocOnMainhand) through Offhand.API only, offers that setting on
+    the Pop-ups & alerts card, and reports ProcDocCenter=<status> at the end of
+    the compatibility diagnostics.
+
+    Like the core module it registers on every client before ProcDoc exists
+    and keeps its own ADDON_LOADED and PLAYER_REGEN_ENABLED refreshes, so a
+    ProcDoc that loads after Offhand is still centred.
+--]]
+
 -- Optional presentation adapter. ProcDoc retains its alerts and saved settings.
-local _, Offhand = ...
-local Adapter = {}
-Offhand.ProcDocCompatibility = Adapter
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterBridge) ~= "function"
+    or type(API.GetGameRect) ~= "function" or type(API.IsEnabled) ~= "function"
+    or type(API.GetBridgeSetting) ~= "function" or type(API.SetBridgeSetting) ~= "function"
+    or type(API.GetText) ~= "function" or type(API.GetBridgeNamespace) ~= "function" then return end
+
+local SETTING = "centerProcDocOnMainhand"
+local Adapter = API.GetBridgeNamespace("ProcDoc")
 local owned, hooked = nil, setmetatable({}, {__mode = "k"})
 local yielded = setmetatable({}, {__mode = "k"})
 local applying
@@ -47,9 +70,9 @@ end
 function Adapter:Refresh(vendorUpdate)
     if applying then return end
     if InCombatLockdown and InCombatLockdown() then self.status = "combat-deferred"; return end
-    local db, frame = Offhand.db, _G.ProcDocAlertFrame
-    local metrics = db and db.enabled and Offhand.Viewport and Offhand.Viewport:GetMetrics()
-    if not db or not db.enabled or db.centerProcDocOnMainhand ~= true or not metrics or not metrics.isSpanned then
+    local enabled, frame = API.IsEnabled(), _G.ProcDocAlertFrame
+    local rect = enabled and API.GetGameRect()
+    if not enabled or API.GetBridgeSetting("ProcDoc", SETTING) ~= true or not rect or not rect.isSpanned then
         if not Release() then self.status = "release-pending"; return end
         if frame then yielded[frame] = nil end
         self.status = "inactive"
@@ -69,8 +92,8 @@ function Adapter:Refresh(vendorUpdate)
         or (original[2] ~= UIParent and original[2] ~= nil) then self.status = "external-anchor"; return end
     local parentScale, scale = UIParent:GetEffectiveScale(), frame:GetEffectiveScale()
     if not Number(parentScale) or not Number(scale) or parentScale <= 0 or scale <= 0 then return end
-    local x = ((metrics.gameLeft + metrics.gameRight) / 2 - UIParent:GetWidth() / 2) * parentScale / scale
-    local y = ((metrics.gameBottom + metrics.gameTop) / 2 - UIParent:GetHeight() / 2) * parentScale / scale
+    local x = ((rect.left + rect.right) / 2 - UIParent:GetWidth() / 2) * parentScale / scale
+    local y = ((rect.bottom + rect.top) / 2 - UIParent:GetHeight() / 2) * parentScale / scale
     local desired = {"CENTER", UIParent, "CENTER", original[4] + x, original[5] + y}
     if not Same(current, desired) and not Write(frame, desired) then self.status = "unavailable"; return end
     owned = {frame = frame, original = original, applied = desired}
@@ -80,6 +103,43 @@ function Adapter:Refresh(vendorUpdate)
     end
     self.status = "active"
 end
+
+local bridge = {
+    contract = API.BRIDGE_CONTRACT,
+    data = {
+        settings = {
+            [SETTING] = { legacyKey = SETTING, default = false },
+        },
+        diagnostics = {
+            { slot = "compat.tail", label = "ProcDocCenter",
+                value = function() return Adapter.status or "inactive" end },
+        },
+    },
+}
+
+-- The layout pass ran the adapter just ahead of the bridges' layout refresh;
+-- no other refresh reached it.
+function bridge:Refresh(reason)
+    if reason == "layout" then Adapter:Refresh() end
+end
+
+-- The opt-in checkbox of the Pop-ups & alerts card, shown while ProcDoc is
+-- loaded and enabled for this character.
+function bridge:GetSettingsContributions(slot)
+    if slot ~= "alerts" then return nil end
+    local description = API.GetText("PROCDOC_MAINHAND_DESC")
+    return { {
+        id = "procDocCenter", kind = "check", addon = "ProcDoc", width = 600, height = 32,
+        text = API.GetText("PROCDOC_MAINHAND"), tooltip = description, help = description,
+        get = function() return API.GetBridgeSetting("ProcDoc", SETTING) == true end,
+        set = function(value)
+            API.SetBridgeSetting("ProcDoc", SETTING, value == true)
+            Adapter:Refresh()
+        end,
+    } }
+end
+
+if not API.RegisterBridge("ProcDoc", bridge) then return end
 
 if CreateFrame then
     local events = CreateFrame("Frame")
