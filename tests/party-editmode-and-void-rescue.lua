@@ -4286,6 +4286,30 @@ flushTimers()
 print("PASS: Bad self intrinsic widgets in UIParent:GetChildren() safely handled without error")
 
 -- ============================================================================
+-- TEST 10b: UIParent:GetChildren() failing outright (too many direct children)
+-- ============================================================================
+do
+    local nativeGetChildren = UIParent.GetChildren
+    local nativePosition = addon.HUD.PositionMainhandTransientFrames
+    local asked, positioned = 0, 0
+    UIParent.GetChildren = function()
+        asked = asked + 1
+        error("stack overflow")
+    end
+    addon.HUD.PositionMainhandTransientFrames = function(...)
+        positioned = positioned + 1
+        return nativePosition(...)
+    end
+    local okTick, tickError = pcall(addon.HUD.popupTicker.callback)
+    UIParent.GetChildren = nativeGetChildren
+    addon.HUD.PositionMainhandTransientFrames = nativePosition
+    assert(asked == 1, "the popup rescue pass must have reached the UIParent child scan")
+    assert(okTick, "a failing UIParent:GetChildren() must not abort the maintenance ticker: " .. tostring(tickError))
+    assert(positioned == 1, "transient placement must still run after a failed child scan")
+end
+print("PASS: A failing UIParent:GetChildren() skips the child scan without aborting later passes")
+
+-- ============================================================================
 -- TEST 11: Retail Edit Mode and Action Bar Isolation
 -- ============================================================================
 addon.isRetail = true

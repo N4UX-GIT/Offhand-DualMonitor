@@ -796,7 +796,13 @@ function HUD:HookFrames()
         end
 
         -- 3. Scan active children of UIParent for rogue centered popup frames or frames in the void
-        for _, child in ipairs({UIParent:GetChildren()}) do
+        -- An addon can leave UIParent with more direct children than one
+        -- GetChildren() call can return (it fails with "stack overflow").
+        -- Skip this scan for that pass so the transient, Edit Mode and party
+        -- passes that follow it in the same ticker still run.
+        local okChildren, children = pcall(function() return {UIParent:GetChildren()} end)
+        if not okChildren then children = {} end
+        for _, child in ipairs(children) do
             if type(child) == "table" and child ~= WorldFrame and child ~= Offhand.canvas
                 -- Dedicated transient roots arbitrate native/custom ownership.
                 -- Generic rescue must not bypass that decision or collapse a
