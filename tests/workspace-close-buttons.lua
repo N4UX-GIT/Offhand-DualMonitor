@@ -90,7 +90,8 @@ EUI_MainBagFrame = makeFrame("EUI_MainBagFrame", true, nil)
 EUI_MainBagFrame.Header = euiHeader
 
 assert(loadfile("Core/WorkspaceChrome.lua"))("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/KerzoQuestLog/Bridge.lua" })
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/EllesmereUI/Bags.lua", "Bridges/KerzoQuestLog/Bridge.lua" })
 local chrome = addon.WorkspaceChrome
 
 chrome:Refresh()

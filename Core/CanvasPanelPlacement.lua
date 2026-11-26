@@ -157,7 +157,7 @@ function Placement.InstallSingleScreen(Canvas, services)
             -- NPC and other interaction panels can end the session on Hide.
             -- Their native panel manager owns visibility and placement here.
             if not IsContextBoundPanel(name) and not tostring(name):match("^ChatFrame%d+$")
-                and not (Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name))
+                and not (Offhand.isForever and Offhand.CanvasCompatibility.IsForeverSelfManagedBag(name))
                 and not IsForeverEditModeFrame(_G[name], name)
                 and not IsForeverProfessionsPanel(_G[name], name) then
                 local frame = _G[name]
@@ -195,8 +195,7 @@ function Placement.InstallSingleScreen(Canvas, services)
                 if name == "CharacterFrame" then
                     frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 24, -80)
                 elseif name == "ContainerFrameCombinedBags" or tostring(name):match("^ContainerFrame%d+$")
-                    or tostring(name):match("Baganator") or tostring(name):match("Baginator")
-                    or tostring(name):match("Bagnon") or tostring(name):match("BetterBags") then
+                    or (Offhand.Bridges and Offhand.Bridges:MatchName("bagNamespace.recoveryAnchor", tostring(name))) then
                     frame:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -32, 140)
                 else
                     frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -315,7 +314,7 @@ function Placement.InstallMainhand(Canvas, services)
             end
             anchorOnly = true
         end
-        if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverEllesmereBag(name) then return false end
+        if Offhand.isForever and Offhand.CanvasCompatibility.IsForeverSelfManagedBag(name) then return false end
         if ShouldYieldFrameToExternalOwner(frame, name) then return false end
         if ShouldYieldWorldMap(name or frame) then return false end
         if recoveryAction and name and not vendorGameplay and services.RemodalizePanel
@@ -578,8 +577,9 @@ function Placement.InstallMainhand(Canvas, services)
                 if placed and name and not (addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)) then
                     Offhand.db.savedWorkspacePositions[name] = nil
                     Offhand.db.openWorkspacePanels[name] = nil
-                    if Offhand.db.baganatorWorkspacePanels then
-                        Offhand.db.baganatorWorkspacePanels[name] = nil
+                    local bagRecordKey = Offhand.Bridges and Offhand.Bridges:GetSettingKey("customBagWorkspacePanels")
+                    if bagRecordKey and Offhand.db[bagRecordKey] then
+                        Offhand.db[bagRecordKey][name] = nil
                     end
 
                     if IsBackpackRoot(name) then

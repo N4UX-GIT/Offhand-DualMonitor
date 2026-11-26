@@ -111,15 +111,33 @@ local function ShowEllesmereBag(frame)
     if frame:IsVisible() then frame:RefreshInventory() end
 end
 
+-- The custom bag workspace record: the open position of the replacement bag
+-- root on the workspace, stored under the key a bag bridge declares for the
+-- setting customBagWorkspacePanels. Without that bridge there is no record.
+local function RecordKey()
+    local bridges = Offhand.Bridges
+    return bridges and bridges:GetSettingKey("customBagWorkspacePanels") or nil
+end
+
+local function GetRecord(db)
+    local key = RecordKey()
+    return key and db[key] or nil
+end
+
+local function SetRecord(db, value)
+    local key = RecordKey()
+    if key then db[key] = value end
+end
+
 function Bags:ForgetOpenSnapshot(name)
     if not Offhand.db then return end
-    local saved = Offhand.db.baganatorWorkspacePanels
+    local saved = GetRecord(Offhand.db)
     if type(saved) ~= "table" then return end
     if name then saved[name] = nil else wipe(saved) end
 end
 
 function Bags:GetSavedPosition()
-    local saved = Offhand.db and Offhand.db.baganatorWorkspacePanels or {}
+    local saved = Offhand.db and GetRecord(Offhand.db) or {}
     local ellesmere = Offhand.isForever and saved.EUI_MainBagFrame
     if type(ellesmere) == "table" and ellesmere.x and ellesmere.y then
         return "EUI_MainBagFrame", ellesmere
@@ -215,84 +233,6 @@ local function CloseParkedNativeBags(parkingParent, frameCount, lastBagID)
     end
 end
 
-local function RefreshArkInventoryEscape()
-    local ark = _G.ArkInventory
-    local frame = _G.ARKINV_Frame1
-    if not (ark and frame and IsAddOnLoadedCompat("ArkInventory")) then return end
-    local location = ark.Const and ark.Const.Location
-    local owned = location and frame.ARK_Data and frame.ARK_Data.loc_id == location.Bag
-    UpdateBagEscapeRegistration(frame, "ARKINV_Frame1", owned)
-end
-
-local function RefreshBagnarosEscape()
-    local frame = _G.BagnarosInventoryFrame
-    if not frame or not IsAddOnLoadedCompat("Bagnaros") then return end
-    local controller = frame.controller
-    -- Bagnaros registers its main inventory in UISpecialFrames and rebuilds
-    -- it from the open native bags. A native close can hide and immediately
-    -- reopen it during an expanded Spellbook or Game Menu transition.
-    UpdateBagEscapeRegistration(frame, "BagnarosInventoryFrame", controller
-        and controller.kind == "inventory" and controller.main == frame)
-end
-
-local function RefreshBetterBagsEscape()
-    if InCombatLockdown() then return end
-    local vendor = Bags.betterBags
-    if not vendor and IsAddOnLoadedCompat("BetterBags") and LibStub and hooksecurefunc and ToggleGameMenu then
-        local ace = LibStub("AceAddon-3.0", true)
-        vendor = ace and ace:GetAddon("BetterBags", true)
-        if not vendor or type(vendor.CloseSpecialWindows) ~= "function"
-            or type(vendor.backpackShouldClose) ~= "boolean" then return end
-        Bags.betterBags = vendor
-        hooksecurefunc(vendor, "CloseSpecialWindows", function(_, interactingFrame)
-            local backpack = vendor.Bags and vendor.Bags.Backpack
-            local frame = backpack and backpack.frame
-            if interactingFrame or not frame or not Bags.escapeRegistrations[frame]
-                or not frame:IsVisible() or vendor.backpackShouldClose ~= true
-                or (backpack.IsClosing and backpack:IsClosing()) then return end
-            -- BetterBags queues its close for the next frame. Opening or
-            -- expanding PlayerSpells also runs CloseSpecialWindows while
-            -- Blizzard is assigning the center panel.
-            local stack = debugstack and debugstack(2, 24, 0) or ""
-            local request = { frame = frame, fromPanelShow =
-                stack:find("Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua", 1, true)
-                and stack:find("in function 'ShowUIPanel'", 1, true) }
-            Bags.betterBagsEscapeRequest = request
-            C_Timer.After(0, function()
-                if Bags.betterBagsEscapeRequest == request then Bags.betterBagsEscapeRequest = nil end
-            end)
-        end)
-    end
-    if not vendor then return end
-    local backpack = vendor.Bags and vendor.Bags.Backpack
-    local frame = backpack and backpack.frame
-    local name = frame and frame:GetName()
-    if name ~= "BetterBagsNextBackpack" and name ~= "BetterBagsBagBackpack" then frame = nil end
-
-    local previous = Bags.betterBagsEscapeFrame
-    if previous and previous ~= frame then
-        UpdateBagEscapeRegistration(previous, previous:GetName(), false)
-    end
-    Bags.betterBagsEscapeFrame = frame
-    if frame and UpdateBagEscapeRegistration(frame, name, true) then
-        CloseParkedNativeBags(_G.BetterBagsSneakyFrame, NUM_CONTAINER_FRAMES or 13,
-            NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4)
-    end
-end
-
-local function PreserveBetterBagsBackpack()
-    local request = Bags.betterBagsEscapeRequest
-    Bags.betterBagsEscapeRequest = nil
-    if not request or Bags.paused or InCombatLockdown() or InputReserved() or not TrackEnabled()
-        or not CanOpenBagsFromAddon() or not IsSpanned() then return end
-    local vendor = Bags.betterBags
-    local backpack = vendor.Bags and vendor.Bags.Backpack
-    if backpack and backpack.frame == request.frame and request.frame:IsVisible()
-        and Offhand.Canvas.IsFrameOnWorkspace(request.frame) then
-        vendor.backpackShouldClose = false
-    end
-end
-
 local function IsGameMenuBagClose(stack)
     return type(stack) == "string"
         and stack:find("Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua", 1, true)
@@ -324,7 +264,8 @@ local function CanSuppressVendorBagClose(frame, proxy)
         and CanOpenBagsFromAddon() and frame:IsVisible() and Offhand.Canvas.IsFrameOnWorkspace(frame)
 end
 
--- Bag Escape helpers handed to bridge modules and addons (docs/BRIDGES.md).
+-- Bag Escape helpers handed to bag providers, bridge modules and addons
+-- (docs/BRIDGES.md).
 local bridgeBagServices = {
     UpdateEscapeRegistration = function(frame, name, supported, parent, proxy)
         return UpdateBagEscapeRegistration(frame, name, supported, parent, proxy)
@@ -341,136 +282,22 @@ local bridgeBagServices = {
     IsSettingsBagClose = function(stack)
         return IsSettingsBagClose(stack) and true or false
     end,
+    IsPaused = function() return Bags.paused end,
+    TrackEnabled = function() return TrackEnabled() end,
+    IsSpanned = function() return IsSpanned() end,
+    InputReserved = function() return InputReserved() end,
+    CanOpenBagsFromAddon = function() return CanOpenBagsFromAddon() end,
+    IsFrameOnWorkspace = function(frame)
+        local canvas = Offhand.Canvas
+        return canvas and canvas.IsFrameOnWorkspace(frame)
+    end,
+    CloseParkedNativeBags = function(parkingParent, frameCount, lastBagID)
+        return CloseParkedNativeBags(parkingParent, frameCount, lastBagID)
+    end,
+    KeepsIndependentPanels = function()
+        return Offhand.db and Offhand.db.independentWorkspacePanels ~= false
+    end,
 }
-
-local function RefreshBagSmithEscape()
-    local frame = _G.BagSmithFrame
-    if not frame or InCombatLockdown() or not IsAddOnLoadedCompat("BagSmith")
-        or type(debugstack) ~= "function" then return end
-    local view = frame.view
-    if not view or view.frame ~= frame or view.isMain ~= true or type(view.Hide) ~= "function" then return end
-    if Bags.bagSmithEscapeView ~= view then
-        Bags.bagSmithEscapeView = view
-        local vendorHide = view.Hide
-        -- BagSmith closes synchronously from its native bag post-hook. Scope
-        -- the exception to that hook's Escape path on the vendor's view.
-        view.Hide = function(self, ...)
-            if self == view and CanSuppressVendorBagClose(frame) then
-                local stack = debugstack(2, 20, 0)
-                if stack:find("BagSmith/Core/Hooks.lua", 1, true)
-                    and IsGameMenuBagClose(stack) then return end
-            end
-            return vendorHide(self, ...)
-        end
-    end
-    local compatibility = Offhand.HUDCompatibility
-    if UpdateBagEscapeRegistration(frame, "BagSmithFrame", true)
-        and compatibility and compatibility.GetBagSmithParkingParent then
-        CloseParkedNativeBags(compatibility.GetBagSmithParkingParent(), NUM_CONTAINER_FRAMES or 13,
-            NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4)
-    end
-end
-
-local function IsOpenElvUIDisabledContainer(frame)
-    -- ElvUI's disabled containers retain their native open flag. Offhand can
-    -- attach an OnShow observer, so check the anchors and OnHide script.
-    return frame and not (frame.IsForbidden and frame:IsForbidden()) and frame:IsShown()
-        and frame:GetNumPoints() == 0 and not frame:GetScript("OnHide")
-end
-
-local function ClearElvUINativeBags(frame)
-    local combined = _G.ContainerFrameCombinedBags
-    if CloseBackpack and IsOpenElvUIDisabledContainer(combined) then
-        CloseBackpack()
-        if frame:IsShown() and not combined:IsShown() then Bags.elvUIBackpackCleared = true end
-    end
-    if not CloseBag then return end
-    local lastBagID = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4
-    for index = 1, NUM_CONTAINER_FRAMES or 13 do
-        local container = _G["ContainerFrame" .. index]
-        if IsOpenElvUIDisabledContainer(container) and container.GetBagID then
-            local id = container:GetBagID()
-            if type(id) == "number" and id >= 0 and id <= lastBagID then
-                CloseBag(id)
-                if id == 0 and frame:IsShown() and not container:IsShown() then Bags.elvUIBackpackCleared = true end
-            end
-        end
-    end
-end
-
-local function RefreshElvUIEscape()
-    local frame = _G.ElvUI_ContainerFrame
-    if not frame or InCombatLockdown() or not IsAddOnLoadedCompat("ElvUI")
-        or type(debugstack) ~= "function" or not hooksecurefunc then return end
-    local engine = _G.ElvUI and _G.ElvUI[1]
-    local parent = engine and engine.UIParent
-    if not parent or _G.ElvUIParent ~= parent or frame:GetParent() ~= parent then return end
-    local vendor = Bags.elvUIBags
-    if not vendor then
-        vendor = engine.GetModule and engine:GetModule("Bags", true)
-        if not vendor or vendor.BagFrame ~= frame or type(vendor.CloseAllBags) ~= "function"
-            or type(vendor.ToggleAllBags) ~= "function" then return end
-        Bags.elvUIBags = vendor
-        local vendorClose = vendor.CloseAllBags
-        vendor.CloseAllBags = function(self, ...)
-            if self == vendor and CanSuppressVendorBagClose(frame) then
-                local stack = debugstack(2, 24, 0)
-                if IsGameMenuBagClose(stack) or IsSettingsBagClose(stack) then return end
-            end
-            Bags.elvUIBackpackCleared = nil
-            return vendorClose(self, ...)
-        end
-        hooksecurefunc(vendor, "ToggleAllBags", function(self)
-            -- ElvUI's toggle uses Blizzard's backpack bit. If clearing it
-            -- made this press look like an open, honor the existing window.
-            if self == vendor and Bags.elvUIBackpackCleared and frame:IsShown() and not InCombatLockdown() then
-                vendor:CloseAllBags()
-            end
-        end)
-    end
-    if not frame:IsShown() then Bags.elvUIBackpackCleared = nil end
-    if UpdateBagEscapeRegistration(frame, "ElvUI_ContainerFrame", vendor.BagFrame == frame, parent) then
-        ClearElvUINativeBags(frame)
-    end
-end
-
-local function RefreshEllesmereBagEscape()
-    if InCombatLockdown() then return end
-    local vendor = IsAddOnLoadedCompat("EllesmereUIBags") and _G.EllesmereUI
-    local namespace = vendor and vendor._ModuleNS and vendor._ModuleNS.EllesmereUIBags
-    if not namespace or not namespace.BlizzardBagsParked or not vendor.RegisterEscapeClose
-        or not vendor._ForgetEscapeClose or not _G.EllesmereUI_EscapeProxy then return end
-    local frame = _G.EUI_MainBagFrame
-    if not frame or frame ~= _G.EUI_Bags or not frame.RefreshInventory then return end
-    Bags.ellesmereEscapeFrames = Bags.ellesmereEscapeFrames or {}
-    local preserved = false
-    for _, root in ipairs({frame, _G.EUI_ReagentBagFrame}) do
-        local exclude = not Bags.paused and TrackEnabled() and IsSpanned() and not InputReserved()
-            and CanOpenBagsFromAddon() and root:GetParent() == UIParent
-            and (root:IsVisible() or (Bags.ellesmereEscapeFrames[root] and not root:IsShown()))
-            and not (root.IsForbidden and root:IsForbidden())
-            and not (root.IsProtected and root:IsProtected())
-            and Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace(root)
-        if exclude and not Bags.ellesmereEscapeFrames[root] then
-            -- The vendor proxy is shared with other windows. Remove only the
-            -- default registration for this backpack while Offhand owns it.
-            Bags.ellesmereEscapeFrames[root] = true
-            vendor._ForgetEscapeClose(root)
-        elseif not exclude and Bags.ellesmereEscapeFrames[root] then
-            Bags.ellesmereEscapeFrames[root] = nil
-            vendor.RegisterEscapeClose(root)
-            if root:IsShown() then _G.EllesmereUI_EscapeProxy:Show() end
-        end
-        if exclude then preserved = true end
-    end
-    if preserved then
-        local combined = _G.ContainerFrameCombinedBags
-        if combined then
-            CloseParkedNativeBags(combined:GetParent(), NUM_CONTAINER_FRAMES or 13,
-                NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4)
-        end
-    end
-end
 
 function Bags:RegisterRoot(name, frame)
     if not IsSupportedRoot(name, frame) or type(frame) ~= "table"
@@ -555,7 +382,7 @@ function Bags:Discover(scanBaganatorGlobals)
     -- replacement through its callback registry.
     local records = Offhand.db and {
         Offhand.db.savedWorkspacePositions,
-        Offhand.db.baganatorWorkspacePanels,
+        GetRecord(Offhand.db),
     } or {}
     for _, record in ipairs(records) do
         if type(record) == "table" then
@@ -697,7 +524,7 @@ function Bags:BeginPanelTransition(panel)
             position = Bags:NormalizePosition(position, root)
             Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
             Offhand.db.savedWorkspacePositions[savedName] = position
-            Offhand.db.baganatorWorkspacePanels = { [savedName] = position }
+            SetRecord(Offhand.db, { [savedName] = position })
             Offhand.Canvas:RestoreWorkspacePosition(root)
             if options then
                 Bags.panelTransition = nil
@@ -758,15 +585,9 @@ function Bags:Capture()
     if closeBagnonParkedBags and Bagnon.Overrides and type(Bagnon.NumBags) == "number" then
         CloseParkedNativeBags(Bagnon.Overrides.Disabled, NUM_CONTAINER_FRAMES or 13, Bagnon.NumBags)
     end
-    if Offhand.isForever then
-        RefreshArkInventoryEscape()
-        RefreshBagnarosEscape()
-        RefreshBetterBagsEscape()
-        RefreshBagSmithEscape()
-        RefreshElvUIEscape()
-        if Offhand.Bridges then Offhand.Bridges:RefreshBags(bridgeBagServices) end
-        RefreshEllesmereBagEscape()
-    end
+    -- The bag providers' Escape adapters, then the bridges' own (one fixed
+    -- sequence, so UISpecialFrames registrations keep their order).
+    if Offhand.isForever and Offhand.Bridges then Offhand.Bridges:RefreshBags(bridgeBagServices) end
     if self.paused or self.restoring or self.escapePending or not Offhand.db
         or not CanOpenBagsFromAddon() then return end
     if self.optionsPanel then
@@ -797,7 +618,7 @@ function Bags:Capture()
                 elseif IsBaganatorRootName(name) and (not x or not y) then
                     -- A visible backpack can still lack an actual rectangle
                     -- while its vendor-owned anchor is being rebuilt.
-                    local saved = Offhand.db.baganatorWorkspacePanels
+                    local saved = GetRecord(Offhand.db)
                     if type(saved) == "table" and saved[name] then
                         snapshot = snapshot or {}
                         snapshot[name] = saved[name]
@@ -849,12 +670,12 @@ function Bags:Capture()
         end
     end
     if snapshot then
-        Offhand.db.baganatorWorkspacePanels = snapshot
-    elseif type(Offhand.db.baganatorWorkspacePanels) ~= "table"
-        or next(Offhand.db.baganatorWorkspacePanels) then
+        SetRecord(Offhand.db, snapshot)
+    elseif type(GetRecord(Offhand.db)) ~= "table"
+        or next(GetRecord(Offhand.db)) then
         -- Five polls per second should not allocate a new empty saved-state
         -- table while no replacement bag is open. Clear old intent once.
-        Offhand.db.baganatorWorkspacePanels = {}
+        SetRecord(Offhand.db, {})
     end
 end
 
@@ -909,7 +730,7 @@ function Bags:RestoreAfterEscape(pending)
         position = self:NormalizePosition(position, visible)
         Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
         Offhand.db.savedWorkspacePositions[name] = position
-        Offhand.db.baganatorWorkspacePanels = { [name] = position }
+        SetRecord(Offhand.db, { [name] = position })
         Offhand.Canvas:RestoreWorkspacePosition(visible)
     end
 
@@ -1033,10 +854,12 @@ function Bags:InstallEscapeHooks()
                 -- Settings returns to the Game Menu through this same function.
                 -- The Options transition owns the reopen even with a target selected.
                 Bags.escapePending = nil
-                Bags.betterBagsEscapeRequest = nil
+                if Offhand.Bridges then Offhand.Bridges:NotifyBagProviders("CancelEscape") end
                 return
             end
-            PreserveBetterBagsBackpack()
+            -- A bag provider whose vendor queued its own Escape close keeps
+            -- its workspace backpack open now.
+            if Offhand.Bridges then Offhand.Bridges:NotifyBagProviders("PreserveThroughEscape", bridgeBagServices) end
             local ellesmere = Bags.ellesmereEscapePending
             Bags.ellesmereEscapePending = nil
             if ellesmere then
@@ -1074,10 +897,9 @@ function Bags:InstallEscapeHooks()
     if ShowUIPanel and not self.showUIPanelHooked then
         self.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(panel)
-            local request = Bags.betterBagsEscapeRequest
-            if request and request.fromPanelShow and Offhand.db and Offhand.db.independentWorkspacePanels ~= false
-                and panel and panel == _G.PlayerSpellsFrame and panel:IsShown() then
-                PreserveBetterBagsBackpack()
+            -- A center panel shown inside a bag provider's queued Escape close.
+            if Offhand.Bridges then
+                Offhand.Bridges:NotifyBagProviders("PreserveThroughPanelShow", panel, bridgeBagServices)
             end
             if IsPreservingPanel(panel) then Bags:BeginPanelTransition(panel) end
         end)
@@ -1095,7 +917,7 @@ function Bags:PruneInvalidBaganatorRecords()
     local records = {
         Offhand.db.savedWorkspacePositions,
         Offhand.db.openWorkspacePanels,
-        Offhand.db.baganatorWorkspacePanels,
+        GetRecord(Offhand.db),
     }
     for _, record in ipairs(records) do
         if type(record) == "table" then
@@ -1202,7 +1024,7 @@ function Bags:Resume()
             if visible then
                 position = Bags:NormalizePosition(position, visible)
                 Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
-                Offhand.db.baganatorWorkspacePanels = { [visible:GetName()] = position }
+                SetRecord(Offhand.db, { [visible:GetName()] = position })
                 Offhand.db.savedWorkspacePositions[visible:GetName()] = position
                 Offhand.Canvas:RestoreWorkspacePosition(visible)
             else
@@ -1230,7 +1052,7 @@ events:SetScript("OnEvent", function(_, event, addonName)
         Bags.generation = Bags.generation + 1
         Bags.escapePending = nil
         Bags.ellesmereEscapePending = nil
-        Bags.betterBagsEscapeRequest = nil
+        if Offhand.Bridges then Offhand.Bridges:NotifyBagProviders("CancelEscape") end
         Bags.optionsPanel = nil
         Bags.waitingForWorkspace = nil
     elseif event == "PLAYER_ENTERING_WORLD"

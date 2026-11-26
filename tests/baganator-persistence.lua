@@ -119,6 +119,9 @@ hooksecurefunc=function(target, methodOrCallback, maybeCallback)
 end
 assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand",addon)
 assert(loadfile("Core/BagPersistence.lua"))("Offhand",addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ArkInventory/Bags.lua", "Bridges/Baganator/Data.lua",
+    "Bridges/Bagnaros/Bags.lua", "Bridges/BagSmith/Bridge.lua", "Bridges/BagSmith/Bags.lua", "Bridges/BetterBags/Bags.lua",
+    "Bridges/EllesmereUI/Bridge.lua", "Bridges/EllesmereUI/Bags.lua", "Bridges/ElvUI/Bags.lua" })
 local tracker=addon.BagPersistence
 
 local function CheckTargetEscape(frame, close)
@@ -855,6 +858,7 @@ BagSmithFrame = smith
 local smithView = {frame=smith, isMain=true, Hide=function(self) self.frame:Hide() end}
 smith.view = smithView
 addon.HUDCompatibility = {GetBagSmithParkingParent=function() return parkingParent end}
+addon.API.GetBridgeNamespace("BagSmith").GetParkingParent = function() return parkingParent end
 C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "BagSmith" or query(addonName) end
 local smithEscape
 debugstack = function()

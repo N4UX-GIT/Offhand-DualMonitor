@@ -350,7 +350,7 @@ do
             IsContextBoundPanel = function() return false end,
         },
         CanvasCompatibility = {
-            IsForeverEllesmereBag = function() return false end,
+            IsForeverSelfManagedBag = function() return false end,
             HasPanelSlotRepairOwner = function() return false end,
             HasPanelManagementOwner = function() return false end,
             IsPersistentForeverProfessionsPanelName = function() return false end,

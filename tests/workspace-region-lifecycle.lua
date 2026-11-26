@@ -56,6 +56,7 @@ local function boot(db,topology,frameName)
     addon.CanvasPanelPlacement.InstallMainhand(canvas,services)
     canvas.RestoreWorkspacePosition=addon.CanvasPersistence.InstallRestore(canvas,services)
     canvas.OnPanelDragStop=addon.CanvasPersistence.InstallDrag(canvas,services)
+    load('Core/Bridges.lua');load('Bridges/Baganator/Data.lua')
     load('Core/BagPersistence.lua');addon.BagPersistence.frames[name]=frame;addon.BagPersistence.paused=false
     return addon,frame,env
 end

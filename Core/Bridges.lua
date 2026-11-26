@@ -19,10 +19,43 @@ Offhand.API.BRIDGE_CONTRACT = Bridges.CONTRACT
 local registry, order = {}, {}
 local namespaces, fallbackStorage = {}, {}
 local mapProviders = {}
+-- Bag providers (bridge.bagProvider) in (order, registration) order, the
+-- keyboard toggle actions they own and the bag roots whose close buttons
+-- they find.
+local bagProviders, bagToggleActions, bagToggleList, bagCloseNames = {}, {}, {}, {}
+-- Bridges' own RefreshBags(services) callbacks run at this bag provider order.
+local BRIDGE_BAG_ORDER = 60
+
+local function AddBagProvider(id, provider)
+    for _, entry in ipairs(bagProviders) do
+        if entry.id == id then return end
+    end
+    local entry = { id = id, provider = provider, sequence = #bagProviders + 1,
+        order = type(provider.order) == "number" and provider.order or math.huge }
+    bagProviders[#bagProviders + 1] = entry
+    table.sort(bagProviders, function(a, b)
+        if a.order ~= b.order then return a.order < b.order end
+        return a.sequence < b.sequence
+    end)
+    if type(provider.toggleActions) == "table" then
+        for _, action in ipairs(provider.toggleActions) do
+            if type(action) == "string" and action ~= "" and not bagToggleActions[action] then
+                bagToggleActions[action] = entry
+                bagToggleList[#bagToggleList + 1] = action
+            end
+        end
+    end
+    if type(provider.closeButtonRoots) == "table" then
+        for _, name in ipairs(provider.closeButtonRoots) do
+            if type(name) == "string" and name ~= "" and not bagCloseNames[name] then bagCloseNames[name] = entry end
+        end
+    end
+end
 
 -- Returns true, or false and one of "id", "bridge", "contract", "duplicate".
 -- bridge.data is merged like Offhand.API.RegisterAddonData(id, bridge.data),
--- and bridge.mapProvider claims its owner for Bridges:CallMap (first wins).
+-- bridge.mapProvider claims its owner for Bridges:CallMap (first wins), and
+-- bridge.bagProvider joins the bag providers.
 function Bridges:Register(id, bridge)
     if type(id) ~= "string" or id == "" then return false, "id" end
     if type(bridge) ~= "table" then return false, "bridge" end
@@ -42,6 +75,7 @@ function Bridges:Register(id, bridge)
         and not mapProviders[provider.owner] then
         mapProviders[provider.owner] = { id = id, provider = provider }
     end
+    if type(bridge.bagProvider) == "table" then AddBagProvider(id, bridge.bagProvider) end
     return true
 end
 
@@ -75,9 +109,70 @@ function Bridges:Refresh(reason)
     for _, id in ipairs(order) do Call(id, "Refresh", reason) end
 end
 
--- services: the bag Escape helpers documented in docs/BRIDGES.md.
+local function CallBagProvider(entry, method, ...)
+    local handler = entry.provider[method]
+    if type(handler) ~= "function" then return false end
+    local ok, result = pcall(handler, ...)
+    if not ok then
+        Bridges.errors[entry.id] = tostring(result)
+        return false
+    end
+    return true, result
+end
+
+-- services: the bag Escape helpers documented in docs/BRIDGES.md. The bag
+-- providers' RefreshEscape(services) run in their order, and the bridges' own
+-- RefreshBags(services) callbacks run together at order 60, in registration
+-- order, so the Escape registrations keep one fixed sequence.
 function Bridges:RefreshBags(services)
+    local index = 1
+    while bagProviders[index] and bagProviders[index].order < BRIDGE_BAG_ORDER do
+        CallBagProvider(bagProviders[index], "RefreshEscape", services)
+        index = index + 1
+    end
     for _, id in ipairs(order) do Call(id, "RefreshBags", services) end
+    while bagProviders[index] do
+        CallBagProvider(bagProviders[index], "RefreshEscape", services)
+        index = index + 1
+    end
+end
+
+-- Calls method(...) of every bag provider that has it, in provider order,
+-- each in pcall (a bag Escape transaction notice such as "CancelEscape").
+function Bridges:NotifyBagProviders(method, ...)
+    for _, entry in ipairs(bagProviders) do CallBagProvider(entry, method, ...) end
+end
+
+-- The bag providers in their order, as { id, provider } entries. Read only:
+-- callers on a polling path call the provider's functions inside their own
+-- pcall rather than adding one per provider.
+function Bridges:GetBagProviders()
+    return bagProviders
+end
+
+-- The keyboard binding actions bag providers own, in registration order.
+function Bridges:GetBagToggleActions()
+    return bagToggleList
+end
+
+-- The window a bag provider's own toggle action opens, from that provider's
+-- GetToggleFrame(action); nil for an action no provider owns. Runs inside the
+-- caller's pcall.
+function Bridges:GetBagToggleFrame(action)
+    local entry = action ~= nil and bagToggleActions[action]
+    local handler = entry and entry.provider.GetToggleFrame
+    if type(handler) ~= "function" then return nil end
+    return handler(action)
+end
+
+-- Extra close buttons of a bag root the provider listing name finds itself
+-- (an array), or nil.
+function Bridges:GetBagCloseButtons(frame, name)
+    local entry = name ~= nil and bagCloseNames[name]
+    if not entry then return nil end
+    local ok, buttons = CallBagProvider(entry, "GetCloseButtons", frame, name)
+    if ok and type(buttons) == "table" then return buttons end
+    return nil
 end
 
 function Bridges:GetDiagnostics()
@@ -344,6 +439,8 @@ end
 -- only after the declarative part has passed.
 local merged, sequence = {}, 0
 local roles, rules, settings = {}, {}, {}
+-- Declared setting name to the first addon's compiled setting.
+local settingKeys = {}
 local resetKeys, movableFields, movingFields = {}, {}, {}
 local guidance, diagnostics = {}, {}
 -- Addon window index (data.windows): name or pattern to the bridge id that
@@ -623,6 +720,7 @@ function Bridges:MergeData(addon, data)
                     default = spec.default,
                 }
                 own[key] = compiled
+                if not settingKeys[key] then settingKeys[key] = compiled end
                 if compiled.store == "character" and spec.resetOnCharacterChange == true then
                     resetKeys[#resetKeys + 1] = compiled.key
                 end
@@ -633,21 +731,22 @@ function Bridges:MergeData(addon, data)
 end
 
 -- Ownership roles: entries come in (order, registration) order, and only
--- entries whose detector passes count.
-function Bridges:HasRole(role)
+-- entries whose detector passes count. accept(entry), when given, is the
+-- caller's own test of a present entry's facts (called directly, no pcall).
+function Bridges:HasRole(role, accept)
     local list = roles[role]
     if not list then return false end
     for _, item in ipairs(list) do
-        if Detect(item.entry.detect, item.addon) then return true end
+        if Detect(item.entry.detect, item.addon) and (not accept or accept(item.entry)) then return true end
     end
     return false
 end
 
 -- Returns the names of the present owners of role and their entries.
-function Bridges:GetRoleOwners(role)
+function Bridges:GetRoleOwners(role, accept)
     local names, entries = {}, {}
     for _, item in ipairs(roles[role] or {}) do
-        if Detect(item.entry.detect, item.addon) then
+        if Detect(item.entry.detect, item.addon) and (not accept or accept(item.entry)) then
             names[#names + 1] = item.entry.name
             entries[#entries + 1] = item.entry
         end
@@ -882,6 +981,14 @@ function Bridges:GetSettingDefaults()
         end
     end
     return defaults
+end
+
+-- The stored profile key of the setting the first registered addon declared
+-- under key, or nil: core reads a record an addon names (such as the custom
+-- bag workspace record) by its declared name.
+function Bridges:GetSettingKey(key)
+    local spec = settingKeys[key]
+    return spec and spec.store == "profile" and spec.key or nil
 end
 
 local function SettingSpec(id, key, store)

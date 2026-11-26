@@ -2230,7 +2230,7 @@ do
     addon.Bridges = {ShouldPreserveSingleScreenPosition=function(_,frame,metrics)
         return frame == map and not metrics.isSpanned
     end, HasRole=function() return false end, MatchFrame=function() return false end,
-        FirstRoleOwner=function() return nil end}
+        MatchName=function() return false end, FirstRoleOwner=function() return nil end}
     assert(not addon.Canvas:PlaceForSingleScreenRecovery(map,
         {topologyStatus="MISMATCH",isSpanned=false}) and #map.points == points,
         "single-screen recovery must not replace a bridged addon's restored anchor")

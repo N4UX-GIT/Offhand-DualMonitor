@@ -1,5 +1,6 @@
 -- MoveMyBags data bridge (built into Offhand). Facts only: no frame, hook or timer.
--- MoveMyBags' bag handling stays in the core for now. It is listed among frame movers in the
+-- MoveMyBags counts as replacing the bags while loaded or present (hud.bags, order 20) and is
+-- a bag owner in the compatibility report (report.bags, order 20). It is listed among frame movers in the
 -- compatibility report when loaded or present, after MoveAny and BlizzMove (report.movers,
 -- order 30), with its guidance line (order 30). On the Forever client that line also names the
 -- layers option unless MoveMyBagsDB.layers is false.
@@ -30,6 +31,8 @@ local MARKED = { field = "moveMyBags" }
 
 API.RegisterAddonData("MoveMyBags", {
     ownership = {
+        { role = "hud.bags", name = "MoveMyBags", order = 20, detect = { present = "MoveMyBags" } },
+        { role = "report.bags", name = "MoveMyBags", order = 20, detect = { present = "MoveMyBags" } },
         { role = "report.movers", name = "MoveMyBags", order = 30, detect = { present = "MoveMyBags" } },
     },
     guidance = {

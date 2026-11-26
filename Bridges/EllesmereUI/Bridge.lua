@@ -1,5 +1,5 @@
 -- EllesmereUI data bridge (built into Offhand). Facts only: no frame, hook or timer.
--- Ownership and frame-rule facts only for now; the layout transfer and bag handling stay in the core.
+-- Ownership and frame-rule facts only for now; the layout transfer stays in the core.
 -- The pixel-grid scale adapter is Scale.lua beside this file.
 -- EllesmereUI ships one addon folder per module; each module owns its frame family while
 -- loaded or present: ActionBars the action bars (hud.actionBars) and, unless the player opts
@@ -23,6 +23,15 @@
 -- Addon window catalog: the EllesmereUI suite (suite prefix ellesmereui, its HUD and movers
 -- stay out of the addon window picker) and the EllesmereUIBags backpack (dedicated bag
 -- handling).
+-- EllesmereUIBags: it replaces the bags while loaded or present (hud.bags, order 10) and is
+-- the first bag owner in the compatibility report while loaded (report.bags, order 10), both
+-- standing aside on Forever under the native Gamepad interface (yieldsToNativeGamepad). Its
+-- roots EUI_MainBagFrame, EUI_ReagentBagFrame and EUI_BagsWindowFrame own their visibility,
+-- layout and Escape proxy on Forever (frame rule selfManagedBag). EUI_MainBagFrame gets the
+-- workspace close button handling (workspaceChrome), is a reload bag root (bagRestorable)
+-- and keeps its open state in the custom bag workspace record (customBagRoot). Its bag
+-- Escape adapter and close button finder are in Bags.lua beside this file; the rest of its
+-- bag persistence stays in the core for now.
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...
@@ -91,6 +100,10 @@ API.RegisterAddonData("EllesmereUI", {
         { role = "report.chat", name = "EllesmereUIChat", order = 20, detect = { loaded = "EllesmereUIChat" } },
         { role = "report.minimap", name = "EllesmereUIMinimap", order = 10, detect = { loaded = "EllesmereUIMinimap" } },
         { role = "report.unitFrames", name = "EllesmereUIUnitFrames", order = 20, detect = { loaded = "EllesmereUIUnitFrames" } },
+        { role = "hud.bags", name = "EllesmereUIBags", order = 10, detect = Present("EllesmereUIBags"),
+            yieldsToNativeGamepad = true },
+        { role = "report.bags", name = "EllesmereUIBags", order = 10, detect = { loaded = "EllesmereUIBags" },
+            yieldsToNativeGamepad = true },
     },
     guidance = {
         { id = "ellesmere", order = 90, addon = "EllesmereUI",
@@ -108,6 +121,10 @@ API.RegisterAddonData("EllesmereUI", {
     },
     frameRules = {
         externalHUD = { "EllesmereUIPlayerAuraBars_Buffs", "EllesmereUIPlayerAuraBars_Debuffs" },
+        selfManagedBag = { "EUI_MainBagFrame", "EUI_ReagentBagFrame", "EUI_BagsWindowFrame" },
+        workspaceChrome = { "EUI_MainBagFrame" },
+        bagRestorable = { "EUI_MainBagFrame" },
+        customBagRoot = { "EUI_MainBagFrame" },
     },
     catalogs = {
         EllesmereUIBags = {

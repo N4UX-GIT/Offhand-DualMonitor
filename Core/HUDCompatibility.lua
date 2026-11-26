@@ -39,8 +39,8 @@ function Compatibility.IsAddonPresent(name)
 end
 
 -- Replacement HUD owners come from the bridges' ownership roles.
-local function HasRole(role)
-    return Offhand.Bridges and Offhand.Bridges:HasRole(role) or false
+local function HasRole(role, accept)
+    return Offhand.Bridges and Offhand.Bridges:HasRole(role, accept) or false
 end
 
 function Compatibility.HasCustomActionBarAddon()
@@ -53,40 +53,17 @@ function Compatibility.HasCustomStatusBarAddon()
     return HasRole("hud.statusBars")
 end
 
-local function GetBagSmithParkingParent(frame)
-    -- BagSmith can leave the native bag binding enabled. Its replacement
-    -- parks the native backpack under a hidden, anonymous UIParent child.
-    if not frame or not frame.GetParent or (frame.IsForbidden and frame:IsForbidden()) then return end
-    local parent = frame:GetParent()
-    if parent and parent ~= UIParent and parent ~= _G.ContainerFrameContainer
-        and not (parent.IsForbidden and parent:IsForbidden())
-        and parent.GetName and parent:GetName() == nil and parent.GetParent
-        and parent:GetParent() == UIParent and parent.IsShown and not parent:IsShown() then
-        return parent
-    end
+-- A replacement bag owner whose entry says yieldsToNativeGamepad stands
+-- aside on Forever while the native Gamepad interface is in use.
+local function AcceptsBagOwner(entry)
+    return not (entry.yieldsToNativeGamepad and Offhand.isForever and Compatibility.UsesNativeGamepadInterface())
 end
 
-function Compatibility.GetBagSmithParkingParent()
-    if Offhand.isForever and Compatibility.IsAddonPresent("BagSmith") then
-        return GetBagSmithParkingParent(_G.ContainerFrame1)
-            or GetBagSmithParkingParent(_G.ContainerFrameCombinedBags)
-    end
-end
-
-function Compatibility.HasMoveMyBags()
-    return Compatibility.IsAddonPresent("MoveMyBags")
-end
-
+-- Replacement bag owners come from the bridges' hud.bags role, then a
+-- bridge's live replacement bag frame.
 function Compatibility.HasCustomBagAddon()
-    if Compatibility.IsAddonPresent("EllesmereUIBags")
-        and not (Offhand.isForever and Compatibility.UsesNativeGamepadInterface()) then return true end
-    if Compatibility.HasMoveMyBags() then return true end
-    if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
-        or _G.ArkInventory or _G.BetterBags or _G.Inventorian
-        or _G.ElvUI or _G.Tukui then return true end
-    if Compatibility.IsAddonPresent("BetterBags") or Compatibility.IsAddonPresent("Bagnaros") then return true end
+    if HasRole("hud.bags", AcceptsBagOwner) then return true end
     if Offhand.Bridges and Offhand.Bridges.HasCustomBag and Offhand.Bridges:HasCustomBag() then return true end
-    if Compatibility.GetBagSmithParkingParent() then return true end
     -- Combined mode can exist without an individual backpack root. Either
     -- native root is sufficient; explicit replacement owners above still win.
     return not (_G.ContainerFrame1 or _G.ContainerFrameCombinedBags)

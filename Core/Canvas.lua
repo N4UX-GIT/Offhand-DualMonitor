@@ -357,7 +357,7 @@ local function IsUnsafeForPanelMutation(frame, name)
     if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
     local hudCompatibility = Offhand.HUDCompatibility
     if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
-    if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
+    if Offhand.isForever and Compatibility.IsForeverSelfManagedBag(name or (frame.GetName and frame:GetName())) then
         return true
     end
     if Offhand.isForever and frame == _G.WorldMapFrame
@@ -547,8 +547,9 @@ local function IsBackpackRoot(name)
 end
 
 -- Only actual bag roots may request that bags reopen during persistent restore.
--- Baganator exposes many named child regions; treating its entire namespace as
--- a bag root lets stale child snapshots reopen Blizzard's backpack on login.
+-- Replacement bag addons can expose many named child regions; treating an
+-- entire namespace as a bag root lets stale child snapshots reopen Blizzard's
+-- backpack on login.
 local function IsRestorableBagRootName(name)
     return BackpackState.IsRestorableRootName(name)
 end
@@ -1165,11 +1166,11 @@ function Canvas:RestorePersistentFrames(mode)
         end
     end
     
-    -- Baganator has its own root-frame snapshot/restore path. The generic
-    -- prefix scan can see its still-shown child buttons while the bag is hidden.
-    -- Historical Baganator/EUI child snapshots must not resurrect the native
-    -- backpack on Forever. Only the explicit mode-independent native marker is
-    -- authoritative there.
+    -- A self-restoring bag addon has its own root-frame snapshot/restore path.
+    -- The generic prefix scan can see its still-shown child buttons while the
+    -- bag is hidden. Historical replacement-bag child snapshots must not
+    -- resurrect the native backpack on Forever. Only the explicit
+    -- mode-independent native marker is authoritative there.
     if Offhand.isForever then
         hasBag = IsNativeBackpackTrackedOpen() and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
         if self.pendingSeparateBagIDs then
@@ -1187,7 +1188,8 @@ function Canvas:RestorePersistentFrames(mode)
         hasBag = false
         BackpackState.QueueTBCBagIDRestore(self, activeLockRestore and 0.10 or 1.5)
     end
-    if canOpenPanels and hasBag and not (Baganator and Offhand.BagPersistence)
+    if canOpenPanels and hasBag and not (Offhand.Bridges and Offhand.Bridges:HasRole("bags.selfRestoring")
+            and Offhand.BagPersistence)
         and (not activeLockRestore or not self.activeLockBagRestoreQueued) then
         if activeLockRestore then self.activeLockBagRestoreQueued = true end
         C_Timer.After(activeLockRestore and 0.10 or 1.5, function()
@@ -1212,7 +1214,7 @@ function Canvas:RestorePersistentFrames(mode)
                 -- their actual root frames before invoking it.
                 for k, v in pairs(_G) do
                     if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
-                        if k:match("^Baganator") or k:match("^Baginator") or k:match("^BGR") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
+                        if Offhand.Bridges and Offhand.Bridges:MatchName("bagNamespace.openScan", k) then
                             local ok, isShown = pcall(function() return v:IsShown() end)
                             if ok and isShown then
                                 isAlreadyOpen = true

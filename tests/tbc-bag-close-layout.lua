@@ -23,6 +23,7 @@ end
 local start=assert(source:find('-- Load Offhand files',1,true))
 source=source:sub(1,start-1)..setup..source:sub(start)
 local addon,flush=assert(loadstring(source..'\nreturn addon,flushTimers'))()
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/Bagnon/Bridge.lua" })
 for _=1,8 do flush() end
 addon.db.nativeBackpackWorkspacePosition={x=700,y=900}
 addon.db.savedWorkspacePositions.ContainerFrame1={x=700,y=900}

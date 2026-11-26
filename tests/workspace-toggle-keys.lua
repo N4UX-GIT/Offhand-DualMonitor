@@ -48,6 +48,8 @@ local function press(key)
     if observer.scripts.OnUpdate then observer.scripts.OnUpdate(observer,0.06) end
 end
 assert(loadfile("Core/WorkspaceToggleKeys.lua"))("Offhand",addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ArkInventory/Bags.lua", "Bridges/Bagnon/Bags.lua",
+    "Bridges/BetterBags/Bags.lua" })
 local module=addon.WorkspaceToggleKeys
 module:Refresh(); assert(not owner and not next(overrides))
 addon.db.keepMapToggleOpen=true; module:Refresh()
@@ -68,7 +70,7 @@ addon.HasCustomBagAddon=function() return true end
 local bag=root(); bag.shown=true; addon.BagPersistence={frames={inventory=bag}};module:Refresh()
 press("SHIFT-B");assert(#dispatched==count,"replacement inventory")
 vendor.B="BETTERBAGS_TOGGLEBAGS"
-addon.BagPersistence.betterBags={Bags={Backpack={frame=bag}}}
+addon.API.GetBridgeNamespace("BetterBags").vendor={Bags={Backpack={frame=bag}}}
 addon.db.keepBagToggleOpen=false;module:Refresh()
 assert(GetBindingAction("B",true)=="BETTERBAGS_TOGGLEBAGS")
 addon.db.keepBagToggleOpen=true;module:Refresh()

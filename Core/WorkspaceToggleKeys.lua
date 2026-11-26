@@ -9,11 +9,12 @@ local assignments, verdicts = {}, {}
 local spanned
 local locations = setmetatable({}, {__mode = "k"})
 local click = "CLICK OffhandWorkspaceToggleKey:LeftButton"
-local inventoryAction = {TOGGLEBACKPACK=true, OPENALLBAGS=true, BETTERBAGS_TOGGLEBAGS=true,
-    BAGNON_TOGGLE=true, ARKINV_TOGGLE_BAG=true}
+-- Bag providers add their own inventory toggle actions (MergeProviderActions).
+local inventoryAction = {TOGGLEBACKPACK=true, OPENALLBAGS=true}
 -- Forever's numbered bindings count from the outermost bag toward the backpack.
 local bagIDByAction = {TOGGLEBAG1=4, TOGGLEBAG2=3, TOGGLEBAG3=2, TOGGLEBAG4=1, TOGGLEREAGENTBAG1=5}
 for action in pairs(bagIDByAction) do inventoryAction[action] = true end
+local providerAction = {}
 
 local function Visible(frame)
     return frame and frame.IsVisible and (not frame.IsForbidden or not frame:IsForbidden()) and frame:IsVisible()
@@ -54,26 +55,31 @@ local function InventoryOnWorkspace(action)
         return false
     end
     local bags = Offhand.BagPersistence
-    local better = bags and bags.betterBags
-    if not better and action == "BETTERBAGS_TOGGLEBAGS" and LibStub then
-        local ace = LibStub("AceAddon-3.0", true)
-        better = ace and ace:GetAddon("BetterBags", true)
-    end
-    local backpack = better and better.Bags and better.Bags.Backpack
-    if action == "BETTERBAGS_TOGGLEBAGS" then return OnWorkspace(backpack and backpack.frame) end
-    if action == "ARKINV_TOGGLE_BAG" then return OnWorkspace(_G.ARKINV_Frame1) end
-    if action == "BAGNON_TOGGLE" then
-        local frame = Bagnon and Bagnon.Frames and Bagnon.Frames:Get("inventory")
-        return OnWorkspace(frame)
+    local bridges = Offhand.Bridges
+    -- A bag provider's own toggle action asks for its own window only. This
+    -- runs inside ShouldMask's pcall.
+    if providerAction[action] then
+        return OnWorkspace(bridges and bridges.GetBagToggleFrame and bridges:GetBagToggleFrame(action))
     end
     if bags and Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon() then
         for _, frame in pairs(bags.frames) do
             if OnWorkspace(frame) then return true end
         end
-        if OnWorkspace(backpack and backpack.frame) or OnWorkspace(_G.ARKINV_Frame1)
-            or OnWorkspace(_G.BagSmithFrame) or OnWorkspace(_G.ElvUI_ContainerFrame)
-            or (Offhand.Bridges and Offhand.Bridges:IsBagOnWorkspace(OnWorkspace))
-            or OnWorkspace(_G.EUI_MainBagFrame) then return true end
+        -- Each bag provider's inventory window (GetToggleFrame(nil)), in
+        -- provider order, with the bridges' own bag frames at order 60.
+        local providers = bridges and bridges.GetBagProviders and bridges:GetBagProviders() or {}
+        local index = 1
+        while providers[index] and providers[index].order < 60 do
+            local toggleFrame = providers[index].provider.GetToggleFrame
+            if type(toggleFrame) == "function" and OnWorkspace(toggleFrame(nil)) then return true end
+            index = index + 1
+        end
+        if bridges and bridges:IsBagOnWorkspace(OnWorkspace) then return true end
+        while providers[index] do
+            local toggleFrame = providers[index].provider.GetToggleFrame
+            if type(toggleFrame) == "function" and OnWorkspace(toggleFrame(nil)) then return true end
+            index = index + 1
+        end
     end
     if Visible(_G.ContainerFrameCombinedBags) then return OnWorkspace(_G.ContainerFrameCombinedBags) end
     local found = false
@@ -157,8 +163,19 @@ local function Poll(_, delta)
     if elapsed >= 0.05 then elapsed = 0; UpdateBindings() end
 end
 
+-- Adds the bag providers' toggle actions (bridges load after this file).
+local function MergeProviderActions()
+    local bridges = Offhand.Bridges
+    if not bridges or type(bridges.GetBagToggleActions) ~= "function" then return end
+    for _, action in ipairs(bridges:GetBagToggleActions()) do
+        inventoryAction[action] = true
+        providerAction[action] = true
+    end
+end
+
 function Keys:Refresh()
     if not observer then return end
+    MergeProviderActions()
     for frame in pairs(locations) do locations[frame] = nil end
     local db = Offhand.db
     local active = db and db.enabled and (db.keepMapToggleOpen or db.keepBagToggleOpen)

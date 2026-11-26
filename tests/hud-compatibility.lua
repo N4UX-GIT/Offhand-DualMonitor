@@ -12,7 +12,8 @@ C_AddOns = {
 }
 
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Bartender4/Bridge.lua", "Bridges/Chattynator/Bridge.lua", "Bridges/Details/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua", "Bridges/Questie/Rules.lua", "Bridges/RestedXP/Bridge.lua", "Bridges/SexyMap/Bridge.lua" })
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Bartender4/Bridge.lua", "Bridges/Chattynator/Bridge.lua", "Bridges/Details/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua", "Bridges/Questie/Rules.lua", "Bridges/RestedXP/Bridge.lua", "Bridges/SexyMap/Bridge.lua",
+    "Bridges/Baganator/Data.lua", "Bridges/Bagnon/Bridge.lua", "Bridges/BagSmith/Bridge.lua", "Bridges/BetterBags/Data.lua" })
 local compatibility = assert(addon.HUDCompatibility)
 do
     addon.isForever = true

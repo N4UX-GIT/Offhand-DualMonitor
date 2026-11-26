@@ -19,6 +19,7 @@
 - Internal: the World Map owner and fade addon detection (MoveAny, ClassicUI Forever, OpenMap, Leatrix Maps, MapUtils, MapWise), their yield, panel management and diagnostics facts and the map integration list moved from the core into built-in bridges. Behaviour is unchanged.
 - Internal: the OpenMap world map handling (contract checks, recovery and /offhand recovermap, camera follow, movement fade, map scale, expanded and fullscreen map, conflict notice, diagnostics and its World Map settings controls) moved from the core into a built-in bridge. Behaviour is unchanged.
 - Internal: the MapWise position guard and fade reader, the MapUtils fade reader and the Leatrix Maps coordinate label refresh and settings description moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the replacement bag addon detection, bag owner report order, bag name lists, bag toggle keys, the EllesmereUI bag close button and the Forever bag Escape adapters for ArkInventory, Bagnaros, BetterBags, BagSmith, ElvUI and EllesmereUI moved from the core into built-in bridges. Behaviour is unchanged.
 
 ## [2.1.5-beta.42] - 2026-11-25
 

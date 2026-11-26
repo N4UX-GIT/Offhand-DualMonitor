@@ -124,7 +124,7 @@ UIParent.GetChildren=nil
 assert(loadfile('Core/CanvasForeverMap.lua'))('Offhand',addon)
 assert(loadfile('Core/CanvasFrameState.lua'))('Offhand',addon)
 addon.isForever=true
-addon.CanvasCompatibility={IsForeverEllesmereBag=no}
+addon.CanvasCompatibility={IsForeverSelfManagedBag=no}
 local map=frame('WorldMapFrame',1150,200,600,900)
 WorldMapFrame=map
 UIPanelWindows.WorldMapFrame={}

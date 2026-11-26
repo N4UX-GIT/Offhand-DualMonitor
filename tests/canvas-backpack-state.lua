@@ -7,6 +7,8 @@ function ContainerFrameCombinedBags:IsShown() return self.shown end
 
 assert(loadfile("Core/CanvasBackpackState.lua"))("Offhand", addon)
 local state = assert(addon.CanvasBackpackState)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/AdiBags/Bridge.lua", "Bridges/ArkInventory/Bridge.lua",
+    "Bridges/Baganator/Data.lua", "Bridges/Bagnon/Bridge.lua", "Bridges/BetterBags/Data.lua", "Bridges/EllesmereUI/Bridge.lua" })
 
 assert(state.IsForeverContainerName("ContainerFrame7")
         and not state.IsForeverContainerName("CharacterFrame"),

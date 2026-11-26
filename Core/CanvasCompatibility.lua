@@ -116,9 +116,11 @@ function Compatibility.ShouldYieldNativeContainer(frameOrName, suppliedName)
         type(frameOrName) == "table" and frameOrName or nil, name)
 end
 
-function Compatibility.IsForeverEllesmereBag(name)
-    return Offhand.isForever
-        and (name == "EUI_MainBagFrame" or name == "EUI_ReagentBagFrame" or name == "EUI_BagsWindowFrame")
+-- A bag addon whose roots own their visibility, layout and Escape proxy on
+-- Forever (rule selfManagedBag): the generic panel passes leave them alone.
+function Compatibility.IsForeverSelfManagedBag(name)
+    local bridges = Offhand.Bridges
+    return Offhand.isForever and bridges ~= nil and bridges:MatchName("selfManagedBag", name)
 end
 
 -- An addon with its own persistent movement for some native frames (role
@@ -352,24 +354,16 @@ local function GetOneForAllUnmitigatedMoverTargets(mapOwner, bagOwners)
     return #targets > 0 and targets or nil
 end
 
-local function IsElvUIBagsActive()
-    local elv = rawget(_G, "ElvUI")
-    if elv == nil then return false end
-    if rawget(_G, "ElvUI_ContainerFrame") ~= nil then return true end
-    local core = type(elv) == "table" and elv[1]
-    local bags = type(core) == "table" and type(core.private) == "table" and core.private.bags
-    return type(bags) == "table" and bags.enable == true
+-- A report.bags owner whose entry says yieldsToNativeGamepad is left out on
+-- Forever while the native Gamepad interface is in use.
+local function AcceptsBagOwner(entry)
+    return not (entry.yieldsToNativeGamepad and Offhand.isForever and Offhand.HUDCompatibility
+        and Offhand.HUDCompatibility.UsesNativeGamepadInterface
+        and Offhand.HUDCompatibility.UsesNativeGamepadInterface())
 end
 
-local function IsTukuiBagsActive()
-    local tuk = rawget(_G, "Tukui")
-    if tuk == nil then return false end
-    if rawget(_G, "TukuiBag") ~= nil then return true end
-    local cfg = type(tuk) == "table" and tuk[2]
-    local bags = type(cfg) == "table" and cfg.Bags
-    return type(bags) == "table" and bags.Enable == true
-end
-
+-- Replacement bag owners: role report.bags in its fixed order (the order is
+-- part of the bags-conflict id), then a bridge's live replacement bag.
 function Compatibility.GetActiveBagOwners()
     local owners, seen = {}, {}
     local function Add(name)
@@ -378,23 +372,9 @@ function Compatibility.GetActiveBagOwners()
             owners[#owners + 1] = name
         end
     end
-    if Compatibility.IsAddonLoaded("EllesmereUIBags")
-        and not (Offhand.isForever and Offhand.HUDCompatibility
-            and Offhand.HUDCompatibility.UsesNativeGamepadInterface
-            and Offhand.HUDCompatibility.UsesNativeGamepadInterface()) then
-        Add("EllesmereUIBags")
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRoleOwners("report.bags", AcceptsBagOwner) or {}) do
+        Add(name)
     end
-    for _, candidate in ipairs({"MoveMyBags", "Baganator", "Bagnon", "ArkInventory", "BetterBags", "Bagnaros", "AdiBags", "Inventorian"}) do
-        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
-            Add(candidate)
-        end
-    end
-    if Offhand.HUDCompatibility and Offhand.HUDCompatibility.GetBagSmithParkingParent
-        and Offhand.HUDCompatibility.GetBagSmithParkingParent() then
-        Add("BagSmith")
-    end
-    if IsElvUIBagsActive() then Add("ElvUI") end
-    if IsTukuiBagsActive() then Add("Tukui") end
     if Offhand.Bridges and Offhand.Bridges.HasCustomBag then
         local hasBridgeBag, bridgeId = Offhand.Bridges:HasCustomBag()
         if hasBridgeBag and bridgeId then Add(bridgeId) end

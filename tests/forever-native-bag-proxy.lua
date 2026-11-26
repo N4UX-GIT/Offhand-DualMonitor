@@ -204,6 +204,7 @@ assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
 assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Bagnon/Bridge.lua" })
 assert(addon.Canvas:EnableForeverNativeBagProxy(),
     "Forever bag proxy controller was not created")
 

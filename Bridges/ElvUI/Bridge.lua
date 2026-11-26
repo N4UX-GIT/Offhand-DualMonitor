@@ -10,6 +10,12 @@
 -- ElvUI_Bar1 exists (report.actionBars, order 50), and gets the suite guidance line
 -- (order 70). Addon window catalog: the ElvUI suite (suite prefix elvui), whose HUD and
 -- movers stay out of the addon window picker.
+-- Bag facts: it replaces the bags while the ElvUI global exists (hud.bags, order 90) and is a
+-- bag owner in the compatibility report while ElvUI_ContainerFrame exists or its private bag
+-- settings say enabled (report.bags, order 110). ElvUI_ContainerFrame names join the bag
+-- namespace scans of the reload reopen and the logout open-state capture
+-- (bagNamespace.openScan, bagNamespace.logoutScan). Its bag Escape adapter is in Bags.lua
+-- beside this file.
 -- Registered on every client, like the checks it replaces; the globals are read when asked.
 
 local ADDON_NAME, shared = ...
@@ -29,8 +35,21 @@ local function UnitFramesEnabled()
     return type(uf) == "table" and uf.enable == true
 end
 
+-- The bag module counts once ElvUI_ContainerFrame exists, or while its private bag settings
+-- say enabled.
+local function BagsEnabled()
+    local elv = rawget(_G, "ElvUI")
+    if elv == nil then return false end
+    if rawget(_G, "ElvUI_ContainerFrame") ~= nil then return true end
+    local core = type(elv) == "table" and elv[1]
+    local bags = type(core) == "table" and type(core.private) == "table" and core.private.bags
+    return type(bags) == "table" and bags.enable == true
+end
+
 API.RegisterAddonData("ElvUI", {
     ownership = {
+        { role = "hud.bags", name = "ElvUI", order = 90, detect = GLOBAL },
+        { role = "report.bags", name = "ElvUI", order = 110, detect = { global = "ElvUI", active = BagsEnabled } },
         { role = "hud.actionBars", name = "ElvUI", order = 30, detect = GLOBAL },
         { role = "hud.statusBars", name = "ElvUI", order = 30, detect = GLOBAL },
         { role = "hud.minimap", name = "ElvUI", order = 30, detect = GLOBAL },
@@ -49,6 +68,10 @@ API.RegisterAddonData("ElvUI", {
         { id = "suite:ElvUI", order = 70, addon = "ElvUI", when = { unitFrames = "ElvUI", actionBars = "ElvUI" },
             key = "COMPAT_GUIDE_SUITE", args = 2,
             fallback = "%s controls its enabled HUD and unit frames. Move them with /moveui, or disable individual modules in %s to use Blizzard Edit Mode." },
+    },
+    frameRules = {
+        ["bagNamespace.openScan"] = { { patterns = { "^ElvUI_ContainerFrame" } } },
+        ["bagNamespace.logoutScan"] = { { patterns = { "^ElvUI_ContainerFrame" } } },
     },
     catalogs = {
         ElvUI = {

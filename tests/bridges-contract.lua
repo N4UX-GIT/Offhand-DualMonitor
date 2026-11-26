@@ -1724,6 +1724,214 @@ assert(addon.API.GetViewportMetrics() == viewportMetrics and addon.API.GetWorksp
 addon.db.persistentWorkspacePanels = nil
 assert(addon.API.KeepsWorkspacePanelsOpen() == true, "only an explicit false closes workspace panels")
 
+-- Bag owners, bag name rules, the custom bag workspace record and the bag
+-- providers reproduce what the core held.
+do
+    local bagFiles = {"Bridges/AdiBags/Bridge.lua", "Bridges/ArkInventory/Bridge.lua", "Bridges/ArkInventory/Bags.lua",
+        "Bridges/Baganator/Data.lua", "Bridges/Bagnaros/Bridge.lua", "Bridges/Bagnaros/Bags.lua",
+        "Bridges/Bagnon/Bridge.lua", "Bridges/Bagnon/Bags.lua", "Bridges/BagSmith/Bridge.lua", "Bridges/BagSmith/Bags.lua",
+        "Bridges/BetterBags/Data.lua", "Bridges/BetterBags/Bags.lua", "Bridges/EllesmereUI/Bridge.lua",
+        "Bridges/EllesmereUI/Bags.lua", "Bridges/ElvUI/Bridge.lua", "Bridges/ElvUI/Bags.lua",
+        "Bridges/Inventorian/Bridge.lua", "Bridges/MoveMyBags/Bridge.lua", "Bridges/Tukui/Bridge.lua"}
+    local bags = {AddonWindowCatalog = {}}
+    local loaded = {}
+    local savedAddOns, savedFrame1 = C_AddOns, ContainerFrame1
+    C_AddOns = {IsAddOnLoaded = function(name) return loaded[name] == true end}
+    assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", bags)
+    assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", bags)
+    local registry = CoreBridges.Load(bags, bagFiles)
+    assert(table.concat(registry:List(), ",") == "ArkInventory,Bagnaros,Bagnon,BagSmith,BetterBags,EllesmereUIBags,ElvUI",
+        "only the bag provider files may register bridge objects among the bag addons")
+    local hud, compat = bags.HUDCompatibility, bags.CanvasCompatibility
+
+    -- report.bags keeps the legacy order, which is part of the bags-conflict id.
+    local LEGACY_BAGS = {"EllesmereUIBags", "MoveMyBags", "Baganator", "Bagnon", "ArkInventory", "BetterBags",
+        "Bagnaros", "AdiBags", "Inventorian", "BagSmith", "ElvUI", "Tukui"}
+    local parked = {GetName = function() return nil end, GetParent = function() return UIParent end,
+        IsShown = function() return false end}
+    ContainerFrame1 = {GetParent = function() return parked end}
+    bags.isForever = true
+    local function SetBagOwner(name, present)
+        if name == "ElvUI" then
+            ElvUI = present and {{private = {bags = {enable = true}}}} or nil
+        elseif name == "Tukui" then
+            Tukui = present and {nil, {Bags = {Enable = true}}} or nil
+        else
+            loaded[name] = present or nil
+        end
+    end
+    local function BagConflictId()
+        for _, conflict in ipairs(compat.GetOwnershipConflicts()) do
+            if conflict.kind == "bags-conflict" then return conflict.id end
+        end
+    end
+    for mask = 0, 2 ^ #LEGACY_BAGS - 1, 37 do
+        local expected = {}
+        for index, name in ipairs(LEGACY_BAGS) do
+            local present = math.floor(mask / 2 ^ (index - 1)) % 2 == 1
+            SetBagOwner(name, present)
+            if present then expected[#expected + 1] = name end
+        end
+        local label = table.concat(expected, ",")
+        assert(table.concat(compat.GetActiveBagOwners(), ",") == label, "bag owners for " .. label)
+        assert(BagConflictId() == (#expected >= 2 and "bags-conflict:" .. table.concat(expected, "+") or nil),
+            "the bags-conflict id must keep the legacy order for " .. label)
+    end
+    for _, name in ipairs(LEGACY_BAGS) do SetBagOwner(name, true) end
+    assert(BagConflictId() == "bags-conflict:EllesmereUIBags+MoveMyBags+Baganator+Bagnon+ArkInventory+BetterBags+"
+        .. "Bagnaros+AdiBags+Inventorian+BagSmith+ElvUI+Tukui", "every bag owner must keep the legacy conflict id")
+    bags.Mainhand = {IsNativeGamepadInterface = function() return true end}
+    assert(compat.GetActiveBagOwners()[1] == "MoveMyBags",
+        "EllesmereUIBags must stand aside under the Forever native Gamepad interface")
+    bags.Mainhand = nil
+    for _, name in ipairs(LEGACY_BAGS) do SetBagOwner(name, false) end
+    ElvUI = {{private = {bags = {enable = false}}}}
+    assert(#compat.GetActiveBagOwners() == 0, "ElvUI with disabled bags must not be a bag owner")
+    ElvUI = nil
+
+    -- hud.bags: each legacy replacement test still owns the bags on its own.
+    assert(not hud.HasCustomBagAddon(), "stock bags must remain available")
+    local hudOwners = {
+        {loaded = "EllesmereUIBags"}, {loaded = "MoveMyBags"}, {global = "MoveMyBags"}, {global = "Baganator"},
+        {global = "Baginator"}, {global = "Bagnon"}, {global = "AdiBags"}, {global = "ArkInventory"},
+        {global = "BetterBags"}, {loaded = "BetterBags"}, {global = "Inventorian"}, {global = "ElvUI"},
+        {global = "Tukui"}, {loaded = "Bagnaros"}, {global = "Bagnaros"}, {loaded = "BagSmith"},
+    }
+    for _, owner in ipairs(hudOwners) do
+        if owner.loaded then loaded[owner.loaded] = true else _G[owner.global] = {} end
+        assert(hud.HasCustomBagAddon(), "bag owner " .. (owner.loaded or owner.global) .. " must own the bags")
+        if owner.loaded then loaded[owner.loaded] = nil else _G[owner.global] = nil end
+    end
+    loaded.Baganator, loaded.Bagnon = true, true
+    assert(not hud.HasCustomBagAddon(), "Baganator and Bagnon own the bags through their globals only")
+    loaded.Baganator, loaded.Bagnon = nil, nil
+    loaded.EllesmereUIBags = true
+    bags.Mainhand = {IsNativeGamepadInterface = function() return true end}
+    assert(not hud.HasCustomBagAddon(), "EllesmereUIBags must stand aside under the Forever native Gamepad interface")
+    bags.isForever = false
+    assert(hud.HasCustomBagAddon(), "the Gamepad stand-down applies on Forever only")
+    loaded.BagSmith = true
+    assert(table.concat(compat.GetActiveBagOwners(), ",") == "EllesmereUIBags",
+        "BagSmith's parked backpack counts on Forever only")
+    loaded.BagSmith, loaded.EllesmereUIBags, bags.Mainhand = nil, nil, nil
+    assert(registry:HasRole("bags.selfRestoring") == false, "no self-restoring bag addon without its global")
+    Baganator = {}
+    assert(registry:HasRole("bags.selfRestoring") == true, "Baganator restores its own roots while its global exists")
+    Baganator = nil
+
+    -- Bag name rules keep the legacy lists, which differ on purpose.
+    local function Any(name, patterns)
+        for _, pattern in ipairs(patterns) do
+            if name:match(pattern) then return true end
+        end
+        return false
+    end
+    local legacy = {
+        ["bagNamespace.openScan"] = function(name) return Any(name, {"^Baganator", "^Baginator", "^BGR", "^Bagnon",
+            "^AdiBags", "^BetterBags", "^ArkInventory", "^ElvUI_ContainerFrame"}) end,
+        ["bagNamespace.logoutScan"] = function(name) return Any(name, {"^Baganator", "^Baginator", "^Bagnon",
+            "^AdiBags", "^BetterBags", "^ArkInventory", "^ElvUI_ContainerFrame"}) end,
+        ["bagNamespace.recoveryAnchor"] = function(name) return Any(name, {"Baganator", "Baginator", "Bagnon",
+            "BetterBags"}) end,
+        bagRestorable = function(name) return name == "EUI_MainBagFrame" or Any(name, {
+            "^Baganator_SingleViewBackpackViewFrame", "^Baganator_CategoryViewBackpackViewFrame", "^Baginator", "^BGR",
+            "^Bagnon", "^AdiBags", "^BetterBags", "^ArkInventory"}) end,
+        customBagRoot = function(name) return name == "EUI_MainBagFrame" or Any(name, {"^Baganator_.*BackpackViewFrame"}) end,
+        selfManagedBag = function(name) return name == "EUI_MainBagFrame" or name == "EUI_ReagentBagFrame"
+            or name == "EUI_BagsWindowFrame" end,
+    }
+    local samples = {"BaganatorX", "Baganator_SingleViewBackpackViewFrame1", "Baganator_CategoryViewBackpackViewFrameA",
+        "Baganator_SingleViewBankViewFrame", "XBaganator", "BaginatorMain", "BGR_Main", "xBGR", "BagnonInventory",
+        "MyBagnon", "AdiBagsContainer", "XAdiBags", "BetterBagsBag", "SomeBetterBags", "ArkInventoryFrame",
+        "ElvUI_ContainerFrame", "ElvUI_ContainerFrameBag1", "ElvUI_Bar1", "EUI_MainBagFrame", "EUI_ReagentBagFrame",
+        "EUI_BagsWindowFrame", "ContainerFrame1", "ContainerFrameCombinedBags", "CustomBagRestorer", "WorldMapFrame"}
+    for rule, check in pairs(legacy) do
+        for _, name in ipairs(samples) do
+            assert(registry:MatchName(rule, name) == check(name), rule .. " changed for " .. name)
+        end
+    end
+    bags.isForever = true
+    assert(compat.IsForeverSelfManagedBag("EUI_ReagentBagFrame") and not compat.IsForeverSelfManagedBag("ContainerFrame1"),
+        "the self-managed bag roots must yield on Forever")
+    bags.isForever = false
+    assert(not compat.IsForeverSelfManagedBag("EUI_MainBagFrame"), "the self-managed bag roots yield on Forever only")
+    local chromeNames = table.concat(registry:GetRuleNames("workspaceChrome"), ",")
+    assert(chromeNames:find("EUI_MainBagFrame", 1, true), "the EllesmereUI backpack keeps its workspace close buttons")
+
+    -- The custom bag workspace record keeps its stored key: a record saved
+    -- under it reads back through the declared setting, EllesmereUI's first.
+    assert(registry:GetSettingKey("customBagWorkspacePanels") == "baganatorWorkspacePanels"
+        and registry:GetSettingKey("unknownSetting") == nil, "the custom bag record must keep its stored key")
+    local persisted = {AddonWindowCatalog = {}, isForever = true}
+    local savedCreate, savedTimer = CreateFrame, C_Timer
+    CreateFrame = function() return {RegisterEvent = function() end, SetScript = function() end} end
+    C_Timer = {After = function() end, NewTicker = function() return {} end}
+    local euiPosition, baganatorPosition = {x = 10, y = 20}, {x = 30, y = 40}
+    persisted.db = {enabled = true, baganatorWorkspacePanels = {
+        Baganator_SingleViewBackpackViewFrameElvUI = baganatorPosition, EUI_MainBagFrame = euiPosition}}
+    assert(loadfile("Core/BagPersistence.lua"))("Offhand", persisted)
+    CoreBridges.Load(persisted, {"Bridges/Baganator/Data.lua"})
+    local savedName, savedPosition = persisted.BagPersistence:GetSavedPosition()
+    assert(savedName == "EUI_MainBagFrame" and savedPosition == euiPosition,
+        "the EllesmereUI entry of the record saved under the old key must read back first")
+    persisted.BagPersistence:ForgetOpenSnapshot("EUI_MainBagFrame")
+    savedName, savedPosition = persisted.BagPersistence:GetSavedPosition()
+    assert(persisted.db.baganatorWorkspacePanels.EUI_MainBagFrame == nil
+        and savedName == "Baganator_SingleViewBackpackViewFrameElvUI" and savedPosition == baganatorPosition,
+        "forgetting an entry must write the record under the old key")
+    CreateFrame, C_Timer = savedCreate, savedTimer
+
+    -- Bag providers: Escape adapters run by provider order around the bridges'
+    -- own RefreshBags, one pcall each; notices, toggle actions and close buttons.
+    local dispatch = Load()
+    local calls = {}
+    local function Provider(id, providerOrder, extra)
+        local provider = {order = providerOrder, RefreshEscape = function(services)
+            assert(services.tag == "services", "bag providers must receive the services table")
+            calls[#calls + 1] = id
+        end}
+        for key, value in pairs(extra or {}) do provider[key] = value end
+        assert(dispatch.API.RegisterBridge(id, {contract = 1, bagProvider = provider}))
+        return provider
+    end
+    Provider("Late", 70)
+    assert(dispatch.API.RegisterBridge("Plain", {contract = 1, RefreshBags = function(_, services)
+        assert(services.tag == "services")
+        calls[#calls + 1] = "Plain"
+    end}))
+    Provider("Second", 20, {CancelEscape = function() calls[#calls + 1] = "cancel" end})
+    Provider("First", 10, {toggleActions = {"FIRST_TOGGLE"}, GetToggleFrame = function(action) return action end,
+        closeButtonRoots = {"FirstRoot"}, GetCloseButtons = function(frame, name) return {frame, name} end})
+    Provider("Broken", 30, {RefreshEscape = function() error("broken bag provider") end})
+    Provider("Unordered")
+    dispatch.Bridges:RefreshBags({tag = "services"})
+    assert(table.concat(calls, ",") == "First,Second,Plain,Late,Unordered",
+        "bag providers must run by order with the bridges' own RefreshBags at order 60")
+    assert(dispatch.Bridges.errors.Broken and dispatch.Bridges.errors.Broken:find("broken bag provider", 1, true),
+        "a failing bag provider must be recorded and must not stop the others")
+    calls = {}
+    dispatch.Bridges:NotifyBagProviders("CancelEscape")
+    assert(table.concat(calls, ",") == "cancel", "a bag notice must reach only the providers implementing it")
+    local providers = dispatch.Bridges:GetBagProviders()
+    assert(providers[1].id == "First" and providers[2].id == "Second" and providers[#providers].id == "Unordered",
+        "the bag providers must be listed in their order")
+    assert(table.concat(dispatch.Bridges:GetBagToggleActions(), ",") == "FIRST_TOGGLE"
+        and dispatch.Bridges:GetBagToggleFrame("FIRST_TOGGLE") == "FIRST_TOGGLE"
+        and dispatch.Bridges:GetBagToggleFrame("OTHER") == nil, "toggle actions must reach their own provider")
+    local buttons = dispatch.Bridges:GetBagCloseButtons("frame", "FirstRoot")
+    assert(buttons[1] == "frame" and buttons[2] == "FirstRoot" and dispatch.Bridges:GetBagCloseButtons("frame", "Other") == nil,
+        "close buttons must come from the provider listing the root")
+    assert(dispatch.Bridges:HasRole("none", function() return true end) == false, "an accept filter needs an owner")
+    dispatch.API.RegisterAddonData("Filtered", {ownership = {{role = "filtered", name = "Skip", order = 1, skip = true},
+        {role = "filtered", name = "Keep", order = 2}}})
+    local function NotSkipped(entry) return not entry.skip end
+    assert(dispatch.Bridges:HasRole("filtered", NotSkipped) and table.concat((dispatch.Bridges:GetRoleOwners("filtered",
+        NotSkipped)), ",") == "Keep" and table.concat((dispatch.Bridges:GetRoleOwners("filtered")), ",") == "Skip,Keep",
+        "an accept filter must drop the entries it rejects and keep the order")
+
+    C_AddOns, ContainerFrame1 = savedAddOns, savedFrame1
+end
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -1770,6 +1978,29 @@ for line in io.lines("Offhand.toc") do
             assert(not mapText:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
         assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)
+        -- The bag owners and Escape adapters that moved into bag bridges, in any case.
+        local lowerText = text:lower()
+        for _, token in ipairs({"baginator", "betterbags", "bagsmith", "elvui", "arkinv", "bagnaros", "movemybags",
+            "adibags", "inventorian", "tukui"}) do
+            assert(not lowerText:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+        end
+        assert(not text:find("%f[%w]BGR"), "core file must not name BGR: " .. file)
+    end
+end
+-- Core purity: the bag detection, name rules, toggle keys and close buttons moved out of these files.
+for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/CanvasCompatibility.lua", "Core/Canvas.lua", "Core/Init.lua",
+    "Core/CanvasPanelPlacement.lua", "Core/CanvasBackpackState.lua", "Core/WorkspaceBehavior.lua",
+    "Core/WorkspaceToggleKeys.lua", "Core/WorkspaceChrome.lua"}) do
+    local handle = assert(io.open(file, "rb"), "missing " .. file)
+    local text = handle:read("*a")
+    handle:close()
+    local lower = text:lower()
+    for _, token in ipairs({"baganator", "bagnon"}) do
+        assert(not lower:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+    end
+    assert(not text:find("%f[%w]EUI_"), "core file must not name EUI_ frames: " .. file)
+    if file ~= "Core/HUDCompatibility.lua" and file ~= "Core/Init.lua" then
+        assert(not lower:find("ellesmere", 1, true), "core file must not name ellesmere: " .. file)
     end
 end
 assert(coreFiles > 50, "the purity scan must read the manifest's core files")

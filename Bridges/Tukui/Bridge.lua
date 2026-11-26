@@ -6,6 +6,9 @@
 -- frame owner when TukuiPlayerFrame or TukuiUnitFrames exists (report.unitFrames, order 40),
 -- an action bar owner when TukuiActionBars exists (report.actionBars, order 60), and gets
 -- the suite guidance line (order 80).
+-- Bag facts: it replaces the bags while the Tukui global exists (hud.bags, order 100) and is
+-- a bag owner in the compatibility report while TukuiBag exists or its bag settings say
+-- enabled (report.bags, order 120).
 -- Registered on every client, like the checks it replaces; the globals are read when asked.
 
 local ADDON_NAME, shared = ...
@@ -15,8 +18,20 @@ if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterAddonDat
 
 local GLOBAL = { global = "Tukui" }
 
+-- The bag module counts once TukuiBag exists, or while its bag settings say enabled.
+local function BagsEnabled()
+    local tuk = rawget(_G, "Tukui")
+    if tuk == nil then return false end
+    if rawget(_G, "TukuiBag") ~= nil then return true end
+    local cfg = type(tuk) == "table" and tuk[2]
+    local bags = type(cfg) == "table" and cfg.Bags
+    return type(bags) == "table" and bags.Enable == true
+end
+
 API.RegisterAddonData("Tukui", {
     ownership = {
+        { role = "hud.bags", name = "Tukui", order = 100, detect = GLOBAL },
+        { role = "report.bags", name = "Tukui", order = 120, detect = { global = "Tukui", active = BagsEnabled } },
         { role = "hud.actionBars", name = "Tukui", order = 40, detect = GLOBAL },
         { role = "hud.statusBars", name = "Tukui", order = 40, detect = GLOBAL },
         { role = "hud.editModeBlocker", name = "Tukui", order = 30, detect = GLOBAL },

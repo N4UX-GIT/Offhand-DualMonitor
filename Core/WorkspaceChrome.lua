@@ -16,7 +16,6 @@ local knownFrameNames = {
     "CharacterFrame",
     "ContainerFrame1",
     "ContainerFrameCombinedBags",
-    "EUI_MainBagFrame",
 }
 
 local function CanUseFrame(frame)
@@ -80,21 +79,6 @@ local function AddButton(buttons, button)
     if button and button.SetAlpha and button.EnableMouse then buttons[button] = true end
 end
 
-local function FindEllesmereCloseButton(frame, buttons)
-    local header = frame and frame.Header
-    if not header or not header.GetChildren then return end
-    local children = { header:GetChildren() }
-    for _, child in ipairs(children) do
-        if child and child.GetObjectType and child:GetObjectType() == "Button"
-            and child.GetPoint then
-            local point, relativeTo, relativePoint = child:GetPoint(1)
-            if point == "RIGHT" and relativePoint == "RIGHT" and relativeTo == header then
-                AddButton(buttons, child)
-            end
-        end
-    end
-end
-
 local function GetCloseButtons(frame, name)
     local buttons = {}
     AddButton(buttons, frame and frame.CloseButton)
@@ -108,8 +92,11 @@ local function GetCloseButtons(frame, name)
         AddButton(buttons, _G.WorldMapFrameCloseButton)
     elseif name == "CharacterFrame" then
         AddButton(buttons, _G.CharacterFrameCloseButton)
-    elseif name == "EUI_MainBagFrame" then
-        FindEllesmereCloseButton(frame, buttons)
+    elseif Offhand.Bridges then
+        -- A bag root whose close button its bag provider finds itself.
+        for _, button in ipairs(Offhand.Bridges:GetBagCloseButtons(frame, name) or {}) do
+            AddButton(buttons, button)
+        end
     end
     return buttons
 end
@@ -182,8 +169,9 @@ function Chrome:Refresh()
     if type(db.savedWorkspacePositions) == "table" then
         for name in pairs(db.savedWorkspacePositions) do frameNames[name] = true end
     end
-    if type(db.baganatorWorkspacePanels) == "table" then
-        for name in pairs(db.baganatorWorkspacePanels) do frameNames[name] = true end
+    local bagRecordKey = Offhand.Bridges and Offhand.Bridges:GetSettingKey("customBagWorkspacePanels")
+    if bagRecordKey and type(db[bagRecordKey]) == "table" then
+        for name in pairs(db[bagRecordKey]) do frameNames[name] = true end
     end
     for name in pairs(self.dynamicNames) do frameNames[name] = true end
     local adapter = Offhand.CanvasAddonEscape
