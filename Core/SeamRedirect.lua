@@ -557,7 +557,8 @@ function HUD:HookFrames()
             self.foreverGameMenuPanelHooked = true
             hooksecurefunc("ShowUIPanel", function(frame)
                 if frame ~= _G.GameMenuFrame or not frame or not frame:IsShown()
-                    or not _G.ConsolePort or not C_Timer or not C_Timer.After
+                    or not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+                    or not C_Timer or not C_Timer.After
                     or self.foreverGameMenuPlacementPending then return end
                 self.foreverGameMenuPlacementPending = true
                 C_Timer.After(0, function()

@@ -78,7 +78,7 @@ only after the declarative part passed; a throw counts as false and is
 recorded in `Offhand.Bridges.errors[addon]`. Both must return a literal `true`.
 
 A *detector* is a table whose given fields must all pass: `loaded="Folder"`
-(IsAddOnLoaded), `global="Name"` (`_G[Name] ~= nil`), `present="Name"` (either),
+(IsAddOnLoaded; a throwing query counts as not loaded), `global="Name"` (`_G[Name] ~= nil`), `present="Name"` (either),
 `anyOf={detector, ...}`, `forever=true` (Forever client), `active=function()`.
 No detector means present.
 
@@ -98,6 +98,16 @@ compile into one set.
 | `moverFields` | `{ movable = { "field" }, moving = { "field" } }` | `Bridges.IsExternallyMovable(frame)` (a field `== true`), `Bridges.IsExternallyMoving(frame)` (a field set) |
 | `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` |
 | `settings` | `{ [key] = { store = "profile" or "character", legacyKey, default, resetOnCharacterChange } }` | `Offhand.API.Get/SetBridgeSetting`, `Get/SetBridgeCharacterSetting`, `Bridges:GetSettingDefaults()`, `Bridges:GetCharacterResetKeys()` |
+
+Roles and rules core reads:
+
+| Role or rule | Read by |
+| --- | --- |
+| `hud.controller` | Every controller site: an owner present means an external controller addon owns the protected controller HUD, so Offhand's native Gamepad placement, controller Edit Mode layouts, learned windows, addon window Escape handling and toggle keep-open stand aside; `Offhand.API.IsControllerOwned()` |
+| `hud.actionBars`, `hud.statusBars` | `HUDCompatibility.HasCustomActionBarAddon`, `HasCustomStatusBarAddon` |
+| `hud.editModeBlocker` | Edit Mode HUD recovery (`Core/Recovery.lua`) skips its rebuild |
+| `report.actionBars` | Action bar owners in the compatibility report, in role order |
+| rule `diagnosticFrame` | Extra roots in the panel placement diagnostics, after core's own |
 
 Settings live under the same key as before (`legacyKey`, else `key`) in
 Offhand's profile settings or `OffhandCharDB`, so nothing migrates. A read of an
@@ -142,7 +152,7 @@ Added by `Core/Bridges.lua`:
 - `Offhand.API.QueuePopupBounds(frame)`: queues a tooltip-like frame for Offhand's popup bounds pass, which fits it inside the game rectangle once shown; `true` when queued
 - `Offhand.API.RegisterAddonData(addon, data)` and the settings services of section 3.1
 - `Offhand.API.RegisterHUDTransfer(provider)`: sets `Offhand.HUDTransfer` to the one HUD layout transfer provider (`provider.id` required); `false, "provider"` or `false, "duplicate"` otherwise
-- Core state, read as core reads it: `IsEnabled()`, `IsForeverClient()`, `IsInputReserved()`, `IsGamepadUIEnabled()`, `IsNativeGamepadInterface()`, `IsGeometryTransitionActive()`, `IsLoggingOut()`, `GetExternalMapOwner()`, `GetOptionsMetrics()` (viewport metrics while enabled and spanned, else `nil`)
+- Core state, read as core reads it: `IsEnabled()`, `IsForeverClient()`, `IsInputReserved()`, `IsControllerOwned()` (an owner of the `hud.controller` role is present), `IsGamepadUIEnabled()`, `IsNativeGamepadInterface()`, `IsGeometryTransitionActive()`, `IsLoggingOut()`, `GetExternalMapOwner()`, `GetOptionsMetrics()` (viewport metrics while enabled and spanned, else `nil`)
 - Core actions: `Print(fmt, ...)`, `GetText(key)`, `ShowPopup(popupKey, textArg1, textArg2, data)`, `RequestFullLayout(preserveScale)`, `RefreshWorkspaceChrome()`, `RegisterDynamicChromeFrame(name)`, `GetReloadFunction()`, `GetControls()`
 
 Existing geometry services (`Core/MainhandGeometry.lua`): `GetMainhandFrame`,
@@ -211,6 +221,12 @@ keeps its own event refreshes, and offers its long report through
 `GetDebugDiagnostics` only. Like the core module it registers before Dialogue
 UI exists and waits for the vendor's `ADDON_LOADED`
 (`tests/dialogue-ui-compat.lua`).
+
+`Bridges/ConsolePort` is a data bridge: it registers through
+`Offhand.API.RegisterAddonData` on every client and supplies the roles
+`hud.controller`, `hud.actionBars`, `hud.statusBars` and `hud.editModeBlocker`
+(while the `ConsolePort` global exists), `report.actionBars` (order 40, loaded
+or global) and the `diagnosticFrame` name `ConsolePortCrosshair`.
 
 ## 7. Error isolation and tests
 

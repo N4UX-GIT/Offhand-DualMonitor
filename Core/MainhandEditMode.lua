@@ -11,6 +11,11 @@ local function IsEllesmereFallbackName(name)
     return name == fallbackBase or name:match("^Offhand HUD %- Blizzard %(%d+%)$") ~= nil
 end
 
+-- An external controller addon owns the protected controller HUD.
+local function HasExternalController()
+    return Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller") or false
+end
+
 local function ExternallyOwnedSystem(entry)
     return Offhand.HUDCompatibility and Offhand.HUDCompatibility.IsExternallyOwnedEditModeSystem
         and Offhand.HUDCompatibility.IsExternallyOwnedEditModeSystem(entry) or false
@@ -1366,7 +1371,7 @@ function Mainhand:IsNativeGamepadInterface()
 end
 
 function Mainhand:IsControllerLayout()
-    if _G.ConsolePort or NativeGamepadInterface() then return true end
+    if HasExternalController() or NativeGamepadInterface() then return true end
     -- Without the Gamepad enum, ControllerMode always returns false. Avoid
     -- copying every preset/system tree for a result the copies cannot change.
     if not (Enum and Enum.InputDeviceInterfaceType
@@ -1381,7 +1386,7 @@ function Mainhand:IsControllerLayout()
 end
 
 function Mainhand:CanCreateControllerLayout()
-    if _G.ConsolePort or not Offhand.isForever or not NativeGamepadInterface() then
+    if HasExternalController() or not Offhand.isForever or not NativeGamepadInterface() then
         return false
     end
     EnsureEditModeLoaded()
@@ -1397,7 +1402,7 @@ end
 -- transition. The return ticket is character-scoped and survives /reload.
 local selectingWindowLayout = false
 function Mainhand:UpdateWindowModeLayout(metrics)
-    if Offhand.isForever or Offhand.isLegacyWrath or _G.ConsolePort or NativeGamepadInterface()
+    if Offhand.isForever or Offhand.isLegacyWrath or HasExternalController() or NativeGamepadInterface()
         or type(OffhandCharDB) ~= "table" then return false, "unsupported" end
     local record = OffhandCharDB.mainhandLayout
     if type(record) ~= "table" or record.controllerLayout or record.activationPending
@@ -1547,10 +1552,10 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     if Offhand._displayGeometryTransitionActive then return false, "span" end
     local rect = self:GetRect()
     if not rect.isSpanned then return false, "span" end
-    -- ConsolePort remains the external owner of its protected controller HUD.
+    -- An external controller addon remains the owner of its protected HUD.
     -- Forever's native Gamepad interface can use a custom Edit Mode layout on
     -- current beta builds, but the built-in preset itself remains read-only.
-    if _G.ConsolePort then return false, "gamepad" end
+    if HasExternalController() then return false, "gamepad" end
     local nativeGamepadLayout = Offhand.isForever and NativeGamepadInterface()
     EnsureEditModeLoaded()
     if not C_EditMode or type(C_EditMode.GetLayouts) ~= "function" then
@@ -2278,7 +2283,7 @@ local function CharacterSetupLayoutContext(mainhand, expectedName, choices)
     if InCombatLockdown and InCombatLockdown() then return nil, "combat" end
     if not Offhand.db or not Offhand.db.enabled then return nil, "disabled" end
     if not mainhand:GetRect().isSpanned then return nil, "span" end
-    if _G.ConsolePort then return nil, "gamepad" end
+    if HasExternalController() then return nil, "gamepad" end
     if Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() then return nil, "input" end
     local manager = _G.EditModeManagerFrame
     if manager and ((manager.IsShown and manager:IsShown()) or manager.editModeActive) then return nil, "open" end

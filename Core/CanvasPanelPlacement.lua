@@ -8,7 +8,6 @@ local diagnosticPanelNames = {
     "DaylightUIBook", "ClassTrainerFrame", "DaylightUINpc",
     "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
     "WorldMapFrame", "ForeverXPBarMainFrame", "GameMenuFrame", "GamepadReticle",
-    "ConsolePortCrosshair",
 }
 
 local function IsPublic(value)
@@ -253,14 +252,20 @@ function Placement.InstallMainhand(Canvas, services)
         end
     end
 
-    -- Support snapshots read only these known roots. Protected anchors may
-    -- become secret in combat, even when the frame is still shown.
+    -- Support snapshots read only these known roots, then the addon frames
+    -- bridges name for diagnostics. Protected anchors may become secret in
+    -- combat, even when the frame is still shown.
     function Canvas:GetPanelPlacementDiagnostics()
         local reports = {}
         local readScale, parentScale = pcall(UIParent.GetEffectiveScale, UIParent)
         if not readScale then parentScale = nil end
         local db = Offhand.db or {}
-        for _, name in ipairs(diagnosticPanelNames) do
+        local names = {}
+        for index, name in ipairs(diagnosticPanelNames) do names[index] = name end
+        for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRuleNames("diagnosticFrame") or {}) do
+            names[#names + 1] = name
+        end
+        for _, name in ipairs(names) do
             local frame = _G[name]
             if frame then
                 local ok, detail = pcall(DescribePanelPlacement, frame, parentScale)

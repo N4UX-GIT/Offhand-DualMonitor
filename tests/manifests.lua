@@ -210,6 +210,7 @@ end
 local expectedAnchorBridges = {
     "Bridges/Shared/DefaultAnchors.lua",
     "Bridges/Beastfinder/Bridge.lua",
+    "Bridges/ConsolePort/Bridge.lua",
     "Bridges/DialogueUI/Bridge.lua",
     "Bridges/EasyFishing/Bridge.lua",
     "Bridges/ForeverLedger/Bridge.lua",

@@ -336,7 +336,9 @@ end
 
 local function AddonLoaded(name)
     local query = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
-    return type(query) == "function" and query(name) and true or false
+    if type(query) ~= "function" then return false end
+    local ok, loaded = pcall(query, name)
+    return ok and loaded and true or false
 end
 
 -- Detector: loaded="Folder", global="Name", present="Name" (loaded or a global
@@ -704,6 +706,12 @@ end
 
 function Offhand.API.IsGamepadUIEnabled()
     return type(Offhand.IsGamepadUIEnabled) == "function" and Offhand:IsGamepadUIEnabled() or false
+end
+
+-- An external controller addon owns the controller HUD (an owner of the
+-- "hud.controller" role is present), the same test core's controller sites use.
+function Offhand.API.IsControllerOwned()
+    return Bridges:HasRole("hud.controller")
 end
 
 function Offhand.API.IsNativeGamepadInterface()

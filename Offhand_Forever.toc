@@ -116,6 +116,7 @@ UI\EllesmereLayoutPreview.lua
 # Built-in Bridges
 Bridges\Shared\DefaultAnchors.lua
 Bridges\Beastfinder\Bridge.lua
+Bridges\ConsolePort\Bridge.lua
 Bridges\DialogueUI\Bridge.lua
 Bridges\EasyFishing\Bridge.lua
 Bridges\ForeverLedger\Bridge.lua

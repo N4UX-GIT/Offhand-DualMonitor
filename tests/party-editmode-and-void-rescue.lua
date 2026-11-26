@@ -457,6 +457,7 @@ assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
 canvasChunk("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua" })
 
 addon.HUD:HookFrames()
 

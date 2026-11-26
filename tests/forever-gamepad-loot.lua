@@ -39,6 +39,7 @@ local addon = { isForever = true, db = { enabled = true },
     MainhandGeometry = { Number = tonumber, IsPlayerCombatRestricted = function() return combat end },
     MainhandCompatibility = { IsNativeGamepadInterface = function() return gamepad end } }
 assert(loadfile("Core/MainhandGamepad.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua" })
 local function correct(expected, reason)
     local moved, status = addon.Mainhand:ConstrainForeverGamepadLoot()
     assert(moved == expected and (not reason or reason == status),

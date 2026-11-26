@@ -121,7 +121,8 @@ end
 -- when keepBagToggleOpen is toggled off.
 local bridgeBag = root(); bridgeBag.shown = true
 addon.BagPersistence = { frames = {} }
-addon.Bridges = { IsBagOnWorkspace = function(_, fn) return fn(bridgeBag) end }
+addon.Bridges = { IsBagOnWorkspace = function(_, fn) return fn(bridgeBag) end,
+    HasRole = function() return false end }
 ContainerFrameCombinedBags.shown = false
 ContainerFrame1.shown = false
 WorldMapFrame.shown = true; WorldMapFrame.workspace = true

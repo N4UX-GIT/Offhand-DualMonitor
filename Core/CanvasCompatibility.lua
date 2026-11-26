@@ -465,10 +465,13 @@ function Compatibility.GetActiveExternalOwners()
             actionBars[#actionBars + 1] = name
         end
     end
-    for _, candidate in ipairs({"Bartender4", "Dominos", "EllesmereUIActionBars", "ConsolePort"}) do
+    for _, candidate in ipairs({"Bartender4", "Dominos", "EllesmereUIActionBars"}) do
         if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
             AddAB(candidate)
         end
+    end
+    if Offhand.Bridges then
+        for _, name in ipairs(Offhand.Bridges:GetRoleOwners("report.actionBars")) do AddAB(name) end
     end
     if rawget(_G, "ElvUI_Bar1") ~= nil then AddAB("ElvUI") end
     if rawget(_G, "TukuiActionBars") ~= nil then AddAB("Tukui") end

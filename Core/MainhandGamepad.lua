@@ -7,6 +7,11 @@ local Number = Geometry.Number
 local IsPlayerCombatRestricted = Geometry.IsPlayerCombatRestricted
 local NativeGamepadInterface = Compatibility.IsNativeGamepadInterface
 
+-- An external controller addon owns the protected controller HUD.
+local function HasExternalController()
+    return Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller") or false
+end
+
 local gamepadMainMenuController
 local gamepadMainMenuFrame
 local gamepadMainMenuState = setmetatable({}, { __mode = "k" })
@@ -293,7 +298,7 @@ local function RestoreGamepadMainMenu(frame, state)
 end
 
 function Mainhand:CenterForeverGamepadMainMenu()
-    if not Offhand.isForever or _G.ConsolePort then return false, "unsupported" end
+    if not Offhand.isForever or HasExternalController() then return false, "unsupported" end
     local frame = FindGamepadMainMenuFrame()
     if not frame then return false, "not-found" end
     local state = CaptureGamepadMainMenuPoints(frame)
@@ -967,7 +972,7 @@ function Mainhand:CenterForeverGamepadDestinationPanels()
     -- explicitly returns to keyboard UI, but it must never keep Offhand's
     -- Gamepad-only panel anchors or drag handles active in that mode.
     local gamepad = NativeGamepadInterface()
-    local spanned = not _G.ConsolePort and Offhand.db and Offhand.db.enabled and self:GetRect().isSpanned
+    local spanned = not HasExternalController() and Offhand.db and Offhand.db.enabled and self:GetRect().isSpanned
     local active = spanned and gamepad
     local inCombat = IsPlayerCombatRestricted()
     local moved = 0
@@ -1081,7 +1086,7 @@ function Mainhand:CenterForeverGamepadReticle()
     local frame = _G.GamepadReticle
     if not frame then return ReticleResult(false, "unavailable") end
     if IsPlayerCombatRestricted() then return ReticleResult(false, "combat") end
-    local active = not _G.ConsolePort and Offhand.db and Offhand.db.enabled
+    local active = not HasExternalController() and Offhand.db and Offhand.db.enabled
         and NativeGamepadInterface() and self:GetRect().isSpanned
     if not active then
         return ReticleResult(RestoreDestinationPanel(frame, gamepadDestinationPanelState[frame], "GamepadReticle"))
@@ -1121,7 +1126,7 @@ function Mainhand:ConstrainForeverGamepadLoot()
         gamepadLootStatus = reason
         return moved, reason
     end
-    if not Offhand.isForever or _G.ConsolePort or not Offhand.db or not Offhand.db.enabled
+    if not Offhand.isForever or HasExternalController() or not Offhand.db or not Offhand.db.enabled
         or not NativeGamepadInterface() then return Result(false, "inactive") end
     if IsPlayerCombatRestricted() then return Result(false, "combat") end
     local rect = self:GetRect()
@@ -1281,7 +1286,7 @@ function Mainhand:EnableForeverGamepadMainMenuAdapter()
         -- panel opens or closes. Correct the layout on the next update.
         -- Hidden roots still stay under Blizzard's visibility control.
         local destinationsChanged = false
-        if stableGamepadMode and Offhand.db and Offhand.db.enabled and not _G.ConsolePort then
+        if stableGamepadMode and Offhand.db and Offhand.db.enabled and not HasExternalController() then
             for _, name in ipairs(gamepadDestinationPanelNames) do
                 local frame, shown = ResolveGamepadDestinationPanel(name)
                 local visible = shown and frame or nil

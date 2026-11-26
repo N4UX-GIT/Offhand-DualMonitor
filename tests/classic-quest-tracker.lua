@@ -29,6 +29,7 @@ local addon = { db = { enabled = true, seamRedirect = true }, Viewport = { GetMe
 local queue = {}
 addon.RunOrQueueCombat = function(_, callback) queue[#queue + 1] = callback end
 assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua" })
 local update = addon.MainhandCompatibility.UpdateClassicRightContainer
 assert(update and update(metrics), "classic managed quest tracker must follow Mainhand instead of the full-canvas top-right")
 assert(point[3] == "BOTTOMLEFT" and point[4] == 1945 and point[5] == 518,

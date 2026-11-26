@@ -65,6 +65,7 @@ local throws = RandomRoot('Fbbbbbbbbbbbbbbbb','Leatrix_Maps',{mt={},v={}})
 throws.GetSourceLocation=function() error('debug access unavailable') end
 assert(loadfile('Core/AddonWindowCatalog.lua'))('Offhand',addon)
 assert(loadfile('Core/CanvasAddonEscape.lua'))('Offhand',addon)
+dofile('tests/support/core-bridges.lua').Load(addon,{'Bridges/ConsolePort/Bridge.lua'})
 local adapter=addon.CanvasAddonEscape
 local journalPolicy=addon.AddonWindowCatalog.ForeverDungeonJournal.journal
 local workspaceClose=journalPolicy.close

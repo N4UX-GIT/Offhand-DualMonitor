@@ -42,7 +42,8 @@ end
 
 local function ControllerOwned()
     local compatibility = Offhand.MainhandCompatibility
-    return _G.ConsolePort ~= nil or (compatibility and compatibility.IsNativeGamepadInterface
+    return (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+        or (compatibility and compatibility.IsNativeGamepadInterface
         and compatibility.IsNativeGamepadInterface())
 end
 

@@ -796,7 +796,7 @@ function Transient.Install(HUD, services)
 
     -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
     -- center can be the upper-left corner of Mainhand in a mixed-height topology.
-    -- ConsolePort can make the stock menu protected through its secure ring.
+    -- An external controller addon can make the stock menu protected.
     -- Only repair the native center in that case, using the existing secure writer.
     local function PositionForeverGameMenu()
         if not UsesForeverEditMode() or InCombatLockdown()
@@ -840,7 +840,8 @@ function Transient.Install(HUD, services)
             if not ok then return false end
             if protected then
                 local native, eligible = pcall(function()
-                    if not _G.ConsolePort or frame:GetParent() ~= UIParent
+                    if not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+                        or frame:GetParent() ~= UIParent
                         or (frame.IsUserPlaced and frame:IsUserPlaced())
                         or frame:GetNumPoints() ~= 1 then return false end
                     local current = { frame:GetPoint(1) }

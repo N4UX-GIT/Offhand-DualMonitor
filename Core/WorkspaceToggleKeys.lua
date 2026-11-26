@@ -117,7 +117,8 @@ local function UpdateBindings()
     for action in pairs(verdicts) do verdicts[action] = nil end
     spanned = nil
     local db = Offhand.db
-    if db and db.enabled and (db.keepMapToggleOpen or db.keepBagToggleOpen) and not _G.ConsolePort
+    if db and db.enabled and (db.keepMapToggleOpen or db.keepBagToggleOpen)
+        and not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
         and not Offhand._displayGeometryTransitionActive and not Offhand._loggingOut
         and Offhand.Canvas and Offhand.Canvas.CanManagePanelsFromAddon()
         and not (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())

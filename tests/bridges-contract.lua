@@ -694,6 +694,46 @@ assert(supported.API.RegisterBridge("Kept", {contract = 1}) == true)
 assert(CoreBridges.Load(supported, {}) == supportBridges and supportBridges:Get("Kept"),
     "the support loader must keep an already loaded registry")
 
+-- A throwing IsAddOnLoaded counts as not loaded
+addon, Bridges = Load()
+addon.API.RegisterAddonData("Throwing", {ownership = {
+    {role = "t.loaded", name = "L", detect = {loaded = "Anything"}},
+    {role = "t.present", name = "P", detect = {present = "ThrowingGlobal"}},
+}})
+C_AddOns = {IsAddOnLoaded = function() error("addon query boom") end}
+assert(Bridges:HasRole("t.loaded") == false and Bridges:HasRole("t.present") == false,
+    "a throwing addon query must count as not loaded")
+_G.ThrowingGlobal = {}
+assert(Bridges:HasRole("t.present") == true, "present must still accept the global when the query throws")
+_G.ThrowingGlobal, C_AddOns = nil, nil
+
+-- IsControllerOwned and the ConsolePort data bridge
+addon, Bridges = Load()
+assert(addon.API.IsControllerOwned() == false, "no controller owner must mean not controller owned")
+CoreBridges.Load(addon, {"Bridges/ConsolePort/Bridge.lua"})
+assert(#Bridges:List() == 0, "the ConsolePort data bridge must not register a bridge object")
+local controllerRoles = {"hud.controller", "hud.actionBars", "hud.statusBars", "hud.editModeBlocker", "report.actionBars"}
+for _, role in ipairs(controllerRoles) do
+    assert(Bridges:HasRole(role) == false, role .. " must be absent without ConsolePort")
+end
+assert(addon.API.IsControllerOwned() == false, "ConsolePort data alone must not claim the controller")
+assert(table.concat(Bridges:GetRuleNames("diagnosticFrame"), ",") == "ConsolePortCrosshair",
+    "ConsolePort must name its crosshair for placement diagnostics")
+_G.ConsolePort = {}
+for _, role in ipairs(controllerRoles) do
+    assert(Bridges:HasRole(role) == true, role .. " must follow the ConsolePort global")
+end
+assert(addon.API.IsControllerOwned() == true, "IsControllerOwned must follow the hud.controller role")
+local controllerOwner, controllerEntry = Bridges:FirstRoleOwner("report.actionBars")
+assert(controllerOwner == "ConsolePort" and controllerEntry.order == 40,
+    "ConsolePort must report action bars at order 40")
+_G.ConsolePort = nil
+C_AddOns = {IsAddOnLoaded = function(name) return name == "ConsolePort" end}
+assert(Bridges:HasRole("report.actionBars") == true and Bridges:HasRole("hud.controller") == false
+    and addon.API.IsControllerOwned() == false,
+    "a loaded ConsolePort without its global must be reported but must not own the controller")
+C_AddOns = nil
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -712,6 +752,22 @@ for _, file in ipairs({
     handle:close()
     assert(not text:lower():find("daylight", 1, true), "bridged core module must not name DaylightUI: " .. file)
 end
+-- Core purity: no core, UI or module file names an addon whose facts moved to a bridge.
+local coreFiles = 0
+for line in io.lines("Offhand.toc") do
+    local file, folder = line:match("^%s*((%a+)\\.-%.lua)%s*$")
+    if folder == "Core" or folder == "UI" or folder == "Modules" then
+        file = file:gsub("\\", "/")
+        local handle = assert(io.open(file, "rb"), "missing " .. file)
+        local text = handle:read("*a")
+        handle:close()
+        coreFiles = coreFiles + 1
+        for _, token in ipairs({"ConsolePort"}) do
+            assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+        end
+    end
+end
+assert(coreFiles > 50, "the purity scan must read the manifest's core files")
 assert(io.open("Core/DaylightMapCompatibility.lua", "rb") == nil,
     "Core/DaylightMapCompatibility.lua must remain retired into Bridges/DaylightUI/Map.lua")
 

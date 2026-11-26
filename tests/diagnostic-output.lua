@@ -117,7 +117,8 @@ addon.Canvas = {
     GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
 -- Long per-bridge reports reach the debug mode through the bridge registry.
-addon.Bridges = addon.Bridges or { GetMapAddons = function() return {} end }
+addon.Bridges = addon.Bridges or { GetMapAddons = function() return {} end,
+    GetRoleOwners = function() return {}, {} end }
 local dialogueProbe = probe("dialogue", "animation")
 addon.Bridges.GetDebugDiagnostics = function()
     return { { label = "Dialogue UI", text = dialogueProbe() } }

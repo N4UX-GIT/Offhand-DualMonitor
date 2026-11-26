@@ -39,14 +39,16 @@ function Compatibility.IsAddonPresent(name)
 end
 
 function Compatibility.HasCustomActionBarAddon()
-    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
+    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui
+        or (Offhand.Bridges and Offhand.Bridges:HasRole("hud.actionBars")) then return true end
     if Compatibility.IsAddonPresent("EllesmereUIActionBars") then return true end
     local main = _G.MainMenuBar or _G.MainActionBar
     return not main
 end
 
 function Compatibility.HasCustomStatusBarAddon()
-    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
+    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui
+        or (Offhand.Bridges and Offhand.Bridges:HasRole("hud.statusBars")) then return true end
     if not Compatibility.IsAddonPresent("EllesmereUIActionBars") then return false end
     -- DataBars is a separate information-panel module, not the native XP/Rep
     -- replacement. ActionBars owns that replacement unless the player opts back

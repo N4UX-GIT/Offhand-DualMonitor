@@ -248,7 +248,8 @@ function Behavior:RefreshGamepadWorkspaceBack()
     local mainhand = Offhand.Mainhand
     local active = Offhand.db and Offhand.db.enabled
         and Offhand.db.persistentWorkspacePanels ~= false
-        and not _G.ConsolePort and mainhand and mainhand:IsNativeGamepadInterface()
+        and not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+        and mainhand and mainhand:IsNativeGamepadInterface()
         and mainhand:GetRect().isSpanned
         and not (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
     local panels = active and mainhand:GetShownForeverGamepadWorkspacePanels() or {}

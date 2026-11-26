@@ -63,7 +63,8 @@ function Recovery:Run()
     local actions = Enum and Enum.EditModeActionBarSystemIndices
     -- Native controller and replacement HUDs retain ownership of their systems.
     if systems and mainhand and mainhand.CreateOrUpdateEditModeLayout
-        and not _G.ConsolePort and not _G.ElvUI and not _G.Tukui
+        and not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.editModeBlocker"))
+        and not _G.ElvUI and not _G.Tukui
         and not (mainhand.IsControllerLayout and mainhand:IsControllerLayout())
         and not (_G.MoveAny or _G.MoveAnything) then
         local function Add(name, system, index, needsIndex, x, y, expected)

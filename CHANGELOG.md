@@ -9,6 +9,7 @@
 - Internal: the ForeverPlus warning bar handling moved from the core into a built-in bridge. Its behaviour is unchanged.
 - Internal: the DialogueUI handling moved from the core into a built-in bridge. Its behaviour is unchanged.
 - Internal: the bridge contract gained declarative addon data (ownership roles, frame rules, mover fields, catalogs, settings), map providers, settings contributions, slash commands and more core services, ready for addon handling to move from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the ConsolePort controller ownership checks moved from the core into built-in bridges. Behaviour is unchanged.
 
 ## [2.1.5-beta.42] - 2026-11-25
 
