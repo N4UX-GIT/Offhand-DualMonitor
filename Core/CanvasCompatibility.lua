@@ -94,14 +94,14 @@ function Compatibility.HasClassicUIForever()
     return Compatibility.IsAddonLoaded("ClassicUIForever")
 end
 
--- MoveMyBags moves Blizzard's native ContainerFrame windows directly and puts
--- any bag into permanent standby if another addon attaches OnDragStart first.
--- Yield drag, persistence, layout, and recovery for all native containers while
--- MoveMyBags is active while retaining dormant Offhand coordinates.
 function Compatibility.HasMoveMyBags()
     return Compatibility.IsAddonLoaded("MoveMyBags") or rawget(_G, "MoveMyBags") ~= nil
 end
 
+-- An addon that moves Blizzard's native ContainerFrame windows directly can
+-- need every native container left to it (rule yieldNativeContainer). Yield
+-- drag, persistence, layout, and recovery for those containers while retaining
+-- dormant Offhand coordinates.
 function Compatibility.ShouldYieldNativeContainer(frameOrName, suppliedName)
     local name = suppliedName
         or (type(frameOrName) == "string" and frameOrName)
@@ -110,8 +110,9 @@ function Compatibility.ShouldYieldNativeContainer(frameOrName, suppliedName)
     if name ~= "ContainerFrameCombinedBags" and not name:match("^ContainerFrame%d+$") then
         return false
     end
-    if Compatibility.HasMoveMyBags() then return true end
-    return type(frameOrName) == "table" and rawget(frameOrName, "moveMyBags") ~= nil
+    local bridges = Offhand.Bridges
+    return bridges ~= nil and bridges:MatchFrame("yieldNativeContainer",
+        type(frameOrName) == "table" and frameOrName or nil, name)
 end
 
 function Compatibility.IsForeverEllesmereBag(name)

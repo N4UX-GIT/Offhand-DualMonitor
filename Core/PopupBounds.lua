@@ -19,10 +19,11 @@ local function Active()
     return metrics and metrics.isSpanned and metrics or false
 end
 
+-- The first present owner of the bridges' tooltip.owner role: an addon that
+-- positions tooltips itself.
 local function ExternalTooltipOwner()
-    if _G.TipTac then return "TipTac" end
-    if _G.TinyTooltip then return "TinyTooltip" end
-    if _G.TinyTooltipReforged then return "TinyTooltipReforged" end
+    local bridges = Offhand.Bridges
+    if bridges then return (bridges:FirstRoleOwner("tooltip.owner")) end
 end
 
 local function Positionable(frame)

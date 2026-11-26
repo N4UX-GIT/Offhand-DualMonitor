@@ -174,31 +174,12 @@ function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
         end)
         if ok and owned then return true end
     end
-    -- These public roots are positioned by Ellesmere's player aura-bar module
-    -- and its unlock anchors. The generic popup pass must not compete with it.
-    return name == "EllesmereUIPlayerAuraBars_Buffs"
-        or name == "EllesmereUIPlayerAuraBars_Debuffs"
+    -- Vendor HUD roots the bridges name (rule externalHUD) are positioned by
+    -- their own addon and its unlock anchors. The generic popup pass must not
+    -- compete with it.
+    local bridges = Offhand.Bridges
+    return bridges ~= nil and bridges:MatchFrame("externalHUD", frame, name)
 end
-
-local positionedAddonPopupRoots = {
-    BetterBagsBagBackpack = true, BetterBagsBagBank = true,
-    BetterBagsBagBackpackAnchor = true, BetterBagsBagBankAnchor = true,
-    -- Next persists its own panel placement and deliberately clears the native
-    -- user-placed flag after dragging. It has no Classic anchor roots.
-    BetterBagsNextBackpack = true, BetterBagsNextBank = true,
-    BetterBagsNextVendor = true, BetterBagsNextGuildBank = true,
-    RXPFrame = true, RXPItemFrame = true,
-    -- This one-unit presentation anchor belongs to ProcDoc, including while
-    -- Offhand's optional Mainhand centering is off. Popup recovery must not
-    -- supply an offset that the centering adapter would then apply again.
-    ProcDocAlertFrame = true,
-    -- ForeverXPbar owns its saved UIParent point, even when that point looks
-    -- like a newly opened popup or falls in a gap between displays.
-    ForeverXPBarMainFrame = true,
-    -- Questie owns TrackerLocation and its Ctrl-drag/lock behavior. Its reset
-    -- anchor deliberately uses screen center and need not be IsUserPlaced.
-    Questie_BaseFrame = true,
-}
 
 local linkedChatPopupRoots = {
     -- Social and Quick Join are two states of the same native button. The
@@ -215,10 +196,11 @@ local function IsOrdinaryPopupValue(value)
     return ok and secret == false
 end
 
-function Compatibility.GetRestedXPGuideFrame()
-    -- V2 exposes an AceGUI widget whose actual UIParent child is anonymous.
-    local guide = _G.RXPV2GuideWindow
-    if type(guide) == "table" then return rawget(guide, "frame") end
+-- An addon window whose actual UIParent child is anonymous, reached through a
+-- named widget (rule recoverableGuide): returns the frame and the widget's name.
+function Compatibility.GetPreservedAnonymousRoot()
+    local bridges = Offhand.Bridges
+    if bridges then return bridges:GetRuleWidget("recoverableGuide") end
 end
 
 -- Only automatic popup redirection yields here. Explicit workspace movement
@@ -237,28 +219,12 @@ function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
     if not IsOrdinaryPopupValue(name) then return true end
     local addonEscape = Offhand.CanvasAddonEscape
     if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
-    if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
+    -- Addon windows whose vendor saves or derives the position itself, even
+    -- when it looks like a newly opened popup or leaves IsUserPlaced false
+    -- (rule preservePopup, named by the bridges).
+    local bridges = Offhand.Bridges
+    if bridges and bridges:MatchFrame("preservePopup", frame, name) then return true end
     if type(name) == "string" and linkedChatPopupRoots[name] then return true end
-    -- Titan's full-width bars derive their size from two anchors. Popup
-    -- recovery collapses that rectangle if it replaces them with one point.
-    local titanBars = _G.TitanBarData
-    if type(titanBars) == "table" and type(name) == "string" and _G[name] == frame then
-        local bar = titanBars[name]
-        if type(bar) == "table" and bar.frame_name == name then return true end
-    end
-    -- Details owns each numbered meter through its instance/LibWindow store.
-    -- Its drag completion clears IsUserPlaced; configuration dialogs are separate.
-    if type(name) == "string" and name:match("^DetailsBaseFrame%d+$") then return true end
-    -- Baganator owns the backpack anchor and also clears IsUserPlaced on drag.
-    local bags = Offhand.BagPersistence
-    if bags and bags.IsBaganatorBackpackRoot and bags.IsBaganatorBackpackRoot(frame, name) then return true end
-    -- MoveMyBags owns native ContainerFrame placement and leaves IsUserPlaced false.
-    if frame.moveMyBags ~= nil
-        or (Compatibility.HasMoveMyBags() and type(name) == "string"
-            and (name == "ContainerFrameCombinedBags" or name:match("^ContainerFrame%d+$") ~= nil)) then
-        return true
-    end
-    if Compatibility.GetRestedXPGuideFrame() == frame then return true end
     if allowUserPlaced then return false end
     local learned = Offhand.LearnedAddonWindows
     if learned and learned:OwnsPosition(frame, name) then return true end

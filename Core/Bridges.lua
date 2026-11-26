@@ -636,12 +636,36 @@ function Bridges:GetRuleNames(ruleName)
     return copy
 end
 
+-- The frame the rule's first resolving widget matcher holds now (an anonymous
+-- root reached through a named holder), and that holder's global name, or
+-- nil. Qualifiers are not evaluated.
+function Bridges:GetRuleWidget(ruleName)
+    for _, compiled in ipairs(rules[ruleName] and rules[ruleName].list or {}) do
+        local widget = compiled.matcher.widget
+        if type(widget) == "table" then
+            local holder = _G[widget[1]]
+            local frame = type(holder) == "table" and rawget(holder, widget[2]) or nil
+            if frame ~= nil then return frame, widget[1] end
+        end
+    end
+end
+
 -- True when an external mover marks the frame movable (a field equal to
 -- true) or moving (a set field). Plain field reads, no pcall: hot path.
 function Bridges.IsExternallyMovable(frame)
     if not frame then return false end
     for index = 1, #movableFields do
         if frame[movableFields[index]] == true then return true end
+    end
+    return false
+end
+
+-- The looser form some callers have always used: the movable mark is set to
+-- anything truthy.
+function Bridges.HasExternalMoverMark(frame)
+    if not frame then return false end
+    for index = 1, #movableFields do
+        if frame[movableFields[index]] then return true end
     end
     return false
 end

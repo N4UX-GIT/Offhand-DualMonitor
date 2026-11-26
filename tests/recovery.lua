@@ -7,6 +7,7 @@ local metrics = {isSpanned=true,gameLeft=1000,gameRight=2000,gameBottom=0,gameTo
     workspaceLeft=0,workspaceRight=1000,workspaceBottom=0,workspaceTop=1200}
 addon.Viewport = {GetMetrics=function() return metrics end}
 assert(loadfile('Core/HUDCompatibility.lua'))('Offhand',addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/RestedXP/Bridge.lua" })
 assert(loadfile('Core/Recovery.lua'))('Offhand',addon)
 assert(loadfile('Core/CanvasPanelRegistry.lua'))('Offhand',addon)
 local function frame(name,x,y,w,h,shown)

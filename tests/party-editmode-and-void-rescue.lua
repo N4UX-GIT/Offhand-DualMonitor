@@ -457,7 +457,7 @@ assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
 canvasChunk("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua" })
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/BetterBags/Data.lua", "Bridges/ConsolePort/Bridge.lua", "Bridges/Details/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua", "Bridges/ForeverXPBar/Bridge.lua", "Bridges/OneForAll/Data.lua", "Bridges/ProcDoc/Data.lua", "Bridges/Questie/Rules.lua", "Bridges/RestedXP/Bridge.lua", "Bridges/Titan/Bridge.lua" })
 
 addon.HUD:HookFrames()
 
@@ -2229,7 +2229,7 @@ do
     local points = #map.points
     addon.Bridges = {ShouldPreserveSingleScreenPosition=function(_,frame,metrics)
         return frame == map and not metrics.isSpanned
-    end, HasRole=function() return false end}
+    end, HasRole=function() return false end, MatchFrame=function() return false end}
     assert(not addon.Canvas:PlaceForSingleScreenRecovery(map,
         {topologyStatus="MISMATCH",isSpanned=false}) and #map.points == points,
         "single-screen recovery must not replace a bridged addon's restored anchor")

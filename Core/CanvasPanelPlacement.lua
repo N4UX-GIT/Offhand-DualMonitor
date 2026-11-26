@@ -7,7 +7,7 @@ local diagnosticPanelNames = {
     "CharacterFrame", "SkillFrame", "PlayerSpellsFrame", "SpellBookFrame",
     "DaylightUIBook", "ClassTrainerFrame", "DaylightUINpc",
     "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
-    "WorldMapFrame", "ForeverXPBarMainFrame", "GameMenuFrame", "GamepadReticle",
+    "WorldMapFrame", "GameMenuFrame", "GamepadReticle",
 }
 
 local function IsPublic(value)
@@ -50,15 +50,17 @@ local function DescribePanelPlacement(frame, parentScale)
         IsPublicNumber(scale) and string.format("%.3f", scale) or "unavailable")
 end
 
-local function DescribeForeverXPBarSave()
-    local db = _G.ForeverXPBarDB
-    if type(db) ~= "table" then return "unavailable" end
-    local point, relativePoint, x, y = db.point, db.relPoint, db.x, db.y
-    if not IsPublic(point) or not IsPublic(relativePoint) or type(point) ~= "string"
-        or type(relativePoint) ~= "string" or not IsPublicNumber(x) or not IsPublicNumber(y) then
-        return "unavailable"
+-- Owner-saved anchors the bridges report beside a diagnostic root (slot
+-- panelPlacement, segments naming that root's frame): " | label=value".
+local function DescribeOwnerAnchors(name)
+    local text = ""
+    for _, segment in ipairs(Offhand.Bridges and Offhand.Bridges:GetDiagnosticSegments("panelPlacement") or {}) do
+        if segment.frame == name and type(segment.value) == "function" then
+            local ok, value = pcall(segment.value)
+            text = text .. " | " .. segment.label .. "=" .. (ok and type(value) == "string" and value or "unavailable")
+        end
     end
-    return string.format("%s/%s/%.1f/%.1f", point, relativePoint, x, y)
+    return text
 end
 
 -- Keep the native panel manager's secure placement path in combat. These
@@ -245,10 +247,12 @@ function Placement.InstallMainhand(Canvas, services)
         end
         return true
     end
-    local function GetRestedXPGuideFrame()
+    -- An addon root that is anonymous but reachable through a named widget,
+    -- and that widget's name.
+    local function GetPreservedAnonymousRoot()
         local compatibility = Offhand.HUDCompatibility
-        if compatibility and compatibility.GetRestedXPGuideFrame then
-            return compatibility.GetRestedXPGuideFrame()
+        if compatibility and compatibility.GetPreservedAnonymousRoot then
+            return compatibility.GetPreservedAnonymousRoot()
         end
     end
 
@@ -273,9 +277,8 @@ function Placement.InstallMainhand(Canvas, services)
                 if detail then
                     local saved = db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "workspace"
                         or db.savedMainPositions and db.savedMainPositions[name] and "mainhand" or "none"
-                    local ownerAnchor = name == "ForeverXPBarMainFrame"
-                        and " | ForeverXPBarSave=" .. DescribeForeverXPBarSave() or ""
-                    reports[#reports + 1] = name .. " | " .. detail .. " | saved=" .. saved .. ownerAnchor
+                    reports[#reports + 1] = name .. " | " .. detail .. " | saved=" .. saved
+                        .. DescribeOwnerAnchors(name)
                 end
             end
         end
@@ -301,7 +304,7 @@ function Placement.InstallMainhand(Canvas, services)
         if foreverMap and ((self.CanManagePanelsFromAddon and not self.CanManagePanelsFromAddon())
             or (Offhand.CanvasFrameState and Offhand.CanvasFrameState.IsDragging(frame))) then return false end
         local name = frame.GetName and frame:GetName()
-        local recoverRestedXP = recoveryAction and not name and frame == GetRestedXPGuideFrame()
+        local recoverAnonymousRoot = recoveryAction and not name and frame == GetPreservedAnonymousRoot()
         local addonEscape = Offhand.CanvasAddonEscape
         local vendorGameplay = addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)
         if vendorGameplay then
@@ -328,7 +331,7 @@ function Placement.InstallMainhand(Canvas, services)
                 or IsForeverSocialPositionRoot(frame, name)
         )
         local isFullScreen = services.IsFullScreenUIPanel and services.IsFullScreenUIPanel(frame, name)
-        if not (name or recoverRestedXP) or isFullScreen
+        if not (name or recoverAnonymousRoot) or isFullScreen
             or (nonMovableSystemPanels and nonMovableSystemPanels[name])
             or IsForeverEditModeFrame(frame, name)
             or (IsUnsafeForPanelMutation(frame, name) and not recoverySafePanel) then return false end
@@ -490,7 +493,8 @@ function Placement.InstallMainhand(Canvas, services)
                 candidates[frame] = true
             end
         end
-        local restedXPGuide = missingOnly and GetRestedXPGuideFrame()
+        local anonymousRoot, anonymousRootName
+        if missingOnly then anonymousRoot, anonymousRootName = GetPreservedAnonymousRoot() end
         if onlyFrame then
             Add(onlyFrame)
         else
@@ -511,7 +515,7 @@ function Placement.InstallMainhand(Canvas, services)
             Add(_G.CharacterFrame)
             Add(_G.ContainerFrameCombinedBags)
             Add(_G.ContainerFrame1)
-            Add(restedXPGuide)
+            Add(anonymousRoot)
         end
 
         local moved, skipped = 0, 0
@@ -528,10 +532,10 @@ function Placement.InstallMainhand(Canvas, services)
                 local frameOnWorkspace = frameShown and IsFrameOnWorkspace(frame) or false
                 return frameName, frameShown, frameTracked, frameOnWorkspace
             end)
-            local isRestedXPGuide = frame == restedXPGuide
+            local isAnonymousRoot = frame == anonymousRoot
             local recover = shown and (tracked or onWorkspace)
             local reopen = false
-            if missingOnly and inspected and (name or isRestedXPGuide) and Offhand.Recovery then
+            if missingOnly and inspected and (name or isAnonymousRoot) and Offhand.Recovery then
                 local state = Offhand.Recovery.Inspect(frame, metrics)
                 local registry = Offhand.CanvasPanelRegistry
                 reopen = not onlyFrame and state == "hidden" and tracked and Offhand.db.openWorkspacePanels[name] == true
@@ -548,7 +552,7 @@ function Placement.InstallMainhand(Canvas, services)
                 end
                 recover = state == "missing" or reopen
             end
-            local reportName = name or (isRestedXPGuide and "RXPV2GuideWindow")
+            local reportName = name or (isAnonymousRoot and anonymousRootName)
             if inspected and recover and reportName
                 and frame ~= UIParent and frame ~= WorldFrame and frame ~= Offhand.canvas
                 and not IsForeverEditModeFrame(frame, name)
@@ -568,8 +572,8 @@ function Placement.InstallMainhand(Canvas, services)
                     self.lastGatherReport[#self.lastGatherReport + 1] = reportName .. "=moved"
                     moved = moved + 1
                 end
-                -- RestedXP saves its own anchor on logout/reload. Don's guide
-                -- and arrow also keep their own anchors and drag handlers.
+                -- Vendor gameplay windows (guides, arrows) save their own anchors
+                -- on logout/reload and keep their own drag handlers.
                 local addonEscape = Offhand.CanvasAddonEscape
                 if placed and name and not (addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)) then
                     Offhand.db.savedWorkspacePositions[name] = nil

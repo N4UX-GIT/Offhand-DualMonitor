@@ -51,6 +51,7 @@ GameTooltip = {
     SetPoint = function() error("native tooltip anchor changed") end,
 }
 assert(loadfile("Core/PopupBounds.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/TinyTooltip/Bridge.lua", "Bridges/TinyTooltipReforged/Bridge.lua", "Bridges/TipTac/Bridge.lua" })
 addon.PopupBounds:ObserveTooltip(GameTooltip)
 -- Include Init's actual normalization callbacks. Native SetScale can invoke
 -- OnSizeChanged before the fitting call has stored its final ownership record.

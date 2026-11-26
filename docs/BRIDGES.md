@@ -78,7 +78,7 @@ only after the declarative part passed; a throw counts as false and is
 recorded in `Offhand.Bridges.errors[addon]`. Both must return a literal `true`.
 
 A *detector* is a table whose given fields must all pass: `loaded="Folder"`
-(IsAddOnLoaded; a throwing query counts as not loaded), `global="Name"` (`_G[Name] ~= nil`), `present="Name"` (either),
+(IsAddOnLoaded, called directly), `global="Name"` (`_G[Name] ~= nil`), `present="Name"` (either),
 `anyOf={detector, ...}`, `forever=true` (Forever client), `active=function()`.
 No detector means present.
 
@@ -94,12 +94,12 @@ compile into one set.
 | Key | Shape | Read by |
 | --- | --- | --- |
 | `ownership` | Array of `{ role, name, order, detect, ... }`, sorted by `(order, registration)`, unordered last | `Bridges:HasRole(role)`, `Bridges:GetRoleOwners(role)` (names, entries), `Bridges:FirstRoleOwner(role)` (name, entry), `Bridges:GetRoleEntries(role)` (every entry, present or not) |
-| `frameRules` | `{ [rule] = { matcher, ... } }` | `Bridges:MatchFrame(rule, frame, name)`, `Bridges:MatchName(rule, name)`, `Bridges:GetRuleNames(rule)` (literal names, qualifiers not evaluated) |
+| `frameRules` | `{ [rule] = { matcher, ... } }` | `Bridges:MatchFrame(rule, frame, name)`, `Bridges:MatchName(rule, name)`, `Bridges:GetRuleNames(rule)` (literal names, qualifiers not evaluated), `Bridges:GetRuleWidget(rule)` (the frame the first resolving `widget` matcher holds and that holder's global name, qualifiers not evaluated) |
 | `moverFields` | `{ movable = { "field" }, moving = { "field" } }` | `Bridges.IsExternallyMovable(frame)` (a field `== true`), `Bridges.IsExternallyMoving(frame)` (a field set) |
 | `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` |
 | `settings` | `{ [key] = { store = "profile" or "character", legacyKey, default, resetOnCharacterChange } }` | `Offhand.API.Get/SetBridgeSetting`, `Get/SetBridgeCharacterSetting`, `Bridges:GetSettingDefaults()`, `Bridges:GetCharacterResetKeys()` |
 | `guidance` | Array of `{ id, order, addon, when = { [ownersList] = name }, key, fallback, args = 2, suffixWhen = detector, suffixKey, suffixFallback }`, sorted like ownership | `Bridges:GetGuidanceEntries()` (entries, and per entry whether `suffixWhen` passes); `CanvasCompatibility.GetExternalControlGuidance` shows an entry when a `when` name is in that list of `GetActiveExternalOwners()`, as `L[key] or fallback`, formatted with `addon` twice when `args = 2`, plus `" " .. (L[suffixKey] or suffixFallback)` |
-| `diagnostics` | Array of `{ slot, order, label, present = "Folder" }` or `{ slot, order, label, value = function() }`, sorted like ownership | `Bridges:GetDiagnosticSegments(slot)`; slot `minimap`: `label:yes/no` (present) or `label:value` in the minimap visibility report; slot `chat`: present labels joined as `ChatProviders=` |
+| `diagnostics` | Array of `{ slot, order, label, present = "Folder" }` or `{ slot, order, label, value = function() }`, sorted like ownership | `Bridges:GetDiagnosticSegments(slot)`; slot `minimap`: `label:yes/no` (present) or `label:value` in the minimap visibility report; slot `chat`: present labels joined as `ChatProviders=`; slot `panelPlacement` (entries also carry `frame = "GlobalName"`): ` | label=value` appended to that root's panel placement diagnostics line (`unavailable` when the value fails or is not a string) |
 
 Roles and rules core reads:
 
@@ -115,6 +115,13 @@ Roles and rules core reads:
 | `report.actionBars`, `report.unitFrames`, `report.chat`, `report.movers` | Owner lists of `CanvasCompatibility.GetActiveExternalOwners()`, in role order, each name once |
 | `report.minimap` | The compatibility report's minimap owner (first present owner) |
 | rule `diagnosticFrame` | Extra roots in the panel placement diagnostics, after core's own |
+| `tooltip.owner` | `PopupBounds`: the first present owner positions tooltips itself, so Offhand's tooltip fitting yields and the diagnostics name it |
+| rule `preservePopup` | `HUDCompatibility.ShouldPreservePopupPosition`: automatic popup recovery leaves a matched frame where its addon put it, before the user-placed test |
+| rule `externalHUD` | `HUDCompatibility.IsExternallyOwnedHUDFrame`: a matched frame is vendor HUD the generic popup and workspace passes leave alone |
+| rule `menuFrame` | Menus centred on Mainhand like the Blizzard menus, after the Blizzard names |
+| rule `yieldNativeContainer` | `CanvasCompatibility.ShouldYieldNativeContainer`: for a native container name (`ContainerFrameCombinedBags`, `ContainerFrame<n>`), a match yields its drag, persistence, layout and recovery |
+| rule `recoverableGuide` | `HUDCompatibility.GetPreservedAnonymousRoot()` (`GetRuleWidget`): an anonymous addon root that missing-window recovery may bring back, reported under its widget's name |
+| `moverFields` | Panel anchor repair, workspace repair and the Forever Game Menu placement: a movable frame's TOPLEFT/UIParent/BOTTOMLEFT write is repaired before render; a moving frame is never repaired |
 
 Settings live under the same key as before (`legacyKey`, else `key`) in
 Offhand's profile settings or `OffhandCharDB`, so nothing migrates. A read of an
@@ -241,6 +248,16 @@ addon: `Bartender4`, `BlizzMove`, `Carbonite`, `Cell`, `Chattynator`,
 `SexyMap`, `ShadowedUnitFrames`, `Tukui`, `XPerl` and `ZPerl`. Each file's
 header lists its roles, orders, guidance and diagnostic segments; the orders
 reproduce the lists core used to hold (`tests/bridges-contract.lua` pins them).
+
+Popup roots, frame-name rules, tooltip owners and mover fields come from data
+bridges of the same kind: `Baganator`, `BetterBags`, `Details`, `ForeverXPBar`,
+`MoveMyBags`, `ProcDoc`, `Questie` (`Rules.lua`, beside its Forever-only
+bridge), `RestedXP` and `Titan` (`preservePopup`), `EllesmereUI`
+(`externalHUD`), `BugSack` and `RedIsFriend` (`menuFrame`), `MoveMyBags`
+(`yieldNativeContainer`), `RestedXP` (`recoverableGuide`), `ForeverXPBar`
+(`diagnosticFrame` and a `panelPlacement` segment), `TipTac`, `TinyTooltip`
+and `TinyTooltipReforged` (`tooltip.owner`, orders 10 to 30) and `OneForAll`
+(`moverFields`).
 
 ## 7. Error isolation and tests
 

@@ -106,6 +106,7 @@ TooltipComparisonManager = {
 }
 
 assert(loadfile("Core/PopupBounds.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/TinyTooltip/Bridge.lua", "Bridges/TinyTooltipReforged/Bridge.lua", "Bridges/TipTac/Bridge.lua" })
 addon.PopupBounds:Initialize()
 
 -- SetOwner occurs before Retail shows and sizes an item tooltip. Direction

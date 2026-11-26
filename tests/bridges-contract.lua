@@ -900,6 +900,130 @@ do
     SetHUDOwners(false)
 end
 
+-- GetRuleWidget resolves the first widget matcher holding a frame, without qualifiers.
+addon, Bridges = Load()
+local heldFrame = {}
+addon.API.RegisterAddonData("Widgets", {frameRules = {held = {
+    "NamedOnly",
+    {widget = {"EmptyHolder", "frame"}},
+    {widget = {"FullHolder", "frame"}, when = {global = "NeverSetGlobal"}},
+}}})
+assert(Bridges:GetRuleWidget("held") == nil and Bridges:GetRuleWidget("missing") == nil,
+    "no holder must mean no widget frame")
+_G.EmptyHolder = setmetatable({}, {__index = function() return heldFrame end})
+_G.FullHolder = {frame = heldFrame}
+local heldWidget, heldName = Bridges:GetRuleWidget("held")
+assert(heldWidget == heldFrame and heldName == "FullHolder",
+    "the first holder with its own field must give the frame and the holder's name")
+_G.EmptyHolder, _G.FullHolder = nil, nil
+
+-- Popup roots, frame-name rules, tooltip owners and mover fields reproduce the core checks they replace.
+local ruleBridgeFiles = {}
+for _, path in ipairs({"Baganator/Data", "BetterBags/Data", "BugSack/Bridge", "Details/Bridge", "EllesmereUI/Bridge",
+    "ForeverXPBar/Bridge", "MoveMyBags/Bridge", "OneForAll/Data", "ProcDoc/Data", "Questie/Rules",
+    "RedIsFriend/Bridge", "RestedXP/Bridge", "TinyTooltip/Bridge", "TinyTooltipReforged/Bridge", "TipTac/Bridge",
+    "Titan/Bridge"}) do
+    ruleBridgeFiles[#ruleBridgeFiles + 1] = "Bridges/" .. path .. ".lua"
+end
+do
+    local rules = {AddonWindowCatalog = {}}
+    WorldMapFrame = {}
+    assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", rules)
+    assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", rules)
+    local hud, canvas = rules.HUDCompatibility, rules.CanvasCompatibility
+    local anonymous = {}
+    assert(hud.ShouldPreservePopupPosition(anonymous, "BetterBagsBagBank", true) == false
+        and hud.IsExternallyOwnedHUDFrame(anonymous, "EllesmereUIPlayerAuraBars_Buffs") == false
+        and hud.GetPreservedAnonymousRoot() == nil
+        and canvas.ShouldYieldNativeContainer({moveMyBags = 1}, "ContainerFrame1") == false,
+        "without the registry no addon rule may match")
+    local registry = CoreBridges.Load(rules, ruleBridgeFiles)
+    assert(#registry:List() == 0, "the rule data bridges must not register bridge objects")
+    -- allowUserPlaced stops ShouldPreservePopupPosition right after the rules.
+    local function Preserves(frame, name) return hud.ShouldPreservePopupPosition(frame, name, true) end
+    for _, name in ipairs({"BetterBagsBagBackpack", "BetterBagsBagBank", "BetterBagsBagBackpackAnchor",
+        "BetterBagsBagBankAnchor", "BetterBagsNextBackpack", "BetterBagsNextBank", "BetterBagsNextVendor",
+        "BetterBagsNextGuildBank", "RXPFrame", "RXPItemFrame", "ProcDocAlertFrame", "ForeverXPBarMainFrame",
+        "Questie_BaseFrame", "ChatAlertFrame", "DetailsBaseFrame1", "DetailsBaseFrame12"}) do
+        assert(Preserves({}, name) == true, "popup recovery must preserve the addon-owned root " .. name)
+    end
+    for _, name in ipairs({"DetailsBaseFrameSettings", "OtherDetailsBaseFrame1", "BetterBagsBagBankX",
+        "UnrelatedFrame", "ContainerFrame3", "ContainerFrameCombinedBags", "Baganator_SingleViewBackpackViewFrame"}) do
+        assert(Preserves({}, name) == false, "popup recovery must not preserve " .. name)
+    end
+    assert(Preserves(anonymous, nil) == false, "an anonymous frame without owner marks must not be preserved")
+    local bar, impostor = {}, {}
+    _G.TitanBar = bar
+    _G.TitanBarData = {TitanBar = {frame_name = "TitanBar"}}
+    assert(Preserves(bar, "TitanBar") == true and Preserves(impostor, "TitanBar") == false,
+        "a Titan bar must be the global frame its store entry names")
+    _G.TitanBarData.TitanBar.frame_name = "Other"
+    assert(Preserves(bar, "TitanBar") == false, "a Titan store entry naming another frame must not match")
+    _G.TitanBar, _G.TitanBarData = nil, nil
+    assert(Preserves(bar, "TitanBar") == false, "without TitanBarData no bar must be preserved")
+    local root, child = {}, {}
+    function root:GetParent() return UIParent end
+    function child:GetParent() return root end
+    assert(Preserves(root, "Baganator_SingleViewBackpackViewFrameblizzard") == true
+        and Preserves(root, "Baganator_CategoryViewBackpackViewFrameblizzard") == true
+        and Preserves(child, "Baganator_SingleViewBackpackViewFrameblizzardTitle") == false,
+        "only Baganator backpack roots parented to UIParent must be preserved")
+    assert(Preserves({moveMyBags = "attached"}, nil) == true and Preserves({moveMyBags = false}, "Any") == true,
+        "a container marked by MoveMyBags must be preserved, even anonymous")
+    _G.MoveMyBags = {}
+    assert(Preserves({}, "ContainerFrame6") == true and Preserves({}, "ContainerFrameCombinedBags") == true
+        and Preserves({}, "ContainerFrameX") == false and Preserves({}, "BagContainerFrame1") == false,
+        "every native container must be preserved while MoveMyBags is present")
+    assert(canvas.ShouldYieldNativeContainer("ContainerFrame2") == true
+        and canvas.ShouldYieldNativeContainer({}, "ContainerFrameCombinedBags") == true
+        and canvas.ShouldYieldNativeContainer({}, "BankFrame") == false,
+        "native containers must yield while MoveMyBags is present")
+    _G.MoveMyBags = nil
+    assert(canvas.ShouldYieldNativeContainer("ContainerFrame2") == false
+        and canvas.ShouldYieldNativeContainer({}, "ContainerFrame2") == false
+        and canvas.ShouldYieldNativeContainer({moveMyBags = 1}, "ContainerFrame2") == true
+        and canvas.ShouldYieldNativeContainer({moveMyBags = 1}, "BankFrame") == false,
+        "without MoveMyBags only a marked native container must yield")
+    local guide = {}
+    assert(Preserves(guide, nil) == false and hud.GetPreservedAnonymousRoot() == nil,
+        "no RestedXP V2 widget must mean no preserved anonymous root")
+    _G.RXPV2GuideWindow = {frame = guide}
+    local preservedRoot, preservedName = hud.GetPreservedAnonymousRoot()
+    assert(Preserves(guide, nil) == true and Preserves({}, nil) == false
+        and preservedRoot == guide and preservedName == "RXPV2GuideWindow",
+        "the RestedXP V2 guide frame must be preserved and recoverable under its widget's name")
+    _G.RXPV2GuideWindow = nil
+    assert(hud.IsExternallyOwnedHUDFrame({}, "EllesmereUIPlayerAuraBars_Buffs") == true
+        and hud.IsExternallyOwnedHUDFrame({}, "EllesmereUIPlayerAuraBars_Debuffs") == true
+        and hud.IsExternallyOwnedHUDFrame({}, "EllesmereUIPlayerAuraBars_Other") == false
+        and hud.IsExternallyOwnedHUDFrame({}, nil) == false,
+        "only the Ellesmere aura bar roots must count as externally owned HUD")
+    assert(table.concat(registry:GetRuleNames("menuFrame"), ",") == "BugSackFrame,RedIsFriendFrame",
+        "addon menus must keep the legacy order after the Blizzard names")
+    assert(registry:FirstRoleOwner("tooltip.owner") == nil, "no tooltip owner without a tooltip addon")
+    _G.TinyTooltipReforged = {}
+    assert(registry:FirstRoleOwner("tooltip.owner") == "TinyTooltipReforged", "TinyTooltipReforged alone owns tooltips")
+    _G.TinyTooltip = {}
+    assert(registry:FirstRoleOwner("tooltip.owner") == "TinyTooltip", "TinyTooltip must win over TinyTooltipReforged")
+    _G.TipTac = {}
+    assert(registry:FirstRoleOwner("tooltip.owner") == "TipTac", "TipTac must win over both TinyTooltips")
+    _G.TipTac, _G.TinyTooltip, _G.TinyTooltipReforged = nil, nil, nil
+    assert(registry.IsExternallyMovable({ofaMovable = true}) and not registry.IsExternallyMovable({ofaMovable = 1})
+        and not registry.IsExternallyMovable({}) and registry.IsExternallyMoving({ofaMoving = 1})
+        and not registry.IsExternallyMoving({ofaMovable = true}),
+        "OneForAll's movable and moving marks must be the mover fields")
+    assert(table.concat(registry:GetRuleNames("diagnosticFrame"), ",") == "ForeverXPBarMainFrame",
+        "ForeverXPbar must name its bar for the panel placement diagnostics")
+    local segments = registry:GetDiagnosticSegments("panelPlacement")
+    assert(#segments == 1 and segments[1].frame == "ForeverXPBarMainFrame" and segments[1].label == "ForeverXPBarSave"
+        and segments[1].value() == "unavailable", "an unsaved XP bar must report its save as unavailable")
+    ForeverXPBarDB = {point = "CENTER", relPoint = "CENTER", x = 40, y = 50}
+    assert(segments[1].value() == "CENTER/CENTER/40.0/50.0", "the XP bar save must read point/relPoint/x/y")
+    ForeverXPBarDB = {point = "CENTER", relPoint = "CENTER", x = "40", y = 50}
+    assert(segments[1].value() == "unavailable", "a malformed XP bar save must report unavailable")
+    ForeverXPBarDB, WorldMapFrame = nil, nil
+end
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -931,13 +1055,25 @@ for line in io.lines("Offhand.toc") do
         for _, token in ipairs({"ConsolePort", "Bartender4", "Dominos", "SexyMap", "Carbonite",
             "ShadowedUnitFrames", "ShadowUF", "PitBull4", "ZPerl", "XPerl", "Chattynator", "ElvUF", "ElvUI_Bar1",
             "TukuiPlayerFrame", "TukuiUnitFrames", "TukuiActionBars", "MoveMyBagsDB", "EllesmereUIRaidFrames",
-            "EllesmereUIChat", "EllesmereUIQuestTracker", "COMPAT_GUIDE", "COMPAT_ELLESMERE_PARTY"}) do
+            "EllesmereUIChat", "EllesmereUIQuestTracker", "COMPAT_GUIDE", "COMPAT_ELLESMERE_PARTY",
+            "Titan", "DetailsBaseFrame", "ForeverXPBar", "BugSack", "RedIsFriend", "TipTac", "TinyTooltip",
+            "RXPV2", "RestedXP", "Questie_BaseFrame", "EllesmereUIPlayerAuraBars", "moveMyBags", "ofaMoving"}) do
             assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
         assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)
     end
 end
 assert(coreFiles > 50, "the purity scan must read the manifest's core files")
+-- Core purity: popup roots, menu names, tooltip owners and mover marks moved out of these files.
+for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/PopupBounds.lua", "Core/SeamRedirect.lua",
+    "Core/CanvasPanelPlacement.lua", "Core/CanvasPanelMotion.lua", "Core/Canvas.lua", "Core/HUDTransientFrames.lua"}) do
+    local handle = assert(io.open(file, "rb"), "missing " .. file)
+    local text = handle:read("*a")
+    handle:close()
+    for _, token in ipairs({"RXP", "ProcDocAlertFrame", "BetterBagsBag", "BetterBagsNext", "Baganator_", "ofaMovable"}) do
+        assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+    end
+end
 assert(io.open("Core/DaylightMapCompatibility.lua", "rb") == nil,
     "Core/DaylightMapCompatibility.lua must remain retired into Bridges/DaylightUI/Map.lua")
 

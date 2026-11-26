@@ -792,7 +792,13 @@ function Transient.Install(HUD, services)
     end
 
     local protectedMenuPoints = setmetatable({}, {__mode = "k"})
-    local oneForAllMenu
+    local moverMenu
+    local function IsExternallyMovable(frame)
+        return Offhand.Bridges ~= nil and Offhand.Bridges.HasExternalMoverMark(frame)
+    end
+    local function IsExternallyMoving(frame)
+        return Offhand.Bridges ~= nil and Offhand.Bridges.IsExternallyMoving(frame)
+    end
 
     -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
     -- center can be the upper-left corner of Mainhand in a mixed-height topology.
@@ -806,8 +812,8 @@ function Transient.Install(HUD, services)
             and Offhand.Viewport:GetMetrics() or nil
         if not frame or not m or not frame.ClearAllPoints
             or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
-        if not m.isSpanned and not frame.ofaMovable and not protectedMenuPoints[frame] then return false end
-        if frame.ofaMoving then return false end
+        if not m.isSpanned and not IsExternallyMovable(frame) and not protectedMenuPoints[frame] then return false end
+        if IsExternallyMoving(frame) then return false end
 
         local relativeTo, x, y = "CENTER", 0, 0
         if m.isSpanned then
@@ -818,12 +824,12 @@ function Transient.Install(HUD, services)
         end
         -- OneForAll restores its TOPLEFT anchor on show, again next frame,
         -- and after panel layout. Finish that specific write before rendering.
-        if frame.ofaMovable and frame ~= oneForAllMenu and hooksecurefunc
+        if IsExternallyMovable(frame) and frame ~= moverMenu and hooksecurefunc
             and frame.IsProtected and not frame:IsProtected() then
-            oneForAllMenu = frame
+            moverMenu = frame
             hooksecurefunc(frame, "SetPoint", function(self, point, relative, relativePoint)
                 if point == "TOPLEFT" and relative == UIParent and relativePoint == "BOTTOMLEFT"
-                    and self:IsShown() and not self.ofaMoving and not InCombatLockdown() then
+                    and self:IsShown() and not IsExternallyMoving(self) and not InCombatLockdown() then
                     PositionForeverGameMenu()
                 end
             end)

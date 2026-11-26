@@ -1597,7 +1597,8 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
         repaired[name] = true
         local frame = _G[name]
         if frame and frame ~= exceptFrame and frame.IsShown and frame:IsShown()
-            and not IsPanelDragging(frame) and not frame.ofaMoving
+            and not IsPanelDragging(frame)
+            and not (Offhand.Bridges and Offhand.Bridges.IsExternallyMoving(frame))
             and GetPanelController(frame, name) == "generic"
             and not (isMainhand and IsBackpackRoot(name))
             and not IsUnsafeForPanelMutation(frame, name) then

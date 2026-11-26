@@ -611,12 +611,15 @@ function HUD:HookFrames()
     end
 
     -- Center ordinary menus and settings panels on Mainhand. Edit Mode and its
-    -- system dialogs stay entirely Blizzard-owned on every client.
+    -- system dialogs stay entirely Blizzard-owned on every client. Addon menus
+    -- the bridges name (rule menuFrame) follow the Blizzard ones.
     local menuFrameNames = {
         "GameMenuFrame", "SettingsPanel", "InterfaceOptionsFrame", "VideoOptionsFrame",
         "AddonList", "KeyBindingFrame", "HelpFrame",
-        "BugSackFrame", "RedIsFriendFrame",
     }
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRuleNames("menuFrame") or {}) do
+        menuFrameNames[#menuFrameNames + 1] = name
+    end
     local function PrepareForeverEditModeManager()
         -- Forever's Edit Mode manager is part of a secure/secret-value path.
         -- Leave its panel metadata, attributes, scripts and anchors entirely native.

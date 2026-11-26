@@ -18,6 +18,7 @@ local function Case(client, uiScale, localScale, workspace, direction, count, ra
         Viewport = {GetMetrics = function() return metrics end}}
     addon[client] = true
     assert(loadfile(source))("Offhand", addon)
+    dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/TinyTooltip/Bridge.lua", "Bridges/TinyTooltipReforged/Bridge.lua", "Bridges/TipTac/Bridge.lua" })
     local owner = UIParent
     local ownerLeft = metrics.workspaceLeft + (scenario and scenario.ownerInset or 100)
     if workspace then owner = {GetEffectiveScale = function() return uiScale end, IsObjectType = function() return false end,

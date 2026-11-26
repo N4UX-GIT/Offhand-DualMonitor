@@ -1,8 +1,14 @@
 -- MoveMyBags data bridge (built into Offhand). Facts only: no frame, hook or timer.
--- Ownership facts only for now; MoveMyBags' bag handling stays in the core. It is listed
--- among frame movers in the compatibility report when loaded or present, after MoveAny and
--- BlizzMove (report.movers, order 30), with its guidance line (order 30). On the Forever
--- client that line also names the layers option unless MoveMyBagsDB.layers is false.
+-- MoveMyBags' bag handling stays in the core for now. It is listed among frame movers in the
+-- compatibility report when loaded or present, after MoveAny and BlizzMove (report.movers,
+-- order 30), with its guidance line (order 30). On the Forever client that line also names the
+-- layers option unless MoveMyBagsDB.layers is false.
+-- MoveMyBags moves Blizzard's native ContainerFrame windows directly, leaves IsUserPlaced false,
+-- and puts any bag into permanent standby if another addon attaches OnDragStart first. While it
+-- is loaded or present, Offhand yields drag, persistence, layout and recovery for every native
+-- container (ContainerFrameCombinedBags, ContainerFrame<n>) and keeps dormant Offhand coordinates
+-- (frame rule yieldNativeContainer); a container MoveMyBags marked with its moveMyBags field
+-- yields too. Automatic popup recovery leaves the same frames alone (frame rule preservePopup).
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...
@@ -16,6 +22,10 @@ local function LayersEnabled()
     return type(db) ~= "table" or db.layers ~= false
 end
 
+local CONTAINERS = { names = { "ContainerFrameCombinedBags" }, patterns = { "^ContainerFrame%d+$" },
+    when = { present = "MoveMyBags" } }
+local MARKED = { field = "moveMyBags" }
+
 API.RegisterAddonData("MoveMyBags", {
     ownership = {
         { role = "report.movers", name = "MoveMyBags", order = 30, detect = { present = "MoveMyBags" } },
@@ -27,5 +37,9 @@ API.RegisterAddonData("MoveMyBags", {
             suffixWhen = { forever = true, active = LayersEnabled },
             suffixKey = "COMPAT_GUIDE_MOVEMYBAGS_LAYERS",
             suffixFallback = "If a reagent or specialty bag turns grey while dragging, uncheck 'Keep the window you are using in front' in Options > AddOns > MoveMyBags." },
+    },
+    frameRules = {
+        preservePopup = { MARKED, CONTAINERS },
+        yieldNativeContainer = { CONTAINERS, MARKED },
     },
 })

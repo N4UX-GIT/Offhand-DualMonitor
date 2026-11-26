@@ -1,5 +1,5 @@
 -- EllesmereUI data bridge (built into Offhand). Facts only: no frame, hook or timer.
--- Ownership facts only for now; the layout transfer, scale and bag handling stay in the core.
+-- Ownership and frame-rule facts only for now; the layout transfer, scale and bag handling stay in the core.
 -- EllesmereUI ships one addon folder per module; each module owns its frame family while
 -- loaded or present: ActionBars the action bars (hud.actionBars) and, unless the player opts
 -- back into Blizzard's XP/Rep bars, the status bars (hud.statusBars); Minimap the minimap
@@ -16,6 +16,9 @@
 -- (order 90). Diagnostics: EllesmereUIChat leads the chat providers, and the minimap
 -- visibility report names the core, Minimap and Options folders, the unlock mover and the
 -- minimap profile switch after SexyMap.
+-- The player aura-bar module and its unlock anchors position the public roots
+-- EllesmereUIPlayerAuraBars_Buffs and _Debuffs, so the generic popup pass treats them as
+-- externally owned HUD and does not compete with it (frame rule externalHUD).
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...
@@ -98,5 +101,8 @@ API.RegisterAddonData("EllesmereUI", {
         { slot = "minimap", order = 40, label = "EllesmereOptions", present = "EllesmereUIOptions" },
         { slot = "minimap", order = 50, label = "EllesmereMover", value = MinimapMover },
         { slot = "minimap", order = 60, label = "EllesmereProfileEnabled", value = MinimapProfileEnabled },
+    },
+    frameRules = {
+        externalHUD = { "EllesmereUIPlayerAuraBars_Buffs", "EllesmereUIPlayerAuraBars_Debuffs" },
     },
 })
