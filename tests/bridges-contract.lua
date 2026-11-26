@@ -1171,6 +1171,284 @@ do
     assert(registry.errors.EllesmereUI == nil, "the scale bridge must be inert without EllesmereUI")
 end
 
+-- Addon window index (data.windows): a sourceless name is answered before the
+-- source is read, an exact name or a pattern needs the source first, and only
+-- the bridge whose name or pattern matched is called. Close buttons and header
+-- drags go to the bridge listing the owner; openers come out by kind in
+-- registration order.
+addon, Bridges = Load()
+local windowCalls = {}
+local function WindowBridge(label, owner, role, windows)
+    local bridge = {contract = 1, data = {windows = windows}}
+    function bridge:IdentifyWindow(frame, name, source)
+        windowCalls[#windowCalls + 1] = label .. ":" .. name .. ":" .. tostring(source)
+        if role == "error" then error(label .. " boom") end
+        if role then return owner, role end
+    end
+    function bridge:GetWindowCloseButtons(frame, who, name) return {label, who, name} end
+    return bridge
+end
+assert(Bridges:Register("Early", WindowBridge("Early", "EarlyOwner", "settings",
+        {sourceless = {"EarlyFrame"}, names = {"SharedName"}, owners = {"EarlyOwner"}, headerDrag = true}))
+    and Bridges:Register("Named", WindowBridge("Named", "NamedOwner", "book",
+        {names = {"NamedFrame", "SharedName"}, owners = {"NamedOwner", "EarlyOwner"}}))
+    and Bridges:Register("Miss", WindowBridge("Miss", "MissOwner", nil, {patterns = {"^Pat%d+$"}}))
+    and Bridges:Register("Hit", WindowBridge("Hit", "HitOwner", "panel", {patterns = {"^Pat1%d*$", ""}}))
+    and Bridges:Register("Broken", WindowBridge("Broken", "BrokenOwner", "error", {names = {"BrokenFrame"}}))
+    and Bridges:Register("Unlisted", WindowBridge("Unlisted", "UnlistedOwner", "settings", nil)))
+local reads = 0
+local windowFrame = {source = "src"}
+local function ReadSource(frame) reads = reads + 1; return frame.source end
+local function Identified(name)
+    windowCalls, reads = {}, 0
+    local owner, role = Bridges:IdentifyWindow(windowFrame, name, ReadSource)
+    return tostring(owner) .. "/" .. tostring(role) .. "|" .. table.concat(windowCalls, ",") .. "|" .. reads
+end
+assert(Identified("EarlyFrame") == "EarlyOwner/settings|Early:EarlyFrame:nil|0",
+    "a sourceless name must be answered before the source is read")
+assert(Identified("SharedName") == "EarlyOwner/settings|Early:SharedName:src|1",
+    "an exact name must read the source once and keep its first bridge")
+assert(Identified("NamedFrame") == "NamedOwner/book|Named:NamedFrame:src|1", "an exact name must reach its bridge")
+assert(Identified("Pat12") == "HitOwner/panel|Miss:Pat12:src,Hit:Pat12:src|1",
+    "patterns must be tried in registration order until one bridge answers, reading the source once")
+assert(Identified("Pat2") == "nil/nil|Miss:Pat2:src|1", "a pattern that no bridge answers must give nil")
+assert(Identified("Elsewhere") == "nil/nil||0", "an unlisted name must call no bridge and read no source")
+windowFrame.source = nil
+assert(Identified("NamedFrame") == "nil/nil||1" and Identified("Pat12") == "nil/nil||1",
+    "without a source no listed name or pattern may reach its bridge")
+windowFrame.source = "src"
+assert(Identified("BrokenFrame") == "nil/nil|Broken:BrokenFrame:src|1"
+    and Bridges.errors.Broken:find("Broken boom", 1, true), "a throwing IdentifyWindow must be recorded and give nil")
+assert(Bridges:IdentifyWindow(windowFrame, nil, ReadSource) == nil, "a missing name must identify nothing")
+local buttons = Bridges:GetWindowCloseButtons(windowFrame, "EarlyOwner", "SharedName")
+assert(table.concat(buttons, ",") == "Early,EarlyOwner,SharedName"
+    and Bridges:GetWindowCloseButtons(windowFrame, "NamedOwner", "NamedFrame")[1] == "Named"
+    and Bridges:GetWindowCloseButtons(windowFrame, "HitOwner", "Pat12") == nil
+    and Bridges:GetWindowCloseButtons(windowFrame, nil, "x") == nil,
+    "close buttons must come from the first bridge listing the owner, and only from it")
+assert(Bridges:WindowUsesHeaderDrag("EarlyOwner") == true and Bridges:WindowUsesHeaderDrag("NamedOwner") == false
+    and Bridges:WindowUsesHeaderDrag(nil) == false, "header drags must follow the owner's bridge")
+local savedSlash = SlashCmdList
+SlashCmdList = {}
+local tableA = {}
+assert(Bridges:Register("OpenerA", {contract = 1, data = {windows = {openers = {
+        slash = {"A1", ""}, globals = {"G1"},
+        methods = {{get = function() return tableA end, key = "Open"}, {get = function() error("get boom") end, key = "Open"}},
+        links = {{link = "addon:a", when = {loaded = "AbsentAddon"}}},
+    }}}})
+    and addon.API.RegisterAddonData("OpenerB", {windows = {openers = {
+        slash = {"B1"}, globals = {"G2"}, methods = {{get = function() return nil end, key = "Show"}},
+    }}}))
+local observed = {}
+local function Observe(owner, key)
+    local label = owner == SlashCmdList and "slash" or owner == _G and "_G" or owner == tableA and "A" or tostring(owner)
+    observed[#observed + 1] = label .. "." .. key
+end
+for _, kind in ipairs({"slash", "globals", "methods", "unknown"}) do Bridges:ObserveWindowOpeners(kind, Observe) end
+assert(table.concat(observed, ",") == "slash.A1,slash.B1,_G.G1,_G.G2,A.Open,nil.Show",
+    "openers must be observed by kind in registration order, skipping empty keys and failed getters")
+assert(Bridges.errors.OpenerA and Bridges.errors.OpenerA:find("get boom", 1, true), "a throwing getter must be recorded")
+local savedAddOns = C_AddOns
+C_AddOns = {IsAddOnLoaded = function(name) return name == "LinkAddon" end}
+assert(Bridges:HasWindowOpenerLinks() == false and Bridges:IsWindowOpenerLink("addon:a") == true,
+    "a link observer is wanted only while a link's detector passes")
+addon.API.RegisterAddonData("OpenerC", {windows = {openers = {links = {{link = "addon:c", when = {loaded = "LinkAddon"}}}}}})
+assert(Bridges:HasWindowOpenerLinks() == true and Bridges:IsWindowOpenerLink("addon:c") == true
+    and Bridges:IsWindowOpenerLink("addon:x") == false and Bridges:IsWindowOpenerLink(nil) == false,
+    "opener links must be told apart by their text")
+C_AddOns, SlashCmdList = savedAddOns, savedSlash
+
+-- RetireStalePlacements: registration order, bridges without it skipped, a
+-- throwing bridge recorded, the same services table for every bridge.
+addon, Bridges = Load()
+local retired, retireServices = {}, {}
+local retireA, retireB, retireC = {contract = 1}, {contract = 1}, {contract = 1}
+function retireA:RetireStalePlacements(services) retired[#retired + 1] = services == retireServices and "A" or "A?" end
+function retireB:RetireStalePlacements() error("retire boom") end
+function retireC:RetireStalePlacements(services) retired[#retired + 1] = services == retireServices and "C" or "C?" end
+assert(Bridges:Register("RetireA", retireA) and Bridges:Register("RetireB", retireB)
+    and Bridges:Register("RetireD", {contract = 1}) and Bridges:Register("RetireC", retireC))
+Bridges:RetireStalePlacements(retireServices)
+assert(table.concat(retired, ",") == "A,C" and Bridges.errors.RetireB:find("retire boom", 1, true),
+    "RetireStalePlacements must keep registration order, skip bridges without it and record a throw")
+
+-- The addon window bridges: every catalog entry the core catalog held, the
+-- window bridges registered in manifest order, the vendor gameplay frames and
+-- the minimap report names.
+local catalogFiles = {"ArkInventory/Bridge", "Baganator/Data", "Bagnaros/Bridge", "Bagnon/Bridge", "BagSmith/Bridge",
+    "BetterBags/Data", "ClassicUIForever/Bridge", "DonCore/Bridge", "EllesmereUI/Bridge", "ElvUI/Bridge",
+    "FlareUI/Bridge", "ForeverDungeonJournal/Bridge", "Leatrix/Settings", "MoveAny/Bridge", "OpenMap/Data",
+    "Platynator/Bridge", "RestedXP/Bridge"}
+for index, path in ipairs(catalogFiles) do catalogFiles[index] = "Bridges/" .. path .. ".lua" end
+local function Same(a, b)
+    if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+    for key, value in pairs(a) do if not Same(value, b[key]) then return false end end
+    for key in pairs(b) do if a[key] == nil then return false end end
+    return true
+end
+do
+    local windows = {}
+    assert(loadfile("Core/AddonWindowCatalog.lua"))("Offhand", windows)
+    assert(next(windows.AddonWindowCatalog) == nil, "the core catalog must start empty")
+    local catalogTable = windows.AddonWindowCatalog
+    local registry = CoreBridges.Load(windows, catalogFiles)
+    assert(windows.AddonWindowCatalog == catalogTable, "the bridges must fill the core catalog table in place")
+    local SPECIAL = "workspace-special-windows"
+    local expected = {
+        Leatrix_Maps = {settings = {position = "addon", close = SPECIAL, opener = "Leatrix_Maps"},
+            worldMap = {position = "addon", close = "map-adapter"}},
+        Leatrix_Plus = {settings = {position = "addon", close = SPECIAL, opener = "Leatrix_Plus"}},
+        Leatrix_Sounds = {settings = {position = "addon", close = SPECIAL, opener = "Leatrix_Sounds"}},
+        Leveldon = {settings = {position = "addon", close = SPECIAL, opener = "LEVELDON"}},
+        Questdon = {questBook = {position = "addon", close = SPECIAL, opener = "QUESTDON"}},
+        Platynator = {settings = {position = "addon", close = SPECIAL, opener = "Platynator",
+            learnPlacementFile = "customisedialog/main.lua"}},
+        ForeverDungeonJournal = {journal = {position = "addon", close = SPECIAL, opener = "FOREVERDUNGEONJOURNAL",
+            learnPlacementFile = "core/journal.lua"}},
+        Baganator = {backpack = {position = "adapter", close = "bag-adapter", restoreOpen = "adapter"}},
+        Bagnon = {inventory = {position = "adapter", close = "bag-adapter", restoreOpen = "adapter"}},
+        EllesmereUIBags = {backpack = {position = "adapter", close = "bag-adapter", restoreOpen = "adapter"}},
+        BetterBags = {backpack = {position = "addon", close = "native"}, bank = {position = "addon", close = "native"}},
+        RXPGuides = {guide = {position = "addon", close = "native"}},
+        OpenMap = {worldMap = {position = "addon", close = "map-adapter"}},
+        MoveAny = {worldMap = {position = "addon", close = "map-adapter"}},
+        ClassicUIForever = {worldMap = {position = "addon", close = "native"},
+            character = {position = "addon", close = "native"}},
+        EllesmereUI = {suitePrefix = "ellesmereui", hud = {position = "addon", close = "native"}},
+        ElvUI = {suitePrefix = "elvui", hud = {position = "addon", close = "native"}},
+        FlareUI = {suitePrefix = "flareui", hud = {position = "addon", close = "native"}},
+        ArkInventory = {inventory = {position = "adapter", close = "bag-adapter"}},
+        BagSmith = {inventory = {position = "adapter", close = "bag-adapter"}},
+        Bagnaros = {inventory = {position = "adapter", close = "bag-adapter"}},
+    }
+    assert(Same(windows.AddonWindowCatalog, expected), "the bridges must supply exactly the former core catalog")
+    assert(table.concat(registry:List(), ",") == "DonCore,ForeverDungeonJournal,Leatrix,Platynator",
+        "only the four window bridges may register bridge objects, in manifest order")
+    for _, id in ipairs(registry:List()) do
+        assert(registry:Get(id).catalog == nil, id .. " must keep its catalog in data, not bridge.catalog")
+    end
+    assert(table.concat(registry:GetRuleNames("unsavedPosition"), ",") == "RXPFrame,RXPItemFrame"
+        and registry:MatchName("unsavedPosition", "RXPFrame") and not registry:MatchName("unsavedPosition", "LeveldonPanel"),
+        "only the RestedXP guide frames must be kept out of saved positions")
+    assert(table.concat(registry:GetRuleNames("minimapDiagnosticFrame"), ",") == "LibDBIcon10_ForeverDungeonJournal",
+        "the journal's minimap button must be named for the minimap report")
+
+    local savedAddOns, savedUIParent = C_AddOns, UIParent
+    UIParent = {}
+    local loaded = {}
+    C_AddOns = {IsAddOnLoaded = function(name) return loaded[name] == true end}
+    local escape = windows
+    escape.isForever = true
+    assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", escape)
+    local adapter = escape.CanvasAddonEscape
+    local guide = {_isStylePanel = true, ApplySettings = function() end}
+    function guide:GetParent() return UIParent end
+    function guide:IsShown() return true end
+    guide._header = {GetParent = function() return guide end}
+    local arrow = {icon = {}, shadow = {}, glow = {}, IsShown = guide.IsShown, GetParent = guide.GetParent}
+    function arrow:GetObjectType() return "Button" end
+    _G.LeveldonPanel, _G.DonMapArrow = guide, arrow
+    assert(not adapter:IsVendorGameplayFrame(guide, "LeveldonPanel"), "an unloaded Leveldon guide must not count")
+    loaded.Leveldon, loaded.DonMap = true, true
+    assert(adapter:IsVendorGameplayFrame(guide, "LeveldonPanel") == true
+        and adapter:IsVendorGameplayFrame(arrow, "DonMapArrow") == true,
+        "the Leveldon guide and the DonMap arrow must be vendor gameplay frames on Forever")
+    assert(not adapter:IsVendorGameplayFrame(arrow, "LeveldonPanel") and not adapter:IsVendorGameplayFrame({}, "DonMapArrow")
+        and not adapter:IsVendorGameplayFrame(nil, "DonMapArrow"), "the Don frames must be the globals of their shape")
+    assert(registry:MatchFrame("preservePopup", guide, "LeveldonPanel"), "popup recovery must keep the vendor gameplay frames")
+    escape.isForever = false
+    assert(not adapter:IsVendorGameplayFrame(guide, "LeveldonPanel"), "the Don frames count on Forever only")
+    local rxp = {}
+    _G.RXPFrame = rxp
+    assert(adapter:IsVendorGameplayFrame(nil, "RXPItemFrame") == true and adapter:IsVendorGameplayFrame(rxp, nil) == true
+        and adapter:IsVendorGameplayFrame(rxp, "Other") == true and not adapter:IsVendorGameplayFrame({}, "Other"),
+        "the RestedXP frames count by name or as those globals on every client")
+    assert(registry:MatchFrame("preservePopup", rxp, "Other"), "popup recovery must keep the RestedXP globals too")
+    _G.LeveldonPanel, _G.DonMapArrow, _G.RXPFrame = nil, nil, nil
+
+    -- Opener installation keeps the former order: catalog slash openers, the
+    -- shared slash command, the compartment callback, Offhand's options, the
+    -- DonCore options window, then the settings link observer.
+    escape.isForever, escape.db = true, {enabled = true}
+    escape.Viewport = {GetMetrics = function() return {isSpanned = false} end}
+    local savedSlash, savedHook, savedRegistry, savedLibStub = SlashCmdList, hooksecurefunc, EventRegistry, LibStub
+    SlashCmdList, UISpecialFrames = {}, {}
+    local function Opener() end
+    for _, key in ipairs({"Leatrix_Maps", "Leatrix_Plus", "Leatrix_Sounds", "LEVELDON", "QUESTDON", "Platynator",
+        "FOREVERDUNGEONJOURNAL", "DONCORE"}) do SlashCmdList[key] = Opener end
+    _G.Platynator_AddonCompartmentCallback = Opener
+    local donOptions = {Open = Opener}
+    LibStub = function(library) if library == "DonCore-1.0" then return {Get = function() return donOptions end} end end
+    escape.Options = {Open = Opener}
+    local hooked, linked = {}, 0
+    hooksecurefunc = function(owner, key)
+        hooked[#hooked + 1] = (owner == SlashCmdList and "slash." or owner == _G and "_G."
+            or owner == escape.Options and "options." or owner == donOptions and "don." or "?.") .. key
+    end
+    EventRegistry = {RegisterCallback = function(_, event) if event == "SetItemRef" then linked = linked + 1 end end}
+    loaded.Platynator = true
+    adapter:Refresh()
+    local tail = {}
+    for index = 8, #hooked do tail[#tail + 1] = hooked[index] end
+    local catalogOpeners = {}
+    for index = 1, 7 do catalogOpeners[hooked[index]] = true end
+    assert(#hooked == 11 and catalogOpeners["slash.Leatrix_Maps"] and catalogOpeners["slash.Leatrix_Plus"]
+        and catalogOpeners["slash.Leatrix_Sounds"] and catalogOpeners["slash.LEVELDON"] and catalogOpeners["slash.QUESTDON"]
+        and catalogOpeners["slash.Platynator"] and catalogOpeners["slash.FOREVERDUNGEONJOURNAL"]
+        and table.concat(tail, ",") == "slash.DONCORE,_G.Platynator_AddonCompartmentCallback,options.Open,don.Open"
+        and linked == 1, "openers must install in the former order: " .. table.concat(hooked, ","))
+    adapter:Refresh()
+    assert(#hooked == 11 and linked == 1, "openers and the link observer must install once")
+    SlashCmdList, hooksecurefunc, EventRegistry, LibStub = savedSlash, savedHook, savedRegistry, savedLibStub
+    _G.Platynator_AddonCompartmentCallback, UISpecialFrames = nil, nil
+
+    -- Sourceless names are identified without reading the source: the journal
+    -- and the DonCore options window, here with a source that throws.
+    local function Root(fields)
+        fields.IsShown, fields.GetParent = function() return true end, function() return UIParent end
+        fields.GetSourceLocation = function() error("no source access") end
+        return fields
+    end
+    local journal = Root({})
+    loaded.ForeverDungeonJournal = true
+    assert(adapter:CanLearnPlacement(journal, "ForeverDungeonJournalFrame", "ForeverDungeonJournal", "core/journal.lua")
+        == true, "the journal must be identified by name before any source is read")
+    local options = Root({})
+    donOptions.Frame = function() return options end
+    LibStub = function(library) if library == "DonCore-1.0" then return {Get = function() return donOptions end} end end
+    assert(registry:IdentifyWindow(options, "DonCoreOptions", function() error("source read") end) == "Leveldon",
+        "the DonCore options window must be identified by name before any source is read")
+    LibStub = savedLibStub
+
+    -- Close buttons: Leatrix Plus helper X buttons in child order.
+    local plus = {GetNumChildren = function() return 3 end}
+    local function X(x)
+        return {GetObjectType = function() return "Button" end, GetParent = function() return plus end,
+            GetPoint = function() return "TOPRIGHT", plus, "TOPRIGHT", x, 0 end,
+            GetSourceLocation = function() return "Interface\\AddOns\\Leatrix_Plus\\Leatrix_Plus.lua:9" end,
+            GetWidth = function() return 30 end, GetHeight = function() return 30 end}
+    end
+    local first, other, second = X(0), X(-40), X(0)
+    plus.GetChildren = function() return first, other, second end
+    local found = registry:GetWindowCloseButtons(plus, "Leatrix_Plus", "F2222222222222222")
+    assert(#found == 2 and found[1] == first and found[2] == second, "Leatrix X buttons must come out in child order")
+    plus.c = {}
+    assert(registry:GetWindowCloseButtons(plus, "Leatrix_Plus")[1] == plus.c
+        and registry:GetWindowCloseButtons({cb = 1}, "Leatrix_Sounds")[1] == 1,
+        "a named Leatrix close button wins over the child scan")
+    C_AddOns, UIParent = savedAddOns, savedUIParent
+
+    -- The minimap visibility report keeps the journal's button third, absent or not.
+    local report = {db = {}}
+    assert(loadfile("Core/HUDRecovery.lua"))("Offhand", report)
+    CoreBridges.Load(report, {"Bridges/ForeverDungeonJournal/Bridge.lua"})
+    local lines = report.HUDRecovery.GetMinimapVisibilityDiagnostics()
+    assert(lines[2] == "MinimapCluster.state=absent" and lines[3] == "Minimap.state=absent"
+        and lines[4] == "LibDBIcon10_ForeverDungeonJournal.state=absent" and lines[5] == "LFGMinimapFrame.state=absent"
+        and lines[6] == "QueueStatusButton.state=absent" and #lines == 6,
+        "the minimap report must list the journal's button between the minimap and the queue buttons")
+end
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -1205,7 +1483,8 @@ for line in io.lines("Offhand.toc") do
             "EllesmereUIChat", "EllesmereUIQuestTracker", "COMPAT_GUIDE", "COMPAT_ELLESMERE_PARTY",
             "Titan", "DetailsBaseFrame", "ForeverXPBar", "BugSack", "RedIsFriend", "TipTac", "TinyTooltip",
             "RXPV2", "RestedXP", "Questie_BaseFrame", "EllesmereUIPlayerAuraBars", "moveMyBags", "ofaMoving",
-            "ProcDoc", "Kerzo", "kerzo", "EllesmereScale"}) do
+            "ProcDoc", "Kerzo", "kerzo", "EllesmereScale", "Leveldon", "Questdon", "DonMap", "DonCore",
+            "Platynator", "DungeonJournal", "Leatrix_Sounds", "RXP", "restedXP", "FlareUI", "flareui"}) do
             assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
         assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)
@@ -1220,6 +1499,27 @@ for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/PopupBounds.lua", "Cor
     handle:close()
     for _, token in ipairs({"RXP", "ProcDocAlertFrame", "BetterBagsBag", "BetterBagsNext", "Baganator_", "ofaMovable"}) do
         assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+    end
+end
+-- Core purity: the addon window catalog and Escape adapter name no addon at all.
+for _, file in ipairs({"Core/AddonWindowCatalog.lua", "Core/CanvasAddonEscape.lua"}) do
+    local handle = assert(io.open(file, "rb"), "missing " .. file)
+    local text = handle:read("*a")
+    handle:close()
+    local lower = text:lower()
+    for _, token in ipairs({"ellesmere", "openmap", "mapwise", "maputils", "leatrix", "moveany", "classicuiforever",
+        "blizzmove", "baganator", "baginator", "bagnon", "betterbags", "bagsmith", "elvui", "elvuf", "arkinventory",
+        "arkinv", "bagnaros", "movemybags", "adibags", "inventorian", "tukui", "questdon", "leveldon", "donmap",
+        "doncore", "platynator", "dungeonjournal", "kerzo", "restedxp", "questie", "procdoc", "foreverxpbar",
+        "chattynator", "itemrack", "tiptac", "tinytooltip", "oneforall", "ofamov", "zygor", "consoleport", "bugsack",
+        "redisfriend", "daylight", "dialogueui", "bartender", "dominos", "sexymap", "carbonite", "shadoweduf",
+        "shadowuf", "shadowedunit", "pitbull", "zperl", "xperl", "flareui", "foreverplus", "gathercraft",
+        "rarescanner", "mobinfo", "beastfinder", "easyfishing", "foreverledger", "naowh", "basicminimap"}) do
+        assert(not lower:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+    end
+    for _, pattern in ipairs({"%f[%w]EUI_", "%f[%w]EUI%u", "%f[%w]RXP", "%f[%w]Titan", "%f[%w]DetailsBaseFrame",
+        "%f[%w]Cell%f[%W]", "%f[%w]BGR", "%f[%w]LibDBIcon10_"}) do
+        assert(not text:find(pattern), "core file must not match " .. pattern .. ": " .. file)
     end
 end
 assert(io.open("Core/DaylightMapCompatibility.lua", "rb") == nil,

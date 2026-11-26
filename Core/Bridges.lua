@@ -191,6 +191,14 @@ function Bridges:RefreshScale()
     for _, id in ipairs(order) do Call(id, "RefreshScale") end
 end
 
+-- With the addon window Escape refresh, before its openers are observed:
+-- forget placement records older Offhand passes saved for frames whose addon
+-- now owns them. services: HasPlacement(name), IsVendorGameplayFrame(frame,
+-- name), ForgetPosition(name), ForgetOpen(name).
+function Bridges:RetireStalePlacements(services)
+    for _, id in ipairs(order) do Call(id, "RetireStalePlacements", services) end
+end
+
 -- Restore bridge-owned workspace open state once the span is active.
 function Bridges:RestoreWorkspaceState(mode)
     for _, id in ipairs(order) do Call(id, "RestoreWorkspaceState", mode) end
@@ -338,6 +346,11 @@ local merged, sequence = {}, 0
 local roles, rules, settings = {}, {}, {}
 local resetKeys, movableFields, movingFields = {}, {}, {}
 local guidance, diagnostics = {}, {}
+-- Addon window index (data.windows): name or pattern to the bridge id that
+-- identifies it, owner folder to the bridge id that answers for its roots.
+local windowSourceless, windowNames, windowPatterns, windowOwners = {}, {}, {}, {}
+local windowHeaderDrag = {}
+local openers = { slash = {}, globals = {}, methods = {}, links = {}, linkSet = {} }
 
 local function NonEmpty(value)
     return type(value) == "string" and value ~= ""
@@ -496,9 +509,55 @@ local function Ordered(list, entry, addon)
     table.sort(list, ByOrder)
 end
 
--- data: ownership, frameRules, moverFields, catalogs, settings, guidance and
--- diagnostics (see docs/BRIDGES.md). Unknown keys are ignored. A data table
--- merges only once.
+local function IndexNames(index, list, addon)
+    if type(list) ~= "table" then return end
+    for _, name in ipairs(list) do
+        if NonEmpty(name) and not index[name] then index[name] = addon end
+    end
+end
+
+local function AppendNames(target, list)
+    if type(list) ~= "table" then return end
+    for _, name in ipairs(list) do
+        if NonEmpty(name) then target[#target + 1] = name end
+    end
+end
+
+-- windows: sourceless and names (exact root names; the first addon to list a
+-- name keeps it), patterns (tried in registration order), owners (the owner
+-- folders its IdentifyWindow returns), headerDrag, and openers (slash,
+-- globals, methods = { { get = function, key = "Method" } }, links =
+-- { { link = "text", when = detector } }).
+local function MergeWindows(addon, windows)
+    IndexNames(windowSourceless, windows.sourceless, addon)
+    IndexNames(windowNames, windows.names, addon)
+    IndexNames(windowOwners, windows.owners, addon)
+    if type(windows.patterns) == "table" then
+        for _, pattern in ipairs(windows.patterns) do
+            if NonEmpty(pattern) then windowPatterns[#windowPatterns + 1] = { pattern = pattern, id = addon } end
+        end
+    end
+    if windows.headerDrag == true then windowHeaderDrag[addon] = true end
+    local list = windows.openers
+    if type(list) ~= "table" then return end
+    AppendNames(openers.slash, list.slash)
+    AppendNames(openers.globals, list.globals)
+    for _, method in ipairs(type(list.methods) == "table" and list.methods or {}) do
+        if type(method) == "table" and type(method.get) == "function" and NonEmpty(method.key) then
+            openers.methods[#openers.methods + 1] = { get = method.get, key = method.key, addon = addon }
+        end
+    end
+    for _, entry in ipairs(type(list.links) == "table" and list.links or {}) do
+        if type(entry) == "table" and NonEmpty(entry.link) then
+            openers.links[#openers.links + 1] = { when = entry.when, addon = addon }
+            openers.linkSet[entry.link] = true
+        end
+    end
+end
+
+-- data: ownership, frameRules, moverFields, catalogs, windows, settings,
+-- guidance and diagnostics (see docs/BRIDGES.md). Unknown keys are ignored. A
+-- data table merges only once.
 -- Returns true, or false and one of "id", "data".
 function Bridges:MergeData(addon, data)
     if not NonEmpty(addon) then return false, "id" end
@@ -552,6 +611,7 @@ function Bridges:MergeData(addon, data)
             end
         end
     end
+    if type(data.windows) == "table" then MergeWindows(addon, data.windows) end
     if type(data.settings) == "table" then
         local own = settings[addon] or {}
         settings[addon] = own
@@ -667,6 +727,102 @@ function Bridges:GetRuleWidget(ruleName)
             if frame ~= nil then return frame, widget[1] end
         end
     end
+end
+
+local function WindowResult(id, ok, owner, role)
+    if not ok then
+        Bridges.errors[id] = tostring(owner)
+        return nil
+    end
+    if owner == nil then return nil end
+    return owner, role
+end
+
+local function CallWindow(id, frame, name, source)
+    local bridge = registry[id]
+    local handler = bridge and bridge.IdentifyWindow
+    if type(handler) ~= "function" then return nil end
+    return WindowResult(id, pcall(handler, bridge, frame, name, source))
+end
+
+-- Identifies an addon window root: returns the owner folder and window role
+-- of the one bridge whose window index lists the name, or nil. A sourceless
+-- name is answered before the source is read; any other listed name or
+-- matching pattern needs readSource(frame) to return the source location
+-- first. An exact name decides alone; patterns are tried in registration
+-- order until one bridge answers. No other bridge is called.
+function Bridges:IdentifyWindow(frame, name, readSource)
+    if type(name) ~= "string" then return nil end
+    local id = windowSourceless[name]
+    if id then return CallWindow(id, frame, name, nil) end
+    local source
+    id = windowNames[name]
+    if id then
+        source = readSource(frame)
+        if not source then return nil end
+        return CallWindow(id, frame, name, source)
+    end
+    for _, entry in ipairs(windowPatterns) do
+        if name:match(entry.pattern) then
+            if source == nil then
+                source = readSource(frame)
+                if not source then return nil end
+            end
+            local owner, role = CallWindow(entry.id, frame, name, source)
+            if owner ~= nil then return owner, role end
+        end
+    end
+    return nil
+end
+
+-- The close buttons of a root identified for owner, from the bridge listing
+-- that owner; nil when none answers with a table.
+function Bridges:GetWindowCloseButtons(frame, owner, name)
+    local id = owner ~= nil and windowOwners[owner]
+    if not id then return nil end
+    local ok, buttons = Call(id, "GetWindowCloseButtons", frame, owner, name)
+    if ok and type(buttons) == "table" then return buttons end
+    return nil
+end
+
+-- True when the bridge listing owner asks for its roots' header drags to be
+-- observed as well.
+function Bridges:WindowUsesHeaderDrag(owner)
+    local id = owner ~= nil and windowOwners[owner]
+    return id and windowHeaderDrag[id] or false
+end
+
+-- Calls observe(owner, key) for every opener of kind in registration order:
+-- "slash" (SlashCmdList keys), "globals" (_G keys) or "methods" (the table
+-- each get() returns, read in pcall).
+function Bridges:ObserveWindowOpeners(kind, observe)
+    if kind == "slash" then
+        for _, key in ipairs(openers.slash) do observe(SlashCmdList, key) end
+    elseif kind == "globals" then
+        for _, key in ipairs(openers.globals) do observe(_G, key) end
+    elseif kind == "methods" then
+        for _, method in ipairs(openers.methods) do
+            local ok, owner = pcall(method.get)
+            if ok then
+                observe(owner, method.key)
+            else
+                self.errors[method.addon] = tostring(owner)
+            end
+        end
+    end
+end
+
+-- True when an opener link's detector passes, so a settings link observer
+-- is worth installing; IsWindowOpenerLink tells such links apart.
+function Bridges:HasWindowOpenerLinks()
+    for _, entry in ipairs(openers.links) do
+        if Detect(entry.when, entry.addon) then return true end
+    end
+    return false
+end
+
+function Bridges:IsWindowOpenerLink(link)
+    return type(link) == "string" and openers.linkSet[link] == true
 end
 
 -- True when an external mover marks the frame movable (a field equal to

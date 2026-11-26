@@ -3,6 +3,7 @@
 -- (frame rule preservePopup): the Classic roots and their anchors, and the Next roots. Next
 -- persists its own panel placement and deliberately clears the native user-placed flag after
 -- dragging. It has no Classic anchor roots.
+-- Addon window catalog: its backpack and bank, which it places and closes itself.
 -- Its bag handling stays in the core for now.
 -- Registered on every client, like the check it replaces.
 
@@ -20,6 +21,12 @@ API.RegisterAddonData("BetterBags", {
                 "BetterBagsNextBackpack", "BetterBagsNextBank",
                 "BetterBagsNextVendor", "BetterBagsNextGuildBank",
             } },
+        },
+    },
+    catalogs = {
+        BetterBags = {
+            backpack = {position = "addon", close = "native"},
+            bank = {position = "addon", close = "native"},
         },
     },
 })

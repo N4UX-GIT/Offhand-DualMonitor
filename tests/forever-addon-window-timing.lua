@@ -91,6 +91,10 @@ SlashCmdList.Platynator=OpenPlaty
 Platynator_AddonCompartmentCallback=OpenPlaty
 assert(loadfile(base..'/Core/AddonWindowCatalog.lua'))('Offhand',addon)
 assert(loadfile(base..'/Core/CanvasAddonEscape.lua'))('Offhand',addon)
+assert(loadfile(base..'/Core/Bridges.lua'))('Offhand',addon)
+for _,file in ipairs({'DonCore/Bridge','Leatrix/Settings','Platynator/Bridge'}) do
+    assert(loadfile(base..'/Bridges/'..file..'.lua'))('Offhand',addon)
+end
 assert(loadfile(base..'/Core/WorkspaceChrome.lua'))('Offhand',addon)
 local adapter=addon.CanvasAddonEscape
 adapter:Refresh() -- hidden roots and public lazy openers are observed at startup

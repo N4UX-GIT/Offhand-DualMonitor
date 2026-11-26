@@ -534,10 +534,12 @@ function ForeverPersistence:RestoreProfileSnapshot(accountDB, characterDB)
     return "fallback"
 end
 
+-- Frames whose addon saves its own placement (frame rule unsavedPosition)
+-- never get a Forever position record.
 local function IsSafeFrameName(name)
-    local adapter = Offhand.CanvasAddonEscape
+    local bridges = Offhand.Bridges
     return type(name) == "string" and name ~= "" and name:match("^[%w_]+$") ~= nil
-        and not (adapter and adapter.restedXPFrames[name])
+        and not (bridges and bridges:MatchName("unsavedPosition", name))
 end
 
 local function PositionCVar(name)
@@ -1152,8 +1154,8 @@ function Offhand:InitializeConfig()
     -- Earlier Gather passes recorded guide coordinates in the active profile.
     -- Scrub inactive profiles as well, after selecting the disk or bridge snapshot.
     for profileName, profileData in pairs(OffhandDB.profiles) do
-        if Offhand.CanvasAddonEscape then
-            for name in pairs(Offhand.CanvasAddonEscape.restedXPFrames) do
+        if Offhand.Bridges then
+            for _, name in ipairs(Offhand.Bridges:GetRuleNames("unsavedPosition")) do
                 if type(profileData.savedWorkspacePositions) == "table" then profileData.savedWorkspacePositions[name] = nil end
                 if type(profileData.savedMainPositions) == "table" then profileData.savedMainPositions[name] = nil end
                 if type(profileData.openWorkspacePanels) == "table" then profileData.openWorkspacePanels[name] = nil end

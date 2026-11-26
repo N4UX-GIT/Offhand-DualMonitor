@@ -3,7 +3,8 @@
 -- While a MoveAny or MoveAnything global exists the Edit Mode HUD recovery rebuild stands
 -- aside (hud.editModeBlocker, order 40). MoveAny is the first frame mover in the
 -- compatibility report when either global exists or either addon is loaded
--- (report.movers, order 10), with its guidance line (order 20).
+-- (report.movers, order 10), with its guidance line (order 20). Addon window catalog: its
+-- world map, under MoveAny's own geometry and the dedicated map policy.
 -- Registered on every client, like the checks it replaces; the globals are read when asked.
 
 local ADDON_NAME, shared = ...
@@ -23,5 +24,10 @@ API.RegisterAddonData("MoveAny", {
         { id = "moveany", order = 20, addon = "MoveAny", when = { movers = "MoveAny" },
             key = "COMPAT_GUIDE_MOVEANY",
             fallback = "MoveAny controls frame movement. Move or unlock frames with /move, or disable an element in MoveAny to let Blizzard Edit Mode or Offhand move it." },
+    },
+    catalogs = {
+        MoveAny = {
+            worldMap = {position = "addon", close = "map-adapter"},
+        },
     },
 })

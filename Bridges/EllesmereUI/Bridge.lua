@@ -20,6 +20,9 @@
 -- The player aura-bar module and its unlock anchors position the public roots
 -- EllesmereUIPlayerAuraBars_Buffs and _Debuffs, so the generic popup pass treats them as
 -- externally owned HUD and does not compete with it (frame rule externalHUD).
+-- Addon window catalog: the EllesmereUI suite (suite prefix ellesmereui, its HUD and movers
+-- stay out of the addon window picker) and the EllesmereUIBags backpack (dedicated bag
+-- handling).
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...
@@ -105,5 +108,14 @@ API.RegisterAddonData("EllesmereUI", {
     },
     frameRules = {
         externalHUD = { "EllesmereUIPlayerAuraBars_Buffs", "EllesmereUIPlayerAuraBars_Debuffs" },
+    },
+    catalogs = {
+        EllesmereUIBags = {
+            backpack = {position = "adapter", close = "bag-adapter", restoreOpen = "adapter"},
+        },
+        EllesmereUI = {
+            suitePrefix = "ellesmereui",
+            hud = {position = "addon", close = "native"},
+        },
     },
 })

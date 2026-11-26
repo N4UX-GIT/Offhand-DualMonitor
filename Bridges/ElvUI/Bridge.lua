@@ -8,7 +8,8 @@
 -- and Carbonite (report.minimap, order 40), a unit frame owner when ElvUF_Player exists or
 -- its unit frame module is enabled (report.unitFrames, order 30), an action bar owner when
 -- ElvUI_Bar1 exists (report.actionBars, order 50), and gets the suite guidance line
--- (order 70).
+-- (order 70). Addon window catalog: the ElvUI suite (suite prefix elvui), whose HUD and
+-- movers stay out of the addon window picker.
 -- Registered on every client, like the checks it replaces; the globals are read when asked.
 
 local ADDON_NAME, shared = ...
@@ -48,5 +49,11 @@ API.RegisterAddonData("ElvUI", {
         { id = "suite:ElvUI", order = 70, addon = "ElvUI", when = { unitFrames = "ElvUI", actionBars = "ElvUI" },
             key = "COMPAT_GUIDE_SUITE", args = 2,
             fallback = "%s controls its enabled HUD and unit frames. Move them with /moveui, or disable individual modules in %s to use Blizzard Edit Mode." },
+    },
+    catalogs = {
+        ElvUI = {
+            suitePrefix = "elvui",
+            hud = {position = "addon", close = "native"},
+        },
     },
 })

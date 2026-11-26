@@ -33,6 +33,7 @@ local function NewAddon(isForever, accountDB, characterDB, recoveryVersion, disk
     _G.OffhandForeverCharacterRecovery = characterRecovery
     assert(loadfile("Core/Config.lua"))("Offhand", addon)
     assert(loadfile("Core/CanvasAddonEscape.lua"))("Offhand", addon)
+    dofile("tests/support/core-bridges.lua").Load(addon, {"Bridges/RestedXP/Bridge.lua"})
     addon:InitializeConfig()
     return addon
 end

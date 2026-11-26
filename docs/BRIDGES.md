@@ -96,7 +96,8 @@ compile into one set.
 | `ownership` | Array of `{ role, name, order, detect, ... }`, sorted by `(order, registration)`, unordered last | `Bridges:HasRole(role)`, `Bridges:GetRoleOwners(role)` (names, entries), `Bridges:FirstRoleOwner(role)` (name, entry), `Bridges:GetRoleEntries(role)` (every entry, present or not) |
 | `frameRules` | `{ [rule] = { matcher, ... } }` | `Bridges:MatchFrame(rule, frame, name)`, `Bridges:MatchName(rule, name)`, `Bridges:GetRuleNames(rule)` (literal names, qualifiers not evaluated), `Bridges:GetRuleWidget(rule)` (the frame the first resolving `widget` matcher holds and that holder's global name, qualifiers not evaluated) |
 | `moverFields` | `{ movable = { "field" }, moving = { "field" } }` | `Bridges.IsExternallyMovable(frame)` (a field `== true`), `Bridges.IsExternallyMoving(frame)` (a field set) |
-| `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` |
+| `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` (the core file holds only the empty table) |
+| `windows` | `{ sourceless = { name }, names = { name }, patterns = { pattern }, owners = { addonFolder }, headerDrag = true, openers = { slash = { key }, globals = { key }, methods = { { get = function, key } }, links = { { link, when = detector } } } }` | The addon window Escape adapter (`Core/CanvasAddonEscape.lua`) through `Bridges:IdentifyWindow(frame, name, readSource)`: a `sourceless` name calls that bridge's `IdentifyWindow(frame, name, nil)` before the source is read; a listed name, or a matching pattern (patterns in registration order until one answers), calls it with the source and only when `readSource(frame)` returns one. The first addon listing a name or owner keeps it, and no other bridge is called. `Bridges:GetWindowCloseButtons(frame, owner, name)` and `Bridges:WindowUsesHeaderDrag(owner)` (the root's `header` drags are observed too) ask the bridge listing `owner`. `Bridges:ObserveWindowOpeners(kind, observe)` hooks openers by kind (`slash`, `globals`, then after Offhand's own options, `methods`, whose `get` runs in `pcall`) in registration order; `Bridges:HasWindowOpenerLinks()` (a link's detector passes) installs one `SetItemRef` observer, and `Bridges:IsWindowOpenerLink(link)` tells its links apart |
 | `settings` | `{ [key] = { store = "profile" or "character", legacyKey, default, resetOnCharacterChange } }` | `Offhand.API.Get/SetBridgeSetting`, `Get/SetBridgeCharacterSetting`, `Bridges:GetSettingDefaults()`, `Bridges:GetCharacterResetKeys()` |
 | `guidance` | Array of `{ id, order, addon, when = { [ownersList] = name }, key, fallback, args = 2, suffixWhen = detector, suffixKey, suffixFallback }`, sorted like ownership | `Bridges:GetGuidanceEntries()` (entries, and per entry whether `suffixWhen` passes); `CanvasCompatibility.GetExternalControlGuidance` shows an entry when a `when` name is in that list of `GetActiveExternalOwners()`, as `L[key] or fallback`, formatted with `addon` twice when `args = 2`, plus `" " .. (L[suffixKey] or suffixFallback)` |
 | `diagnostics` | Array of `{ slot, order, label, present = "Folder" }` or `{ slot, order, label, value = function() }`, sorted like ownership | `Bridges:GetDiagnosticSegments(slot)`; slot `minimap`: `label:yes/no` (present) or `label:value` in the minimap visibility report; slot `chat`: present labels joined as `ChatProviders=`; slot `panelPlacement` (entries also carry `frame = "GlobalName"`): ` | label=value` appended to that root's panel placement diagnostics line (`unavailable` when the value fails or is not a string); slot `compat.tail` (value entries): ` | label=value` at the very end of the compatibility diagnostics, after the bridges' `GetDiagnostics` segment (`unavailable` likewise) |
@@ -122,6 +123,9 @@ Roles and rules core reads:
 | rule `menuFrame` | Menus centred on Mainhand like the Blizzard menus, after the Blizzard names |
 | rule `yieldNativeContainer` | `CanvasCompatibility.ShouldYieldNativeContainer`: for a native container name (`ContainerFrameCombinedBags`, `ContainerFrame<n>`), a match yields its drag, persistence, layout and recovery |
 | rule `recoverableGuide` | `HUDCompatibility.GetPreservedAnonymousRoot()` (`GetRuleWidget`): an anonymous addon root that missing-window recovery may bring back, reported under its widget's name |
+| rule `vendorGameplay` | `CanvasAddonEscape:IsVendorGameplayFrame(frame, name)`: a frame its addon positions and shows itself; Offhand never saves, gathers or repairs its placement. Its matchers are listed under `preservePopup` as well |
+| rule `unsavedPosition` | `Config`: no Forever position record for these names, and their records are scrubbed from every profile (`GetRuleNames`) |
+| rule `minimapDiagnosticFrame` | The minimap visibility report: these names follow `MinimapCluster` and `Minimap`, present or not (`GetRuleNames`) |
 | `moverFields` | Panel anchor repair, workspace repair and the Forever Game Menu placement: a movable frame's TOPLEFT/UIParent/BOTTOMLEFT write is repaired before render; a moving frame is never repaired |
 
 Settings live under the same key as before (`legacyKey`, else `key`) in
@@ -148,6 +152,9 @@ Every callback is optional and runs inside `pcall`:
 | `GetBagFrames()` | Workspace bag toggle check | Table of bag frames |
 | `IsEditModeActive()` | Before learned-window selection or refresh | Literal `true` to pause Offhand selection |
 | `IdentifyLearnPlacement(frame, name, file)` | Learned-window opt-in check for cataloged bridge frames | Role string matching `bridge.catalog[role].learnPlacementFile` |
+| `IdentifyWindow(frame, name, source)` | Addon window Escape and learned-placement checks, only for a name or pattern in the bridge's `data.windows` (section 3.1); `source` is the lower-case source location with `/` separators, or `nil` for a `sourceless` name | `owner, role` (an addon folder in `Offhand.AddonWindowCatalog` and its role), or `nil` |
+| `GetWindowCloseButtons(frame, owner, name)` | Workspace close buttons of a root identified for an owner the bridge lists | Array of buttons |
+| `RetireStalePlacements(services)` | Each addon window Escape refresh while it is active, before openers are observed, with `{ HasPlacement(name), IsVendorGameplayFrame(frame, name), ForgetPosition(name), ForgetOpen(name) }` over the active profile; open panels are saved once afterwards if one was forgotten | Ignored |
 | `IsExternallyOwnedFrame(frame, name)` | `HUDCompatibility.IsExternallyOwnedHUDFrame`, so generic popup rescue and panel movement skip a vendor HUD root the bridge places itself | Literal `true` to keep core away from the frame |
 | `RefreshTransientFrames(phase)` | With the Mainhand transient passes: `"hook"` (discovery) and `"position"` (placement, ahead of core's own popups and alerts) | Ignored |
 | `GetSettingsContributions(slot)` | `Bridges:GetSettingsContributions(slot)` for an Options slot (`map`, `alerts`, `recovery`, `help:EDIT_MODE`, `mapScaleTitle`, `mapDescription`) | Array of `{ id, kind, text, tooltip, get, set, onClick, shown, width, height, order }`; entries without an id are dropped, the rest sorted by `order` then bridge order. Slot `alerts` renders `kind = "check"` entries (with `get` and `set`) as checkboxes below the redirect option, titled `text` with tooltip `tooltip`, each row `max(height, wrapped text at width + 14)` high (defaults 32 and 600). `addon = "Folder"` shows an entry only while that addon is loaded and enabled for the character, and that addon's `ADDON_LOADED` refreshes the card; `help` is added to the card's help while the entry is shown |
@@ -282,6 +289,17 @@ addon: `Bartender4`, `BlizzMove`, `Carbonite`, `Cell`, `Chattynator`,
 `SexyMap`, `ShadowedUnitFrames`, `Tukui`, `XPerl` and `ZPerl`. Each file's
 header lists its roles, orders, guidance and diagnostic segments; the orders
 reproduce the lists core used to hold (`tests/bridges-contract.lua` pins them).
+
+Addon windows: `Bridges/DonCore` (Questdon, Leveldon, DonMap), `Bridges/Platynator`,
+`Bridges/ForeverDungeonJournal` and `Bridges/Leatrix` (`Settings.lua`) hold the
+former vendor parts of `Core/CanvasAddonEscape.lua` with unchanged behaviour
+(`data.windows`, `IdentifyWindow`, `GetWindowCloseButtons`, DonCore's
+`RetireStalePlacements` and `vendorGameplay` frames, the journal's
+`minimapDiagnosticFrame`), each with a README. They register on every client.
+The other catalog entries come from data bridges: `ArkInventory`, `Baganator`,
+`Bagnaros`, `Bagnon`, `BagSmith`, `BetterBags`, `ClassicUIForever`,
+`EllesmereUI`, `ElvUI`, `FlareUI`, `MoveAny`, `OpenMap` (`Data.lua`) and
+`RestedXP` (also `vendorGameplay` and `unsavedPosition`).
 
 Popup roots, frame-name rules, tooltip owners and mover fields come from data
 bridges of the same kind: `Baganator`, `BetterBags`, `Details`, `ForeverXPBar`,

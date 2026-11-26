@@ -58,8 +58,15 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         owners[#owners + 1] = segment.label .. ":" .. text
     end
     local reports = { "MinimapOwner=" .. table.concat(owners, ",") }
-    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal",
-        "LFGMinimapFrame", "QueueStatusButton" }) do
+    -- Addon minimap buttons (rule minimapDiagnosticFrame) report between the
+    -- minimap and the queue buttons, present or not.
+    local names = { "MinimapCluster", "Minimap" }
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRuleNames("minimapDiagnosticFrame") or {}) do
+        names[#names + 1] = name
+    end
+    names[#names + 1] = "LFGMinimapFrame"
+    names[#names + 1] = "QueueStatusButton"
+    for _, name in ipairs(names) do
         local frame = _G[name]
         if not frame then
             reports[#reports + 1] = name .. ".state=absent"

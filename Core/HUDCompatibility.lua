@@ -217,11 +217,10 @@ function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
         name = value
     end
     if not IsOrdinaryPopupValue(name) then return true end
-    local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
     -- Addon windows whose vendor saves or derives the position itself, even
     -- when it looks like a newly opened popup or leaves IsUserPlaced false
-    -- (rule preservePopup, named by the bridges).
+    -- (rule preservePopup, named by the bridges; it also holds every frame of
+    -- rule vendorGameplay).
     local bridges = Offhand.Bridges
     if bridges and bridges:MatchFrame("preservePopup", frame, name) then return true end
     if type(name) == "string" and linkedChatPopupRoots[name] then return true end
