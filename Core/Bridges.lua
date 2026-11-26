@@ -195,7 +195,9 @@ function Bridges:GetDiagnostics()
 end
 
 -- Long per-bridge reports for the debug diagnostics mode only; they never
--- join the compact line above. Each entry is { label = ..., text = ... }.
+-- join the compact line above. Each entry is { label = ..., text = ... }. A
+-- bridge whose text is an array of strings gives one entry per non-empty
+-- string, in its order, under the same label.
 function Bridges:GetDebugDiagnostics()
     local reports = {}
     for _, id in ipairs(order) do
@@ -204,12 +206,55 @@ function Bridges:GetDebugDiagnostics()
             local ok, label, text = pcall(handler, registry[id])
             if not ok then
                 self.errors[id] = tostring(label)
-            elseif type(label) == "string" and label ~= "" and type(text) == "string" and text ~= "" then
-                reports[#reports + 1] = { label = label, text = text }
+            elseif type(label) == "string" and label ~= "" then
+                if type(text) == "string" and text ~= "" then
+                    reports[#reports + 1] = { label = label, text = text }
+                elseif type(text) == "table" then
+                    for _, line in ipairs(text) do
+                        if type(line) == "string" and line ~= "" then
+                            reports[#reports + 1] = { label = label, text = line }
+                        end
+                    end
+                end
             end
         end
     end
     return reports
+end
+
+-- Conflicts bridges report for CanvasCompatibility.GetOwnershipConflicts, in
+-- registration order (core sorts them by their order field). context:
+-- { mapOwner, mapLabel, positionsMap, bagOwners, SyncsWorldMapMover() }.
+function Bridges:GetOwnershipConflicts(context)
+    local conflicts = {}
+    for _, id in ipairs(order) do
+        local ok, list = Call(id, "GetOwnershipConflicts", context)
+        if ok and type(list) == "table" then
+            for _, conflict in ipairs(list) do
+                if type(conflict) == "table" then conflicts[#conflicts + 1] = conflict end
+            end
+        end
+    end
+    return conflicts
+end
+
+-- Window mover segments of the full compatibility diagnostics line: the
+-- non-empty strings bridges return, in registration order. context:
+-- { mapOwner, positionsMap, SyncsWorldMapMover() }.
+function Bridges:GetMoverDiagnostics(context)
+    local parts = {}
+    for _, id in ipairs(order) do
+        local ok, text = Call(id, "GetMoverDiagnostics", context)
+        if ok and type(text) == "string" and text ~= "" then parts[#parts + 1] = text end
+    end
+    return parts
+end
+
+-- With every popup layout pass and after combat, on Forever: a bridge fits
+-- its addon's own options window. getMetrics() returns the options metrics
+-- (nil while Offhand is off or not spanned), read once per pass.
+function Bridges:RefreshAddonOptions(getMetrics)
+    for _, id in ipairs(order) do Call(id, "RefreshAddonOptions", getMetrics) end
 end
 
 -- True when a bridge's addon has just restored its own single-screen position
@@ -344,13 +389,19 @@ function Bridges:PrepareSingleScreenRecovery(metrics)
 end
 
 -- True when a bridge currently parks this native Blizzard panel out of sight
--- under its own holder so Offhand's core must leave its anchor/visibility alone.
+-- under its own holder so Offhand's core must leave its anchor/visibility alone:
+-- a bridge's IsParkedNativePanel(frame) answers first, in registration order,
+-- then the matchers of frame rule parkedNativePanel. The second result is the
+-- reason Offhand reports for it, the parking addon's data.parkedReason (else
+-- "bridge-parked").
 function Bridges:IsParkedNativePanel(frame)
     if not frame then return false end
     for _, id in ipairs(order) do
         local ok, parked = Call(id, "IsParkedNativePanel", frame)
-        if ok and parked == true then return true end
+        if ok and parked == true then return true, self:GetParkedReason(id) end
     end
+    local addon = self:MatchParkedPanelRule(frame)
+    if addon then return true, self:GetParkedReason(addon) end
     return false
 end
 
@@ -480,6 +531,8 @@ local roles, rules, settings = {}, {}, {}
 -- Declared setting name to the first addon's compiled setting.
 local settingKeys = {}
 local resetKeys, movableFields, movingFields = {}, {}, {}
+-- Addon to the reason Offhand reports for the native panels it parks.
+local parkedReasons = {}
 local guidance, diagnostics = {}, {}
 -- Addon window index (data.windows): name or pattern to the bridge id that
 -- identifies it, owner folder to the bridge id that answers for its roots.
@@ -691,7 +744,7 @@ local function MergeWindows(addon, windows)
 end
 
 -- data: ownership, frameRules, moverFields, catalogs, windows, settings,
--- guidance and diagnostics (see docs/BRIDGES.md). Unknown keys are ignored. A
+-- guidance, diagnostics and parkedReason (see docs/BRIDGES.md). Unknown keys are ignored. A
 -- data table merges only once.
 -- Returns true, or false and one of "id", "data".
 function Bridges:MergeData(addon, data)
@@ -747,6 +800,7 @@ function Bridges:MergeData(addon, data)
         end
     end
     if type(data.windows) == "table" then MergeWindows(addon, data.windows) end
+    if NonEmpty(data.parkedReason) and not parkedReasons[addon] then parkedReasons[addon] = data.parkedReason end
     if type(data.settings) == "table" then
         local own = settings[addon] or {}
         settings[addon] = own
@@ -850,6 +904,23 @@ function Bridges:MatchFrame(ruleName, frame, name)
         if Matches(compiled, frame, name) then return true end
     end
     return false
+end
+
+-- The addon whose frame rule parkedNativePanel matches frame (tested without
+-- a name), or nil; for Bridges:IsParkedNativePanel.
+function Bridges:MatchParkedPanelRule(frame)
+    local rule = rules.parkedNativePanel
+    if not rule then return nil end
+    for _, compiled in ipairs(rule.list) do
+        if Matches(compiled, frame, nil) then return compiled.addon end
+    end
+    return nil
+end
+
+-- The reason addon declared for the native panels it parks
+-- (data.parkedReason), else "bridge-parked".
+function Bridges:GetParkedReason(addon)
+    return parkedReasons[addon] or "bridge-parked"
 end
 
 -- The same rule tested by name alone: frame selectors and parent never match.
@@ -1257,6 +1328,17 @@ function Offhand.API.GetOptionsMetrics()
     local viewport = Offhand.Viewport
     local metrics = Offhand.db and Offhand.db.enabled and viewport and viewport:GetMetrics()
     return metrics and metrics.isSpanned and metrics or nil
+end
+
+-- The addon options window fitting helpers of Core/PopupBounds.lua (read
+-- only), or nil before it loads: CanLayoutAddonOptions(frame),
+-- ReadWindowPoint(frame), SetWindowPoint(frame, point), OwnsOptionsPoint(frame,
+-- state), FitAddonOptions(frame, state, metrics), GetOptionsBounds(frame,
+-- metrics), FrameBounds(frame), Fits(left, right, top, bottom, minLeft,
+-- maxRight, maxTop, minBottom) and PublicNumber(value).
+function Offhand.API.GetOptionsWindowHelpers()
+    local bounds = Offhand.PopupBounds
+    return bounds and bounds.optionsWindowHelpers or nil
 end
 
 -- Private shared namespace for multi-file built-in bridges hosted inside

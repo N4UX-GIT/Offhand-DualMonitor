@@ -298,62 +298,6 @@ local function DiagnosticParts(parts, slot, ...)
     return parts
 end
 
-local function IsOneForAllMoveWindowsDisabled()
-    local db = rawget(_G, "OneForAllDB")
-    local qol = type(db) == "table" and rawget(db, "qol")
-    return type(qol) == "table" and qol.moveWindows == false
-end
-
-local function IsOneForAllMovingFrame(frameName)
-    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
-        return false
-    end
-    local frame = rawget(_G, frameName)
-    return type(frame) == "table" and frame.ofaMovable == true
-end
-
-local function IsOneForAllMovingWorldMap()
-    return IsOneForAllMovingFrame("WorldMapFrame")
-end
-
-local oneForAllDiagnosticFrameNames = {
-    "WorldMapFrame", "ContainerFrameCombinedBags", "SettingsPanel",
-    "CooldownViewerSettings", "AddonList", "MerchantFrame", "CharacterFrame",
-    "PlayerSpellsFrame", "GameMenuFrame",
-}
-
-local function IsOneForAllMovingAnyWindow()
-    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
-        return false
-    end
-    for _, frameName in ipairs(oneForAllDiagnosticFrameNames) do
-        if IsOneForAllMovingFrame(frameName) then return true end
-    end
-    return false
-end
-
-local function GetOneForAllUnmitigatedMoverTargets(mapOwner, bagOwners)
-    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
-        return nil
-    end
-    local targets = {}
-    if not mapOwner and IsOneForAllMovingFrame("WorldMapFrame") then
-        targets[#targets + 1] = "WorldMapFrame"
-    end
-    if (#bagOwners == 0) and IsOneForAllMovingFrame("ContainerFrameCombinedBags") then
-        targets[#targets + 1] = "ContainerFrameCombinedBags"
-    end
-    if Offhand.isForever then
-        if IsOneForAllMovingFrame("SettingsPanel") then
-            targets[#targets + 1] = "SettingsPanel"
-        end
-        if IsOneForAllMovingFrame("CooldownViewerSettings") then
-            targets[#targets + 1] = "CooldownViewerSettings"
-        end
-    end
-    return #targets > 0 and targets or nil
-end
-
 -- A report.bags owner whose entry says yieldsToNativeGamepad is left out on
 -- Forever while the native Gamepad interface is in use.
 local function AcceptsBagOwner(entry)
@@ -455,45 +399,51 @@ function Compatibility.GetExternalControlGuidance()
     return guidance
 end
 
+local function ByConflictOrder(a, b)
+    if a.order ~= b.order then return a.order < b.order end
+    return a.index < b.index
+end
+
 -- Returns genuine active conflicts only (never normal single-addon coexistence).
+-- The map owner's contract notice comes first (order 10) and the multiple bag
+-- addon conflict at order 30; window mover bridges add theirs through
+-- GetOwnershipConflicts(context), each carrying its own order.
 function Compatibility.GetOwnershipConflicts()
-    local conflicts = {}
+    local found = {}
+    local function Add(order, conflict)
+        found[#found + 1] = { conflict = conflict, index = #found + 1,
+            order = type(order) == "number" and order or math.huge }
+    end
     local mapOwner = Compatibility.GetWorldMapExternalOwner()
     local bridges = Offhand.Bridges
     -- On Forever the map owner's provider reports its own contract notice and
     -- whether it keeps a window mover's writes in sync.
     local ownerConflict = Offhand.isForever and bridges and bridges:CallMap(mapOwner, "GetContractConflict") or nil
-    if type(ownerConflict) == "table" then conflicts[#conflicts + 1] = ownerConflict end
-    local mapFacts = MapOwnerFacts(mapOwner)
-    if (mapFacts ~= nil and mapFacts.positionsMap == true) and IsOneForAllMovingWorldMap() then
-        local mitigated = Offhand.isForever and bridges ~= nil
-            and bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
-        if not mitigated then
-            conflicts[#conflicts + 1] = {
-                id = "worldmap-mover:OneForAll+" .. mapOwner,
-                kind = "worldmap-mover",
-                mover = "OneForAll",
-                owner = FormatMapOwnerLabel(mapOwner),
-            }
-        end
-    end
+    if type(ownerConflict) == "table" then Add(10, ownerConflict) end
     local bags = Compatibility.GetActiveBagOwners()
+    if bridges and bridges.GetOwnershipConflicts then
+        local mapFacts = MapOwnerFacts(mapOwner)
+        local context = {
+            mapOwner = mapOwner,
+            mapLabel = mapOwner and FormatMapOwnerLabel(mapOwner) or nil,
+            positionsMap = mapFacts ~= nil and mapFacts.positionsMap == true,
+            bagOwners = bags,
+            SyncsWorldMapMover = function()
+                return Offhand.isForever and bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
+            end,
+        }
+        for _, conflict in ipairs(bridges:GetOwnershipConflicts(context)) do Add(conflict.order, conflict) end
+    end
     if #bags >= 2 then
-        conflicts[#conflicts + 1] = {
+        Add(30, {
             id = "bags-conflict:" .. table.concat(bags, "+"),
             kind = "bags-conflict",
             addons = table.concat(bags, ", "),
-        }
+        })
     end
-    local ofaTargets = GetOneForAllUnmitigatedMoverTargets(mapOwner, bags)
-    if ofaTargets then
-        conflicts[#conflicts + 1] = {
-            id = "window-mover:OneForAll",
-            kind = "window-mover",
-            mover = "OneForAll",
-            targets = table.concat(ofaTargets, ","),
-        }
-    end
+    table.sort(found, ByConflictOrder)
+    local conflicts = {}
+    for index, item in ipairs(found) do conflicts[index] = item.conflict end
     return conflicts
 end
 
@@ -547,7 +497,8 @@ end
 -- and "compat.map" after it in the full line, whose value functions receive
 -- coordinateFontRefreshCount (the last external map coordinate font refresh).
 function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
-    local mapOwner = Compatibility.GetWorldMapExternalOwner() or "Offhand"
+    local externalOwner = Compatibility.GetWorldMapExternalOwner()
+    local mapOwner = externalOwner or "Offhand"
     if compact then
         return table.concat(DiagnosticParts({"WorldMapOwner=" .. mapOwner}, "compact"), " | ")
     end
@@ -560,14 +511,20 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
     local ownerDetail = ""
     local status = Offhand.isForever and bridges and bridges:CallMap(mapOwner, "GetOwnerDiagnostics") or nil
     if type(status) == "string" then ownerDetail = " | " .. status end
+    -- Window mover bridges add their own segments after the owner's part.
     local moverStatus = ""
-    local mapFacts = MapOwnerFacts(mapOwner)
-    if (mapFacts ~= nil and mapFacts.positionsMap == true) and IsOneForAllMovingWorldMap() then
-        local mitigated = bridges ~= nil and bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
-        moverStatus = " | WorldMapMover=OneForAll(" .. (mitigated and "synced" or "conflict") .. ")"
-    end
-    if IsOneForAllMovingAnyWindow() then
-        moverStatus = moverStatus .. " | OneForAllMover=active"
+    if bridges and bridges.GetMoverDiagnostics then
+        local mapFacts = MapOwnerFacts(mapOwner)
+        local context = {
+            mapOwner = externalOwner,
+            positionsMap = mapFacts ~= nil and mapFacts.positionsMap == true,
+            SyncsWorldMapMover = function()
+                return bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
+            end,
+        }
+        for _, text in ipairs(bridges:GetMoverDiagnostics(context)) do
+            moverStatus = moverStatus .. " | " .. text
+        end
     end
     local conflictList = Compatibility.GetOwnershipConflicts()
     local conflictStatus = ""
@@ -603,69 +560,6 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
             .. ",capture=" .. tostring(Offhand.Canvas and Offhand.Canvas.tbcBagCaptureStatus or "idle")
     end
     return ownerStatus .. spellbookStatus .. bagStatus .. ownerDetail .. moverStatus .. controllerStatus .. conflictStatus
-end
-
--- Support-only inspection. Never move, show, hook or read guide contents from
--- third-party frames. A missing named root is not proof that an addon is absent.
-function Compatibility.GetGuideAddonDiagnostics()
-    local loaded = Compatibility.IsAddonLoaded("ZygorGuidesViewer")
-        or Compatibility.IsAddonLoaded("ZygorGuidesViewerClassic")
-    local namespace = type(_G.ZygorGuidesViewer) == "table"
-    local reports, seen, scanned, truncated = {}, {}, 0, false
-    local function Public(value)
-        if type(issecretvalue) == "function" then
-            local ok, secret = pcall(issecretvalue, value)
-            if not ok or secret then return nil end
-        end
-        return value
-    end
-    local function Read(frame, method)
-        local ok, value = pcall(function()
-            local getter = frame and frame[method]
-            if type(getter) == "function" then return getter(frame) end
-        end)
-        if ok then return Public(value) end
-    end
-    local function Value(value)
-        if type(value) == "boolean" then return value and "1" or "0" end
-        if type(value) == "number" and value == value and value > -math.huge and value < math.huge then
-            return string.format("%.2f", value)
-        end
-        return "unavailable"
-    end
-    for _, parent in pairs({UIParent, WorldFrame}) do
-        if parent and type(parent.GetChildren) == "function" then
-            local ok, children = pcall(function() return {parent:GetChildren()} end)
-            if ok then
-                if #children > 256 then truncated = true end
-                for index = 1, math.min(#children, 256) do
-                    local frame = children[index]
-                    scanned = scanned + 1
-                    local name = Read(frame, "GetName")
-                    if type(name) == "string" and name:lower():find("zygor", 1, true) and not seen[frame] then
-                        seen[frame] = true
-                        if #reports < 8 then
-                            local strata = Read(frame, "GetFrameStrata")
-                            reports[#reports + 1] = string.format(
-                                "%s parent=%s shown=%s visible=%s alpha=%s effectiveAlpha=%s strata=%s level=%s scale=%s bounds=%s/%s/%s/%s",
-                                name:sub(1, 96), parent == UIParent and "UIParent" or "WorldFrame",
-                                Value(Read(frame, "IsShown")), Value(Read(frame, "IsVisible")),
-                                Value(Read(frame, "GetAlpha")), Value(Read(frame, "GetEffectiveAlpha")),
-                                type(strata) == "string" and strata:sub(1, 32) or "unavailable",
-                                Value(Read(frame, "GetFrameLevel")),
-                                Value(Read(frame, "GetEffectiveScale")), Value(Read(frame, "GetLeft")),
-                                Value(Read(frame, "GetBottom")), Value(Read(frame, "GetRight")), Value(Read(frame, "GetTop")))
-                        else truncated = true end
-                    end
-                end
-            end
-        end
-    end
-    if not loaded and not namespace and #reports == 0 then return nil end
-    table.insert(reports, 1, string.format("Zygor probes: knownAddonID=%s namespace=%s namedRoots=%d scanned=%d truncated=%s",
-        loaded and "loaded" or "not-observed", namespace and "present" or "not-observed",
-        #reports, scanned, truncated and "yes" or "no"))
-    return reports
 end
 
 function Compatibility.IsForeverProfessionsPanel(frame, suppliedName)

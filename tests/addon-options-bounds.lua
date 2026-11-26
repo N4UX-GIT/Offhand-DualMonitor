@@ -12,10 +12,22 @@ UIParent = {
 
 local combat = false
 InCombatLockdown = function() return combat end
+-- Core and each options bridge create their own event frame; observer.onEvent
+-- delivers an event to every frame that registered it.
+local frames = {}
+CreateFrame = function()
+    local f = {events = {}}
+    function f:RegisterEvent(event) self.events[event] = true end
+    function f:SetScript(_, script) self.script = script end
+    frames[#frames + 1] = f
+    return f
+end
 local observer = {}
-CreateFrame = function() return observer end
-function observer:RegisterEvent() end
-function observer:SetScript(_, script) self.onEvent = script end
+function observer.onEvent(_, event, ...)
+    for _, f in ipairs(frames) do
+        if f.events[event] and f.script then f.script(f, event, ...) end
+    end
+end
 hooksecurefunc = function(target, key, after)
     local native = target[key]
     target[key] = function(...)
@@ -56,6 +68,7 @@ local function frame(parent, scale, width, height, left, top)
 end
 
 assert(loadfile("Core/PopupBounds.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, {"Bridges/ItemRack/Bridge.lua", "Bridges/Questie/Options.lua"})
 addon.PopupBounds:Initialize()
 
 -- ItemRackOptions loads on demand and resets its scale every time it opens.

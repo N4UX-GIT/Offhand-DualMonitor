@@ -23,6 +23,8 @@
 - Internal: the persistent workspace bag roots of Baganator, Bagnon and EllesmereUI (root discovery, script and Escape handling, reopen after Escape, panels, Talents and reload, parked native bags and diagnostics) moved from the core into built-in bridges. Behaviour is unchanged.
 - Internal: the EllesmereUI settings window, popup and Unlock Mode toolbar fitting and its chat bubble ownership check moved from the core into a built-in bridge. Behaviour is unchanged.
 - Internal: the EllesmereUI HUD layout transfer (visual preview, profile import, Blizzard fallback layout, /offhand ellesmere, its setup wizard step, settings, onboarding and character review texts) moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the ItemRack Options window and flyout fitting, the Questie standalone settings window fitting, the OneForAll window mover conflicts and diagnostics and the Zygor guide frame probe moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the DaylightUI parked Spellbook and Trainer check and its window names in the panel placement diagnostics moved from the core into its built-in bridge, and the core no longer names any third-party addon. Behaviour is unchanged.
 
 ## [2.1.5-beta.42] - 2026-11-25
 

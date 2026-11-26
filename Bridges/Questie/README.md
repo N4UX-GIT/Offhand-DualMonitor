@@ -30,7 +30,24 @@ hook or registration) unless Questie is loaded on the Forever client.
   tracker's position to Questie on purpose.
 - The LibDBIcon minimap-button tooltip side, the optional sticky Durability/VoiceOver frames, and AceGUI's
   released widgets under UIParent.
-- Questie's standalone settings window is fitted by Offhand core, not by this bridge.
+- Questie's standalone settings window is fitted by `Options.lua` beside it, not by this bridge.
+
+## Standalone settings window (`Options.lua`)
+
+`Bridges/Questie/Options.lua` is the former Questie part of the addon options window fitting in
+`Core/PopupBounds.lua`, moved behind the bridge contract with unchanged behaviour. It registers its own id,
+`QuestieOptions`, on the Forever client whether or not Questie is loaded yet and whether or not the bridge above
+is active.
+
+- While Offhand is enabled and spanned, `QuestieStandaloneSettings` is sized to 70% of Mainhand's height
+  (Questie sizes it from the whole canvas) and moved onto Mainhand when it overlaps the seam. A window being
+  dragged is left alone.
+- When the span ends or Offhand is disabled, the height it set goes back to 70% of UIParent and the anchor it
+  owns goes back to Questie's own; a dragged window keeps its place. Nothing is changed in combat.
+- Core reaches it through `InitializePopupWindows()` (hooks `QuestieOptionsEngine.ShowFrame` once the popup
+  bounds handling initializes and again on Questie's `ADDON_LOADED`) and `RefreshAddonOptions(getMetrics)`
+  (every popup layout pass and after combat). The fitting helpers stay in core
+  (`Offhand.API.GetOptionsWindowHelpers()`). Tested by tests/addon-options-bounds.lua.
 
 ## Diagnostics
 

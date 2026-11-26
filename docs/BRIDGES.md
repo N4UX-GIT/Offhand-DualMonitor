@@ -15,12 +15,13 @@ A bridge adapts one third-party addon to Offhand. It holds everything Offhand
 needs to know about that addon: frame names, hooks into its internals, its
 saved settings, and its own map, bag, or layout handling.
 
-Offhand's bridged core modules (`Core/Canvas.lua`, `Core/BagPersistence.lua`,
-`Core/CanvasCompatibility.lua`, `Core/CanvasMapPresentation.lua`,
-`Core/WorkspaceToggleKeys.lua`, `Core/AddonWindowCatalog.lua`,
-`Core/CanvasAddonEscape.lua`, and `Core/LearnedAddonWindows.lua`) do not name
-bridged addons directly. The core calls registered bridges at fixed points
-inside `pcall` and offers a small `Offhand.API` service surface.
+No file under `Core/`, `UI/` or `Modules/` (nor `Bindings.xml`) names a
+third-party addon: every addon specific lives in `Bridges/<Addon>/`. The core
+calls registered bridges at fixed points inside `pcall`, reads the facts they
+declare (section 3.1), and offers a small `Offhand.API` service surface. The
+final purity scan in `tests/bridges-contract.lua` enforces this, with its
+justified exceptions listed in the test (`Locales/*.lua` keep player-facing
+text and key names).
 
 ## 2. Built-in layout and packaging
 
@@ -100,6 +101,7 @@ compile into one set.
 | `moverFields` | `{ movable = { "field" }, moving = { "field" } }` | `Bridges.IsExternallyMovable(frame)` (a field `== true`), `Bridges.IsExternallyMoving(frame)` (a field set) |
 | `catalogs` | `{ [addonFolder] = catalog }` | Merged into `Offhand.AddonWindowCatalog[addonFolder]` (the core file holds only the empty table) |
 | `windows` | `{ sourceless = { name }, names = { name }, patterns = { pattern }, owners = { addonFolder }, headerDrag = true, openers = { slash = { key }, globals = { key }, methods = { { get = function, key } }, links = { { link, when = detector } } } }` | The addon window Escape adapter (`Core/CanvasAddonEscape.lua`) through `Bridges:IdentifyWindow(frame, name, readSource)`: a `sourceless` name calls that bridge's `IdentifyWindow(frame, name, nil)` before the source is read; a listed name, or a matching pattern (patterns in registration order until one answers), calls it with the source and only when `readSource(frame)` returns one. The first addon listing a name or owner keeps it, and no other bridge is called. `Bridges:GetWindowCloseButtons(frame, owner, name)` and `Bridges:WindowUsesHeaderDrag(owner)` (the root's `header` drags are observed too) ask the bridge listing `owner`. `Bridges:ObserveWindowOpeners(kind, observe)` hooks openers by kind (`slash`, `globals`, then after Offhand's own options, `methods`, whose `get` runs in `pcall`) in registration order; `Bridges:HasWindowOpenerLinks()` (a link's detector passes) installs one `SetItemRef` observer, and `Bridges:IsWindowOpenerLink(link)` tells its links apart |
+| `parkedReason` | A string | The reason `Bridges:IsParkedNativePanel(frame)` returns second (and the Gamepad panel status shows) for a panel parked by that addon's bridge or `parkedNativePanel` matchers; `bridge-parked` without one |
 | `settings` | `{ [key] = { store = "profile" or "character", legacyKey, default, resetOnCharacterChange } }` | `Offhand.API.Get/SetBridgeSetting`, `Get/SetBridgeCharacterSetting`, `Bridges:GetSettingDefaults()`, `Bridges:GetCharacterResetKeys()`, `Bridges:GetSettingKey(key)` (the stored profile key of the first addon declaring `key`, for a record core reads by its declared name) |
 | `guidance` | Array of `{ id, order, addon, when = { [ownersList] = name }, key, fallback, args = 2, suffixWhen = detector, suffixKey, suffixFallback }`, sorted like ownership | `Bridges:GetGuidanceEntries()` (entries, and per entry whether `suffixWhen` passes); `CanvasCompatibility.GetExternalControlGuidance` shows an entry when a `when` name is in that list of `GetActiveExternalOwners()`, as `L[key] or fallback`, formatted with `addon` twice when `args = 2`, plus `" " .. (L[suffixKey] or suffixFallback)` |
 | `diagnostics` | Array of `{ slot, order, label, present = "Folder" }`, `{ slot, order, label, value = function() }` or `{ slot, order, label, detect = detector, text, absent }`, sorted like ownership | `Bridges:GetDiagnosticSegments(slot)` (entries, and per entry whether its `detect` passes); slot `minimap`: `label:yes/no` (present) or `label:value` in the minimap visibility report; slot `chat`: present labels joined as `ChatProviders=`; slot `panelPlacement` (entries also carry `frame = "GlobalName"`): ` | label=value` appended to that root's panel placement diagnostics line (`unavailable` when the value fails or is not a string); slot `compat.tail` (value entries): ` | label=value` at the very end of the compatibility diagnostics, after the bridges' `GetDiagnostics` segment (`unavailable` likewise); slots `compact` (after `WorldMapOwner=` in the compact compatibility line), `compat.head` (before `WorldMapOwner=` in the full line) and `compat.map` (right after it): ` | label=text`, where a `detect` segment shows `text` (default `loaded`) while it passes, else `absent` (skipped without one), and a `value` function gets the last external map coordinate font refresh count |
@@ -126,6 +128,7 @@ Roles and rules core reads:
 | `map.configurationOwner` | `CanvasCompatibility.HasWorldMapConfigurationOwner()`: Offhand's World Map configuration and TBC cursor conversion stand aside |
 | `panels.externalOwner` | `CanvasCompatibility.ShouldYieldFrameToExternalOwner(frameOrName)`: the first present owner's `frames` (an array of names) keep their own movement, drag, persistence and recovery; `Canvas:RelinquishExternalOwnerFrames()` hands them back |
 | rule `diagnosticFrame` | Extra roots in the panel placement diagnostics, after core's own |
+| rule `parkedNativePanel` | `Bridges:IsParkedNativePanel(frame)` after the bridges' own `IsParkedNativePanel` callbacks (tested without a name): a native panel the addon parks under its own holder, which core's placement, auto-open, HUD ownership and Gamepad passes leave alone |
 | rule `workspaceChrome` | `WorkspaceChrome`: addon windows whose close buttons are hidden while on the workspace, beside core's own names |
 | `tooltip.owner` | `PopupBounds`: the first present owner positions tooltips itself, so Offhand's tooltip fitting yields and the diagnostics name it |
 | rule `preservePopup` | `HUDCompatibility.ShouldPreservePopupPosition`: automatic popup recovery leaves a matched frame where its addon put it, before the user-placed test |
@@ -168,7 +171,10 @@ Every callback is optional and runs inside `pcall`:
 | `OwnsFeature(feature)` | `Bridges:OwnsFeature(feature)`: `"chatBubbles"` in the chat bubble replacement decision, not per frame | Literal `true` when the addon handles the feature itself; `OwnsFeature` returns the first such bridge id (the chat bubble diagnostics' `replacementConflict`), else `nil` |
 | `RefreshBags(services)` | Forever bag Escape pass (at bag provider order 60) with `{ UpdateEscapeRegistration, IsEscapeRegistered, CanSuppressVendorClose, IsGameMenuBagClose, IsSettingsBagClose, IsPaused, TrackEnabled, IsSpanned, InputReserved, CanOpenBagsFromAddon, IsFrameOnWorkspace, CloseParkedNativeBags, KeepsIndependentPanels }` | Ignored |
 | `GetDiagnostics()` | Compatibility diagnostics report | Non-empty string or `nil` |
-| `GetDebugDiagnostics()` | `/offhand diag debug` only, printed as `<label> diagnostics: <text>.` | `label, text` (both non-empty strings) or nothing |
+| `GetDebugDiagnostics()` | `/offhand diag debug` only, printed as `<label> diagnostics: <text>.` | `label, text` (both non-empty strings; `text` may be an array of strings, one line each) or nothing |
+| `GetOwnershipConflicts(context)` | `CanvasCompatibility.GetOwnershipConflicts()`, with `{ mapOwner, mapLabel, positionsMap, bagOwners, SyncsWorldMapMover() }` (`SyncsWorldMapMover` asks the map owner's provider, Forever only) | Array of conflict tables (`id`, `kind`, and the fields `FormatConflictMessage` reads), each with an `order`; core sorts them with its own: the map owner's contract notice at 10 and the multiple bag addon conflict at 30 |
+| `GetMoverDiagnostics(context)` | The full compatibility diagnostics line, after the map owner's part, with `{ mapOwner, positionsMap, SyncsWorldMapMover() }` (on every client) | Non-empty string, appended as ` | text` |
+| `RefreshAddonOptions(getMetrics)` | Forever: every popup layout pass and after combat; `getMetrics()` returns the options metrics (nil while Offhand is off or not spanned), read at most once per pass | Ignored |
 | `ShouldPreserveSingleScreenPosition(frame, metrics)` | Single-screen recovery for saved workspace panels | Literal `true` to preserve vendor placement |
 | `GetBagFrames()` | Workspace bag toggle check | Table of bag frames |
 | `IsEditModeActive()` | Before learned-window selection or refresh | Literal `true` to pause Offhand selection |
@@ -177,6 +183,7 @@ Every callback is optional and runs inside `pcall`:
 | `GetWindowCloseButtons(frame, owner, name)` | Workspace close buttons of a root identified for an owner the bridge lists | Array of buttons |
 | `RetireStalePlacements(services)` | Each addon window Escape refresh while it is active, before openers are observed, with `{ HasPlacement(name), IsVendorGameplayFrame(frame, name), ForgetPosition(name), ForgetOpen(name) }` over the active profile; open panels are saved once afterwards if one was forgotten | Ignored |
 | `IsExternallyOwnedFrame(frame, name)` | `HUDCompatibility.IsExternallyOwnedHUDFrame`, so generic popup rescue and panel movement skip a vendor HUD root the bridge places itself | Literal `true` to keep core away from the frame |
+| `IsParkedNativePanel(frame)` | `Offhand.IsBridgeParkedPanel(frame)`: panel placement, auto-open, HUD ownership and Gamepad destination passes, before the `parkedNativePanel` rule | Literal `true` while the addon parks that native panel under its own holder (the bridge's `data.parkedReason` is reported) |
 | `RefreshTransientFrames(phase)` | With the Mainhand transient passes: `"hook"` (discovery) and `"position"` (placement, ahead of core's own popups and alerts) | Ignored |
 | `GetSettingsContributions(slot)` | `Bridges:GetSettingsContributions(slot)` for an Options slot (`map`, `alerts`, `recovery`, `help:EDIT_MODE`, `mapScaleTitle`, `mapDescription`) | Array of `{ id, kind, text, tooltip, get, set, onClick, shown, width, height, order }`; entries without an id are dropped, the rest sorted by `order` then bridge order. Slot `mapScaleTitle` renders `kind = "suffix"` entries (`text` after the Map Scale title, `help` as its tip), `mapDescription` `kind = "prefix"` entries (`text` and a space ahead of the map description) and `kind = "fallback"` entries (off Forever, the first whose `addon` is loaded and enabled replaces the default description with `text`) and `map` `kind = "button"` entries (24 high, below the description, each `height` (default 30) under the previous, `tooltip` titled `text`, `onClick()`), each only while `addon` is loaded and enabled for the character and the World Map owner is `owner`. Slot `alerts` renders `kind = "check"` entries (with `get` and `set`) as checkboxes below the redirect option, titled `text` with tooltip `tooltip`, each row `max(height, wrapped text at width + 14)` high (defaults 32 and 600). `addon = "Folder"` shows an entry only while that addon is loaded and enabled for the character, and that addon's `ADDON_LOADED` refreshes the card; `help` is added to the card's help while the entry is shown |
 | `mapProvider` | `Bridges:CallMap(owner, method, ...)`: one `pcall` into the provider of the owner the caller resolved. Methods core calls: `UpdateFollow(map, state)` (every 0.5 s while a `map.cameraOwner` is present and the map shown; `true` once handled, else core clears `state.u`), `GetScaleRange()` (`max, step` of the map scale setting), `ReadScaleOption()` (Forever: `option, settings, value, key`; Map Scale calls `option.set({key}, value)`), `HandlesExpandedMap()`, `CanRecover()`, `Recover(workspace)` (`moved, reason`), `ReportRecoveryFailure(reason)`, `ObserveUserDrag(map)`, `HandlesFullscreen()` (standard UI), `GetContractConflict()` (Forever: a conflict table), `FormatConflict(conflict)`, `SyncsWorldMapMover()`, `GetOwnerDiagnostics()` (Forever: appended as ` | text` after the bag part of the compatibility line), `RefreshCoordinateFonts(map)` (owner of `map.configurationOwner`, after a live span and outside combat: the number of labels refreshed), `InstallPositionGuard(map, state, services)` and `UpdateLayout(map, state, shown, maximized, services)` (owner of `map.layoutGuard`; the map state fields `layoutGuard`, `layoutOpened`, `layoutPending` and `layoutPlacement` are shared with the observer, and services are `NativeGamepadOwnsMap`, `ShouldYieldWorldMap`, `IsDragging`, `GetWorkspaceMetrics`, `GetSavedMapPositions`, `IsPosition`, `ForFrame`, `FitWindow`, `GetPanelPhysicalPlacement`, `ResolveWorkspacePosition`, `ClampWorkspacePoint`) | The method's own results; nothing when absent or failing |
@@ -198,6 +205,7 @@ Added by `Core/Bridges.lua`:
 - `Offhand.API.GetGroupLootSpot(height)`: center `x, y` for group loot roll slots on the game rectangle, or `nil` when unspanned
 - `Offhand.API.IsPopupRedirectEnabled()`: whether Offhand is enabled with its popup and alert redirection on; a bridge that re-anchors a vendor's alerts releases them when this is false
 - `Offhand.API.GetMainhandPixelHeightRatio()`: Mainhand's game pixel height over the physical window height while spanned, else `1`; a bridge multiplies a vendor's native frame scale by it
+- `Offhand.API.GetOptionsWindowHelpers()`: the generic addon options window fitting helpers of `Core/PopupBounds.lua` (read only): `CanLayoutAddonOptions`, `ReadWindowPoint`, `SetWindowPoint`, `OwnsOptionsPoint`, `FitAddonOptions(frame, state, metrics)`, `GetOptionsBounds`, `FrameBounds`, `Fits` and `PublicNumber`; `nil` before that file loads
 - `Offhand.API.QueuePopupBounds(frame)`: queues a tooltip-like frame for Offhand's popup bounds pass, which fits it inside the game rectangle once shown; `true` when queued
 - `Offhand.API.RegisterAddonData(addon, data)` and the settings services of section 3.1
 - `Offhand.API.RegisterHUDTransfer(provider)`: sets `Offhand.HUDTransfer` to the one HUD layout transfer provider (`provider.id` required); `false, "provider"` or `false, "duplicate"` otherwise. Core reads `IsAvailable()`, `ShowPreview(direction, onDismiss)` (its presence adds the setup wizard's transfer step after the HUD step, with the same step number, sizes and order as before), `HasPendingReload()`, `PromptImportReload()`, `addon` (the folder whose load and enable state show the Options controls and whose `ADDON_LOADED` refreshes them), `reloadPopup` (its import reload popup gets Offhand's controller-safe popup), `copyDirection` (the preview direction that copies Offhand's native layout into the suite) and `text` (locale keys by name: `title`, `stage`, `wizardIntro`, `wizardBody`, `wizardSelect`, `wizardReload`, `wizardExisting`, `wizardSelectManual`, `setupDesc`, `finishCurrent`, `finishReload`, `importReady`, `savedInactive`, `busy`, `previewDesc`, `helpBody`, `characterReview`; a missing name shows empty text)
@@ -325,6 +333,11 @@ command, and `Bridge.lua` names the provider's locale keys
 (`tests/forever-ellesmere-layout.lua`, `tests/wizard-autoconfig.lua`,
 `tests/character-setup.lua`).
 
+`Bridges/DaylightUI/Init.lua` also registers DaylightUI facts on every client, whether or not
+DaylightUI was loaded when the bridge loaded (formerly in core): the `parkedNativePanel` matcher for
+`PlayerSpellsFrame` and `ClassTrainerFrame` under its live `Win.Followers` holders (Forever only), the
+`parkedReason` `daylight-parked` and the `diagnosticFrame` names `DaylightUIBook` and `DaylightUINpc`.
+
 `Bridges/ConsolePort` is a data bridge: it registers through
 `Offhand.API.RegisterAddonData` on every client and supplies the roles
 `hud.controller`, `hud.actionBars`, `hud.statusBars` and `hud.editModeBlocker`
@@ -358,6 +371,17 @@ bridge), `RestedXP` and `Titan` (`preservePopup`), `EllesmereUI`
 (`diagnosticFrame` and a `panelPlacement` segment), `TipTac`, `TinyTooltip`
 and `TinyTooltipReforged` (`tooltip.owner`, orders 10 to 30) and `OneForAll`
 (`moverFields`).
+
+Addon options windows and window mover conflicts: `Bridges/ItemRack/Bridge.lua` and
+`Bridges/Questie/Options.lua` (its own id `QuestieOptions`, beside the default-anchor Questie bridge) are the
+former ItemRack and Questie options window fitting of `Core/PopupBounds.lua`, with unchanged behaviour. They
+register on Forever only, install their hooks from `InitializePopupWindows()` and again on their addon's
+`ADDON_LOADED`, and fit through `RefreshAddonOptions(getMetrics)` with the core helpers of
+`GetOptionsWindowHelpers()` (`tests/addon-options-bounds.lua`). `Bridges/OneForAll/Bridge.lua` holds the
+former OneForAll conflicts and diagnostics of `Core/CanvasCompatibility.lua` (`GetOwnershipConflicts`, orders
+20 and 40, and `GetMoverDiagnostics`) beside its `moverFields` data, and `Bridges/Zygor/Bridge.lua` the former
+read-only guide frame probe as a `GetDebugDiagnostics` report labelled `Guide frame`
+(`tests/canvas-compatibility.lua`, `tests/guide-addon-diagnostics.lua`). Both register on every client.
 
 Bag owners are data bridges of the same kind: `EllesmereUI` (EllesmereUIBags), `MoveMyBags`,
 `Baganator` (also the Baginator and BGR spellings, `bags.selfRestoring` and the custom bag workspace

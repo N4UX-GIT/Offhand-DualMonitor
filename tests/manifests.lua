@@ -241,6 +241,7 @@ local expectedAnchorBridges = {
     "Bridges/ForeverXPBar/Bridge.lua",
     "Bridges/Gathercraft/Bridge.lua",
     "Bridges/Inventorian/Bridge.lua",
+    "Bridges/ItemRack/Bridge.lua",
     "Bridges/KerzoQuestLog/Bridge.lua",
     "Bridges/Leatrix/Maps.lua",
     "Bridges/Leatrix/Settings.lua",
@@ -251,6 +252,7 @@ local expectedAnchorBridges = {
     "Bridges/MoveAny/Bridge.lua",
     "Bridges/MoveMyBags/Bridge.lua",
     "Bridges/OneForAll/Data.lua",
+    "Bridges/OneForAll/Bridge.lua",
     "Bridges/OpenMap/Data.lua",
     "Bridges/OpenMap/Contract.lua",
     "Bridges/OpenMap/Recovery.lua",
@@ -262,6 +264,7 @@ local expectedAnchorBridges = {
     "Bridges/ProcDoc/Bridge.lua",
     "Bridges/Questie/Bridge.lua",
     "Bridges/Questie/Rules.lua",
+    "Bridges/Questie/Options.lua",
     "Bridges/RareScanner/Bridge.lua",
     "Bridges/RedIsFriend/Bridge.lua",
     "Bridges/RestedXP/Bridge.lua",
@@ -274,6 +277,7 @@ local expectedAnchorBridges = {
     "Bridges/Tukui/Bridge.lua",
     "Bridges/XPerl/Bridge.lua",
     "Bridges/ZPerl/Bridge.lua",
+    "Bridges/Zygor/Bridge.lua",
 }
 local anchorBridgeStart = bridgeStart - #expectedAnchorBridges
 for i, path in ipairs(expectedAnchorBridges) do

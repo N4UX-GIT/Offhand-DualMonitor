@@ -9,7 +9,7 @@ C_AddOns = {
 WorldMapFrame = {}
 
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/Bagnon/Bridge.lua", "Bridges/Bartender4/Bridge.lua", "Bridges/ClassicUIForever/Bridge.lua", "Bridges/ElvUI/Bridge.lua", "Bridges/Leatrix/Maps.lua", "Bridges/MoveAny/Bridge.lua", "Bridges/MoveMyBags/Bridge.lua", "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua",
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/Bagnon/Bridge.lua", "Bridges/Bartender4/Bridge.lua", "Bridges/ClassicUIForever/Bridge.lua", "Bridges/ElvUI/Bridge.lua", "Bridges/Leatrix/Maps.lua", "Bridges/MoveAny/Bridge.lua", "Bridges/MoveMyBags/Bridge.lua", "Bridges/OneForAll/Bridge.lua", "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua",
     "Bridges/ShadowedUnitFrames/Bridge.lua" })
 local compatibility = assert(addon.CanvasCompatibility)
 

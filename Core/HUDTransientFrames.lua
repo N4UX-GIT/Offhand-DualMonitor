@@ -822,8 +822,9 @@ function Transient.Install(HUD, services)
             x = (m.gameLeft + m.gameRight) * factor / 2
             y = (m.gameBottom + m.gameTop) * factor / 2
         end
-        -- OneForAll restores its TOPLEFT anchor on show, again next frame,
-        -- and after panel layout. Finish that specific write before rendering.
+        -- An external window mover can restore its TOPLEFT anchor on show,
+        -- again next frame, and after panel layout. Finish that specific
+        -- write before rendering.
         if IsExternallyMovable(frame) and frame ~= moverMenu and hooksecurefunc
             and frame.IsProtected and not frame:IsProtected() then
             moverMenu = frame

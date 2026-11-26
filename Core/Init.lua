@@ -2101,11 +2101,6 @@ SlashCmdList["OFFHAND"] = function(msg)
                 type(characterSetup) == "table" and characterSetup.complete == true and "saved" or "pending")
         end
         if debugDiagnostics then
-            if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.GetGuideAddonDiagnostics then
-                for _, report in ipairs(Offhand.CanvasCompatibility.GetGuideAddonDiagnostics() or {}) do
-                    Offhand:Print("Guide frame diagnostics: %s.", report)
-                end
-            end
             if Offhand.HUD and Offhand.HUD.GetNotificationCaptureReports then
                 for _, report in ipairs(Offhand.HUD:GetNotificationCaptureReports() or {}) do
                     Offhand:Print("Notification capture: %s.", report)

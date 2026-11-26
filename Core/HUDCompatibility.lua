@@ -112,25 +112,19 @@ function Compatibility.HasCustomChatAddon()
     return HasRole("hud.chat")
 end
 
--- DaylightUI lends these native panels back for some views. Check the
--- current parent on every placement, including delayed repairs after a span.
-function Offhand.IsDaylightParkedPanel(frame)
+-- A native panel a bridge's addon lends back for some views and parks under
+-- its own holder in between (Bridges:IsParkedNativePanel). Check the current
+-- parent on every placement, including delayed repairs after a span. Returns
+-- true and the reason the parking addon declares for it.
+function Offhand.IsBridgeParkedPanel(frame)
     if not frame then return false end
-    if Offhand.Bridges and Offhand.Bridges.IsParkedNativePanel
-        and Offhand.Bridges:IsParkedNativePanel(frame) then
-        return true
-    end
-    if not Offhand.isForever or
-        (frame ~= _G.PlayerSpellsFrame and frame ~= _G.ClassTrainerFrame) then return false end
-    local win = _G.DaylightUI and _G.DaylightUI.Win
-    local followers = win and win.Followers
-    if not followers or not frame.GetParent or (frame.IsForbidden and frame:IsForbidden()) then return false end
-    local parent = frame:GetParent()
-    return parent ~= nil and (parent == followers.aside or parent == followers.hidden or parent == followers.veil)
+    local bridges = Offhand.Bridges
+    if not bridges or not bridges.IsParkedNativePanel then return false end
+    return bridges:IsParkedNativePanel(frame)
 end
 
 function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
-    if Offhand.IsDaylightParkedPanel(frame) then return true end
+    if Offhand.IsBridgeParkedPanel(frame) then return true end
     if Offhand.Bridges and Offhand.Bridges.IsExternallyOwnedFrame
         and Offhand.Bridges:IsExternallyOwnedFrame(frame, name) then return true end
     name = name or (frame and frame.GetName and frame:GetName())
@@ -212,7 +206,7 @@ function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
 end
 
 -- Serialized HUD generation must respect the same owners as runtime movement.
--- Profile bundles such as Naowh use their actual installed frame providers.
+-- Profile bundles use their actual installed frame providers.
 function Compatibility.IsExternallyOwnedEditModeSystem(entry)
     local systems = Enum and Enum.EditModeSystem
     if not systems or type(entry) ~= "table" then return false end

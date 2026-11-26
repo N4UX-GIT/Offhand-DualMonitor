@@ -276,6 +276,143 @@ assert(#debugReports == 1 and debugReports[1].label == "Chatty" and debugReports
 assert(Bridges.errors.Failing and Bridges.errors.Failing:find("boom", 1, true),
     "a failing debug report must be recorded")
 assert(not Bridges:GetDiagnostics():find("Chatty", 1, true), "debug reports must stay out of compact diagnostics")
+do
+    local lined = {contract = 1}
+    function lined:GetDebugDiagnostics() return "Lined", {"first", "", 7, "second"} end
+    assert(Bridges:Register("Lined", lined))
+    debugReports = Bridges:GetDebugDiagnostics()
+    assert(#debugReports == 3 and debugReports[1].label == "Chatty" and debugReports[2].label == "Lined"
+        and debugReports[2].text == "first" and debugReports[3].label == "Lined" and debugReports[3].text == "second",
+        "an array of debug lines must give one report per non-empty line, in order, under its label")
+end
+
+-- GetOwnershipConflicts, GetMoverDiagnostics and RefreshAddonOptions
+addon, Bridges = Load()
+do
+    assert(#Bridges:GetOwnershipConflicts({}) == 0 and #Bridges:GetMoverDiagnostics({}) == 0,
+        "no bridge must mean no conflicts and no mover segments")
+    local moverA, moverB, refreshed = {contract = 1}, {contract = 1}, {}
+    local conflictContext, moverContext
+    function moverA:GetOwnershipConflicts(context)
+        conflictContext = context
+        return {{order = 40, id = "a-late"}, "junk", {order = 20, id = "a-early"}}
+    end
+    function moverA:GetMoverDiagnostics(context) moverContext = context; return "MoverA=active" end
+    function moverA:RefreshAddonOptions(getMetrics) refreshed[#refreshed + 1] = {"A", getMetrics()} end
+    function moverB:GetOwnershipConflicts() error("boom") end
+    function moverB:GetMoverDiagnostics() return "" end
+    function moverB:RefreshAddonOptions(getMetrics) refreshed[#refreshed + 1] = {"B", getMetrics()} end
+    assert(Bridges:Register("MoverA", moverA) and Bridges:Register("MoverB", moverB))
+    local probeContext = {mapOwner = "Map"}
+    local bridgeConflicts = Bridges:GetOwnershipConflicts(probeContext)
+    assert(#bridgeConflicts == 2 and bridgeConflicts[1].id == "a-late" and bridgeConflicts[2].id == "a-early"
+        and conflictContext == probeContext, "bridge conflicts come back in bridge order with the caller's context")
+    assert(Bridges.errors.MoverB and Bridges.errors.MoverB:find("boom", 1, true), "a failing conflict report must be recorded")
+    local moverParts = Bridges:GetMoverDiagnostics(probeContext)
+    assert(#moverParts == 1 and moverParts[1] == "MoverA=active" and moverContext == probeContext,
+        "mover segments must skip empty answers")
+    Bridges:RefreshAddonOptions(function() return "metrics" end)
+    assert(#refreshed == 2 and refreshed[1][1] == "A" and refreshed[1][2] == "metrics" and refreshed[2][1] == "B",
+        "every bridge must get the options metrics getter in registration order")
+    addon.PopupBounds = {optionsWindowHelpers = {Fits = function() return true end}}
+    assert(addon.API.GetOptionsWindowHelpers().Fits(), "the options window helpers come from PopupBounds")
+    addon.PopupBounds = nil
+    assert(addon.API.GetOptionsWindowHelpers() == nil, "no PopupBounds must mean no options window helpers")
+end
+
+-- IsParkedNativePanel: bridges answer first, then frame rule parkedNativePanel, each with the
+-- parking addon's declared reason (else "bridge-parked").
+addon, Bridges = Load()
+do
+    local panel, other = {}, {}
+    assert(Bridges:IsParkedNativePanel(panel) == false, "no bridge must mean not parked")
+    local parker = {contract = 1}
+    function parker:IsParkedNativePanel(frame) return frame == other end
+    assert(Bridges:Register("Parker", parker))
+    local parked, reason = Bridges:IsParkedNativePanel(other)
+    assert(parked == true and reason == "bridge-parked", "a bridge without a declared reason reports bridge-parked")
+    ParkedFixture = panel
+    addon.isForever = false
+    addon.API.RegisterAddonData("Parker", {parkedReason = "parker-parked", frameRules = {parkedNativePanel = {
+        {identity = {"ParkedFixture"}, when = {forever = true}, verify = function(frame) return frame.held == true end},
+    }}})
+    parked, reason = Bridges:IsParkedNativePanel(other)
+    assert(parked == true and reason == "parker-parked", "a bridge's answer carries its addon's declared reason")
+    panel.held = true
+    assert(Bridges:IsParkedNativePanel(panel) == false, "rule parkedNativePanel must respect its detector")
+    addon.isForever = true
+    parked, reason = Bridges:IsParkedNativePanel(panel)
+    assert(parked == true and reason == "parker-parked", "rule parkedNativePanel must park a verified frame")
+    panel.held = false
+    assert(Bridges:IsParkedNativePanel(panel) == false, "rule parkedNativePanel must ask verify")
+    ParkedFixture = nil
+
+    -- The DaylightUI facts register on every client, even with DaylightUI absent when the bridge loads,
+    -- and answer for the Spellbook and Trainer panels from DaylightUI's live follower holders.
+    local daylight = {AddonWindowCatalog = {}, isForever = true}
+    local registry = dofile("tests/support/core-bridges.lua").Load(daylight, {"Bridges/DaylightUI/Init.lua"})
+    assert(#registry:List() == 0, "the DaylightUI bridge itself must stay unregistered without DaylightUI")
+    local names = table.concat(registry:GetRuleNames("diagnosticFrame"), ",")
+    assert(names == "DaylightUIBook,DaylightUINpc", "DaylightUI's windows join the panel placement diagnostics")
+    local holder = {}
+    local spells = {GetParent = function() return holder end}
+    PlayerSpellsFrame, ClassTrainerFrame = spells, nil
+    assert(registry:IsParkedNativePanel(spells) == false, "no DaylightUI must mean not parked")
+    DaylightUI = {Win = {Followers = {aside = {}, hidden = {}, veil = holder}}}
+    parked, reason = registry:IsParkedNativePanel(spells)
+    assert(parked == true and reason == "daylight-parked", "a Spellbook under a DaylightUI holder reports daylight-parked")
+    assert(registry:IsParkedNativePanel({GetParent = function() return holder end}) == false,
+        "only the Spellbook and Trainer panels count")
+    daylight.isForever = false
+    assert(registry:IsParkedNativePanel(spells) == false, "the DaylightUI parked check is Forever only")
+    PlayerSpellsFrame, DaylightUI = nil, nil
+end
+
+-- Core sorts bridge conflicts around its own by order: map owner contract 10,
+-- bag addons 30. The context carries the map owner facts and the bag owners.
+do
+    local savedAddOns = C_AddOns
+    C_AddOns = {IsAddOnLoaded = function() return false end}
+    local compatAddon = {AddonWindowCatalog = {}, isForever = true}
+    assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", compatAddon)
+    local registry = dofile("tests/support/core-bridges.lua").Load(compatAddon)
+    local compat = compatAddon.CanvasCompatibility
+    local synced = false
+    compatAddon.API.RegisterAddonData("TestMap", {ownership = {
+        {role = "map.owner", name = "TestMap", order = 1, positionsMap = true, label = "Test Map"},
+        {role = "report.bags", name = "BagOne", order = 1}, {role = "report.bags", name = "BagTwo", order = 2},
+    }})
+    assert(registry:Register("TestMap", {contract = 1, mapProvider = {owner = "TestMap",
+        GetContractConflict = function() return {id = "contract"} end,
+        SyncsWorldMapMover = function() return synced end}}))
+    local seen = {}
+    local window = {contract = 1}
+    function window:GetOwnershipConflicts(context)
+        seen.conflicts = context
+        return {{order = 40, id = "mover-late"}, {order = 20, id = "mover-early"}}
+    end
+    function window:GetMoverDiagnostics(context)
+        seen.diagnostics = context
+        return "Mover=" .. (context.SyncsWorldMapMover() and "synced" or "conflict")
+    end
+    assert(registry:Register("Window", window))
+    local ids = {}
+    for _, conflict in ipairs(compat.GetOwnershipConflicts()) do ids[#ids + 1] = conflict.id end
+    assert(table.concat(ids, ",") == "contract,mover-early,bags-conflict:BagOne+BagTwo,mover-late",
+        "conflicts must be ordered contract 10, bridge 20, bags 30, bridge 40")
+    local context = seen.conflicts
+    assert(context.mapOwner == "TestMap" and context.mapLabel == "Test Map" and context.positionsMap == true
+        and table.concat(context.bagOwners, ",") == "BagOne,BagTwo" and context.SyncsWorldMapMover() == false,
+        "the conflict context must carry the map owner facts and bag owners")
+    synced = true
+    assert(context.SyncsWorldMapMover() == true, "the conflict context must ask the map owner's provider")
+    compatAddon.isForever = false
+    assert(context.SyncsWorldMapMover() ~= true, "off Forever a map owner never syncs a mover for conflicts")
+    assert(compat.GetDiagnostics(false):find(" | Mover=synced", 1, true)
+        and seen.diagnostics.mapOwner == "TestMap" and seen.diagnostics.positionsMap == true,
+        "mover diagnostics must be appended with the map owner facts, on every client")
+    C_AddOns = savedAddOns
+end
 
 -- IsExternallyOwnedFrame
 addon, Bridges = Load()
@@ -2306,113 +2443,152 @@ do
     AlphaRoot, BetaRootMain, BetaRootMainTitle, GammaRoot = nil, nil, nil, nil
 end
 
--- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
-for _, file in ipairs({
-    "Core/Bridges.lua",
-    "Core/BagPersistence.lua",
-    "Core/Canvas.lua",
-    "Core/CanvasCompatibility.lua",
-    "Core/CanvasMapPresentation.lua",
-    "Core/WorkspaceToggleKeys.lua",
-    "Core/AddonWindowCatalog.lua",
-    "Core/CanvasAddonEscape.lua",
-    "Core/LearnedAddonWindows.lua",
-    "Bindings.xml",
-}) do
-    local handle = assert(io.open(file, "rb"), "missing " .. file)
-    local text = handle:read("*a")
-    handle:close()
-    assert(not text:lower():find("daylight", 1, true), "bridged core module must not name DaylightUI: " .. file)
-end
--- Core purity: no core, UI or module file names an addon whose facts moved to a bridge.
-local coreFiles = 0
-for line in io.lines("Offhand.toc") do
-    local file, folder = line:match("^%s*((%a+)\\.-%.lua)%s*$")
-    if folder == "Core" or folder == "UI" or folder == "Modules" then
-        file = file:gsub("\\", "/")
+-- Core purity (final): no file under Core/, UI/ or Modules/, and not Bindings.xml, names a third-party
+-- addon. Every addon specific lives in Bridges/<Addon>/ behind the bridge contract. Locales/*.lua are
+-- outside the scan on purpose: player-facing text and key names such as ELLESMERE_HUD_*, OPENMAP_*,
+-- PROCDOC_*, COMPAT_GUIDE_MOVEANY and MAP_MOVEMENT_MAPWISE stay there.
+do
+    -- The files: every Core, UI and Modules Lua file of the six manifests, plus the Modules files no
+    -- manifest lists (kept in the repository, never loaded), plus Bindings.xml.
+    local UNLISTED_MODULES = {"Modules/BagDock.lua", "Modules/CharacterDock.lua", "Modules/MapDock.lua"}
+    local files, listed = {}, {}
+    local function AddFile(file)
+        if not listed[file] then
+            listed[file] = true
+            files[#files + 1] = file
+        end
+    end
+    for _, toc in ipairs({"Offhand.toc", "Offhand_Classic.toc", "Offhand_Forever.toc", "Offhand_Mainline.toc",
+        "Offhand_Vanilla.toc", "Offhand_Wrath335a.toc"}) do
+        for line in io.lines(toc) do
+            local file, folder = line:match("^%s*((%a+)\\.-%.lua)%s*$")
+            if folder == "Core" or folder == "UI" or folder == "Modules" then AddFile((file:gsub("\\", "/"))) end
+        end
+    end
+    for _, file in ipairs(UNLISTED_MODULES) do
+        assert(not listed[file], file .. " is now in a manifest: drop it from the unlisted list")
+        AddFile(file)
+    end
+    AddFile("Bindings.xml")
+    assert(#files > 70, "the purity scan must read every core, UI and module file")
+
+    -- Justified exceptions: the exact text removed from one file before the scan, and why.
+    local EXCEPTIONS = {
+        {file = "UI/Options.lua", text = "OpenMapSettings",
+            reason = "Options:OpenMapSettings is Offhand's own 'open the map settings' method, not the OpenMap addon"},
+    }
+
+    -- Case-insensitive plain substrings.
+    local TOKENS = {"ellesmere", "openmap", "mapwise", "maputils", "leatrix", "moveany", "classicuiforever",
+        "classicui", "blizzmove", "baganator", "baginator", "bagnon", "betterbags", "bagsmith", "elvui", "elvuf",
+        "arkinventory", "arkinv", "bagnaros", "movemybags", "adibags", "inventorian", "tukui", "questdon",
+        "leveldon", "donmap", "doncore", "platynator", "dungeonjournal", "kerzo", "restedxp", "questie", "procdoc",
+        "foreverxpbar", "chattynator", "itemrack", "tiptac", "tinytooltip", "oneforall", "ofamov", "zygor",
+        "consoleport", "bugsack", "redisfriend", "daylight", "dialogueui", "bartender", "dominos", "sexymap",
+        "carbonite", "shadoweduf", "shadowuf", "shadowedunit", "pitbull", "zperl", "xperl", "flareui",
+        "foreverplus", "gathercraft", "rarescanner", "mobinfo", "beastfinder", "easyfishing", "foreverledger",
+        "naowh", "basicminimap", "compat_guide", "recovermap", "mauttab"}
+    -- Case-sensitive plain substrings the earlier scans held.
+    local CASED_TOKENS = {"Titan", "RXP", "DetailsBaseFrame"}
+    -- Frontier patterns: names whose plain spelling also occurs inside unrelated words (TOGGLEUIFOCUS,
+    -- PlacementDetails, Cancel).
+    local PATTERNS = {"%f[%w]EUI_", "%f[%w]EUI%u", "%f[%w]RXP", "%f[%w]Titan", "%f[%w]DetailsBaseFrame",
+        "%f[%w]Cell%f[%W]", "%f[%w]BGR", "%f[%w]LibDBIcon10_"}
+
+    -- Addon-presence API: a string literal passed as the addon name to one of these, to a local alias of
+    -- one (or of anything in C_AddOns), or to Offhand's own wrappers, is a Blizzard_ addon or Offhand.
+    local PRESENCE = {"IsAddOnLoaded", "GetAddOnMetadata", "GetAddOnEnableState", "LoadAddOn", "DoesAddOnExist",
+        "GetAddOnInfo", "IsAddOnLoadOnDemand", "EnableAddOn", "DisableAddOn"}
+    local WRAPPERS = {"IsAddonLoaded", "IsAddonPresent", "LoadAddon", "IsIntegrationActive", "Loaded", "AddonLoaded"}
+    local function PresenceLiterals(text)
+        local callees = {}
+        for _, name in ipairs(PRESENCE) do callees[name] = true end
+        for _, name in ipairs(WRAPPERS) do callees[name] = true end
+        for alias, rhs in text:gmatch("local%s+([%a_][%w_]*)%s*=%s*([^\n]*)") do
+            if rhs:find("C_AddOns", 1, true) then callees[alias] = true end
+            for _, name in ipairs(PRESENCE) do
+                if rhs:find(name, 1, true) then callees[alias] = true end
+            end
+        end
+        local literals = {}
+        for name, literal in text:gmatch("([%a_][%w_]*)%s*%(%s*[\"']([^\"']*)[\"']") do
+            if callees[name] then literals[#literals + 1] = literal end
+        end
+        for name, literal in text:gmatch("pcall%(%s*([%a_][%w_%.]*)%s*,%s*[\"']([^\"']*)[\"']") do
+            if callees[name] or callees[name:match("([%a_][%w_]*)$")] then literals[#literals + 1] = literal end
+        end
+        return literals
+    end
+    local function AllowedAddonName(literal)
+        return literal == "Offhand" or literal:match("^Blizzard_") ~= nil
+    end
+    -- The literal scan itself must see every call form it guards.
+    local planted = PresenceLiterals(table.concat({
+        'C_AddOns.IsAddOnLoaded("Alpha")',
+        'local load = C_AddOns and C_AddOns.LoadAddOn or _G.LoadAddOn',
+        'pcall(load, "Beta")',
+        'pcall(C_AddOns.GetAddOnInfo, "Gamma")',
+        'Compatibility.IsAddonLoaded("Delta")',
+        'C_AddOns.LoadAddOn("Blizzard_Fixture")',
+        'getMetadata = nil; GetAddOnMetadata("Offhand", "Version")',
+    }, "\n"))
+    local disallowed = {}
+    for _, literal in ipairs(planted) do
+        if not AllowedAddonName(literal) then disallowed[#disallowed + 1] = literal end
+    end
+    assert(table.concat(disallowed, ",") == "Alpha,Delta,Beta,Gamma" and #planted == 6,
+        "the addon-presence scan must catch direct, aliased, pcall and wrapper calls: " .. table.concat(planted, ","))
+
+    local exceptionHits = {}
+    for _, file in ipairs(files) do
         local handle = assert(io.open(file, "rb"), "missing " .. file)
         local text = handle:read("*a")
         handle:close()
-        coreFiles = coreFiles + 1
-        for _, token in ipairs({"ConsolePort", "Bartender4", "Dominos", "SexyMap", "Carbonite",
-            "ShadowedUnitFrames", "ShadowUF", "PitBull4", "ZPerl", "XPerl", "Chattynator", "ElvUF", "ElvUI_Bar1",
-            "TukuiPlayerFrame", "TukuiUnitFrames", "TukuiActionBars", "MoveMyBagsDB", "EllesmereUIRaidFrames",
-            "EllesmereUIChat", "EllesmereUIQuestTracker", "COMPAT_GUIDE", "COMPAT_ELLESMERE_PARTY",
-            "Titan", "DetailsBaseFrame", "ForeverXPBar", "BugSack", "RedIsFriend", "TipTac", "TinyTooltip",
-            "RXPV2", "RestedXP", "Questie_BaseFrame", "EllesmereUIPlayerAuraBars", "moveMyBags", "ofaMoving",
-            "ProcDoc", "Kerzo", "kerzo", "EllesmereScale", "Leveldon", "Questdon", "DonMap", "DonCore",
-            "Platynator", "DungeonJournal", "Leatrix_Sounds", "RXP", "restedXP", "FlareUI", "flareui",
-            "recovermap", "MAUTTAB"}) do
+        for index, exception in ipairs(EXCEPTIONS) do
+            if exception.file == file then
+                local stripped, count = text:gsub(exception.text, "")
+                exceptionHits[index] = (exceptionHits[index] or 0) + count
+                text = stripped
+            end
+        end
+        local lower = text:lower()
+        for _, token in ipairs(TOKENS) do
+            assert(not lower:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+        end
+        for _, token in ipairs(CASED_TOKENS) do
             assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
-        -- The World Map owners, fade addons and map integrations, in any case.
-        -- Options:OpenMapSettings opens Offhand's own map settings (Open Map Settings).
-        local mapText = text:gsub("OpenMapSettings", ""):lower()
-        for _, token in ipairs({"openmap", "moveany", "classicui", "leatrix", "mapwise", "maputils", "blizzmove"}) do
-            assert(not mapText:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+        for _, pattern in ipairs(PATTERNS) do
+            assert(not text:find(pattern), "core file must not match " .. pattern .. ": " .. file)
         end
-        assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)
-        -- The bag owners and Escape adapters that moved into bag bridges, in any case.
-        local lowerText = text:lower()
-        for _, token in ipairs({"baganator", "baginator", "bagnon", "betterbags", "bagsmith", "elvui", "arkinv",
-            "bagnaros", "movemybags", "adibags", "inventorian", "tukui"}) do
-            assert(not lowerText:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
+        if file:match("%.lua$") then
+            for _, literal in ipairs(PresenceLiterals(text)) do
+                assert(AllowedAddonName(literal),
+                    "core file must not ask the addon API about " .. literal .. ": " .. file)
+            end
         end
-        assert(not text:find("%f[%w]BGR"), "core file must not name BGR: " .. file)
-        assert(not text:find("%f[%w]EUI_"), "core file must not name EUI_ frames: " .. file)
-        -- The EllesmereUI suite, its frames and its HUD layout transfer, in any case.
-        assert(not lowerText:find("ellesmere", 1, true), "core file must not name ellesmere: " .. file)
-        assert(not text:find("%f[%w]EUI%u"), "core file must not name EUI frames: " .. file)
+    end
+    for index, exception in ipairs(EXCEPTIONS) do
+        assert((exceptionHits[index] or 0) > 0, "stale purity exception (" .. exception.reason .. "): " .. exception.file)
+    end
+
+    -- Retired files stay retired.
+    for _, retired in ipairs({
+        {"Core/DaylightMapCompatibility.lua", "Bridges/DaylightUI/Map.lua"},
+        {"Core/ForeverPlusWarnings.lua", "Bridges/ForeverPlus/Bridge.lua"},
+        {"Core/DialogueUICompat.lua", "Bridges/DialogueUI/Bridge.lua"},
+        {"Core/ProcDocCompatibility.lua", "Bridges/ProcDoc/Bridge.lua"},
+        {"Core/CanvasKerzoQuestLog.lua", "Bridges/KerzoQuestLog/Bridge.lua"},
+        {"Core/EllesmereScaleCompatibility.lua", "Bridges/EllesmereUI/Scale.lua"},
+        {"Core/OpenMapRecovery.lua", "Bridges/OpenMap/Recovery.lua"},
+        {"Core/ForeverEllesmereLayout.lua", "Bridges/EllesmereUI/Layout.lua"},
+        {"UI/EllesmereLayoutPreview.lua", "Bridges/EllesmereUI/Preview.lua"},
+    }) do
+        assert(io.open(retired[1], "rb") == nil, retired[1] .. " must remain retired into " .. retired[2])
+        local moved = io.open(retired[2], "rb")
+        assert(moved, retired[2] .. " must exist")
+        moved:close()
     end
 end
--- Core purity: the bag detection, name rules, toggle keys and close buttons moved out of these files.
--- The persistent bag roots moved out of the last two.
-for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/CanvasCompatibility.lua", "Core/Canvas.lua", "Core/Init.lua",
-    "Core/CanvasPanelPlacement.lua", "Core/CanvasBackpackState.lua", "Core/WorkspaceBehavior.lua",
-    "Core/WorkspaceToggleKeys.lua", "Core/WorkspaceChrome.lua", "Core/BagPersistence.lua", "Core/CanvasPersistence.lua"}) do
-    local handle = assert(io.open(file, "rb"), "missing " .. file)
-    local text = handle:read("*a")
-    handle:close()
-    local lower = text:lower()
-    for _, token in ipairs({"baganator", "bagnon"}) do
-        assert(not lower:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
-    end
-    assert(not text:find("%f[%w]EUI_"), "core file must not name EUI_ frames: " .. file)
-    assert(not lower:find("ellesmere", 1, true), "core file must not name ellesmere: " .. file)
-end
-assert(coreFiles > 50, "the purity scan must read the manifest's core files")
--- Core purity: popup roots, menu names, tooltip owners and mover marks moved out of these files.
-for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/PopupBounds.lua", "Core/SeamRedirect.lua",
-    "Core/CanvasPanelPlacement.lua", "Core/CanvasPanelMotion.lua", "Core/Canvas.lua", "Core/HUDTransientFrames.lua"}) do
-    local handle = assert(io.open(file, "rb"), "missing " .. file)
-    local text = handle:read("*a")
-    handle:close()
-    for _, token in ipairs({"RXP", "ProcDocAlertFrame", "BetterBagsBag", "BetterBagsNext", "Baganator_", "ofaMovable"}) do
-        assert(not text:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
-    end
-end
--- Core purity: the addon window catalog and Escape adapter name no addon at all.
-for _, file in ipairs({"Core/AddonWindowCatalog.lua", "Core/CanvasAddonEscape.lua"}) do
-    local handle = assert(io.open(file, "rb"), "missing " .. file)
-    local text = handle:read("*a")
-    handle:close()
-    local lower = text:lower()
-    for _, token in ipairs({"ellesmere", "openmap", "mapwise", "maputils", "leatrix", "moveany", "classicuiforever",
-        "blizzmove", "baganator", "baginator", "bagnon", "betterbags", "bagsmith", "elvui", "elvuf", "arkinventory",
-        "arkinv", "bagnaros", "movemybags", "adibags", "inventorian", "tukui", "questdon", "leveldon", "donmap",
-        "doncore", "platynator", "dungeonjournal", "kerzo", "restedxp", "questie", "procdoc", "foreverxpbar",
-        "chattynator", "itemrack", "tiptac", "tinytooltip", "oneforall", "ofamov", "zygor", "consoleport", "bugsack",
-        "redisfriend", "daylight", "dialogueui", "bartender", "dominos", "sexymap", "carbonite", "shadoweduf",
-        "shadowuf", "shadowedunit", "pitbull", "zperl", "xperl", "flareui", "foreverplus", "gathercraft",
-        "rarescanner", "mobinfo", "beastfinder", "easyfishing", "foreverledger", "naowh", "basicminimap"}) do
-        assert(not lower:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
-    end
-    for _, pattern in ipairs({"%f[%w]EUI_", "%f[%w]EUI%u", "%f[%w]RXP", "%f[%w]Titan", "%f[%w]DetailsBaseFrame",
-        "%f[%w]Cell%f[%W]", "%f[%w]BGR", "%f[%w]LibDBIcon10_"}) do
-        assert(not text:find(pattern), "core file must not match " .. pattern .. ": " .. file)
-    end
-end
-assert(io.open("Core/DaylightMapCompatibility.lua", "rb") == nil,
-    "Core/DaylightMapCompatibility.lua must remain retired into Bridges/DaylightUI/Map.lua")
 
 print("PASS: bridge registry, dispatch, isolation, public services, storage, ownership and transient dispatch and core purity")

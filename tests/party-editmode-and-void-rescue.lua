@@ -457,7 +457,7 @@ assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
 canvasChunk("Offhand", addon)
-dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/BetterBags/Data.lua", "Bridges/ConsolePort/Bridge.lua", "Bridges/Details/Bridge.lua", "Bridges/DonCore/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua", "Bridges/ForeverXPBar/Bridge.lua", "Bridges/OneForAll/Data.lua", "Bridges/ProcDoc/Data.lua", "Bridges/Questie/Rules.lua", "Bridges/RestedXP/Bridge.lua", "Bridges/Titan/Bridge.lua" })
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/BetterBags/Data.lua", "Bridges/ConsolePort/Bridge.lua", "Bridges/DaylightUI/Init.lua", "Bridges/Details/Bridge.lua", "Bridges/DonCore/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua", "Bridges/ForeverXPBar/Bridge.lua", "Bridges/OneForAll/Data.lua", "Bridges/ProcDoc/Data.lua", "Bridges/Questie/Rules.lua", "Bridges/RestedXP/Bridge.lua", "Bridges/Titan/Bridge.lua" })
 
 addon.HUD:HookFrames()
 
@@ -4740,7 +4740,7 @@ print('PASS: modern party-invite popup roots bypass legacy script hooks')
             assert(addon.db.savedMainPositions[name] == saved)
         end
         frame.parent = UIParent
-        assert(not addon.IsDaylightParkedPanel(frame))
+        assert(not addon.IsBridgeParkedPanel(frame))
         assert(addon.Canvas:PlacePanelOnMainhand(frame, metrics, saved))
         assert(frame:GetLeft() == saved.x and frame:GetTop() == saved.y,
             name .. " did not resume saved placement after handback")

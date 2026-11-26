@@ -5,7 +5,7 @@ Offhand.CanvasPanelPlacement = Placement
 
 local diagnosticPanelNames = {
     "CharacterFrame", "SkillFrame", "PlayerSpellsFrame", "SpellBookFrame",
-    "DaylightUIBook", "ClassTrainerFrame", "DaylightUINpc",
+    "ClassTrainerFrame",
     "ProfessionsFrame", "ProfessionsBookFrame", "TradeSkillFrame", "CraftFrame",
     "WorldMapFrame", "GameMenuFrame", "GamepadReticle",
 }
@@ -164,7 +164,7 @@ function Placement.InstallSingleScreen(Canvas, services)
                 local addonEscape = Offhand.CanvasAddonEscape
                 local vendorGameplay = addonEscape and addonEscape:IsVendorGameplayFrame(frame, name)
                 if frame and not vendorGameplay and frame.IsShown and frame:IsShown() and frame.Hide
-                    and not (Offhand.IsDaylightParkedPanel and Offhand.IsDaylightParkedPanel(frame)) then
+                    and not (Offhand.IsBridgeParkedPanel and Offhand.IsBridgeParkedPanel(frame)) then
                     pcall(frame.Hide, frame)
                 end
             end
@@ -297,7 +297,7 @@ function Placement.InstallMainhand(Canvas, services)
         if registry and registry.GetPositionRoot(frame) ~= frame then return false end
         -- Recovery can override the usual protected-panel guard. A parked
         -- native frame must keep its anchor even during explicit recovery.
-        if Offhand.IsDaylightParkedPanel and Offhand.IsDaylightParkedPanel(frame) then return false end
+        if Offhand.IsBridgeParkedPanel and Offhand.IsBridgeParkedPanel(frame) then return false end
         if IsWorldMapMaximized(frame) then return false end
         local foreverMap = Offhand.isForever and frame == _G.WorldMapFrame
         if foreverMap and ((self.CanManagePanelsFromAddon and not self.CanManagePanelsFromAddon())

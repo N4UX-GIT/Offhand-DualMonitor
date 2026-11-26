@@ -151,6 +151,7 @@ Bridges\ForeverPlus\Bridge.lua
 Bridges\ForeverXPBar\Bridge.lua
 Bridges\Gathercraft\Bridge.lua
 Bridges\Inventorian\Bridge.lua
+Bridges\ItemRack\Bridge.lua
 Bridges\KerzoQuestLog\Bridge.lua
 Bridges\Leatrix\Maps.lua
 Bridges\Leatrix\Settings.lua
@@ -161,6 +162,7 @@ Bridges\MobInfo2\Bridge.lua
 Bridges\MoveAny\Bridge.lua
 Bridges\MoveMyBags\Bridge.lua
 Bridges\OneForAll\Data.lua
+Bridges\OneForAll\Bridge.lua
 Bridges\OpenMap\Data.lua
 Bridges\OpenMap\Contract.lua
 Bridges\OpenMap\Recovery.lua
@@ -172,6 +174,7 @@ Bridges\ProcDoc\Data.lua
 Bridges\ProcDoc\Bridge.lua
 Bridges\Questie\Bridge.lua
 Bridges\Questie\Rules.lua
+Bridges\Questie\Options.lua
 Bridges\RareScanner\Bridge.lua
 Bridges\RedIsFriend\Bridge.lua
 Bridges\RestedXP\Bridge.lua
@@ -184,6 +187,7 @@ Bridges\Titan\Bridge.lua
 Bridges\Tukui\Bridge.lua
 Bridges\XPerl\Bridge.lua
 Bridges\ZPerl\Bridge.lua
+Bridges\Zygor\Bridge.lua
 Bridges\DaylightUI\Core.lua
 Bridges\DaylightUI\Placement.lua
 Bridges\DaylightUI\Scenes.lua

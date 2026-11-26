@@ -3,7 +3,7 @@
 -- while it drags one (moverFields). Offhand's panel anchor repair, workspace repair and Forever
 -- Game Menu placement read those marks: a movable frame's TOPLEFT/UIParent/BOTTOMLEFT write is
 -- repaired before render, and a moving frame is never repaired.
--- Its conflict report and diagnostics stay in the core for now.
+-- Its conflict report and diagnostics are in Bridge.lua beside it.
 -- Registered on every client, like the field reads it replaces.
 
 local ADDON_NAME, shared = ...

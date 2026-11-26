@@ -107,7 +107,8 @@ addon.Mainhand = { GetEditModeDiagnostics = function(_, compact)
     return compact and "Active=7 | Geometry=current" or "Active=7 | GamepadPanels=details"
 end }
 addon.ManualCanvas = { GetDiagnostics = probe("manual", {}) }
-addon.CanvasCompatibility.GetGuideAddonDiagnostics = probe("guides", {"Zygor probes: fixture"})
+-- The guide frame probe is a bridge's debug report (Bridges/Zygor).
+local guidesProbe = probe("guides", {"Zygor probes: fixture"})
 addon.modules.ChatBubbles = { GetDiagnostics = probe("bubbles", {}) }
 addon.Canvas = {
     -- The old caller discarded reports without the substring 'loaded'.
@@ -123,7 +124,10 @@ dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/BlizzMove/Bridge
     "Bridges/OpenMap/Init.lua" })
 local dialogueProbe = probe("dialogue", "animation")
 addon.Bridges.GetDebugDiagnostics = function()
-    return { { label = "Dialogue UI", text = dialogueProbe() } }
+    local reports = {}
+    for _, line in ipairs(guidesProbe()) do reports[#reports + 1] = { label = "Guide frame", text = line } end
+    reports[#reports + 1] = { label = "Dialogue UI", text = dialogueProbe() }
+    return reports
 end
 local media = { status = "MISSING", installed = false, reason = "NOT_INSTALLED" }
 addon.UserMedia = { GetDiagnostics = function() return media end }

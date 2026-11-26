@@ -247,7 +247,7 @@ function Motion.Install(Canvas, services)
 
     -- Communities, Retail native-registration panels, and guarded Forever
     -- UIPanels can have their anchors overwritten after OnShow by Blizzard's
-    -- layout passes or external window movers (such as OneForAll). Repair
+    -- layout passes or external window movers (see moverFields). Repair
     -- synchronously inside the SetPoint post-hook so no intermediate anchor
     -- flashes before render, while yielding to active drags and combat.
     local function HookKnownPanelAnchorResets(frame, name)
@@ -304,9 +304,9 @@ function Motion.Install(Canvas, services)
             local function ShouldRepairSynchronously(point, relativeTo, relativePoint)
                 -- Blizzard panel layout anchors to TOPLEFT/TOPLEFT, TOP/TOP,
                 -- CENTER/CENTER, or sibling panels (never TOPLEFT/BOTTOMLEFT).
-                -- OneForAll's applyPos writes TOPLEFT/UIParent/BOTTOMLEFT while
-                -- the frame is marked movable and not moving. Repair
-                -- both synchronously before render, while letting non-OneForAll
+                -- An external window mover writes TOPLEFT/UIParent/BOTTOMLEFT
+                -- while the frame is marked movable and not moving. Repair
+                -- both synchronously before render, while letting other
                 -- TOPLEFT/BOTTOMLEFT updates (such as drag fixtures) settle via
                 -- the bounded next-frame pass.
                 local isBottomLeftAnchor = (point == "TOPLEFT"
@@ -323,7 +323,7 @@ function Motion.Install(Canvas, services)
                 QueueRepair()
             end)
             if (isForeverSpellbook or isForeverGuardedPanel) and frame.StartMoving and frame.StopMovingOrSizing then
-                -- An external window mover (such as OneForAll) can drag the
+                -- An external window mover can drag the
                 -- panel by its body, bypassing our guarded title grip. Observe
                 -- the completed drop so Offhand adopts the user's new placement
                 -- instead of snapping back on reopen or resize.
