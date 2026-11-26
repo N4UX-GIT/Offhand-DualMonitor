@@ -5,11 +5,10 @@ facts only (ownership roles, guidance, diagnostics segments and the aura-bar
 frame rule, and the EllesmereUIBags bag facts; its header lists them).
 `Scale.lua` is the former `Core/EllesmereScaleCompatibility.lua` moved behind
 the bridge contract, with unchanged behaviour. `Bags.lua` is the former
-EllesmereUI bag Escape adapter of `Core/BagPersistence.lua` and its close
-button finder of `Core/WorkspaceChrome.lua`, moved the same way as the
-EllesmereUIBags bag provider. The rest of the EllesmereUI bag persistence
-(root discovery, restore after Escape and reload) is still in
-`Core/BagPersistence.lua`.
+EllesmereUI bag Escape adapter and persistent-root branches of
+`Core/BagPersistence.lua` and its close button finder of
+`Core/WorkspaceChrome.lua`, moved the same way as the EllesmereUIBags bag
+provider.
 
 ## What Scale.lua does
 
@@ -45,11 +44,27 @@ still hooked.
   button (the header child anchored `RIGHT` to `RIGHT`).
 - The generic inventory toggles are kept open while `EUI_MainBagFrame` is on
   the workspace.
+- Persistent root: `EUI_MainBagFrame` is the first root the bag persistence
+  engine tries and is found by its stable name, never by a global-table walk.
+  On Forever EllesmereUI restores it itself: its saved open state wins, the
+  reagent bag's open state is saved with it (`reagentOpen`), no scripts are
+  installed on it (it is observed outside its frame tree), and Escape (after
+  its own proxy hid it), the Talents tab of Player Spells and reload reopen it
+  through EllesmereUI's own show and refresh handlers. The reload reopen waits
+  until EllesmereUI has installed its bag layout. A false
+  `EllesmereUIDB.bagsVisible` is the player's own close and cancels any
+  restore. On Forever it claims the shared bag toggle; when Baganator claims it
+  too, the toggle is never called and the root opens through EllesmereUI's
+  scale setup instead. The bag diagnostics end with `EUIOpen=<bagsVisible>`.
 
 Core reaches it through `bagProvider.RefreshEscape(services)` at provider
 order 70, after the bridges' own `RefreshBags` (where core called the adapter),
 `GetCloseButtons(frame)` for the root it lists in `closeButtonRoots`, and
-`GetToggleFrame()`. It registers on every client before EllesmereUI exists.
+`GetToggleFrame()`. The bag persistence engine calls, each in `pcall`,
+`IsRoot`, `Discover`, `hookScripts`, `GetManagedRoot`, `ClaimsSharedToggle`,
+`ExplicitlyClosed`, `Show`, `CapturePosition`, `CanRestore`, `Restore`,
+`Resume` and `GetRootDiagnostics` (docs/BRIDGES.md, section 4). It registers
+on every client before EllesmereUI exists.
 
 ## Evidence
 

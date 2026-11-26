@@ -203,6 +203,7 @@ local expectedAnchorBridges = {
     "Bridges/ArkInventory/Bridge.lua",
     "Bridges/ArkInventory/Bags.lua",
     "Bridges/Baganator/Data.lua",
+    "Bridges/Baganator/Bags.lua",
     "Bridges/Bagnaros/Bridge.lua",
     "Bridges/Bagnaros/Bags.lua",
     "Bridges/Bagnon/Bridge.lua",

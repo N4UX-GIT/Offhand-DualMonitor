@@ -3,8 +3,10 @@
 -- recovery leaves its backpack roots alone (frame rule preservePopup). Baganator derives the
 -- names of every child region from the backpack root, so a prefix match alone also catches
 -- title text, textures and buttons; its actual backpack roots are direct UIParent children.
+-- Those root name patterns are shared in the Baganator bridge namespace (backpackRoots) with
+-- the bag persistence provider in Bags.lua beside this file.
 -- Addon window catalog: its backpack, under Offhand's dedicated bag position, close and
--- reload handling. Its bag persistence stays in the core for now.
+-- reload handling.
 -- Bag facts: it replaces the bags while the Baganator or Baginator global exists (hud.bags,
 -- order 30), is a bag owner in the compatibility report when loaded or present (report.bags,
 -- order 30, part of the bags-conflict id), and restores its own roots, so the generic reload
@@ -23,6 +25,9 @@ local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and s
 local API = type(Offhand) == "table" and Offhand.API
 if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterAddonData) ~= "function" then return end
 
+local BACKPACK_ROOTS = { "^Baganator_SingleViewBackpackViewFrame", "^Baganator_CategoryViewBackpackViewFrame" }
+if type(API.GetBridgeNamespace) == "function" then API.GetBridgeNamespace("Baganator").backpackRoots = BACKPACK_ROOTS end
+
 API.RegisterAddonData("Baganator", {
     ownership = {
         { role = "hud.bags", name = "Baganator", order = 30,
@@ -32,8 +37,7 @@ API.RegisterAddonData("Baganator", {
     },
     frameRules = {
         preservePopup = {
-            { patterns = { "^Baganator_SingleViewBackpackViewFrame", "^Baganator_CategoryViewBackpackViewFrame" },
-                parent = "UIParent" },
+            { patterns = BACKPACK_ROOTS, parent = "UIParent" },
         },
         ["bagNamespace.openScan"] = { { patterns = { "^Baganator", "^Baginator", "^BGR" } } },
         ["bagNamespace.logoutScan"] = { { patterns = { "^Baganator", "^Baginator" } } },

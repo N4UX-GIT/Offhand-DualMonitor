@@ -1,13 +1,13 @@
 -- Bagnon data bridge (built into Offhand). Facts only: no frame, hook or timer.
 -- Addon window catalog: its inventory, under Offhand's dedicated bag position, close and
--- reload handling with Bagnon's inventory manager. Its bag persistence stays in the core
--- for now.
+-- reload handling with Bagnon's inventory manager. Its bag persistence provider is Bags.lua
+-- beside this file.
 -- Bag facts: it replaces the bags while the Bagnon global exists (hud.bags, order 40) and is
 -- a bag owner in the compatibility report when loaded or present (report.bags, order 40).
 -- Its names join the bag namespace scans of the reload reopen, the logout open-state capture
 -- and the single-screen recovery anchor (bagNamespace.openScan, bagNamespace.logoutScan,
 -- bagNamespace.recoveryAnchor) and are reload bag roots (bagRestorable). Its inventory
--- toggle binding is in Bags.lua beside this file.
+-- toggle binding is in Bags.lua too.
 -- Registered on every client, like the catalog entry it replaces.
 
 local ADDON_NAME, shared = ...

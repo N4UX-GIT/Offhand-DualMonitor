@@ -8,10 +8,12 @@ local _, Offhand = ...
 local Persistence = {}
 Offhand.CanvasPersistence = Persistence
 
-local function HasNativeBaganatorEscape(frame, name)
+-- A self-anchored bag root (Offhand.BagPersistence.IsSelfAnchoredRoot) owns
+-- its native Escape registration on Forever.
+local function HasNativeBagEscape(frame, name)
     local bags = Offhand.BagPersistence
-    return Offhand.isForever and bags and bags.IsBaganatorBackpackRoot
-        and bags.IsBaganatorBackpackRoot(frame, name)
+    return Offhand.isForever and bags and bags.IsSelfAnchoredRoot
+        and bags.IsSelfAnchoredRoot(frame, name)
 end
 
 local function IsVendorGameplayFrame(frame, name)
@@ -422,9 +424,9 @@ function Persistence.InstallDrag(Canvas, services)
                 end
             end
 
-            -- Baganator owns its native Escape registration. Its workspace
-            -- visibility is handled by the bag observer after Escape.
-            if Offhand.db.persistentWorkspacePanels ~= false and not HasNativeBaganatorEscape(frame, name) then
+            -- A self-anchored bag root owns its native Escape registration. Its
+            -- workspace visibility is handled by the bag observer after Escape.
+            if Offhand.db.persistentWorkspacePanels ~= false and not HasNativeBagEscape(frame, name) then
                 UnregisterSpecialFrame(name)
             end
             if restrictedProfessionsMovement then
@@ -601,13 +603,13 @@ function Persistence.AvoidWorkspacePeer(frame, m, x, y, width, height)
     return x, y
 end
 
-local function HasReachableNativeBaganatorAnchor(frame, name, metrics)
+local function HasReachableNativeBagAnchor(frame, name, metrics)
     local bags = Offhand.BagPersistence
-    if not bags or not bags.IsBaganatorBackpackRoot
-        or not bags.IsBaganatorBackpackRoot(frame, name) or not frame.GetPoint then return false end
+    if not bags or not bags.IsSelfAnchoredRoot
+        or not bags.IsSelfAnchoredRoot(frame, name) or not frame.GetPoint then return false end
     local point, relative, relativePoint = frame:GetPoint(1)
-    -- Baganator saves its title drag against a matching UIParent point.
-    -- An Offhand recovery instead uses TOPLEFT relative to BOTTOMLEFT.
+    -- A self-anchored bag saves its title drag against a matching UIParent
+    -- point. An Offhand recovery instead uses TOPLEFT relative to BOTTOMLEFT.
     if not point or point ~= relativePoint or (relative and relative ~= UIParent) then return false end
     local left, top = frame:GetLeft(), frame:GetTop()
     if not left or not top then return false end
@@ -768,7 +770,7 @@ function Persistence.InstallRestore(Canvas, services)
                     Offhand.HUD:RepairChatButtons(frame)
                 end
             end
-            if Offhand.db.persistentWorkspacePanels ~= false and not HasNativeBaganatorEscape(frame, name) then
+            if Offhand.db.persistentWorkspacePanels ~= false and not HasNativeBagEscape(frame, name) then
                 UnregisterSpecialFrame(name)
             end
             return
@@ -778,7 +780,7 @@ function Persistence.InstallRestore(Canvas, services)
         if type(mPos)=="table" and mPos.autoRoute and not m.workspaceRegions then mPos=nil end
         if type(mPos) == "table" and (mPos.autoRoute or mPos.x and mPos.y) then
             -- A native title drag on Mainhand supersedes an earlier Gather.
-            if HasReachableNativeBaganatorAnchor(frame, name, m) then
+            if HasReachableNativeBagAnchor(frame, name, m) then
                 Offhand.db.savedMainPositions[name] = nil
                 return
             end

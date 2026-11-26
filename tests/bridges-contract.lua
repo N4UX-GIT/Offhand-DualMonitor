@@ -1870,7 +1870,7 @@ do
     persisted.db = {enabled = true, baganatorWorkspacePanels = {
         Baganator_SingleViewBackpackViewFrameElvUI = baganatorPosition, EUI_MainBagFrame = euiPosition}}
     assert(loadfile("Core/BagPersistence.lua"))("Offhand", persisted)
-    CoreBridges.Load(persisted, {"Bridges/Baganator/Data.lua"})
+    CoreBridges.Load(persisted, {"Bridges/Baganator/Data.lua", "Bridges/EllesmereUI/Bags.lua"})
     local savedName, savedPosition = persisted.BagPersistence:GetSavedPosition()
     assert(savedName == "EUI_MainBagFrame" and savedPosition == euiPosition,
         "the EllesmereUI entry of the record saved under the old key must read back first")
@@ -1932,6 +1932,231 @@ do
     C_AddOns, ContainerFrame1 = savedAddOns, savedFrame1
 end
 
+-- The persistent bag root engine (Core/BagPersistence.lua) names no addon: a
+-- synthetic set of bag providers drives every root hook it calls.
+do
+    local saved = {CreateFrame = CreateFrame, C_Timer = C_Timer, InCombatLockdown = InCombatLockdown,
+        UIParent = UIParent, ToggleAllBags = ToggleAllBags, hooksecurefunc = hooksecurefunc,
+        ToggleGameMenu = ToggleGameMenu, GameMenuFrame = GameMenuFrame, C_AddOns = C_AddOns,
+        CloseSpecialWindows = CloseSpecialWindows, CloseAllBags = CloseAllBags, ShowUIPanel = ShowUIPanel,
+        HideUIPanel = HideUIPanel, EventRegistry = EventRegistry}
+    local onEvent, queue = nil, {}
+    CreateFrame = function() return {RegisterEvent = function() end,
+        SetScript = function(_, _, handler) onEvent = handler end} end
+    C_Timer = {After = function(delay, fn) queue[#queue + 1] = {delay = delay, fn = fn} end,
+        NewTicker = function() return {} end}
+    local function Flush()
+        while #queue > 0 do
+            table.sort(queue, function(a, b) return a.delay < b.delay end)
+            table.remove(queue, 1).fn()
+        end
+    end
+    InCombatLockdown = function() return false end
+    C_AddOns = {IsAddOnLoaded = function() return false end}
+    UIParent = {GetEffectiveScale = function() return 1 end}
+    local toggles = 0
+    ToggleAllBags = function() toggles = toggles + 1 end
+    GameMenuFrame = {IsShown = function() return false end}
+    ToggleGameMenu = function() end
+    hooksecurefunc = function(name, callback)
+        local original = _G[name]
+        _G[name] = function(...) local result = original(...); callback(...); return result end
+    end
+
+    local engine = {AddonWindowCatalog = {}, Canvas = {}, isForever = true,
+        db = {enabled = true, savedWorkspacePositions = {}}}
+    engine.Canvas.IsFrameOnWorkspace = function(frame) return frame.workspace == true end
+    engine.Canvas.RestoreWorkspacePosition = function() end
+    assert(loadfile("Core/BagPersistence.lua"))("Offhand", engine)
+    CoreBridges.Load(engine, {})
+    local bags = engine.BagPersistence
+    engine.API.RegisterAddonData("SyntheticRecord", {settings = {
+        customBagWorkspacePanels = {store = "profile", legacyKey = "syntheticRecord"}}})
+
+    local function Root(name, parent)
+        local frame = {name = name, parent = parent or UIParent, shown = true, workspace = true, hooks = {}}
+        function frame:GetName() return self.name end
+        function frame:GetParent() return self.parent end
+        function frame:IsShown() return self.shown end
+        function frame:IsVisible() return self.shown end
+        function frame:GetLeft() return 10 end
+        function frame:GetTop() return 20 end
+        function frame:GetEffectiveScale() return 1 end
+        function frame:HookScript(script) self.hooks[#self.hooks + 1] = script end
+        _G[name] = frame
+        return frame
+    end
+    local log, state = {}, {managed = false, closed = false, alphaClaims = false, betaClaims = false}
+    local function Note(text) log[#log + 1] = text end
+    local alpha = {order = 10, hookScripts = false,
+        IsRoot = function(name) return name == "AlphaRoot" end,
+        Discover = function(register, deep)
+            Note("alpha:" .. tostring(deep))
+            if _G.AlphaRoot then return register("AlphaRoot", _G.AlphaRoot) end
+            return false
+        end,
+        GetManagedRoot = function() return state.managed and "AlphaRoot" or nil end,
+        ExplicitlyClosed = function(name) return name == "AlphaRoot" and state.closed end,
+        ClaimsSharedToggle = function() Note("claim:alpha"); return state.alphaClaims end,
+        Show = function(name) if name == "AlphaRoot" then return state.show end return nil end,
+        CapturePosition = function(position) position.extra = true end,
+        GetRootDiagnostics = function() return "Alpha=on" end,
+    }
+    local beta = {order = 20, selfAnchored = true, dragStopCapture = true, panelTransitions = "options",
+        loadAddon = "BetaAddon", deepDiscovery = true, escapeOrder = 20, escapeSource = "beta_observer",
+        IsRoot = function(name, frame)
+            return type(name) == "string" and name:match("^BetaRoot") ~= nil and frame and frame:GetParent() == UIParent
+        end,
+        IsRootName = function(name) return type(name) == "string" and name:match("^BetaRoot") ~= nil end,
+        IsDirectEscapeRoot = function(name) return type(name) == "string" and name:match("^BetaRoot") ~= nil end,
+        Discover = function(register, deep, services)
+            Note("beta:" .. tostring(deep))
+            assert(type(services.GetSavedRecords) == "function" and type(services.RegisterRoot) == "function",
+                "a provider's discovery must receive the bag services")
+            return false
+        end,
+        InstallCallbacks = function(services)
+            assert(type(services.Discover) == "function", "callbacks must receive the bag services")
+            Note("install:beta")
+            return true
+        end,
+        ClaimsSharedToggle = function() Note("claim:beta"); return state.betaClaims end,
+        CloseParkedBags = function() Note("parked:beta") end,
+    }
+    local gamma = {order = 30, panelTransitions = "all", escapeOrder = 10, escapeSource = "gamma_observer",
+        IsRoot = function(name) return name == "GammaRoot" or name == "AlphaRoot" end,
+        IsDirectEscapeRoot = function(name) return name == "GammaRoot" end,
+        CloseParkedBags = function() Note("parked:gamma") end,
+    }
+    assert(engine.API.RegisterBridge("Gamma", {contract = 1, bagProvider = gamma}))
+    assert(engine.API.RegisterBridge("Beta", {contract = 1, bagProvider = beta}))
+    assert(engine.API.RegisterBridge("Alpha", {contract = 1, bagProvider = alpha}))
+
+    -- Login installs every provider's callbacks, discovers in provider order and
+    -- allows the one deep pass only after every login handler.
+    onEvent(nil, "PLAYER_LOGIN")
+    assert(table.concat(log, ",") == "install:beta,alpha:false,beta:false", "login must install, then discover shallowly")
+    assert(bags.callbacksInstalled.Beta == true, "a provider's installed callbacks must be recorded by bridge id")
+    log = {}
+    Flush()
+    assert(table.concat(log, ",") == "alpha:true,beta:true", "the post-login pass must be the deep one")
+    log = {}
+    onEvent(nil, "ADDON_LOADED", "OtherAddon"); Flush()
+    assert(table.concat(log, ",") == "alpha:false,beta:false", "another addon's load must not run a deep pass")
+    log = {}
+    onEvent(nil, "ADDON_LOADED", "BetaAddon"); Flush()
+    assert(table.concat(log, ",") == "alpha:false,beta:false,install:beta,alpha:true,beta:true",
+        "a provider's own addon load must install its callbacks, then run its deep pass")
+
+    -- The first provider in order owns a root; its hookScripts and flags apply.
+    local alphaRoot = Root("AlphaRoot")
+    bags:Discover(false)
+    assert(bags.frames.AlphaRoot == alphaRoot and #alphaRoot.hooks == 0,
+        "the first provider claiming a root must own it, and hookScripts = false must install no scripts")
+    local betaRoot = Root("BetaRootMain")
+    assert(bags:RegisterRoot("BetaRootMain", betaRoot), "a provider's root must register")
+    assert(table.concat(betaRoot.hooks, ",") == "OnShow,OnHide,OnDragStop",
+        "a hooked root gets its show and hide observers, and its drag-stop capture on Forever")
+    local child = Root("BetaRootMainTitle", betaRoot)
+    assert(not bags:RegisterRoot("BetaRootMainTitle", child), "a child region named after a root is not a root")
+    assert(bags.IsSelfAnchoredRoot(betaRoot, "BetaRootMain") and not bags.IsSelfAnchoredRoot(child, "BetaRootMainTitle")
+        and not bags.IsSelfAnchoredRoot(alphaRoot, "AlphaRoot"), "only a selfAnchored provider's roots are self-anchored")
+    local gammaRoot = Root("GammaRoot")
+    assert(bags:RegisterRoot("GammaRoot", gammaRoot) and #gammaRoot.hooks == 2,
+        "a provider without dragStopCapture gets no drag-stop capture")
+
+    -- Capture on Forever: direct-Escape roots leave their registration and their
+    -- providers close the bags they park, in escape order.
+    local excluded = {}
+    engine.CanvasAddonEscape = {SetSpecialFrameExcluded = function(_, registration, record, exclude)
+        record.removed = exclude or nil
+        excluded[registration] = exclude
+    end}
+    bags.paused = false
+    log = {}
+    bags:Capture()
+    assert(excluded[gammaRoot] and excluded[betaRoot] and excluded[alphaRoot] == nil,
+        "only direct-Escape roots may leave the native Escape registration")
+    assert(table.concat(log, ","):find("parked:gamma,parked:beta", 1, true),
+        "parked native bags must close in escape order")
+    local record = engine.db.syntheticRecord
+    assert(record.AlphaRoot and record.BetaRootMain and engine.db.savedWorkspacePositions.AlphaRoot,
+        "visible workspace roots must be captured into the custom bag workspace record")
+    assert(record.AlphaRoot.extra == nil, "only a managed root gets its provider's capture additions")
+
+    -- A managed root wins the saved position, skips the workspace record and
+    -- takes its provider's additions.
+    state.managed = true
+    engine.db.savedWorkspacePositions.AlphaRoot = nil
+    bags:Capture()
+    assert(engine.db.syntheticRecord.AlphaRoot.extra == true and engine.db.savedWorkspacePositions.AlphaRoot == nil,
+        "a managed root keeps only its open snapshot, with its provider's additions")
+    assert(bags:GetSavedPosition() == "AlphaRoot", "a managed root's saved open state must win")
+    assert(bags:GetDiagnostics():sub(-11) == " | Alpha=on", "each provider appends its own diagnostics segment")
+
+    -- The shared bag toggle: a provider opens its own root, the toggle opens the
+    -- rest, and two claimants block it. The claim test stops once it is decided.
+    state.show = true
+    assert(bags:OpenSavedRoot("AlphaRoot") == true and toggles == 0, "a provider's Show must open its own root")
+    state.show = nil
+    log = {}
+    assert(bags:OpenSavedRoot("BetaRootMain") == true and toggles == 1 and log[1] == "claim:alpha"
+        and not table.concat(log, ","):find("claim:beta", 1, true),
+        "the shared toggle opens the root when only one provider could claim it")
+    state.alphaClaims, state.betaClaims = true, true
+    log = {}
+    assert(bags:OpenSavedRoot("BetaRootMain") == false and toggles == 1 and table.concat(log, ",") == "claim:alpha,claim:beta",
+        "two providers claiming the shared toggle must block it")
+    state.alphaClaims, state.betaClaims = false, false
+
+    -- The Escape observer labels the pending restore with the root's provider.
+    state.managed = false
+    engine.db.syntheticRecord = {GammaRoot = {x = 1, y = 2}}
+    gammaRoot.shown = false
+    bags:InstallEscapeHooks()
+    queue = {}
+    ToggleGameMenu()
+    assert(bags.escapePending and bags.escapePending.source == "gamma_observer",
+        "the Escape observer must carry the direct-Escape provider's own source label")
+    bags.escapePending, queue = nil, {}
+    gammaRoot.shown = true
+
+    -- A provider's record of the player's own close cancels the reload restore.
+    state.managed, state.closed = true, true
+    alphaRoot.shown = false
+    engine.db.syntheticRecord = {AlphaRoot = {x = 1, y = 2}}
+    bags:Resume(); Flush()
+    assert(engine.db.syntheticRecord.AlphaRoot == nil, "an explicit close must forget the open snapshot")
+    assert(not next(engine.Bridges.errors), "no synthetic provider call may fail")
+
+    -- The built-in persistent-root providers: their order, taint flags and
+    -- escape order reproduce the core's former fixed sequences.
+    local builtin = {AddonWindowCatalog = {}}
+    local registry = CoreBridges.Load(builtin, {"Bridges/Baganator/Data.lua", "Bridges/Baganator/Bags.lua",
+        "Bridges/Bagnon/Bags.lua", "Bridges/EllesmereUI/Bags.lua"})
+    local ids, byId = {}, {}
+    for _, entry in ipairs(registry:GetBagProviders()) do ids[#ids + 1] = entry.id; byId[entry.id] = entry.provider end
+    assert(table.concat(ids, ",") == "EllesmereUIBags,Bagnon,Baganator", "persistent roots are tried in the legacy order")
+    assert(byId.Bagnon.hookScripts == false, "Bagnon's root must never get scripts")
+    builtin.isForever = true
+    assert(byId.EllesmereUIBags.hookScripts() == false, "the EllesmereUI root gets no scripts on Forever")
+    builtin.isForever = false
+    assert(byId.EllesmereUIBags.hookScripts() == true, "the EllesmereUI root is hooked off Forever")
+    assert(byId.Baganator.escapeOrder < byId.Bagnon.escapeOrder and byId.Baganator.selfAnchored
+        and byId.Baganator.dragStopCapture and byId.Baganator.deepDiscovery and not byId.Bagnon.deepDiscovery,
+        "Baganator leads the escape order and is the self-anchored, drag-captured, deep-discovered root")
+    assert(byId.Baganator.escapeSource == "baganator_toggle_observer" and byId.Bagnon.escapeSource == "bagnon_toggle_observer",
+        "the Escape observer source labels must keep their legacy strings")
+    assert(byId.Baganator.IsRoot("Baganator_SingleViewBackpackViewFrameX", {GetParent = function() return UIParent end})
+        and not byId.Baganator.IsRoot("Baganator_SingleViewBackpackViewFrameX", {GetParent = function() return {} end})
+        and byId.Baganator.IsRootName("Baganator_CategoryViewBackpackViewFrameTitle")
+        and registry:MatchFrame("preservePopup", {GetParent = function() return UIParent end},
+            "Baganator_CategoryViewBackpackViewFrameX"), "the Baganator root patterns are shared with its popup rule")
+
+    for key, value in pairs(saved) do _G[key] = value end
+    AlphaRoot, BetaRootMain, BetaRootMainTitle, GammaRoot = nil, nil, nil, nil
+end
+
 -- Core purity: bridged map/bag/catalog/learning modules stay free of DaylightUI specifics.
 for _, file in ipairs({
     "Core/Bridges.lua",
@@ -1980,17 +2205,19 @@ for line in io.lines("Offhand.toc") do
         assert(not text:find("%f[%w]Cell%f[%W]"), "core file must not name Cell: " .. file)
         -- The bag owners and Escape adapters that moved into bag bridges, in any case.
         local lowerText = text:lower()
-        for _, token in ipairs({"baginator", "betterbags", "bagsmith", "elvui", "arkinv", "bagnaros", "movemybags",
-            "adibags", "inventorian", "tukui"}) do
+        for _, token in ipairs({"baganator", "baginator", "bagnon", "betterbags", "bagsmith", "elvui", "arkinv",
+            "bagnaros", "movemybags", "adibags", "inventorian", "tukui"}) do
             assert(not lowerText:find(token, 1, true), "core file must not name " .. token .. ": " .. file)
         end
         assert(not text:find("%f[%w]BGR"), "core file must not name BGR: " .. file)
+        assert(not text:find("%f[%w]EUI_"), "core file must not name EUI_ frames: " .. file)
     end
 end
 -- Core purity: the bag detection, name rules, toggle keys and close buttons moved out of these files.
+-- The persistent bag roots moved out of the last two.
 for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/CanvasCompatibility.lua", "Core/Canvas.lua", "Core/Init.lua",
     "Core/CanvasPanelPlacement.lua", "Core/CanvasBackpackState.lua", "Core/WorkspaceBehavior.lua",
-    "Core/WorkspaceToggleKeys.lua", "Core/WorkspaceChrome.lua"}) do
+    "Core/WorkspaceToggleKeys.lua", "Core/WorkspaceChrome.lua", "Core/BagPersistence.lua", "Core/CanvasPersistence.lua"}) do
     local handle = assert(io.open(file, "rb"), "missing " .. file)
     local text = handle:read("*a")
     handle:close()

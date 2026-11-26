@@ -30,8 +30,8 @@
 -- layout and Escape proxy on Forever (frame rule selfManagedBag). EUI_MainBagFrame gets the
 -- workspace close button handling (workspaceChrome), is a reload bag root (bagRestorable)
 -- and keeps its open state in the custom bag workspace record (customBagRoot). Its bag
--- Escape adapter and close button finder are in Bags.lua beside this file; the rest of its
--- bag persistence stays in the core for now.
+-- Escape adapter, close button finder and persistent-root provider are in Bags.lua beside
+-- this file.
 -- Registered on every client, like the checks it replaces.
 
 local ADDON_NAME, shared = ...

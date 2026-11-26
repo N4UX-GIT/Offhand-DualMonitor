@@ -150,6 +150,14 @@ function Bridges:GetBagProviders()
     return bagProviders
 end
 
+-- Calls method(...) of one entry of GetBagProviders() in pcall. Returns true
+-- and the method's first result, or false when the provider lacks the method
+-- or it failed (the error is recorded under the provider's bridge id).
+function Bridges:CallBagProvider(entry, method, ...)
+    if type(entry) ~= "table" or type(entry.provider) ~= "table" then return false end
+    return CallBagProvider(entry, method, ...)
+end
+
 -- The keyboard binding actions bag providers own, in registration order.
 function Bridges:GetBagToggleActions()
     return bagToggleList
