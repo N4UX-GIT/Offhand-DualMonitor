@@ -23,9 +23,11 @@ class VerifyAddonArchiveTests(unittest.TestCase):
             "Core/Config.lua": b"return {}\n",
             "Bridges/DaylightUI/Core.lua": b"return {}\n",
             "Media/icon.blp": b"\x00\r\n",
-            "Offhand_Placement/Before.lua": b"local _, private = ...\n",
         })
-        source_files = cls.files | {"docs/QA.md": b"QA only\n", "Media/icon.png": b"source art"}
+        source_files = cls.files | {
+            "docs/QA.md": b"QA only\n", "Media/icon.png": b"source art",
+            "Offhand_Placement/Before.lua": b"local _, private = ...\n",
+        }
         for name, contents in source_files.items():
             path = cls.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -66,6 +68,8 @@ class VerifyAddonArchiveTests(unittest.TestCase):
         examples = [
             (missing, "Missing: Offhand/Bridges/DaylightUI/Core.lua"),
             (self.files | {"docs/QA.md": b"QA only\n"}, "Unexpected: Offhand/docs/QA.md"),
+            (self.files | {"Offhand_Placement/Before.lua": b"local _, private = ...\n"},
+             "Unexpected: Offhand_Placement/Before.lua"),
             (self.files | {"Core/config.lua": b"return {}\n"}, "case-colliding paths"),
         ]
         for files, error in examples:

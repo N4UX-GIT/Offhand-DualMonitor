@@ -492,35 +492,41 @@ function Options:CreateFloatingPanel()
     end
     title:SetText("|cffffcc00Offhand|r")
     
-    local version = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    version:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -7)
-    version:SetWidth(560)
-    version:SetHeight(16)
-    version:SetJustifyH("LEFT")
-    if version.SetWordWrap then version:SetWordWrap(false) end
-    local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
-    local verNum = Offhand.version or (getMetadata and getMetadata("Offhand", "Version")) or "?"
-    local addonDisplay = "v" .. verNum
-    if Offhand.releaseDisplay and Offhand.releaseDisplay ~= "" then
-        addonDisplay = addonDisplay .. " " .. Offhand.releaseDisplay
-    end
-    version:SetText("|cffc7cbd4" .. addonDisplay .. " | " .. L["HEADER_CRAFTED_BY"] .. "|r")
-    header.versionText = version
+    do
+        local version = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        version:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -7)
+        version:SetWidth(560)
+        version:SetHeight(16)
+        version:SetJustifyH("LEFT")
+        if version.SetWordWrap then version:SetWordWrap(false) end
+        local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+        local verNum = Offhand.version or (getMetadata and getMetadata("Offhand", "Version")) or "?"
+        local addonDisplay = "v" .. verNum
+        if Offhand.releaseDisplay and Offhand.releaseDisplay ~= "" then
+            addonDisplay = addonDisplay .. " " .. Offhand.releaseDisplay
+        end
+        local revision = getMetadata and getMetadata("Offhand", "X-Offhand-Revision")
+        revision = revision and revision:match("^%d+$")
+        if revision then addonDisplay = addonDisplay .. " r" .. revision end
+        version:SetText("|cffc7cbd4" .. addonDisplay .. " | " .. L["HEADER_CRAFTED_BY"] .. "|r")
+        header.versionText = version
 
-    local versionButton = CreateFrame("Button", nil, header)
-    local versionWidth = version.GetStringWidth and version:GetStringWidth() or 220
-    versionButton:SetSize(math.max(96, math.min(560, versionWidth + 10)), 18)
-    versionButton:SetPoint("TOPLEFT", version, "TOPLEFT", 0, 3)
-    configFrame.versionButton = versionButton
-    if Offhand.SetTooltip then
-        local fullDisplay = "Offhand " .. addonDisplay
-        local releaseTag = "v" .. (Offhand.fullVersion or verNum)
-        local tooltipText = string.format(L["VERSION_TOOLTIP_ADDON_BUILD"], releaseTag)
-            .. "\n" .. string.format(L["VERSION_TOOLTIP_COMPANION_BUILD"], Offhand.companionVersionDisplay or "?")
-            .. "\n\n" .. L["VERSION_TOOLTIP_COMPANION_NOTE"]
-        versionButton.offhandTooltipTitle = fullDisplay
-        versionButton.offhandTooltipText = tooltipText
-        Offhand:SetTooltip(versionButton, fullDisplay, tooltipText)
+        local versionButton = CreateFrame("Button", nil, header)
+        local versionWidth = version.GetStringWidth and version:GetStringWidth() or 220
+        versionButton:SetSize(math.max(96, math.min(560, versionWidth + 10)), 18)
+        versionButton:SetPoint("TOPLEFT", version, "TOPLEFT", 0, 3)
+        configFrame.versionButton = versionButton
+        if Offhand.SetTooltip then
+            local fullDisplay = "Offhand " .. addonDisplay
+            local releaseTag = "v" .. (Offhand.fullVersion or verNum)
+            if revision then releaseTag = releaseTag .. "-r" .. revision end
+            local tooltipText = string.format(L["VERSION_TOOLTIP_ADDON_BUILD"], releaseTag)
+                .. "\n" .. string.format(L["VERSION_TOOLTIP_COMPANION_BUILD"], Offhand.companionVersionDisplay or "?")
+                .. "\n\n" .. L["VERSION_TOOLTIP_COMPANION_NOTE"]
+            versionButton.offhandTooltipTitle = fullDisplay
+            versionButton.offhandTooltipText = tooltipText
+            Offhand:SetTooltip(versionButton, fullDisplay, tooltipText)
+        end
     end
 
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")

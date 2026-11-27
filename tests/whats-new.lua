@@ -117,7 +117,7 @@ dialog.storeButton.scripts.OnClick()
 assert(dialog.link.text == addon.companionStoreUrl and dialog.link.focus and dialog.link.highlight)
 dialog.children[3].scripts.OnClick() -- Release notes link.
 local releaseNotes = firstRelease == "2.1.5-beta.44"
-    and "https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/CHANGELOG.md#215-beta44---2026-11-27"
+    and "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.5-beta.44-r2"
     or "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v" .. firstRelease
 assert(dialog.link.text == releaseNotes,
     "the current beta must link to its matching release notes")

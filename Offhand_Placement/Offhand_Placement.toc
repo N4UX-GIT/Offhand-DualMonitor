@@ -1,9 +1,0 @@
-## Interface: 30300, 120107, 120105, 120100, 120007, 120005, 16001, 50504, 40402, 30405, 38000, 20506, 11508, 11509
-## Title: Offhand: Placement preview
-## Notes: Positions the first-run guide when Companion spans the game window.
-## Dependencies: Offhand
-## LoadOnDemand: 1
-
-Before.lua
-..\Offhand\Core\CompanionTopology.lua
-After.lua

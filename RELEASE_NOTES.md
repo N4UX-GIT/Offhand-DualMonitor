@@ -1,14 +1,14 @@
 <!-- offhand-companion-version: 2.1.9-beta.4 -->
 
-# Offhand Beta 44
+# Offhand Beta 44 revision 2
 
-Offhand `2.1.5-beta.44` is an addon-only update for the existing Windows Companion `2.1.9-beta.4`.
+This is the single-folder re-release of Offhand Beta 44. It uses the existing Windows Companion `2.1.9-beta.4`.
 
 ## Setup and display placement
 
-- In the Companion setup path, **Window fits · Reload UI** becomes available once WoW matches the selected displays. After reloading, choose **Confirm and use this layout** to use your saved UI scale or **Adjust alignment and scale** to fine-tune it.
-- The setup guide stays on Mainhand through placement review and HUD setup. Manual and FancyZones setup shows your remembered window size and labels the suggested split.
-- The settings header shows the full addon build, for example **v2.1.5 Beta 44**. Hover over it to see the paired Companion version.
+- After spanning WoW with Companion, click **Reload UI** in the setup guide. Offhand validates the layout after reloading. Choose **Confirm and use this layout** to keep your saved UI scale or **Adjust alignment and scale** to fine-tune it.
+- After reloading, the guide places the review and HUD setup on Mainhand. Manual and FancyZones setup shows the remembered window size and suggested split.
+- Settings shows **v2.1.5 Beta 44 r2**. Hover over the build to see the paired Companion version.
 
 ## Forever verification
 
@@ -16,5 +16,5 @@ The native separate backpack stayed on Offhand through Escape during trainer gos
 
 ## Downloads
 
-- For manual installation, extract both `Offhand` and `Offhand_Placement` into `Interface/AddOns`. The second folder provides the setup guide’s load-on-demand placement preview.
+- For manual installation, extract only `Offhand` into `Interface/AddOns`. If you installed the original Beta 44, close WoW and remove the old `Offhand_Placement` folder from that client’s AddOns directory.
 - For a new Companion installation, use the existing [Windows Companion 2.1.9-beta.4 release](https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v2.1.9-beta.4).

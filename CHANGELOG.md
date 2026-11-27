@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [2.1.5-beta.44-r2] - 2026-11-27
+
+- Restored a single `Offhand` addon folder. If you installed the original Beta 44 manually, remove the old `Offhand_Placement` folder while WoW is closed.
+- After spanning with Companion, click **Reload UI** in the guide. Offhand checks the Companion layout after reload before offering confirmation.
+- The Settings header identifies the corrected build as **Beta 44 r2**.
+
 ## [2.1.5-beta.44] - 2026-11-27
 
 Addon-only update for **Windows Companion 2.1.9-beta.4**.

@@ -31,12 +31,7 @@ def manifest_files(root: Path, toc: Path) -> set[Path]:
     seen: dict[str, Path] = {}
 
     def visit(parent: Path, name: str) -> None:
-        # The optional placement addon re-reads the main addon's generated
-        # topology at span time. Map its installed sibling path to the checkout.
-        if parent == root / "Offhand_Placement" and name.replace("\\", "/") == "../Offhand/Core/CompanionTopology.lua":
-            path = local_file(root, root, "Core/CompanionTopology.lua")
-        else:
-            path = local_file(root, parent, name)
+        path = local_file(root, parent, name)
         key = path.relative_to(root).as_posix().casefold()
         if key in seen:
             raise ValueError(f"{toc.name}: duplicate runtime load: {key}")
@@ -88,7 +83,7 @@ def installed_differences(root: Path, installed: Path, files: set[Path]) -> list
         name = path.relative_to(root).as_posix()
         if name in GENERATED:
             continue
-        target = (installed.parent if name.startswith("Offhand_Placement/") else installed) / name
+        target = installed / name
         if not target.is_file() or source_hash(path.read_bytes()) != source_hash(target.read_bytes()):
             changed.append(name)
     return changed
@@ -98,9 +93,7 @@ def run_checks(root: Path, args: argparse.Namespace) -> dict:
     manifests = sorted(root.glob("Offhand*.toc"))
     if not manifests:
         raise ValueError("No Offhand manifests found")
-    placement_manifest = root / "Offhand_Placement/Offhand_Placement.toc"
-    manifests.append(placement_manifest)
-    files: set[Path] = {placement_manifest}
+    files: set[Path] = set()
     for toc in manifests:
         files.update(manifest_files(root, toc))
     compiler = args.luac or shutil.which("luac") or shutil.which("luac.exe")

@@ -27,7 +27,7 @@ result for a few seconds. Do not skip a required action through an unexplained c
 | Windowed | Set to Windowed; show the movable window/title bar; continue with Place WoW | Click Set to Windowed |
 | Displays | In Companion, Identify Displays, select the intended screens and Mainhand (game) | Select your screens and Mainhand |
 | Span | In the game world, Span WoW Now; show both screens and disappearance of the title bar | Click Span WoW Now |
-| Geometry | Show Window fits · Reload UI in the open guide, then Confirm and use this layout after reload | Check the screens and keep your UI scale |
+| Geometry | Show Reload UI in the open guide after spanning, then Confirm and use this layout after reload | Check the screens and keep your UI scale |
 | Optional adjustment insert | In a separate take, choose Adjust alignment and scale on the review screen | Fine-tune the seam or text size if needed |
 | HUD, where offered | Show the HUD choice on a supported client and reload if prompted. On clients without the HUD step, cut directly to Panels | Finish HUD setup if prompted |
 | Panels | Move supported map, Character and bags to Offhand using their controls | Arrange your Offhand workspace |

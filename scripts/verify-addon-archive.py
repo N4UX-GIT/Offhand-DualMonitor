@@ -18,6 +18,8 @@ ROOT_FILES = {
     "CHANGELOG.md",
 }
 TEXT_SUFFIXES = {".lua", ".xml", ".toc", ".md"}
+# Preserve verification of the already-published Beta 44 archive.
+BETA44_COMMIT = "d5a7de133ec7307be90987c49569fa7097cdbf2c"
 
 
 def git(root, *args):
@@ -34,7 +36,8 @@ def addon_files(root, commit):
         suffix = path.suffix.lower()
         if not (
             name in ROOT_FILES
-            or folder in {"Core", "Locales", "UI", "Offhand_Placement"}
+            or folder in {"Core", "Locales", "UI"}
+            or (commit == BETA44_COMMIT and folder == "Offhand_Placement")
             or (folder == "Bridges" and suffix == ".lua")
             or (folder == "Media" and len(path.parts) == 2 and suffix == ".blp")
         ):

@@ -15,7 +15,7 @@ python -m unittest discover -s tests -p test_compatibility_check.py -v
 python scripts/check-compatibility.py --report dist/compatibility-check.json
 ```
 
-The portable command follows all six client manifests, the placement preview manifest and nested XML loads, rejects
+The portable command follows all six client manifests and nested XML loads, rejects
 duplicate, missing or external paths, checks Lua 5.1 syntax and runs every Lua
 suite in tests. CI runs the manifest/freshness checker and its tests, then runs
 all Lua suites through the existing CI step.
