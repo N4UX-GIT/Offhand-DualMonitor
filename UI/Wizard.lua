@@ -313,6 +313,7 @@ function Wizard:CreateFrame()
             autoBtn:SetText(L["WIZARD_RECOMMENDATION_APPLIED"])
             statusText:SetText(L["WIZARD_CHECK_RECOMMENDATION"])
             f:SetStep(2)
+            f:RecenterForDisplayChange()
         end
     end)
 
@@ -810,7 +811,7 @@ function Wizard:CreateFrame()
     end)
 
     scaleSlider:SetScript("OnValueChanged", function(self, val, userInput)
-        if self._isCustomDrag then return end
+        if f._updatingState or self._isCustomDrag then return end
         val = math.floor((val / 0.01) + 0.5) * 0.01
         Offhand.db.hudScale = val
         scaleValText:SetText(string.format(L["WIZARD_SCALE_VAL_FMT"], val * 100))
@@ -1012,6 +1013,9 @@ function Wizard:CreateFrame()
             if Offhand.SetEnabled then Offhand:SetEnabled(true)
             else Offhand.db.enabled = true end
             Offhand:ApplyFullLayout()
+            -- The first activation changes UIParent's coordinate system after
+            -- the wizard opens. Center the visible step in the applied layout.
+            f:RecenterForDisplayChange()
         end
     end
 
@@ -1051,6 +1055,15 @@ function Wizard:CreateFrame()
         end
         Wizard:ShowPendingWorkspaceReady()
         return true
+    end
+
+    function f:ApplyConfirmedCompanionLayout(adjust)
+        if self.recoveryReason or not ValidateTopology() then return end
+        if not adjust and not self.pages[HUD_STEP] then
+            CompleteSetup()
+        else
+            ActivateCalibration()
+        end
     end
 
     skipLayoutBtn:SetScript("OnClick", function()
@@ -1835,8 +1848,13 @@ function Wizard:Open(resumeStep)
 
     local info = self:DetectTopology()
 
-    f.topoText:SetText(string.format("|cffffd100%s|r %s  |cff888888%dx%d|r",
-        L["WIZARD_DETECTED_PREFIX"], info.description, info.physWidth, info.physHeight))
+    if info.manualCanvas then
+        f.topoText:SetText(string.format("|cffffd100%s|r · %d × %d",
+            info.description, info.physWidth, info.physHeight))
+    else
+        f.topoText:SetText(string.format("|cffffd100%s|r %s  |cff888888%dx%d|r",
+            L["WIZARD_DETECTED_PREFIX"], info.description, info.physWidth, info.physHeight))
+    end
 
     f.recomText:SetText(string.format("|cffffd100%s|r %s | %.1f%% | %s",
         L["WIZARD_RECOM_PREFIX"],
@@ -1901,6 +1919,11 @@ end
 
 function Wizard:IsOpen()
     return (wizardFrame and wizardFrame:IsShown()) or self.previewReturn ~= nil
+end
+
+function Wizard:UseConfirmedCompanionLayout(adjust)
+    self:Open(adjust and 3 or HUD_STEP)
+    if wizardFrame then wizardFrame:ApplyConfirmedCompanionLayout(adjust) end
 end
 
 function Wizard:OpenHUDSetup(reviewEllesmere)

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [2.1.5-beta.44] - 2026-11-27
+
+Addon-only update for **Windows Companion 2.1.9-beta.4**.
+
+- The Companion setup guide enables **Window fits · Reload UI** when WoW matches the configured span. After reload, confirm the layout with your saved UI scale or choose **Adjust alignment and scale**.
+- The guide stays on Mainhand during placement review and HUD setup. Manual and FancyZones setup shows the remembered window size and labels its suggested split.
+- The settings header shows the full addon build. Hover over it to see the paired Companion version.
+- The archive includes the load-on-demand `Offhand_Placement` helper for the setup preview.
+
 ## [2.1.5-beta.43]
 
 Addon-only update for **Windows Companion 2.1.9-beta.4**.

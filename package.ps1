@@ -159,7 +159,8 @@ if (-not $CompanionChanged -and -not $CandidateId) {
 # 3. Package In-Game Addon for CurseForge / Wago
 Write-Host "
 [3/$stepTotal] Packaging In-Game Addon (Offhand-v$addonArtifactVersion.zip)..." -ForegroundColor Yellow
-$addonStaging = Join-Path $tempDir "Offhand"
+$addonPackage = Join-Path $tempDir "AddOns"
+$addonStaging = Join-Path $addonPackage "Offhand"
 New-Item -ItemType Directory -Path $addonStaging -Force | Out-Null
 
 # Copy root addon files
@@ -215,7 +216,8 @@ New-Item -ItemType Directory -Path $mediaStaging -Force | Out-Null
 Copy-Item (Join-Path $rootDir "Media\*.blp") -Destination $mediaStaging -Force
 
 $addonZip = Join-Path $distDir "Offhand-v$addonArtifactVersion.zip"
-New-PortableZip -SourceDirectory $addonStaging -DestinationPath $addonZip -IncludeRootDirectory
+Copy-Item (Join-Path $rootDir "Offhand_Placement") -Destination $addonPackage -Recurse
+New-PortableZip -SourceDirectory $addonPackage -DestinationPath $addonZip
 Write-Host "  -> Created: $addonZip" -ForegroundColor Green
 
 if ($AddonOnly) {
@@ -312,6 +314,7 @@ $bundleStaging = Join-Path $tempDir "Offhand-Bundle"
 New-Item -ItemType Directory -Path $bundleStaging -Force | Out-Null
 
 Copy-Item $addonStaging -Destination (Join-Path $bundleStaging "Offhand") -Recurse
+Copy-Item (Join-Path $addonPackage "Offhand_Placement") -Destination $bundleStaging -Recurse
 Copy-Item $companionExe -Destination (Join-Path $bundleStaging "Offhand.exe")
 Copy-Item (Join-Path $rootDir "README.md") -Destination $bundleStaging
 Copy-Item (Join-Path $rootDir "SECURITY.md") -Destination $bundleStaging

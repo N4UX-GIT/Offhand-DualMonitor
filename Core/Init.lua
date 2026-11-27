@@ -523,9 +523,9 @@ StaticPopupDialogs["OFFHAND_HUD_SETUP_REMINDER"] = {
     timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
 }
 
-local function PositionGamepadSafeFrame(frame)
-    local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics
-        and Offhand.Viewport:GetMetrics() or nil
+local function PositionGamepadSafeFrame(frame, metrics)
+    metrics = metrics or (Offhand.Viewport and Offhand.Viewport.GetMetrics
+        and Offhand.Viewport:GetMetrics())
     if metrics and metrics.isSpanned and metrics.gameWidth and metrics.gameWidth > 0
         and Offhand.UIControls and Offhand.UIControls.FitDialog then
         local scale = Offhand.UIControls.FitDialog(frame, metrics)
@@ -657,7 +657,7 @@ local function GetGamepadSafePopup()
     return frame
 end
 
-function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
+function Offhand:ShowPopup(popupKey, textArg1, textArg2, data, placementBounds)
     local recoveryPopup = popupKey == "OFFHAND_CONFIRM_RECOVERY"
     local helpPopup = popupKey == "OFFHAND_SETTINGS_HELP"
     local readyPopup = popupKey == "OFFHAND_WORKSPACE_READY"
@@ -754,7 +754,7 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         button:Show()
         left = left + buttonWidth + gap
     end
-    PositionGamepadSafeFrame(frame)
+    PositionGamepadSafeFrame(frame, placementBounds)
     frame:Show()
     if setupPopup and not self:IsGamepadUIEnabled() and editValue ~= nil then
         if frame.EditBox.HighlightText then frame.EditBox:HighlightText() end

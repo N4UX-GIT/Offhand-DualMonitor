@@ -23,6 +23,7 @@ class VerifyAddonArchiveTests(unittest.TestCase):
             "Core/Config.lua": b"return {}\n",
             "Bridges/DaylightUI/Core.lua": b"return {}\n",
             "Media/icon.blp": b"\x00\r\n",
+            "Offhand_Placement/Before.lua": b"local _, private = ...\n",
         })
         source_files = cls.files | {"docs/QA.md": b"QA only\n", "Media/icon.png": b"source art"}
         for name, contents in source_files.items():
@@ -40,7 +41,8 @@ class VerifyAddonArchiveTests(unittest.TestCase):
         archive_path = self.root / "addon.zip"
         with zipfile.ZipFile(archive_path, "w") as archive:
             for name, contents in files.items():
-                archive.writestr(f"Offhand/{name}", contents)
+                entry = name if name.startswith("Offhand_Placement/") else f"Offhand/{name}"
+                archive.writestr(entry, contents)
         return archive_path
 
     def test_checks_tag_and_accepts_crlf_in_text(self):

@@ -117,6 +117,7 @@ function Detection.Detect()
     -- windows, e.g. two 5:4 monitors versus one ultrawide. Older profiles can
     -- only have selected a stacked layout manually on a manual canvas.
     local db = Offhand.db
+    info.manualCanvas = metrics and metrics.manualCanvas or false
     if metrics and metrics.manualCanvas and db and
         ((metrics.manualCanvasSize and metrics.manualCanvasSize == db.manualLayoutSize)
         or (not db.manualLayoutSize and metrics.manualCanvasArrangement == "STACKED"
@@ -128,7 +129,7 @@ function Detection.Detect()
         info.recommendedPosition = db.primaryPosition
         info.recommendedDeckRatio = db.deckWidthRatio or 0.5
         info.recommendedAR = metrics.arMode or db.aspectRatioMode or "FILL"
-        info.description = Offhand.L[Detection.LayoutLabelKey(db.layoutPreset, db.primaryPosition)]
+        info.description = Offhand.L["CARD_MANUAL_CANVAS"]
         return info
     end
 
@@ -298,6 +299,11 @@ function Detection.Detect()
     if info.recommendedAR == "FILL" and metrics and metrics.manualCanvas and Offhand.db
         and (Offhand.db.primaryPosition == "LEFT" or Offhand.db.primaryPosition == "RIGHT") then
         info.recommendedPosition = Offhand.db.primaryPosition
+    end
+    if info.manualCanvas then
+        -- The player confirmed the window. Its dimensions suggest a split,
+        -- but cannot establish how many physical monitors it covers.
+        info.description = Offhand.L["CARD_MANUAL_CANVAS"]
     end
     return info
 end

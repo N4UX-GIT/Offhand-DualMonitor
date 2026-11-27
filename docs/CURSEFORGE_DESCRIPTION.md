@@ -8,6 +8,8 @@ Keep your map, bags, Character panel, chat, and meters accessible without buryin
 
 Stretching World of Warcraft across two monitors normally leaves the camera centered on the bezel. Offhand separates the game viewport from the extended UI canvas: your **Mainhand** holds the game world and combat HUD, while your **Offhand** becomes a workspace for supported interface panels.
 
+**What you'll see when you log in.** WoW draws the login, character selection and loading screens across its full window. When that window spans your monitors, the artwork can cross the seam or look cropped. Enter the world and finish the in-game guide. If your character is centered on your chosen game screen, Offhand is working as intended.
+
 ![A real Offhand desk setup with portrait UI workspace and landscape gameplay](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-irl.jpg)
 
 *A real desk setup: gameplay on Mainhand, with maps and other panels available on Offhand.*
@@ -36,7 +38,7 @@ The official website brings the interactive demo, illustrated setup guides, and 
 
 ### 1. Install Offhand for your WoW client
 
-Close WoW, install Offhand through CurseForge or WowUp, and check that you selected the intended WoW installation. For manual installation, place the `Offhand` folder in that client's `Interface\AddOns` folder. Launch WoW and enter the game world.
+Close WoW, install Offhand through CurseForge or WowUp, and check that you selected the intended WoW installation. For manual installation, extract both `Offhand` and `Offhand_Placement` from the ZIP into that client's `Interface\AddOns` folder. Launch WoW and enter the game world.
 
 The addon and the optional Companion are separate components. Installing the addon does not install Companion.
 
@@ -54,9 +56,9 @@ At the display-mode step, click **Set to Windowed**. If WoW is already Windowed,
 
 ### 3. Place the window, then confirm it
 
-**Companion:** after your character has entered the game world, select your displays and **Mainhand (game)** in Companion, then click **Span WoW Now**. Return to the guide in WoW, click **Window is positioned**, then **Reload UI**. After reload, use **Confirm placement** and review the result. Maximizing WoW onto one monitor does not replace spanning.
+**Companion:** after your character has entered the game world, select your displays and **Mainhand (game)** in Companion, then click **Span WoW Now**. Return to the guide and click **Window fits · Reload UI**. If prompted, type `/reload`. After reloading, check your screens and click **Confirm and use this layout** or **Adjust alignment and scale**. Maximizing WoW onto one monitor does not replace spanning.
 
-**FancyZones or manual:** place the window across the intended screens, visually check its position, choose **Window is positioned**, then **Reload UI**. After reload, use **Confirm placement** and review the result. This confirms your chosen canvas; it does not automatically detect physical monitor boundaries.
+**FancyZones or manual:** place the window across the intended screens, visually check its position, choose **Window is positioned**, then **Reload UI**. After reload, choose **Confirm placement**, then **Remember Window**. This confirms your chosen canvas; it does not automatically detect physical monitor boundaries.
 
 ![World of Warcraft rendered across the combined Offhand and Mainhand canvas](https://raw.githubusercontent.com/N4UX-GIT/Offhand-DualMonitor/main/Website/assets/offhand-screenshot.jpg)
 
@@ -64,7 +66,7 @@ At the display-mode step, click **Set to Windowed**. If WoW is already Windowed,
 
 ### 4. Calibrate Mainhand and finish HUD setup
 
-Click **Start Calibration**, apply the detected recommendation, then check Mainhand, the seam, and UI size. Where supported Blizzard Edit Mode APIs are available, finish with **Create Mainhand HUD Layout** outside combat with Edit Mode closed, then reload when prompted. On clients without that step, choose **Finish Setup**.
+Companion keeps your UI scale and proceeds directly to any required HUD setup. For manual calibration, click **Start Calibration** and check Mainhand, the seam and UI size. Where supported Blizzard Edit Mode APIs are available, finish with **Create Mainhand HUD Layout** outside combat with Edit Mode closed, then reload when prompted. On clients without that step, the Companion quick path finishes immediately. In manual calibration, choose **Finish Setup**.
 
 If Blizzard's custom-layout list is full, open **Escape > Edit Mode** and its layout dropdown. Export an unwanted custom layout if you may need it later, then delete only a layout you no longer need. Close Edit Mode, reopen `/offhand wizard`, and retry HUD creation. Offhand does not delete layouts for you.
 
@@ -157,7 +159,7 @@ A larger WoW render canvas may increase GPU load compared with a single-screen w
 
 ### Loading screens and graphics changes
 
-WoW's native loading artwork still uses the full spanned window and can crop across unequal or offset displays. As a manual workaround, select **Restore Window** in Companion before loading, then **Span WoW Now** after returning to the game world. Offhand's in-world viewport does not control the loading artwork.
+A wide loading screen can appear again when you travel or reload. When the world returns, gameplay should return to your chosen screen. If you prefer single-screen artwork and already use Companion, you can select **Restore Window** before loading and **Span WoW Now** after returning to the world.
 
 If a border remains inside Mainhand after loading, check window placement, Windows scaling, and bezel settings, then include those details in your report.
 

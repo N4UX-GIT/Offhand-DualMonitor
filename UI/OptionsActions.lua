@@ -151,7 +151,6 @@ function Actions.Install(Options, services)
                 Offhand.db.aspectRatioMode = info.recommendedAR or "16_9"
             end
         end
-        Offhand.db.hudScale = 0.70
         if not fromWizard then
             if Offhand.MarkSetupComplete then
                 Offhand:MarkSetupComplete()

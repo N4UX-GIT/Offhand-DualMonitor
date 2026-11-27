@@ -3,6 +3,10 @@ local addon={UIControls={},L={}}
 assert(loadfile("UI/SetupVisuals.lua"))("Offhand",addon)
 local visuals=addon.SetupVisuals
 local cases={
+    -- Forever 1.60.1.71139, 4000 x 2560 canvas with a shared physical edge.
+    {isSpanned=true,gameLeft=1097.1428604126,gameRight=3047.6190567017,
+        gameBottom=4.5714285850525,gameTop=1101.7142889977,
+        workspaceLeft=0,workspaceRight=1097.142890625,workspaceBottom=0,workspaceTop=1950.4761962891},
     {isSpanned=true,gameLeft=1440,gameRight=4000,gameBottom=0,gameTop=1440,
         workspaceLeft=0,workspaceRight=1440,workspaceBottom=0,workspaceTop=2560},
     {isSpanned=true,gameLeft=-2560,gameRight=0,gameBottom=-1440,gameTop=0,

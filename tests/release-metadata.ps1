@@ -177,7 +177,7 @@ try {
     New-Item -ItemType Directory -Path $packageRoot | Out-Null
     $manifests = @(Get-ChildItem -LiteralPath $root -Filter 'Offhand*.toc' -File)
     if ($manifests.Count -ne 6) { throw 'Expected six addon TOCs for candidate packaging.' }
-    $inputs = @('package.ps1', 'Bindings.xml', 'LICENSE', 'README.md', 'CHANGELOG.md', 'Core', 'UI', 'Locales', 'Media', 'Bridges') + $manifests.Name
+    $inputs = @('package.ps1', 'Bindings.xml', 'LICENSE', 'README.md', 'CHANGELOG.md', 'Core', 'UI', 'Locales', 'Media', 'Bridges', 'Offhand_Placement') + $manifests.Name
     foreach ($name in $inputs) {
         Copy-Item -LiteralPath (Join-Path $root $name) -Destination $packageRoot -Recurse
     }
@@ -195,6 +195,7 @@ try {
 
     $zip = [IO.Compression.ZipFile]::OpenRead($zipPath)
     try {
+        if (!$zip.GetEntry("Offhand_Placement/Offhand_Placement.toc")) { throw "Missing placement preview addon." }
         foreach ($manifest in $manifests) {
             $source = [IO.File]::ReadAllText($manifest.FullName)
             $staged = [IO.File]::ReadAllText((Join-Path $packageRoot $manifest.Name))

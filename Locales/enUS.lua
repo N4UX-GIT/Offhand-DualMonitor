@@ -14,6 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA44"] = "The setup guide now keeps placement review on Mainhand and lets you confirm the display layout with your saved UI scale. The Settings header shows the full addon build."
 L["WHATS_NEW_BETA43"] = "Search Offhand settings to find a feature and jump to its section. Character window scale now goes down to 35%. On Forever, OpenMap camera follow is optional and starts off. This update also improves detached chat visibility and Baganator backpack handling."
 L["WHATS_NEW_BETA42"] = "Improved Forever chat, map, and bag placement when switching between a single window and a span. DaylightUI and OneForAll coexistence is more reliable. Window behavior explains which addons control panels and where to move them."
 L["WHATS_NEW_BETA41"] = "|cffffd100Bug Fixes|r\n• Fixed DaylightUI action bars jumping upward and bouncing back when dragged or adjusted with X/Y coordinates on stacked or asymmetrical multi-monitor setups. If your bars shifted on Beta 40, drag them back once or reset them in Offhand Monitor > Recovery & Preview.\n• Improved DaylightUI layout alignment and fishing, crafting, and campfire scenes on vertically stacked monitors.\n• Fixed Offhand setup and notice windows reopening after flight paths, fears, or other loss-of-control effects.\n• Fixed the Barbershop customization panel and Accept/Cancel buttons disappearing or spanning off-screen on multi-monitor setups."
@@ -83,7 +84,7 @@ L["WORKSPACE_READY_EDIT_MODE"] = "For Blizzard HUD elements, open Edit Mode from
 L["WORKSPACE_READY_ADDON"] = "If an addon manages a frame, use that addon's unlock or layout mode to move it, then lock it again."
 -- Display identification (English fallback until translated).
 L["IDENTIFY_DISPLAYS"] = "Show Mainhand / Offhand"
-L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported windows on Offhand. If another add-on controls a window, use its controls to move it. See Help & Setup for examples.\n\nBack up your Edit Mode layout and UI add-on profiles. Choose one window placement method, then finish calibration here.\n\nYou can customize the workspace later. Closing this guide pauses setup."
+L["ONBOARD_INTRO_BRIEF"] = "Keep the game on Mainhand and supported windows on Offhand. If another add-on controls a window, use its controls to move it. See Help & Setup for examples.\n\nWoW draws login, character selection and loading screens across its full window, so they can fill both monitors. After calibration, check that your character is centered on Mainhand once you enter the world.\n\nBack up your Edit Mode layout and UI add-on profiles. Choose one window placement method, then finish calibration here.\n\nYou can customize the workspace later. Closing this guide pauses setup."
 L["ONBOARD_CONTINUE_SETUP"] = "Continue setup"
 L["ONBOARD_CALIBRATE_TASK_TITLE"] = "Calibrate Mainhand"
 L["ONBOARD_CALIBRATE_TASK_EDITMODE"] = "Click %s to open calibration.\n\nCheck the seam and UI size, then create your Mainhand HUD. Reload when asked."
@@ -273,7 +274,7 @@ L["ONBOARD_STATUS_READY"] = "Companion span and version verified. You can contin
 L["ONBOARD_STATUS_MANUAL_CONFIRM"] = "This independent window needs confirmation because WoW cannot report its physical display boundaries or native position."
 L["ONBOARD_STATUS_MANUAL_READY"] = "Window canvas confirmed. Calibration will use the independent display and seam controls."
 L["ONBOARD_STATUS_METHOD_REQUIRED"] = "Choose FancyZones, Companion, or manual setup before continuing."
-L["ONBOARD_STATUS_GEOMETRY_SETTLING"] = "WoW is still settling the new display geometry. Wait a moment, then click Confirm placement again."
+L["ONBOARD_STATUS_GEOMETRY_SETTLING"] = "WoW is still settling the new display geometry. Wait for the guide to update."
 L["ONBOARD_STATUS_COMPANION_RELOAD_REQUIRED"] = "Companion setup is selected, but exact topology is not loaded. Use Span WoW Now, then Reload UI."
 L["ONBOARD_STATUS_MANUAL_TOPOLOGY_PRESENT"] = "Manual setup is selected, but Companion topology is still loaded. Choose Companion setup, or restore/remove the generated topology and reload before continuing manually."
 L["ONBOARD_RELOAD_COMBAT"] = "Leave combat before reloading the UI."
@@ -508,7 +509,7 @@ L["WIZARD_STEP_5_BODY"] = "Create a copy of your Blizzard HUD for Mainhand. Your
 L["HELP_OVERVIEW_TITLE"] = "Offhand Setup & Recovery Handbook"
 L["HELP_OVERVIEW_BODY"] = "Start with /offhand guide and choose one placement method. Finish calibration in the same guide. Auto-Setup Wizard repeats calibration; Window Setup returns to placement.\n\nThe remaining handbook sections are references, not extra setup tasks. Themes, backgrounds and custom workspaces are optional. Recover Missing UI is for inaccessible panels; protected combat HUD controls remain under Blizzard Edit Mode."
 L["HELP_SETUP_TITLE"] = "Complete first-time setup"
-L["HELP_SETUP_BODY"] = "Back up your Edit Mode layout and UI addon profiles.\n\n1. Open /offhand guide. Choose ONE method: Companion (recommended on Windows), FancyZones, or manual placement.\n2. Follow only the chosen placement steps in standard Windowed mode. Companion: Span WoW Now, Reload UI, then Confirm placement. FancyZones or manual: visually check placement, Confirm placement, then Remember Window.\n3. Continue the same guide with Start Calibration. Where offered, create the Mainhand HUD layout outside combat with Edit Mode closed, then reload.\n\nRelaunch once and reapply your chosen placement to check the result. Custom workspaces, themes and backgrounds are optional."
+L["HELP_SETUP_BODY"] = "Back up your Edit Mode layout and UI addon profiles.\n\n1. Open /offhand guide. Choose ONE method: Companion (recommended on Windows), FancyZones, or manual placement.\n2. Follow only the chosen placement steps in standard Windowed mode. Companion: Span WoW Now > Window fits · Reload UI > Confirm and use this layout. FancyZones or manual: visually check placement, Confirm placement, then Remember Window.\n3. For manual placement, choose Start Calibration. Where offered, create the Mainhand HUD layout outside combat with Edit Mode closed, then reload.\n\nRelaunch once and reapply your chosen placement to check the result. Custom workspaces, themes and backgrounds are optional."
 L["HELP_COMPANION_TITLE"] = "Window placement: Companion and alternatives"
 L["HELP_COMPANION_BODY"] = "Choose only ONE window-placement method.\n\nCompanion is recommended on Windows for borderless placement and exact geometry. FancyZones uses a PowerToys zone. Manual placement means resizing WoW yourself. You do not need Companion and FancyZones together.\n\nFollow your chosen method in /offhand guide, then keep that choice through calibration. With Companion, change screens or Mainhand there and span again; its exact geometry controls are locked in the addon. Portable Linux/Wine support remains experimental."
 L["HELP_PANELS_TITLE"] = "Moving windows on Offhand"
@@ -1082,7 +1083,7 @@ L["HUD_SETUP_DECLINE"] = "Don't remind me"
 
 L["HUD_SETUP_CALIBRATE"] = "Calibration"
 
-L["IDENTIFY_UNSPANNED_COMPANION"] = "Companion placement has not been confirmed for this window.\n\n1. Click |cffffd100Back to setup|r.\n2. In Companion, select your screens and Mainhand, then click |cffffd100Span WoW Now|r.\n3. Return to WoW, click |cffffd100Reload UI|r, then |cffffd100Confirm placement|r.\n\nFor physical monitor numbers, use |cffffd100Windows Settings > System > Display > Identify|r."
+L["IDENTIFY_UNSPANNED_COMPANION"] = "Companion placement has not been confirmed for this window.\n\n1. Click |cffffd100Back to setup|r.\n2. In Companion, select your screens and Mainhand, then click |cffffd100Span WoW Now|r.\n3. Return to WoW, click |cffffd100Window fits · Reload UI|r, then |cffffd100Confirm and use this layout|r.\n\nFor physical monitor numbers, use |cffffd100Windows Settings > System > Display > Identify|r."
 
 L["IDENTIFY_BACK_TO_SETUP"] = "Back to setup"
 
@@ -1168,6 +1169,14 @@ L["MAP_SCALE_OPENMAP_HELP"] = "OpenMap: 50–160%. Auto Fit fits the current mon
 L["MAP_SCALE_UNAVAILABLE"] = "Open a windowed map outside combat in mouse/keyboard UI. Other map owners use their own settings."
 
 -- Guided placement checkpoint and recommended next action.
+L["QUICK_RELOAD"] = "Window fits · Reload UI"
+L["QUICK_CONFIRM"] = "Confirm and use this layout"
+L["QUICK_ADJUST"] = "Adjust alignment and scale"
+L["QUICK_CHECK"] = "Check your screens"
+L["QUICK_WAIT_SPAN"] = "Waiting for WoW to match the Companion layout. Click Span WoW Now in Companion."
+L["QUICK_REVIEW"] = "Does the WoW window cover the intended screens? In the diagram, check that Mainhand marks the screen you play on. Click %s to use your saved Offhand scale. To check the seam or change text size first, choose the adjustment option."
+L["ONBOARD_PATH_COMPANION_3"] = "In WoW graphics settings, select Windowed and apply. Leave this guide open while you place the window in Companion."
+L["ONBOARD_PATH_COMPANION_4"] = "If the window covers the wrong screens, check your display selection and Mainhand in Companion, then span again. If WoW already covers the chosen screens and the button stays dim, type /reload to read the layout again."
 L["ONBOARD_SPAN_COMPANION"] = "1. In Companion, select your monitors and Mainhand.\n\n2. Click |cffffd100Span WoW Now|r in Companion.\n\n3. Return here once WoW covers your screens, then click %s."
 L["ONBOARD_SPAN_FANCYZONES"] = "Create a FancyZones Canvas zone across the intended screens. Hold Shift and drag WoW into that zone. Return here and click %s."
 L["ONBOARD_SPAN_MANUAL"] = "Drag and resize WoW across the intended screens or ultrawide region. When it covers the area you want, click %s. This is your acknowledgement, not automatic monitor detection."

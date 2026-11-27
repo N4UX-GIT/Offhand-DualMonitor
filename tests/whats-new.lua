@@ -116,7 +116,10 @@ assert(not dialog.link:IsShown() and not dialog.link.focus, "login must not take
 dialog.storeButton.scripts.OnClick()
 assert(dialog.link.text == addon.companionStoreUrl and dialog.link.focus and dialog.link.highlight)
 dialog.children[3].scripts.OnClick() -- Release notes link.
-assert(dialog.link.text == "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v" .. firstRelease,
+local releaseNotes = firstRelease == "2.1.5-beta.44"
+    and "https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/main/CHANGELOG.md#215-beta44---2026-11-27"
+    or "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v" .. firstRelease
+assert(dialog.link.text == releaseNotes,
     "the current beta must link to its matching release notes")
 local currentHighlights = addon.L["WHATS_NEW_BETA" .. assert(firstRelease:match("beta%.(%d+)$"))]
 assert(dialog.body.text:find(currentHighlights, 1, true), "the current beta should show its localized highlights")
