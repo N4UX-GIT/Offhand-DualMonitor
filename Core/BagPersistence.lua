@@ -20,6 +20,11 @@ local function TrackEnabled()
     return db and db.enabled and db.persistentWorkspacePanels ~= false
 end
 
+local function DiscoverEnabled()
+    local db = Offhand.db
+    return TrackEnabled() or (Offhand.isForever and db and db.enabled and db.keepBagToggleOpen == true)
+end
+
 local function ReloadEnabled()
     local db = Offhand.db
     return TrackEnabled() and db.restoreWorkspaceOnReload ~= false
@@ -152,6 +157,20 @@ function Bags.IsSelfAnchoredRoot(frame, name)
     return false
 end
 
+-- The first provider, in provider order, that sets flag and whose root
+-- family (IsRootName) this name belongs to. flag "rebuildsAnchors": its addon
+-- can briefly clear a root's anchors during a bag rebuild; "reportsRootHide":
+-- on Forever its addon reports its root's actual hide.
+local function FlaggedNameOwner(flag, name)
+    for _, entry in ipairs(Providers()) do
+        if entry.provider[flag] == true then
+            local ok, owned = CallProvider(entry, "IsRootName", name)
+            if ok and owned then return entry end
+        end
+    end
+    return nil
+end
+
 local function IsSpanned()
     local viewport = Offhand.Viewport
     if not viewport or not viewport.GetMetrics then return true end
@@ -211,6 +230,34 @@ function Bags:GetVisibleFrame(name)
     end
 end
 
+-- The provider whose RoutesInventoryBindings() holds, the first in provider
+-- order: its addon routes the stock inventory bindings (the backpack, all
+-- bags and the numbered bag keys) through its own root. Called directly: the
+-- workspace toggle keys poll it inside their own pcall.
+local function BindingProvider()
+    for _, entry in ipairs(Providers()) do
+        local routes = entry.provider.RoutesInventoryBindings
+        if type(routes) == "function" and routes() then return entry end
+    end
+    return nil
+end
+
+-- The same question outside that pcall (each provider asked in its own).
+function Bags:RoutesInventoryBindings()
+    return FirstProvider("RoutesInventoryBindings") ~= nil
+end
+
+-- That provider's visible root (IsRoot), or nil.
+function Bags:GetVisibleBindingRoot()
+    local entry = BindingProvider()
+    local isRoot = entry and entry.provider.IsRoot
+    if type(isRoot) ~= "function" then return nil end
+    for name, frame in pairs(self.frames) do
+        if _G[name] == frame and not (frame.IsForbidden and frame:IsForbidden())
+            and isRoot(name, frame) and frame:IsVisible() then return frame end
+    end
+end
+
 local function CopyPosition(position)
     local copy = {}
     for key, value in pairs(position or {}) do copy[key] = value end
@@ -245,8 +292,16 @@ local function UpdateBagEscapeRegistration(frame, name, supported, parent, proxy
         and not (frame.IsProtected and frame:IsProtected())
     local exclude = false
     if canPreserve and frame:IsVisible() and canvas and canvas.IsFrameOnWorkspace then
-        local ok, workspace = pcall(canvas.IsFrameOnWorkspace, frame)
-        exclude = ok and workspace == true
+        if state and state.removed
+            and (not frame:GetLeft() or (frame.GetBottom and not frame:GetBottom()))
+            and FlaggedNameOwner("rebuildsAnchors", name) then
+            -- The vendor can briefly clear its anchors during a bag rebuild.
+            -- That intermediate rectangle does not move the bag to Mainhand.
+            exclude = true
+        else
+            local ok, workspace = pcall(canvas.IsFrameOnWorkspace, frame)
+            exclude = ok and workspace == true
+        end
     end
     if not state and not exclude then return end
     state = state or { name = name }
@@ -348,6 +403,7 @@ local bridgeBagServices = {
     end,
     IsPaused = function() return Bags.paused end,
     TrackEnabled = function() return TrackEnabled() end,
+    DiscoverEnabled = function() return DiscoverEnabled() end,
     IsSpanned = function() return IsSpanned() end,
     InputReserved = function() return InputReserved() end,
     CanOpenBagsFromAddon = function() return CanOpenBagsFromAddon() end,
@@ -361,6 +417,9 @@ local bridgeBagServices = {
     KeepsIndependentPanels = function()
         return Offhand.db and Offhand.db.independentWorkspacePanels ~= false
     end,
+    KeepsBagToggleOpen = function()
+        return Offhand.db and Offhand.db.keepBagToggleOpen == true or false
+    end,
     IsPreservingPanelShown = function() return IsPreservingPanelShown() end,
     HasSharedToggleConflict = function() return HasSharedToggleConflict() and true or false end,
     OpenSavedRoot = function(name) return Bags:OpenSavedRoot(name) end,
@@ -368,6 +427,8 @@ local bridgeBagServices = {
     Discover = function(deep) return Bags:Discover(deep) end,
     -- The tracked roots by name. Read only.
     GetRoots = function() return Bags.frames end,
+    -- The saved open root and its position (Bags:GetSavedPosition()).
+    GetSavedPosition = function() return Bags:GetSavedPosition() end,
     -- The saved workspace positions and the custom bag workspace record.
     GetSavedRecords = function()
         return Offhand.db and { Offhand.db.savedWorkspacePositions, GetRecord(Offhand.db) } or {}
@@ -401,6 +462,10 @@ function Bags:RegisterRoot(name, frame)
     if not HooksScripts(owner, name, frame) then return true end
     if not frame.HookScript then return true end
 
+    local function CaptureAfterLayout()
+        Bags:Capture()
+        if Offhand.WorkspaceToggleKeys then Offhand.WorkspaceToggleKeys:Update(frame) end
+    end
     local function Changed()
         -- A registered backpack can be hidden during the native Escape stack.
         -- A locally hidden, excluded backpack has no such native close route.
@@ -426,20 +491,22 @@ function Bags:RegisterRoot(name, frame)
                 end)
             end
         end
-        C_Timer.After(0, function() Bags:Capture() end)
+        C_Timer.After(0, CaptureAfterLayout)
     end
     -- A bag addon can show its root before laying out its contents. Sample
     -- after that callback returns so the pre-layout size cannot revoke placement.
     frame:HookScript("OnShow", function()
         UpdateBagEscapeRegistration(frame, name, DirectEscapeOwner(name, frame) ~= nil)
-        C_Timer.After(0, function() Bags:Capture() end)
+        C_Timer.After(0, CaptureAfterLayout)
     end)
     frame:HookScript("OnHide", Changed)
     if Offhand.isForever and owner.provider.dragStopCapture == true then
         frame:HookScript("OnDragStop", function()
             -- The bag addon has already saved its new anchor. Reconcile ownership
             -- before an Escape that arrives ahead of the capture ticker.
-            if not InCombatLockdown() and not InputReserved() then Bags:Capture() end
+            if not InCombatLockdown() and not InputReserved() then
+                CaptureAfterLayout()
+            end
         end)
     end
     return true
@@ -453,7 +520,7 @@ end
 -- once (after its own addon load and after login); every other pass, the
 -- ticker's included, uses constant-time lookups only.
 function Bags:Discover(deep)
-    if not TrackEnabled() then return false end
+    if not DiscoverEnabled() then return false end
     local discovered = false
     -- Each bag provider finds its own roots, in provider order.
     for _, entry in ipairs(Providers()) do
@@ -744,9 +811,9 @@ function Bags:RestoreAfterEscape(pending)
         Offhand.db.savedWorkspacePositions[name] = position
         SetRecord(Offhand.db, { [name] = position })
         Offhand.Canvas:RestoreWorkspacePosition(visible)
+        RestoreGameMenuAfterEscape(pending.menuWasShown)
     end
 
-    RestoreGameMenuAfterEscape(pending.menuWasShown)
     self.restoring = false
     self:Capture()
     return visible ~= nil
@@ -832,7 +899,11 @@ function Bags:InstallEscapeHooks()
             if Bags.escapePending and Bags.escapePending.explicit then return end
             local savedName, position = Bags:GetSavedPosition()
             if not position then return end
-            if ManagedEntry(savedName) then return end
+            -- A provider can report its root's actual hide on Forever. A
+            -- native CloseAllBags by itself may only be closing parked
+            -- containers or ending a bank/merchant interaction.
+            if ManagedEntry(savedName)
+                or (Offhand.isForever and FlaggedNameOwner("reportsRootHide", savedName)) then return end
             -- A provider can distinguish a user-requested bag close from its
             -- Escape proxy hiding the frame. Respect the former even if an
             -- older Offhand open-state sample has not yet been retired.
@@ -888,7 +959,9 @@ function Bags:InstallEscapeHooks()
                 local frame = savedName and Bags.frames[savedName]
                 local visible = frame and frame.IsVisible and frame:IsVisible() or false
                 local owner = position and frame and DirectEscapeOwner(savedName, frame)
-                if owner and not visible and not HasSharedToggleConflict() then
+                if owner and not visible
+                    and not (Offhand.isForever and FlaggedNameOwner("reportsRootHide", savedName))
+                    and not HasSharedToggleConflict() then
                     local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown
                         and GameMenuFrame:IsShown() or false
                     pending = {
@@ -960,6 +1033,19 @@ function Bags:GetDiagnostics()
         if ok and type(segment) == "string" and segment ~= "" then text = text .. " | " .. segment end
     end
     return text
+end
+
+-- Each provider's own report for the panels diagnostics (GetPanelDiagnostics),
+-- in provider order, as { label = bridge id, text }.
+function Bags:GetPanelDiagnostics()
+    local reports = {}
+    for _, entry in ipairs(Providers()) do
+        local ok, text = CallProvider(entry, "GetPanelDiagnostics", bridgeBagServices)
+        if ok and type(text) == "string" and text ~= "" then
+            reports[#reports + 1] = { label = entry.id, text = text }
+        end
+    end
+    return reports
 end
 
 function Bags:Resume()

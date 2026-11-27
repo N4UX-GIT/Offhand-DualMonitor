@@ -14,6 +14,9 @@ breaks.
 
 - Camera follow: a centered OpenMap camera follows the player while the map is
   on the workspace; browsing away pauses it until the player centers it again.
+  It is an opt-in (Beta 43, off by default): the Forever World Map card shows
+  its checkbox while `OpenMapAPI` supports follow, and the profile setting
+  keeps its stored key `followPlayerWithOpenMap` (`data.settings`).
 - Movement fade: while OpenMap's world map module is active its own `moveFade`
   is held opaque on the workspace map and restored afterwards, and its fader is
   re-enabled through the vendor when the map stays open.
@@ -39,11 +42,13 @@ breaks.
   `HandlesExpandedMap`, `CanRecover`, `Recover`, `ReportRecoveryFailure`,
   `ObserveUserDrag`, `HandlesFullscreen`, `GetContractConflict`,
   `FormatConflict`, `SyncsWorldMapMover`, `GetOwnerDiagnostics`.
-- `data`: the `map.fade` entry (order 10) with its reader; `Data.lua` holds the
+- `data`: the `map.fade` entry (order 10) with its reader and the
+  `followPlayerWithOpenMap` setting; `Data.lua` holds the
   `map.owner` facts, the `map.cameraOwner` role, the map integration entry, the
   compact diagnostics segment and the catalog.
 - `slashCommands.recovermap` and `GetSettingsContributions` for the slots
-  `mapScaleTitle`, `mapDescription` and `map`.
+  `mapScaleTitle`, `mapDescription` and `map` (two buttons and the follow
+  check).
 
 It registers on every client (id `OpenMap`) and reads OpenMap when asked, so an
 OpenMap that loads after Offhand is still handled.

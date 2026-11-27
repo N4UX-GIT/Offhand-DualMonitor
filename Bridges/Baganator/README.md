@@ -33,6 +33,15 @@ bridge contract with unchanged behaviour.
   bag toggle and claims that toggle, so a second claimant (EllesmereUI on
   Forever) blocks the toggle. A visible root without a rectangle keeps its
   saved open state while Baganator rebuilds its anchor.
+- Beta 43, moved from core the same way: a root Offhand protects from Escape
+  stays protected while a rebuild clears its anchors (`rebuildsAnchors`); on
+  Forever Baganator reports its root's hide, so a native `CloseAllBags` or an
+  unpaired Escape does not stand in for it (`reportsRootHide`); while the
+  `Baganator` global exists its visible backpack is the window the stock
+  inventory and numbered bag keys follow (`RoutesInventoryBindings`); and
+  `/offhand diag panels` on Forever prints `Baganator diagnostics: ...`
+  (`GetPanelDiagnostics`). Its callbacks discover roots while the Forever bag
+  key option is on even without Escape persistence (`DiscoverEnabled`).
 
 ## How core reaches it
 
@@ -40,13 +49,15 @@ bridge contract with unchanged behaviour.
 persistence engine: `IsRoot`, `IsRootName`, `Discover`, `InstallCallbacks`
 (`loadAddon = "Baganator"`, `deepDiscovery`), `IsDirectEscapeRoot`
 (`escapeOrder = 10`, `escapeSource`), `CloseParkedBags`, `ClaimsSharedToggle`,
-`selfAnchored`, `dragStopCapture` and `panelTransitions = "options"`. It
+`selfAnchored`, `dragStopCapture`, `panelTransitions = "options"`,
+`rebuildsAnchors`, `reportsRootHide`, `RoutesInventoryBindings` and
+`GetPanelDiagnostics`. It
 registers on every client before Baganator exists and reads Baganator's
 global when asked, so a Baganator that loads after Offhand is still served.
 
 ## Evidence
 
 Automated tests pass (tests/baganator-persistence.lua,
-tests/canvas-persistence.lua, tests/bag-discovery-performance.lua with its
+tests/workspace-toggle-keys.lua, tests/canvas-persistence.lua, tests/bag-discovery-performance.lua with its
 memory probe stubbed, tests/bridges-contract.lua). The move itself has not
 been run in a live client.
