@@ -3774,6 +3774,25 @@ scene/settings/FPS-limit comparisons, restored versus spanned, then same-size
 span with UI disabled; record GPU frame times and addon CPU separately. No FPS,
 graphics, power or driver settings changed automatically.
 
+### OH-PERF-003 Focused-window FPS drop on Forever 71139
+
+Resolved for @funran after a driver update. The November 27, 2026 community report measured 6 FPS with WoW focused and 29 FPS after Alt-Tab using the Game Menu tooltip. The player also saw lows of 4 FPS. Focus alone triggered the drop with the mouse stationary. It persisted with Offhand and Questie disabled while Companion kept the window spanned. NVIDIA Smooth Motion and frame generation were off.
+
+Choosing a different workspace monitor reproduced the drop. The single-monitor FPS after Companion **Restore Window** was still pending when the driver update resolved the issue. Driver versions and post-update FPS were not supplied.
+
+The screenshot shows Forever 1.60.1.71139 (interface 16001), Offhand 2.1.5-beta.43 and a matching Companion 2.1.9-beta.4. On a 3440×2160 physical canvas the actual and planned WorldFrame both occupy (0, 720) at 3440×1440. The workspace is below at (359, 0), 2560×720. The graphics sample reads 20.7 FPS, D3D12, VSync 0, render scale about 0.993 and dynamic render scale 0. The 144 and 30 values are foreground and background slider values. The release diagnostic omits their enable flags. The screenshot has no time series, focus marker or GPU timing.
+
+The release calls `GetFramerate()` once per graphics diagnostic. Its “settled Companion viewport refresh” flag records a delayed apply requested after entry or a display transition. It supplies no count of refreshes during a focus change. With a span active the default raw mouse option manages `rawMouseEnable`. Clearing the checkbox restores its previous value, which can itself be 1. Companion also applies a native window region while spanning. Each mechanism can be isolated. Attribution to an input path, addon callback or native presentation remains open. [Beta 43 viewport](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/55240e10542533db64e331b86d26a2c39c341c72/Core/Viewport.lua) · [Raw mouse handling](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/55240e10542533db64e331b86d26a2c39c341c72/Core/Config.lua) · [Companion span](https://github.com/N4UX-GIT/Offhand-DualMonitor/blob/cdf3a8728c6b22e8ac8280bbf73f5e4718ef5d7a/Companion/Source/Program.cs#L9146-L9161) · [Forever FPS controls](https://github.com/Gethe/wow-ui-source/blob/d9c22e32cb240afb82bb2ecefbb78ef935333f59/Interface/AddOns/Blizzard_SettingsDefinitions_Shared/Graphics.lua)
+
+Troubleshooting sequence retained for recurring reports:
+
+1. Leave the existing span and graphics settings in place. Enable WoW's FPS display, stand still with a fixed camera, and Alt-Tab from another small window back to WoW without moving the mouse. Record 15 seconds each with WoW focused and idle, with the pointer moving over empty world without turning the camera, and with the other window focused while WoW remains visible. Repeat once. Record both FPS limit checkboxes as well as their slider values. If needed, repeat with both limits enabled at 30, then restore the original settings.
+2. If only pointer motion triggers the drop, repeat with **Use raw mouse input while Offhand is spanned** cleared. Read the actual value before and after with `/run print(GetCVar("rawMouseEnable"))`, then restore the checkbox. An unchanged value leaves the raw-input comparison inconclusive.
+3. If focus alone triggers it, disable Offhand through WoW's AddOns list, reload, close the menu and repeat at the same 3440×2160 native window size. The world may expand when the addon unloads, so record the viewport change. With Offhand still unloaded, use Companion **Restore Window** and repeat. Recovery only on Restore prioritizes the native span and presentation for a frame-time capture. Recovery on addon unload prioritizes active addon work and viewport/input state. Re-enable Offhand and reapply the original span to confirm repeatability.
+4. For a reproducible case, collect whole-client frame intervals and available Offhand CPU using the [temporary performance probe](ADDON-PERFORMANCE-20261025.md#live-measurement-package). Record GPU busy time and displayed frame intervals over the focus switch with a Windows capture such as [PresentMon](https://github.com/GameTechDev/PresentMon). Note GPU, driver and focus-switch times.
+
+The tagged Beta 43 geometry, Forever CVar persistence, workspace toggle key and performance-probe Lua fixtures passed. The resolution comes from the player's follow-up.
+
 ### Other reconciled follow-ups
 
 Archived Better Forever Chat also reproduces on stock chat. Screenshots show an

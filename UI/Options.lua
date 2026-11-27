@@ -499,10 +499,12 @@ function Options:CreateFloatingPanel()
     version:SetJustifyH("LEFT")
     if version.SetWordWrap then version:SetWordWrap(false) end
     local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
-    local verNum = (getMetadata and getMetadata("Offhand", "Version")) or "1.0.0"
-    local companionDisplay = Offhand.companionVersionDisplay or ("v" .. verNum)
-    version:SetText("|cffc7cbd4v" .. verNum .. " (Companion "
-        .. companionDisplay .. ") | " .. L["HEADER_CRAFTED_BY"] .. "|r")
+    local verNum = Offhand.version or (getMetadata and getMetadata("Offhand", "Version")) or "?"
+    local addonDisplay = "v" .. verNum
+    if Offhand.releaseDisplay and Offhand.releaseDisplay ~= "" then
+        addonDisplay = addonDisplay .. " " .. Offhand.releaseDisplay
+    end
+    version:SetText("|cffc7cbd4" .. addonDisplay .. " | " .. L["HEADER_CRAFTED_BY"] .. "|r")
     header.versionText = version
 
     local versionButton = CreateFrame("Button", nil, header)
@@ -511,18 +513,16 @@ function Options:CreateFloatingPanel()
     versionButton:SetPoint("TOPLEFT", version, "TOPLEFT", 0, 3)
     configFrame.versionButton = versionButton
     if Offhand.SetTooltip then
-        local releaseDisplay = Offhand.releaseDisplay or ""
-        local fullDisplay = "Offhand v" .. verNum
-            .. (releaseDisplay ~= "" and (" " .. releaseDisplay) or "")
+        local fullDisplay = "Offhand " .. addonDisplay
         local releaseTag = "v" .. (Offhand.fullVersion or verNum)
         local tooltipText = string.format(L["VERSION_TOOLTIP_ADDON_BUILD"], releaseTag)
-            .. "\n" .. string.format(L["VERSION_TOOLTIP_COMPANION_BUILD"], companionDisplay)
+            .. "\n" .. string.format(L["VERSION_TOOLTIP_COMPANION_BUILD"], Offhand.companionVersionDisplay or "?")
             .. "\n\n" .. L["VERSION_TOOLTIP_COMPANION_NOTE"]
         versionButton.offhandTooltipTitle = fullDisplay
         versionButton.offhandTooltipText = tooltipText
         Offhand:SetTooltip(versionButton, fullDisplay, tooltipText)
     end
-    
+
     local desc = header:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     desc:SetPoint("LEFT", title, "RIGHT", 8, 0)
     desc:SetText("| " .. L["ADDON_DESC"])

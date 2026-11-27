@@ -1,6 +1,6 @@
 # Installation walkthrough recording sequence
 
-Record against the final tested addon candidate and Companion Beta 20. Do not
+Record the two-click route using matching addon and Companion candidates. Do not
 advertise draft controls as part of the published Beta 23 until they are released.
 Use the exact on-screen labels if a supported client presents a different path.
 The complete v23 CurseForge description supplied on 27 October deliberately
@@ -27,9 +27,9 @@ result for a few seconds. Do not skip a required action through an unexplained c
 | Windowed | Set to Windowed; show the movable window/title bar; continue with Place WoW | Click Set to Windowed |
 | Displays | In Companion, Identify Displays, select the intended screens and Mainhand (game) | Select your screens and Mainhand |
 | Span | In the game world, Span WoW Now; show both screens and disappearance of the title bar | Click Span WoW Now |
-| Geometry | Return to WoW; Reload UI, then Confirm placement | Reload UI, then confirm placement |
-| Calibration | Start Calibration; apply recommendation and review Mainhand, seam and UI size | Check Mainhand, seam and UI size |
-| HUD | Outside combat with Edit Mode closed, Create Mainhand HUD Layout; reload when prompted | Create your Mainhand HUD layout |
+| Geometry | Show Window fits · Reload UI in the open guide, then Confirm and use this layout after reload | Check the screens and keep your UI scale |
+| Optional adjustment insert | In a separate take, choose Adjust alignment and scale on the review screen | Fine-tune the seam or text size if needed |
+| HUD, where offered | Show the HUD choice on a supported client and reload if prompted. On clients without the HUD step, cut directly to Panels | Finish HUD setup if prompted |
 | Panels | Move supported map, Character and bags to Offhand using their controls | Arrange your Offhand workspace |
 | Persistence | Normal exit, relaunch, enter world and reapply the span; show the returned layout | Check your saved layout |
 | Ending | Hold a clean result for five seconds | Setup complete. offhandwow.com |

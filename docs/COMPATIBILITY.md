@@ -15,7 +15,7 @@ python -m unittest discover -s tests -p test_compatibility_check.py -v
 python scripts/check-compatibility.py --report dist/compatibility-check.json
 ```
 
-The portable command follows all six manifests and nested XML loads, rejects
+The portable command follows all six client manifests, the placement preview manifest and nested XML loads, rejects
 duplicate, missing or external paths, checks Lua 5.1 syntax and runs every Lua
 suite in tests. CI runs the manifest/freshness checker and its tests, then runs
 all Lua suites through the existing CI step.
@@ -142,6 +142,31 @@ BugGrabber session 1136 showed no stored gameplay UI errors. A separate
 query for the BugSack UI produced a diagnostic-command error. The taint log
 had last been written on November 21 and did not cover this run.
 
+#### Combined candidate with the popup placement change, November 27
+
+On the same Forever build and span, the combined candidate also closed the
+trainer greeting before clearing the target, and closed ordinary Inspect
+before clearing the player target. The Game Menu opened with no target.
+The backpack stayed visible and stationary across 41,421 sampled frames.
+The early-open attempt in that walkthrough lacked a complete capture after
+each press, so the sequence was rerun with a frame observer.
+
+The rerun received real equipment data with Inspect outside all five native
+panel slots, absent from the special-window list, and using Offhand's window
+Escape binding. The screenshots and saved trace captured each press.
+
+| Input | Inspect | Target | Game Menu | Separate backpack |
+| --- | --- | --- | --- | --- |
+| First Escape | Closed | Selected | Closed | Visible |
+| Second Escape | Closed | Cleared | Closed | Visible |
+| Third Escape | Closed | Cleared | Open | Visible |
+
+The backpack stayed at `(637.62, 142.38)` with size `178 × 305` in all
+2,053 sampled frames. BugGrabber session 1153 recorded zero errors in the
+rerun. The original profile, HUD and installed addon matched their pre-test
+hashes after both sessions. All receipt-scoped source files matched between
+the two runs and the checkout when the receipt was updated.
+
 ## Workspace restoration after a full restart
 
 A player's open map, bags and other eligible workspace panels must return to
@@ -192,6 +217,21 @@ Collections stayed closed. BugGrabber session 1138 contained zero stored errors.
 After the readings, the temporary open panels were closed. The original
 combined-bag preference, Baganator and MoveMyBags were restored and verified
 after a cleanup reload. The taint log did not cover this session.
+
+### Both restart timings on the onboarding candidate, November 27
+
+Noggaholic Naux ran three distinct Forever 1.60.1.71139 processes using Store Companion 2.1.9-beta.4. The first process quit with OpenMap 0.8.13, the separate Blizzard backpack and Character visible on the left portrait workspace. Collections had a saved position and was closed. On the first relaunch, all four were closed in the single window until **Span WoW Now**. On the second relaunch, Companion spanned WoW at character selection before **Enter World**. Both relaunches used a read-only observer and received no panel commands or UI reloads.
+
+| Panel | Before quitting | Span after login | Span before world entry |
+| --- | --- | --- | --- |
+| OpenMap | 19.05, 1313.00, 1064, 603 | Same | Same |
+| Separate backpack | 637.62, 142.38, 178, 305 | Same | Same |
+| Character | 33.45, 885.48, 631, 484 | Same | Same |
+| Collections | Closed | Closed | Closed |
+
+Bounds are frame left, bottom, width and height in UI units, measured to two decimal places. The canvas was 4000 × 2560 on all three runs. BugGrabber sessions 1153 through 1155 recorded zero errors. The taint log predates the test. The original 383 settings files and 110 installed addon files matched their pre-test hashes after restoration. The HUD choices were left untouched.
+
+The manual/FancyZones guide-placement candidate repeated both cold relaunches on Noggaholic Naux. The baseline process (29764) exited with the three panels open. Process 6640 entered the world in a single window with all four panels closed, then spanned. Process 35184 spanned at character selection before entering the world. Both read-only sessions reproduced every bound in the table, preserved the saved Collections position and left Collections closed. Neither relaunch used a UI reload or panel input. The isolated BugGrabber log recorded zero errors in the three sessions. This rerun refreshes the workspace-restart receipt only.
 
 ## Forever bag scope recorded through November 18, 2026
 

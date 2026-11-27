@@ -158,8 +158,13 @@ function Visuals:Plan(metrics, width, height)
         game, work = Rect("game"), Rect("workspace")
     end
     local example = not game or not work
-    if not example and math.min(game.x+game.w,work.x+work.w)>math.max(game.x,work.x)
-        and math.min(game.y+game.h,work.y+work.h)>math.max(game.y,work.y) then example=true end
+    if not example then
+        -- Converting the same physical edge to UI units on each axis can
+        -- leave a fractional difference on a valid mixed-height span.
+        local overlapX = math.min(game.x + game.w, work.x + work.w) - math.max(game.x, work.x)
+        local overlapY = math.min(game.y + game.h, work.y + work.h) - math.max(game.y, work.y)
+        example = overlapX > 0.001 and overlapY > 0.001
+    end
     if example then game,work={x=700,y=0,w=1600,h=900},{x=0,y=0,w=700,h=1200} end
     local left, bottom = math.min(game.x,work.x), math.min(game.y,work.y)
     local right, top = math.max(game.x+game.w,work.x+work.w), math.max(game.y+game.h,work.y+work.h)

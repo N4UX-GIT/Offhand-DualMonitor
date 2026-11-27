@@ -34,7 +34,7 @@ def addon_files(root, commit):
         suffix = path.suffix.lower()
         if not (
             name in ROOT_FILES
-            or folder in {"Core", "Locales", "UI"}
+            or folder in {"Core", "Locales", "UI", "Offhand_Placement"}
             or (folder == "Bridges" and suffix == ".lua")
             or (folder == "Media" and len(path.parts) == 2 and suffix == ".blp")
         ):
@@ -66,7 +66,7 @@ def verify(root, archive_path, revision, checksums_path=None):
         names = {entry.filename for entry in entries}
         if len({name.casefold() for name in names}) != len(entries):
             raise ValueError("Archive contains duplicate or case-colliding paths")
-        expected = {f"Offhand/{name}" for name in files}
+        expected = {name if name.startswith("Offhand_Placement/") else f"Offhand/{name}" for name in files}
         if expected != names:
             missing = ", ".join(sorted(expected - names)) or "none"
             extra = ", ".join(sorted(names - expected)) or "none"

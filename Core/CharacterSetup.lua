@@ -183,7 +183,9 @@ function Setup:Refresh()
     if not mainhand or not mainhand.GetCharacterSetupLayoutStatus then return false end
     local wizard = Offhand.Wizard
     local recovery = Offhand.HUD and Offhand.HUD.foreverRecoveryPromptShown
-    if recovery or (wizard and wizard.IsOpen and wizard:IsOpen()) then return true end
+    local guide = Offhand.Onboarding
+    if recovery or (guide and guide.IsOpen and guide:IsOpen())
+        or (wizard and wizard.IsOpen and wizard:IsOpen()) then return true end
     local geometry, gamepad = Context()
     if not geometry then return false end
     local record = OffhandCharDB.characterSetup

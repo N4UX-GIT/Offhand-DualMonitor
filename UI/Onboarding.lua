@@ -286,13 +286,6 @@ StaticPopupDialogs["OFFHAND_CONFIRM_WINDOWED_MODE"] = {
     preferredIndex = 3,
 }
 
-StaticPopupDialogs["OFFHAND_CONFIRM_PLACEMENT"] = {
-    text = L["ONBOARD_CONFIRM_REVIEW"],
-    button1 = L["ONBOARD_CONFIRM_PLACEMENT"], button2 = L["BTN_BACK"],
-    OnAccept = function(_, callback) if callback then callback() end end,
-    timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
-}
-
 local function Metrics()
     return Offhand.Viewport and Offhand.Viewport.GetMetrics
         and Offhand.Viewport:GetMetrics() or nil
@@ -483,6 +476,20 @@ function Onboarding:CreateFrame()
     local nextButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     nextButton:SetSize(150, 28)
     nextButton:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -24, 24)
+    local function UseCompanionLayout(adjust)
+        local ready = SetupStatus()
+        local stage, signature = Offhand.SetupPlacement:GetStage()
+        if f.page ~= 4 or Offhand:GetOnboardingSetupMethod() ~= "COMPANION"
+            or not ready or signature ~= f.reviewSignature
+            or (stage ~= "CONFIRM" and stage ~= "READY")
+            or not Offhand.SetupPlacement:Confirm(signature) then
+            f:RefreshPlacementState()
+            return
+        end
+        Onboarding:SaveProgress(6)
+        Offhand:MarkWelcomeDismissed()
+        Offhand.Wizard:UseConfirmedCompanionLayout(adjust)
+    end
     nextButton:SetScript("OnClick", function()
         if f.page == 2 then
             if f.methodDetails then return end
@@ -513,6 +520,10 @@ function Onboarding:CreateFrame()
             end
         end
         if f.page == 4 then
+            if Offhand:GetOnboardingSetupMethod() == "COMPANION" then
+                UseCompanionLayout(false)
+                return
+            end
             local ready, message = SetupStatus()
             local stage, signature = Offhand.SetupPlacement:GetStage()
             if not ready then f:SetStatusText("|cffff5555" .. message .. "|r"); return end
@@ -521,9 +532,8 @@ function Onboarding:CreateFrame()
                 return
             end
             local revision = f.placementRevision
-            local _, _, manual = SetupStatus()
-            local popup = manual and (Offhand.isForever and "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
-                or "OFFHAND_CONFIRM_MANUAL_LAYOUT") or "OFFHAND_CONFIRM_PLACEMENT"
+            local popup = Offhand.isForever and "OFFHAND_CONFIRM_MANUAL_LAYOUT_FOREVER"
+                or "OFFHAND_CONFIRM_MANUAL_LAYOUT"
             local dialog = Offhand:ShowPopup(popup, nil, nil, function()
                 if not f:IsShown() or f.page ~= 4 or f.placementRevision ~= revision then return end
                 local currentStage, currentSignature = Offhand.SetupPlacement:GetStage()
@@ -543,7 +553,7 @@ function Onboarding:CreateFrame()
                 if not Offhand.SetupPlacement:Confirm(signature) then f:RefreshPlacementState(); return end
                 if confirmManual and Offhand.ApplyFullLayout then Offhand:ApplyFullLayout() end
                 f:SetPage(6)
-            end)
+            end, f:GetDialogBounds(Metrics()))
             BringPopupForward(dialog)
             return
         end
@@ -590,10 +600,17 @@ function Onboarding:CreateFrame()
         end
     end
 
+    local function CompanionWindowFits()
+        local metrics = Metrics()
+        if metrics and metrics.companionTopology and metrics.isSpanned then return true end
+        return f:GetPlacementPreview() ~= nil
+    end
+
     function f:RefreshPlacementState()
         if self.page ~= 4 then return end
-        local stage = Offhand.SetupPlacement:GetStage()
+        local stage, signature = Offhand.SetupPlacement:GetStage()
         local method = Offhand:GetOnboardingSetupMethod()
+        local companion = method == "COMPANION"
         local combat = InCombatLockdown and InCombatLockdown()
         local ready, message = SetupStatus()
         local retryPlacement = NeedsPlacementRetry(stage, ready)
@@ -601,18 +618,22 @@ function Onboarding:CreateFrame()
         local phase = needsSpan and 1 or stage == "RELOAD" and 2 or 3
         self.placementPhase = phase
         local manualReload = not Offhand:GetReloadUIFunction()
-        self.pageTitle:SetText(L["ONBOARD_PLACE_TITLE"] .. "\n" .. string.format(L["STEP_PROGRESS"],phase,3))
+        self.reviewSignature = phase == 3 and ready and signature or nil
+        self.pageTitle:SetText(companion and L[phase == 3 and "QUICK_CHECK" or "ONBOARD_PLACE_TITLE"]
+            or (L["ONBOARD_PLACE_TITLE"] .. "\n" .. string.format(L["STEP_PROGRESS"],phase,3)))
         local key = needsSpan and ("ONBOARD_SPAN_" .. (method or "MANUAL"))
             or (stage == "RELOAD" and (manualReload and "SETUP_MANUAL_RELOAD" or "ONBOARD_RELOAD_TASK")
                 or "ONBOARD_CONFIRM_TASK")
-        local buttonKey = needsSpan and "ONBOARD_SPAN_ACK"
+        if companion and phase == 3 then key = "QUICK_REVIEW" end
+        local buttonKey = needsSpan and (companion and "QUICK_RELOAD" or "ONBOARD_SPAN_ACK")
             or stage == "RELOAD" and "ONBOARD_RELOAD_UI" or "ONBOARD_CONFIRM_PLACEMENT"
+        if companion and phase == 3 then buttonKey = "QUICK_CONFIRM" end
         local text = string.format(L[key], "|cffffd100" .. L[buttonKey] .. "|r")
         if needsSpan then
             local mac = Offhand.IsMacClient and Offhand:IsMacClient()
             if mac and method == "MANUAL" then
                 text = L["ONBOARD_MAC_DISPLAY_PLACEMENT"] .. "\n\n" .. text
-            elseif not mac then
+            elseif not mac and not companion then
                 text = L["ONBOARD_WINDOWS_DISPLAY_PLACEMENT"] .. "\n\n" .. text
             end
         end
@@ -623,20 +644,35 @@ function Onboarding:CreateFrame()
             text = text .. "\n\n" .. L["ELLESMERE_HUD_BACKUP_BEFORE_SPAN"]
         end
         self.pageBody:SetText(text)
+        self.nextButton:SetText(L[companion and "QUICK_CONFIRM" or "ONBOARD_CONFIRM_PLACEMENT"])
+        SetShown(self.nextButton, not companion or phase == 3)
         self.nextButton:SetEnabled(phase == 3 and ready and not combat)
+        local adjust = companion and phase == 3 and ready
+        self.secondaryActionButton:SetText(L[adjust and "QUICK_ADJUST" or "IDENTIFY_DISPLAYS"])
+        self.secondaryActionButton:SetEnabled(not adjust or not combat)
+        self.secondaryActionButton:SetScript("OnClick", function()
+            if adjust then UseCompanionLayout(true)
+            elseif Offhand.DisplayIdentify then Offhand.DisplayIdentify:Show() end
+        end)
         SetShown(self.actionButton,phase < 3 and not (phase == 2 and manualReload))
-        self.actionButton:SetEnabled(not combat and not Offhand._displayGeometryTransitionActive
+        local waitingForSpan = companion and phase < 3 and not CompanionWindowFits()
+        self.actionButton:SetEnabled(not waitingForSpan and not combat and not Offhand._displayGeometryTransitionActive
             and method ~= nil and WindowedState() ~= "OTHER")
-        self.actionButton:SetText(L[needsSpan and "ONBOARD_SPAN_ACK" or "ONBOARD_RELOAD_UI"])
+        self.actionButton:SetText(L[buttonKey])
         self.actionButton:SetScript("OnClick",function()
             if WindowedState() == "OTHER" then self:SetStatusText(L["ONBOARD_STATE_MODE_OTHER"]); return end
             if InCombatLockdown and InCombatLockdown() then self:SetStatusText(L["ONBOARD_RELOAD_COMBAT"]); return end
+            if Offhand._displayGeometryTransitionActive or (companion and not CompanionWindowFits()) then
+                self:RefreshPlacementState()
+                return
+            end
             local current = Offhand.SetupPlacement:GetStage()
             local currentReady = SetupStatus()
             local reload = Offhand:GetReloadUIFunction()
             if current == "SPAN" or NeedsPlacementRetry(current, currentReady) then
-                if Offhand.SetupPlacement:AcknowledgeSpan() and not PreparePlacementReload() then
-                    Offhand.SetupPlacement:Reset()
+                if Offhand.SetupPlacement:AcknowledgeSpan() then
+                    if not PreparePlacementReload() then Offhand.SetupPlacement:Reset()
+                    elseif companion and reload then reload() end
                 end
             elseif current == "RELOAD" or current == "CONFIRM" or current == "READY" then
                 if PreparePlacementReload() then
@@ -645,8 +681,16 @@ function Onboarding:CreateFrame()
             end
             self:RefreshPlacementState()
         end)
-        self.statusText:SetText(L[combat and "ONBOARD_RELOAD_COMBAT" or "ONBOARD_CHECKPOINT_REQUIRED"])
-        if not combat and (phase == 3 or not ready) then self.statusText:SetText(message) end
+        self.statusText:SetText(combat and L["ONBOARD_RELOAD_COMBAT"] or "")
+        if not combat then
+            if phase == 3 or retryPlacement or Offhand._displayGeometryTransitionActive or WindowedState() == "OTHER" then
+                self.statusText:SetText(message)
+            elseif waitingForSpan then
+                self.statusText:SetText(L["QUICK_WAIT_SPAN"])
+            elseif not companion then
+                self.statusText:SetText(ready and L["ONBOARD_CHECKPOINT_REQUIRED"] or message)
+            end
+        end
         self:LayoutPage()
     end
 
@@ -668,7 +712,7 @@ function Onboarding:CreateFrame()
         local kind=self.page==3 and "WINDOW" or self.page==4 and "POSITION" or self.page==6 and "HUD" or nil
         if self.page==4 then
             local phase=self.placementPhase or 1
-            if phase > 1 then
+            if phase > 1 and Offhand:GetOnboardingSetupMethod() ~= "COMPANION" then
                 kind="RELOAD"
                 self.modeIllustration:Update(kind,Metrics(),phase)
             else self.modeIllustration:Update(kind,Metrics()) end
@@ -705,10 +749,12 @@ function Onboarding:CreateFrame()
         local actionCount = (self.actionButton:IsShown() and 1 or 0)
             + (self.secondaryActionButton:IsShown() and 1 or 0)
             + (self.tertiaryActionButton:IsShown() and 1 or 0)
-        self.actionButton:ClearAllPoints()
-        self.actionButton:SetPoint("BOTTOM", self, "BOTTOM", -101 * math.max(0, actionCount - 1), layout.actionBottom)
+        local actionX = -101 * math.max(0, actionCount - 1)
         for _, button in ipairs({ self.actionButton, self.secondaryActionButton, self.tertiaryActionButton }) do
+            button:ClearAllPoints()
+            button:SetPoint("BOTTOM", self, "BOTTOM", actionX, layout.actionBottom)
             button:SetHeight(math.max(26, layout.actionHeight))
+            if button:IsShown() then actionX = actionX + 202 end
         end
         Controls.FitDialog(self, Metrics())
     end
@@ -770,8 +816,13 @@ function Onboarding:CreateFrame()
     function f:SetPage(page)
         self.placementRevision = (self.placementRevision or 0) + 1
         local nextPage = math.max(1, math.min(PAGE_COUNT, page or 1))
+        if nextPage == 4 and self.page ~= 4 and GetPhysicalScreenSize then
+            self.placementWindowWidth, self.placementWindowHeight = GetPhysicalScreenSize()
+            self.placementWindowAspect = UIParent:GetWidth() / math.max(1, UIParent:GetHeight())
+        end
         if nextPage == 5 then nextPage = 6 end
-        if nextPage ~= self.page then self.helpExpanded = false end
+        local pageChanged = nextPage ~= self.page
+        if pageChanged then self.helpExpanded = false end
         if nextPage ~= 2 then self.methodDetails = nil end
         self.page = nextPage
         Onboarding:SaveProgress(self.page)
@@ -881,24 +932,66 @@ function Onboarding:CreateFrame()
                 self.tertiaryActionButton:Show()
             end
         elseif self.page == 4 then
-            self.secondaryActionButton:SetText(L["IDENTIFY_DISPLAYS"])
-            self.secondaryActionButton:SetScript("OnClick", function()
-                if Offhand.DisplayIdentify then Offhand.DisplayIdentify:Show() end
-            end)
             self.secondaryActionButton:Show()
         end
         if self.page == 3 then self:RefreshModeState(true)
         elseif self.page == 4 then self:RefreshPlacementState()
         else self:LayoutPage() end
+        if pageChanged and self:IsShown() then self:CenterInMainhand() end
     end
 
     -- Read-only, event-driven refresh. Hidden guides do no work, and applying
     -- a request suppresses intermediate CVar events until rollback/apply ends.
+    function f:GetPlacementPreview()
+        local preview = Onboarding.placementPreview
+        if not preview or not Offhand.Viewport.GetCompanionTopology then return end
+        local pw, ph = GetPhysicalScreenSize()
+        return Offhand.Viewport:GetCompanionTopology(pw, ph, UIParent:GetWidth(), UIParent:GetHeight(), preview)
+    end
+
+    function f:GetDialogBounds(m)
+        if self.page ~= 4 or not m or m.companionTopology then return m end
+        local method = Offhand:GetOnboardingSetupMethod()
+        if method == "MANUAL" or method == "FANCYZONES" then
+            -- The window can already be spanned while gameplay still uses the
+            -- full, safe canvas. Use the proposed split only to place the UI.
+            if m.isSpanned then return m end
+            return Offhand.Viewport:GetManualPreviewMetrics() or m
+        end
+        if method ~= "COMPANION" then return m end
+        local topology = self:GetPlacementPreview()
+        if not topology then return m end
+        local sw, sh = UIParent:GetWidth(), UIParent:GetHeight()
+        local g = topology.game
+        local ux, uy = sw / topology.physicalWidth, sh / topology.physicalHeight
+        return {isSpanned = true, gameLeft = g.x * ux, gameRight = (g.x + g.width) * ux,
+            gameBottom = g.y * uy, gameTop = (g.y + g.height) * uy,
+            gameWidth = g.width * ux, gameHeight = g.height * uy}
+    end
+    f.fitOnMainhand = true
+
+    function f:ReadPlacementPreview()
+        if self.page == 4 and self.placementWindowWidth and not self.previewAttempted
+            and Offhand:GetOnboardingSetupMethod() == "COMPANION"
+            and not (InCombatLockdown and InCombatLockdown()) then
+            local pw, ph = GetPhysicalScreenSize()
+            local aspect = UIParent:GetWidth() / math.max(1, UIParent:GetHeight())
+            if pw ~= self.placementWindowWidth or ph ~= self.placementWindowHeight
+                or math.abs(aspect - self.placementWindowAspect) > 0.01 then
+                self.previewAttempted = true
+                local loadAddon = C_AddOns and C_AddOns.LoadAddOn or LoadAddOn
+                if loadAddon then loadAddon("Offhand_Placement") end
+            end
+        end
+    end
+
     function f:CenterInMainhand()
         if not self:IsShown() then return end
+        self:ReadPlacementPreview()
         self:LayoutPage()
         local m = Metrics()
         local scale = Controls.FitDialog(self, m)
+        m = self:GetDialogBounds(m)
         self:ClearAllPoints()
         if m and m.isSpanned and m.gameWidth and m.gameWidth > 0 then
             self:SetPoint("CENTER", UIParent, "BOTTOMLEFT",
@@ -921,11 +1014,15 @@ function Onboarding:CreateFrame()
             if C_Timer and C_Timer.After then
                 for _, delay in ipairs({0.15, 0.8}) do
                     C_Timer.After(delay, function()
-                        if self.recenterGeneration == generation then self:CenterInMainhand() end
+                        if self.recenterGeneration == generation then
+                            self:CenterInMainhand()
+                            self:RefreshPlacementState()
+                        end
                     end)
                 end
             end
         end
+        if self.page == 4 and event == "PLAYER_REGEN_ENABLED" then self:CenterInMainhand() end
         if self.page == 4 then self:RefreshPlacementState(); return end
         if self.page ~= 3 then return end
         if event == "CVAR_UPDATE" then
@@ -966,6 +1063,7 @@ function Onboarding:Open()
     if settingsReturnWatcher then settingsReturnWatcher:SetScript("OnUpdate", nil) end
     local f = self:CreateFrame()
     if not f then return end
+    if Offhand.CharacterSetup and Offhand.CharacterSetup.shown then Offhand.CharacterSetup:Hide() end
     f.methodDetails = nil
     f.helpExpanded = false
     if Offhand.Options and Offhand.Options.GetConfigFrame then

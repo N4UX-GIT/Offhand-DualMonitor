@@ -167,6 +167,10 @@ addon.Wizard.IsOpen = function() return true end
 assert(check:Refresh() and not currentPopup and popupCount == beforePopups,
     "the automatic HUD reminder must yield while the player is already in setup")
 addon.Wizard.IsOpen = nil
+addon.Onboarding.IsOpen = function() return true end
+assert(check:Refresh() and not currentPopup and popupCount == beforePopups,
+    "character HUD setup must wait while the window placement guide is open")
+addon.Onboarding.IsOpen = nil
 addon.HUD = {foreverRecoveryPromptShown = "restore"}
 assert(check:Refresh() and not currentPopup and popupCount == beforePopups,
     "automatic setup must not replace the recovery card on re-spanning")

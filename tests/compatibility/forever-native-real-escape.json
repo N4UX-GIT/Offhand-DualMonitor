@@ -12,7 +12,7 @@
     "With no target or interaction window, Escape opened the Game Menu."
   ],
   "providers": {
-    "Offhand": "2.1.5-beta.43 combined checkout",
+    "Offhand": "2.1.5-beta.43 combined checkout including the popup placement change",
     "Companion": "Microsoft Store 2.1.9-beta.4",
     "Bags": "Blizzard separate backpack"
   },
@@ -37,7 +37,7 @@
     "Core/WorkspaceBehavior.lua": "c30a72ebadb735e727c61491a8bbc39f4ef8d49bfcd11ab609d84e646dda12b2",
     "Core/MenuPlacement.lua": "873c2e0b94bf6b6c4384a10839d1670244b3a35008280d960a77c2a647b675a4",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
-    "Core/Init.lua": "8dc2ed1e6e3bdc0e9ec793ca800da0d817e2ca228edddcbcb5fcc756b7542170"
+    "Core/Init.lua": "b15e594e5c3c3593f07396d4fcfff70838c1679e2a63d69d9a74065681b04bf8"
   },
-  "integration_note": "Tested on Noggaholic with Baganator and MoveMyBags temporarily unloaded. BugGrabber session 1136 reported zero stored gameplay UI errors. A separate BugSack diagnostic command failed. No current-session taint log was available."
+  "integration_note": "The trainer and ordinary Inspect cases were rechecked on the combined candidate. A separate early-open rerun captured each Escape press and found zero hidden or moved backpack frames in 2,053 samples. BugGrabber session 1153 recorded zero errors during that rerun. Both runs used Noggaholic with Baganator and MoveMyBags unloaded. The original profile, HUD and installed addon were restored and verified after each run."
 }

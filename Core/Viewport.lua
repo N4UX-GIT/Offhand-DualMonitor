@@ -28,8 +28,8 @@ local function CanvasAspect(width, height)
     return width / height
 end
 
-function Viewport:GetCompanionTopology(pw, ph, sw, sh)
-    local topology = _G.OffhandCompanionTopology
+function Viewport:GetCompanionTopology(pw, ph, sw, sh, topology)
+    topology = topology or _G.OffhandCompanionTopology
     if type(topology) ~= "table" then return nil, "ABSENT" end
     if tonumber(topology.schema) == 3 then
         topology = Offhand.WorkspaceRegions and Offhand.WorkspaceRegions:ValidateFlexibleTopology(topology)

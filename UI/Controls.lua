@@ -219,12 +219,16 @@ end
 -- UIParent units, so compensate for our local scale when centering in callers.
 function Controls.FitDialog(frame, metrics)
     if not frame or not frame.SetScale then return 1 end
+    if frame.GetDialogBounds then metrics = frame:GetDialogBounds(metrics) end
     local width = metrics and metrics.gameWidth or (UIParent.GetWidth and UIParent:GetWidth())
     local height = metrics and metrics.gameHeight or (UIParent.GetHeight and UIParent:GetHeight())
     width, height = tonumber(width) or 1920, tonumber(height) or 1080
     if width <= 0 or height <= 0 then return 1 end
     local scale = math.min(1, math.max(1, width - 32) / frame:GetWidth(),
         math.max(1, height - 32) / frame:GetHeight())
+    if frame.fitOnMainhand and metrics and metrics.isSpanned then
+        scale = math.min(scale, height * 0.75 / frame:GetHeight(), width * 0.9 / frame:GetWidth())
+    end
     local previous = frame.GetScale and frame:GetScale() or 1
     if math.abs(previous - scale) > 0.0001 then
         local cx, cy
