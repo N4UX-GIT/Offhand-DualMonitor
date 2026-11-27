@@ -431,13 +431,16 @@ code {
 .site-menu-external {
     grid-column: 1 / -1;
     display: flex;
+    align-items: center;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 4px;
     padding-top: 8px;
     border-top: 1px solid var(--rio-border-subtle);
 }
 
-.site-menu-external a { color: var(--text-dim); }
+.site-menu-external .menu-kofi { display: inline-flex; align-items: center; }
+.menu-kofi img { display: block; }
 .site-menu-external a span { color: var(--rio-gold); }
 
 #status,
