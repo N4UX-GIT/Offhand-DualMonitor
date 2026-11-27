@@ -14,17 +14,21 @@ local function entries(path)
     return result
 end
 local tocs = {"Offhand.toc", "Offhand_Mainline.toc", "Offhand_Vanilla.toc", "Offhand_Classic.toc", "Offhand_Forever.toc", "Offhand_Wrath335a.toc"}
+local genericText = assert(io.open(tocs[1], "rb")):read("*a")
+local releaseMarker = "## X%-Offhand%-Release:[ \t]*(beta%.%d+)[ \t]*\r?\n"
+local addonReleaseMarker = "## X%-Offhand%-Addon%-Release:[ \t]*(beta%.%d+)[ \t]*\r?\n"
+local release = assert(genericText:match(addonReleaseMarker), "Missing addon beta marker in Offhand.toc")
 for _, toc in ipairs(tocs) do
     local text = assert(io.open(toc, "rb")):read("*a")
     assert(text:match("## LoadSavedVariablesFirst:%s*1"), "Missing early SavedVariables load: " .. toc)
     assert(text:match("## X%-Offhand%-Manifest:%s*%S+"), "Missing manifest diagnostic marker: " .. toc)
     assert(text:match("## Version:%s*2%.1%.5"), "Matching 2.1.5 addon version missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Release:[ \t]*beta%.42[ \t]*\r?\n"), "Pre-Release Beta 42 addon marker missing: " .. toc)
+    assert(text:match(releaseMarker) == release, "Shared release marker differs from Offhand.toc: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Version:[ \t]*2%.1%.9[ \t]*\r?\n"), "Matching Companion version marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Release:[ \t]*beta%.4[ \t]*\r?\n"), "Companion beta release marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Protocol:%s*1"), "Companion protocol marker missing: " .. toc)
     assert(text:match("## X%-Offhand%-Companion%-Min%-Version:%s*2%.1%.2%-beta%.19"), "Companion minimum version marker missing: " .. toc)
-    assert(text:match("## X%-Offhand%-Addon%-Release:[ \t]*beta%.42[ \t]*\r?\n"), "Pre-Release Beta 42 addon marker missing: " .. toc)
+    assert(text:match(addonReleaseMarker) == release, "Addon release marker differs from Offhand.toc: " .. toc)
     assert(text:match("## X%-Offhand%-Max%-Workspaces:[ \t]*3[ \t]*\r?\n"),
         "Three-workspace capability missing: " .. toc)
     local guide = assert(text:find("Core\\CenterGuide.lua", 1, true), toc)
@@ -34,7 +38,6 @@ for _, toc in ipairs(tocs) do
     local controls = assert(text:find("UI\\WorkspaceScaleControls.lua", 1, true), toc)
     assert(scale < controls and controls < assert(text:find("UI\\Wizard.lua", 1, true), toc), toc)
 end
-local genericText = assert(io.open("Offhand.toc", "rb")):read("*a")
 local mainlineText = assert(io.open("Offhand_Mainline.toc", "rb")):read("*a")
 local classicText = assert(io.open("Offhand_Classic.toc", "rb")):read("*a")
 local wrathText = assert(io.open("Offhand_Wrath335a.toc", "rb")):read("*a")

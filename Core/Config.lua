@@ -48,6 +48,7 @@ local defaultSettings = {
     seamRedirect = true,            -- Redirect popups and errors away from center bezel
     centerProcDocOnMainhand = false, -- Optional reversible ProcDoc center adapter
     preventMapCloseOnMove = true,   -- Keep WorldMap open while running/walking
+    followPlayerWithOpenMap = false, -- Opt in to moving the stitched OpenMap camera on Offhand
     independentWorkspacePanels = true, -- Panels placed on the secondary workspace stay open independently
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
     hideWorkspaceCloseButtons = false, -- Hide supported X buttons only while their windows are on the workspace

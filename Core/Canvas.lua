@@ -2645,7 +2645,9 @@ function Canvas:EnableFreeDragging()
             if IsForeverCombatLog(chatFrame, chatName)
                 and chatFrame.IsShown and not chatFrame:IsShown() then return end
             if not IsForeverCombatLog(chatFrame, chatName) then
-                RefreshDetachedChatPresentation(chatFrame, chatName)
+                local restored = RefreshDetachedChatPresentation(chatFrame, chatName, true)
+                if Offhand.isForever and IsSecondaryBlizzardChatFrame(chatFrame, chatName)
+                    and not restored then return end
             end
             ApplyTrackedChatPosition(chatFrame)
             chatFrame._OffhandChatRestoreGeneration =
@@ -2777,22 +2779,31 @@ function Canvas:EnableFreeDragging()
         end)
     end
 
-    if not HasCustomChatAddon() and FCF_PopInWindow and not Canvas._fcfPopInHooked then
-        Canvas._fcfPopInHooked = true
-        hooksecurefunc("FCF_PopInWindow", function(frame, fallback)
-            -- "Close Window" routes through FCF_PopInWindow for ordinary
-            -- custom chat windows. Relinquish the saved monitor snapshot so a
-            -- deliberate close is not mistaken for reload-time visibility loss.
+    if not HasCustomChatAddon() then
+        local function RetireClosedChatPosition(frame, fallback)
+            local db = Offhand.db
+            if not db or HasCustomChatAddon() then return end
             local chatFrame = fallback or frame
             local name = chatFrame and chatFrame.GetName and chatFrame:GetName()
             if name and name:match("Tab$") then
                 chatFrame = _G[name:gsub("Tab$", "")]
                 name = chatFrame and chatFrame.GetName and chatFrame:GetName()
             end
-            if name and IsSecondaryBlizzardChatFrame(chatFrame, name) then
+            if IsSecondaryBlizzardChatFrame(chatFrame, name)
+                and ((db.savedWorkspacePositions and db.savedWorkspacePositions[name])
+                    or (db.savedMainPositions and db.savedMainPositions[name])
+                    or (db.openWorkspacePanels and db.openWorkspacePanels[name])) then
                 ClearTrackedChatState(name)
             end
-        end)
+        end
+        if FCF_PopInWindow and not Canvas._fcfPopInHooked then
+            Canvas._fcfPopInHooked = true
+            hooksecurefunc("FCF_PopInWindow", RetireClosedChatPosition)
+        end
+        if Offhand.isForever and FCF_Close and not Canvas._fcfCloseHooked then
+            Canvas._fcfCloseHooked = true
+            hooksecurefunc("FCF_Close", RetireClosedChatPosition)
+        end
     end
 
     -- Forever's manager participates in protected/secret-value Edit Mode paths.

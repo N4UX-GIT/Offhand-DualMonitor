@@ -67,6 +67,31 @@ multi-page book turning also have separate Nov 24 live runs on Forever `1.60.1.7
 Reporter-side live confirmation on vertically stacked DaylightUI setups and Retail
 Barbershop remains separate from this Forever release pass.
 
+## Beta 43 reporter checks
+
+The local source review used Forever 1.60.1.71139, OpenMap 0.8.13, and
+Baganator 868. The reporter screenshots did not identify exact versions.
+The November 25 receipts cover earlier source. Record the test build and
+current BugSack and taint results for the following checks.
+
+| Report | Live check |
+| --- | --- |
+| Character scale | Place Character on Offhand, set 35% with the slider and numeric field, reopen the window, and reload. Move it to Mainhand and check that it returns to native scale. |
+| Detached chat and phantom windows | On the affected character, use Prat with Chattynator unloaded. Create and undock a Guild window. Capture `/offhand diag chat` before and after opening and closing the Game Menu on Mainhand. Repeat on Offhand and with Prat inactive. Close and minimize the window in separate attempts, then check that Escape and reload respect those actions. Check that an inactive docked tab cannot show another background behind the active tab. |
+| Baganator | Keep an open Baganator backpack on Offhand with the bag-key option enabled. Use B and Escape before and after bank, auction, or merchant interaction. Compare Hide Bag Bar Forever enabled and disabled on the same character. Capture `/offhand diag panels` in the failing state before reloading. Repeat in combat and after combat, then move the backpack to Mainhand and check that its normal binding returns. |
+| OpenMap FPS | Keep client settings, character, map zoom, location, route and background addons constant. Sample frame times on the same route with OpenMap unloaded, loaded with its map closed, open with follow off, and open with follow on. Record OpenMap's FPS limit and whether the map was centered on the player. |
+
+The Forever source export shows that hiding a floating chat message frame can
+clear its native shown bit. A menu transition may recover that bit when Offhand
+saw the window open beforehand and its detached tab remains visible. The source
+does not establish what triggered the reporter's disappearance with Prat.
+[Forever chat source](https://github.com/reckhou/WoWBlzCode/blob/1b05ef13b99e97474cab1954e97a94ea20376d6d/Forever/BlizzardInterfaceCode/Interface/AddOns/Blizzard_ChatFrameBase/Mainline/FloatingChatFrame.lua#L118)
+
+Hide Bag Bar Forever 1.0.126 can reposition stock containers when its optional
+bag positioning feature is enabled. The reviewed archive did not show a direct
+B or Escape rebind in the scanned files. Record that setting during the
+side-by-side check. [Hide Bag Bar Forever 1.0.126](https://www.curseforge.com/wow/addons/hide-bag-bar-forever/files/9821887)
+
 ## Workspace restoration after a full restart
 
 A player's open map, bags and other eligible workspace panels must return to

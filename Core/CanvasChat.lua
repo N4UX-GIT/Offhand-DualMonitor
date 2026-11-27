@@ -3,6 +3,12 @@ local _, Offhand = ...
 local Chat = {}
 Offhand.CanvasChat = Chat
 
+local function ReadNativeChatWindow(id)
+    if not id or not FCF_GetChatWindowInfo then return end
+    local ok, _, _, r, g, b, alpha, shown, _, docked = pcall(FCF_GetChatWindowInfo, id)
+    if ok then return shown, docked, r, g, b, alpha end
+end
+
 -- Keep the native dock and its edit box together. Forever saves this anchor
 -- against the whole window, which can include space below a shorter monitor.
 local adjustment, watchedFrame, pending, writing
@@ -246,58 +252,74 @@ function Chat.Install(Canvas)
         return true
     end
 
-    local function RefreshDetachedChatPresentation(frame, suppliedName)
+    local openBeforeMenu = setmetatable({}, {__mode = "k"})
+    local pendingAppearance = setmetatable({}, {__mode = "k"})
+
+    local function RefreshDetachedChatPresentation(frame, suppliedName, restoringPosition, menuTransition)
         local name = suppliedName or (frame and frame.GetName and frame:GetName())
         if not IsSecondaryBlizzardChatFrame(frame, name) or HasCustomChatAddon()
+            or (frame.IsForbidden and frame:IsForbidden())
             or IsForeverCombatLog(frame, name)
             or GetBlizzardChatDockMembership(frame) ~= false
+            or frame.isTemporary or frame.minimized or frame._OffhandDragging or MOVING_CHATFRAME == frame
+            or (InCombatLockdown and InCombatLockdown())
             or frame._OffhandRefreshingChatPresentation then return false end
 
-        -- Forever can remove a tab from DOCKED_CHAT_FRAMES without completing the
-        -- visual part of its floating-window transition. Do not call
-        -- FCF_UnDockFrame here: built-in windows such as Combat Log can be saved as
-        -- hidden while docked, and running that transition before repairing the
-        -- shown bit makes Blizzard hide them. Commit shown first, then the detached
-        -- saved state, and normalize only the stale runtime isDocked flag.
-        -- Do this even when the legacy flags are already nil: the reverted
-        -- undock-based beta cleared them before a later native update hid custom
-        -- windows, and those windows need the same non-destructive recovery.
-        frame._OffhandRefreshingChatPresentation = true
         local id = frame.GetID and frame:GetID() or tonumber(name:match("(%d+)$"))
-        if id and SetChatWindowShown then pcall(SetChatWindowShown, id, true) end
-        if id and SetChatWindowDocked then pcall(SetChatWindowDocked, id, false) end
-        frame.isDocked = nil
-        local wasLocked = frame.isLocked
-        if wasLocked ~= nil and FCF_SetLocked then
-            pcall(FCF_SetLocked, frame, wasLocked)
+        local tab = _G[name .. "Tab"]
+        local shown, docked, r, g, b, alpha = ReadNativeChatWindow(id)
+        local hiddenByMenu = menuTransition == "open" and openBeforeMenu[frame]
+            and shown == false and tab and tab.IsShown and tab:IsShown()
+        -- A stale Offhand position cannot establish that a native chat window
+        -- is open. In particular, settings and menu callbacks can arrive after
+        -- a tab has closed or been docked.
+        if Offhand.isForever then
+            if not id or id > (NUM_CHAT_WINDOWS or 10) or docked or (shown ~= true and not hiddenByMenu) then
+                return false
+            end
+            if not restoringPosition and not (tab and tab.IsShown and tab:IsShown()) then return false end
+        end
+
+        -- Forever can leave the runtime dock flag behind after restoring a
+        -- detached tab. A position restore can normalize that flag without
+        -- changing Blizzard's saved visibility or docking state.
+        frame._OffhandRefreshingChatPresentation = true
+        if restoringPosition then
+            if not Offhand.isForever then
+                if id and SetChatWindowShown then pcall(SetChatWindowShown, id, true) end
+                if id and SetChatWindowDocked then pcall(SetChatWindowDocked, id, false) end
+                local wasLocked = frame.isLocked
+                if wasLocked ~= nil and FCF_SetLocked then
+                    pcall(FCF_SetLocked, frame, wasLocked)
+                end
+            end
+            frame.isDocked = nil
         end
 
         -- A docked frame may have every CHAT_FRAME_TEXTURES entry faded to
         -- zero. Reapply the player's own saved background color and opacity through
         -- Blizzard's setters so its floating border/background becomes visible
         -- without Offhand inventing or persisting presentation values.
-        if id and FCF_GetChatWindowInfo then
-            local ok, _, _, r, g, b, alpha = pcall(FCF_GetChatWindowInfo, id)
-            if ok and type(r) == "number" and type(g) == "number" and type(b) == "number"
-                and FCF_SetWindowColor then
-                pcall(FCF_SetWindowColor, frame, r, g, b, true)
-            end
-            if ok and type(alpha) == "number" and FCF_SetWindowAlpha then
-                pcall(FCF_SetWindowAlpha, frame, alpha, true)
-            end
+        if type(r) == "number" and type(g) == "number" and type(b) == "number" and FCF_SetWindowColor then
+            pcall(FCF_SetWindowColor, frame, r, g, b, true)
         end
-        -- A tracked detached window is expected to remain visible. Repair the
-        -- shown bit damaged by the previous undock-based implementation and use
-        -- Blizzard's normal visibility helper for both message frame and tab.
-        local tab = _G[name .. "Tab"]
+        if type(alpha) == "number" and FCF_SetWindowAlpha then
+            pcall(FCF_SetWindowAlpha, frame, alpha, true)
+        end
+        -- Reapply the presentation of a window Blizzard still considers open.
         if FCF_CheckShowChatFrame then
             pcall(FCF_CheckShowChatFrame, frame)
         else
             if frame.Show then pcall(frame.Show, frame) end
         end
+        if hiddenByMenu and frame:IsShown() and SetChatWindowShown then
+            -- Forever's native OnHide writes false even when the open tab
+            -- survived the menu transition. Preserve the observed open intent.
+            pcall(SetChatWindowShown, id, true)
+        end
         -- FCF_CheckShowChatFrame expects the scrolling message frame, not its tab.
         -- Forever can leave the tab hidden even after the saved shown bit is fixed.
-        if tab and tab.Show then pcall(tab.Show, tab) end
+        if restoringPosition and tab and tab.Show then pcall(tab.Show, tab) end
         if FCF_FadeInChatFrame then pcall(FCF_FadeInChatFrame, frame) end
         frame._OffhandRefreshingChatPresentation = nil
         return true
@@ -362,26 +384,37 @@ function Chat.Install(Canvas)
         return QueueForeverChatDockSettlement(frame, "combat-log-ownership", reconcile)
     end
 
-    local function QueueDetachedChatPresentationRefresh(frame)
-        if not frame or frame._OffhandChatAppearanceRefreshPending
-            or frame._OffhandRefreshingChatPresentation or HasCustomChatAddon()
+    local function QueueDetachedChatPresentationRefresh(frame, menuTransition)
+        if not frame or frame._OffhandRefreshingChatPresentation or HasCustomChatAddon()
             or not Offhand.db or not Offhand.db.enabled then return end
         local name = frame.GetName and frame:GetName()
         if not IsSecondaryBlizzardChatFrame(frame, name)
             or IsForeverCombatLog(frame, name)
             or GetBlizzardChatDockMembership(frame) ~= false then return end
-        local tracked = (Offhand.db.savedWorkspacePositions
-                and Offhand.db.savedWorkspacePositions[name])
-            or (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name])
-        if not tracked then return end
+        if menuTransition and Offhand.db.savedWorkspacePositions
+            and Offhand.db.savedWorkspacePositions[name] then return end
+        local pending = pendingAppearance[frame]
+        if pending then
+            if menuTransition then pending.menuTransition = menuTransition end
+            return
+        end
+        pending = {menuTransition = menuTransition}
+        local function OwnsPresentation()
+            local db = Offhand.db
+            if not db or not db.enabled then return false end
+            local workspace = db.savedWorkspacePositions and db.savedWorkspacePositions[name]
+            if pending.menuTransition then return not workspace end
+            return workspace or (db.savedMainPositions and db.savedMainPositions[name])
+        end
+        if not OwnsPresentation() then return end
 
         local function refresh(finalPass)
-            if not frame._OffhandRefreshingChatPresentation then
-                RefreshDetachedChatPresentation(frame, name)
+            if OwnsPresentation() and not frame._OffhandRefreshingChatPresentation then
+                RefreshDetachedChatPresentation(frame, name, false, pending.menuTransition)
             end
-            if finalPass then frame._OffhandChatAppearanceRefreshPending = nil end
+            if finalPass then pendingAppearance[frame] = nil end
         end
-        frame._OffhandChatAppearanceRefreshPending = true
+        pendingAppearance[frame] = pending
         if C_Timer and C_Timer.After then
             -- Forever's chat Settings flow performs another dock-oriented fade
             -- after the color/opacity setters return. The next-frame replay keeps
@@ -394,26 +427,35 @@ function Chat.Install(Canvas)
         end
     end
 
-    -- Forever's Chat Settings panel can fade floating chat chrome without routing
-    -- that work through FCF_SetWindowColor/FCF_SetWindowAlpha. Observe the panel
-    -- from Offhand's own ticker instead of hooking the Blizzard panel into our call
-    -- chain, then replay only the saved presentation of tracked detached windows.
+    -- Settings and the Game Menu may change floating chat presentation without
+    -- using the color and opacity setters. Observe their own visibility and
+    -- restore only native open windows without hooking the protected menu.
     function Canvas:MonitorDetachedChatSettingsPresentation()
-        if HasCustomChatAddon() or not Offhand.db or not Offhand.db.enabled then return end
+        if HasCustomChatAddon() or not Offhand.db or not Offhand.db.enabled
+            or (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
+            or (InCombatLockdown and InCombatLockdown()) then return end
         local settingsShown = ChatConfigFrame and ChatConfigFrame.IsShown
             and ChatConfigFrame:IsShown() or false
         local transitioned = settingsShown ~= self._detachedChatSettingsWasShown
         self._detachedChatSettingsWasShown = settingsShown
-        if not transitioned and not settingsShown then return end
+        local menuShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown() or false
+        local menuTransition = (self._detachedChatMenuWasShown or false) ~= menuShown
+            and (menuShown and "open" or "close")
+        self._detachedChatMenuWasShown = menuShown
 
-        for i = 2, (NUM_CHAT_WINDOWS or 10) do
+        for i = 3, (NUM_CHAT_WINDOWS or 10) do
             local frame = _G["ChatFrame" .. i]
-            local name = frame and frame.GetName and frame:GetName()
-            local tracked = name and ((Offhand.db.savedWorkspacePositions
-                    and Offhand.db.savedWorkspacePositions[name])
-                or (Offhand.db.savedMainPositions and Offhand.db.savedMainPositions[name]))
-            if tracked and GetBlizzardChatDockMembership(frame) == false then
-                QueueDetachedChatPresentationRefresh(frame)
+            if menuTransition then QueueDetachedChatPresentationRefresh(frame, menuTransition) end
+            if transitioned or settingsShown then QueueDetachedChatPresentationRefresh(frame) end
+            if frame and not menuShown and not menuTransition then
+                local tab = _G["ChatFrame" .. i .. "Tab"]
+                local shown, docked
+                if not (frame.IsForbidden and frame:IsForbidden()) and frame:IsShown()
+                    and not frame.isTemporary and not frame.minimized
+                    and tab and tab:IsShown() and GetBlizzardChatDockMembership(frame) == false then
+                    shown, docked = ReadNativeChatWindow(i)
+                end
+                openBeforeMenu[frame] = shown == true and not docked or nil
             end
         end
     end
@@ -541,6 +583,7 @@ function Chat:GetPlacementDiagnostics(compact)
         if ok then selected = frame end
     end
     local lines = {"ChatProviders=" .. owner .. " | EditMode=" .. Atom(Read(manager, "IsShown"))
+        .. " | GameMenu=" .. Atom(Read(_G.GameMenuFrame, "IsShown"))
         .. " | SnapToElements=" .. Atom(Read(manager, "IsSnapEnabled")) .. " | DockSelected=" .. Name(selected)}
     local db = Offhand.db or {}
     local omitted = 0
@@ -571,9 +614,15 @@ function Chat:GetPlacementDiagnostics(compact)
                 end
                 local saved = db.savedWorkspacePositions and db.savedWorkspacePositions[name] and "workspace"
                     or db.savedMainPositions and db.savedMainPositions[name] and "mainhand" or "none"
+                local nativeShown, nativeDocked
+                if FCF_GetChatWindowInfo and index <= (NUM_CHAT_WINDOWS or 10) then
+                    nativeShown, nativeDocked = ReadNativeChatWindow(index)
+                end
                 lines[#lines + 1] = name .. " shown=" .. Atom(Read(frame, "IsShown"))
                     .. " | visible=" .. Atom(Read(frame, "IsVisible"))
                     .. " | effectiveAlpha=" .. Atom(Read(frame, "GetEffectiveAlpha"))
+                    .. " | tabShown=" .. Atom(Read(_G[name .. "Tab"], "IsShown"))
+                    .. " | nativeShown=" .. Atom(nativeShown) .. " | nativeDocked=" .. Atom(nativeDocked)
                     .. " | docked=" .. Atom(Field(frame, "isDocked"))
                     .. " | EditMode=" .. Atom(Field(frame, "isInEditMode"))
                     .. " | snapTarget=" .. Name(Field(frame, "snappedToFrame"))

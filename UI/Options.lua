@@ -1205,7 +1205,7 @@ function Options:CreateFloatingPanel()
         mapDesc:SetJustifyH("LEFT")
         mapDesc:SetWidth(530)
         mapDesc:SetWordWrap(true)
-        local recoverMap, placeOpenMap
+        local recoverMap, placeOpenMap, openMapFollow
         if Offhand.isForever and Offhand.OpenMapRecovery then
             recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
             recoverMap:SetHeight(24)
@@ -1222,6 +1222,10 @@ function Options:CreateFloatingPanel()
             if Offhand.SetTooltip then
                 Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
             end
+            openMapFollow = CreateNativeCheckbox(card2_1, L["OPENMAP_FOLLOW_PLAYER"],
+                function() return Offhand.db and Offhand.db.followPlayerWithOpenMap == true end,
+                function(value) Offhand.db.followPlayerWithOpenMap = value == true end,
+                L["OPENMAP_FOLLOW_PLAYER"], L["OPENMAP_FOLLOW_PLAYER_TIP"])
         end
         local keepOpenChecks = {}
         if Offhand.WorkspaceToggleKeys and Offhand.WorkspaceToggleKeys:Available() then
@@ -1268,6 +1272,18 @@ function Options:CreateFloatingPanel()
                 placeOpenMap:SetPoint("TOPRIGHT", -12, -top - 30)
             end
             top = top + (recoverMap and openMapOwner and 66 or 0)
+            if openMapFollow then
+                local mapAdapter = Offhand.CanvasForeverMap
+                local supportsFollow = openMapOwner and mapAdapter
+                    and mapAdapter.SupportsOpenMapFollow and mapAdapter.SupportsOpenMapFollow()
+                SetShown(openMapFollow, supportsFollow)
+                if supportsFollow then
+                    openMapFollow:SetPoint("TOPLEFT", 10, -top)
+                    openMapFollow:SetChecked(Offhand.db and Offhand.db.followPlayerWithOpenMap == true)
+                    top = top + math.max(28, Controls.MeasureWrappedText(
+                        openMapFollow.Text, openMapFollow.Text:GetText(), 530) + 10)
+                end
+            end
             for _, entry in ipairs(keepOpenChecks) do
                 entry.check:SetPoint("TOPLEFT", 10, -top)
                 entry.check:SetChecked(Offhand.db and Offhand.db[entry.key] == true)
@@ -1890,8 +1906,9 @@ function Options:CreateFloatingPanel()
         lockSupported and 274 or 100, L["CHARACTER_WORKSPACE_SCALE_TIP_DESC"],
         lockSupported and L["LOCK_WORKSPACE_WINDOWS_TIP_DESC"] or "")
 
+    local behavior = Offhand.WorkspaceBehavior
     local characterScaleSlider = CreateNativeSlider(windowControlCard, L["CHARACTER_WORKSPACE_SCALE"],
-        0.75, 1.50, 0.05,
+        behavior and behavior.MIN_CHARACTER_SCALE or 0.35, behavior and behavior.MAX_CHARACTER_SCALE or 1.50, 0.05,
         function()
             return Offhand.WorkspaceBehavior and Offhand.WorkspaceBehavior:GetCharacterScale() or 1
         end,

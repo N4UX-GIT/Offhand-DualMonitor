@@ -2231,6 +2231,10 @@ SlashCmdList["OFFHAND"] = function(msg)
             local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
             if bags then Offhand:Print("Native bag diagnostics: %s.", bags) end
         end
+        if panelDiagnostics and Offhand.isForever and Offhand.BagPersistence and Offhand.BagPersistence.GetBaganatorDiagnostics then
+            local bags = Offhand.BagPersistence:GetBaganatorDiagnostics()
+            if bags then Offhand:Print("Baganator diagnostics: %s.", bags) end
+        end
         if debugDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
             Offhand:Print("Dialogue UI diagnostics: %s.",
                 Offhand.DialogueUICompat:GetDiagnostics())

@@ -1,6 +1,9 @@
 local _, Offhand = ...
 if GetLocale() ~= "itIT" then return end
 local L = Offhand.L
+L["WHATS_NEW_BETA43"] = "La finestra del personaggio può ora essere ridotta al 35%. Su Forever, il movimento della visuale di OpenMap è facoltativo e disattivato di default. Sono migliorate anche la visibilità della chat separata e la gestione dello zaino di Baganator."
+L["OPENMAP_FOLLOW_PLAYER"] = "Segui il personaggio con OpenMap su Offhand"
+L["OPENMAP_FOLLOW_PLAYER_TIP"] = "Quando centri OpenMap sul personaggio, la mappa lo segue mentre si muove. Sposta la mappa per sospendere il tracciamento. Lascia l’opzione disattivata per mantenere la visuale fissa."
 L["WHATS_NEW_TITLE"] = "Novità di Offhand v%s"
 L["WHATS_NEW_BETA42"] = "Migliorata la posizione di chat, mappa e borse in Forever quando si passa da una finestra a più schermi. Migliorata la compatibilità con DaylightUI e OneForAll. Le opzioni delle finestre indicano quali addon gestiscono i pannelli e dove spostarli."
 L["WHATS_NEW_BETA41"] = "|cffffd100Correzioni di bug|r\n• Risolto un problema per cui le barre delle azioni di DaylightUI saltavano verso l’alto e rimbalzavano quando trascinate o regolate con coordinate X/Y su schermi impilati o asimmetrici. Se le barre si sono spostate in Beta 40, trascinale di nuovo una volta o ripristinale in Offhand Monitor > Ripristino e anteprima.\n• Migliorati l’allineamento del layout di DaylightUI e le scene di pesca, creazione e falò su monitor impilati verticalmente.\n• Risolto un problema che riapriva le finestre di configurazione o avviso di Offhand dopo percorsi di volo, paura o altri effetti di perdita di controllo.\n• Risolto un problema per cui il pannello di personalizzazione del barbiere e i pulsanti Accetta/Annulla scomparivano o uscivano dallo schermo su configurazioni multi-monitor."
