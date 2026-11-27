@@ -23,6 +23,8 @@ timer or global) unless RareScanner is loaded on the Forever client.
   when the reset happened in combat). Once per session it also repairs a spot
   saved earlier that is exactly the old seam default.
 - When Offhand is not spanned, moved frames go back to RareScanner's defaults.
+- **Seam scan:** declares `RARESCANNER_BUTTON`, `RSExplorerFrame` and the four
+  dialogs above in `placedFrames`, so `/offhand scan` reports them as handled.
 
 ## What it leaves alone
 

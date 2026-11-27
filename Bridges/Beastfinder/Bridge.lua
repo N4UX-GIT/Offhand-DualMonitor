@@ -30,4 +30,4 @@ function bridge:GetDiagnostics()
     return Shared.Describe("BeastfinderAnchors", fitter)
 end
 
-if Shared.Register("Beastfinder", bridge) then bridge:Refresh("load") end
+if Shared.Register("Beastfinder", bridge, fitter) then bridge:Refresh("load") end

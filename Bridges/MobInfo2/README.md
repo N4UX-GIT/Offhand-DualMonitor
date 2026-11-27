@@ -17,6 +17,8 @@ client.
 - MobInfo2 stores whatever spot the anchor has when the mouse leaves it, so
   once the player has hovered the anchor, the bridged spot becomes MobInfo2's
   saved spot and comes back that way at the next login.
+- **Seam scan:** declares `MI2_TooltipAnchor` in `placedFrames`, so
+  `/offhand scan` reports it as handled by this bridge.
 
 ## What it leaves alone
 

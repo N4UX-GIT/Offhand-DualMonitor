@@ -15,6 +15,8 @@ client.
   last put it), the bridge moves it to the top of the game rectangle, when it
   shows and on every refresh. When Offhand is not spanned, the card goes back
   to Beastfinder's own default.
+- **Seam scan:** declares `BeastfinderNewBeastCard` in `placedFrames`, so
+  `/offhand scan` reports it as handled by this bridge.
 
 ## What it leaves alone
 

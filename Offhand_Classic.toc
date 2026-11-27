@@ -69,6 +69,7 @@ Core\CanvasPanelLifecycle.lua
 Core\CanvasPanelPlacement.lua
 Core\Canvas.lua
 Core\LearnedAddonWindows.lua
+Core\SeamScan.lua
 Core\WorkspaceBehavior.lua
 Core\WorkspaceToggleKeys.lua
 Core\WorkspaceChrome.lua
@@ -99,6 +100,7 @@ UI\OptionsActions.lua
 UI\WorkspaceOptions.lua
 UI\AddonWindowSelection.lua
 UI\Options.lua
+UI\SeamScanReview.lua
 UI\SetupVisuals.lua
 UI\DisplayIdentify.lua
 UI\Minimap.lua

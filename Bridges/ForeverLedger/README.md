@@ -20,6 +20,8 @@ timer) unless ForeverLedger is loaded on the Forever client.
 - **Side panel:** `ForeverLedgerSidePanel` (re-centred with `CENTER 0,0` every
   time it opens away from the auction house) moves to the game rectangle's
   centre, at once when it is shown.
+- **Seam scan:** declares the four windows above in `placedFrames`, so
+  `/offhand scan` reports them as handled by this bridge.
 
 ## What it leaves alone
 

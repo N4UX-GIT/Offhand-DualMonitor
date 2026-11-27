@@ -177,6 +177,10 @@ assert(controlsIndex and optionsActionsIndex and workspaceOptionsIndex and optio
         and workspaceOptionsIndex + 2 == optionsIndex
         and main[optionsIndex - 1] == "UI/AddonWindowSelection.lua",
     "shared controls and settings actions must load immediately before Options")
+assert(main[canvasIndex + 2] == "Core/SeamScan.lua",
+    "the seam scan must load right after the learned window service it uses")
+assert(main[optionsIndex + 1] == "UI/SeamScanReview.lua",
+    "the seam scan review window must load right after Options")
 for i=2,#tocs do
     local flavor = entries(tocs[i])
     assert(#main==#flavor, "Client TOCs load different numbers of files: " .. tocs[i])

@@ -2443,6 +2443,28 @@ do
     AlphaRoot, BetaRootMain, BetaRootMainTitle, GammaRoot = nil, nil, nil, nil
 end
 
+-- Frames a bridge places itself (data.placedFrames): exact names first-wins, "^" patterns in
+-- registration order, other entries ignored; GetAddonBridge finds a bridge or data id case-insensitively.
+do
+    local _, registry = Load()
+    assert(registry:MergeData("PlacerOne", {placedFrames = {"PlacerWindow", "^PlacerPin%d+$", "", 7, false}}) == true)
+    assert(registry:Register("PlacerTwo", {contract = 1,
+        data = {placedFrames = {"PlacerWindow", "PlacerOther", "^Placer"}}}) == true)
+    assert(registry:GetPlacedFrameOwner("PlacerWindow") == "PlacerOne", "the first addon to declare a name keeps it")
+    assert(registry:GetPlacedFrameOwner("PlacerOther") == "PlacerTwo", "a later addon still declares its own names")
+    assert(registry:GetPlacedFrameOwner("PlacerPin12") == "PlacerOne", "patterns are tried in registration order")
+    assert(registry:GetPlacedFrameOwner("PlacerSomething") == "PlacerTwo", "a later pattern answers when earlier ones miss")
+    assert(registry:GetPlacedFrameOwner("Unrelated") == nil and registry:GetPlacedFrameOwner(nil) == nil
+        and registry:GetPlacedFrameOwner(7) == nil and registry:GetPlacedFrameOwner("") == nil,
+        "an undeclared or non-string name has no owner")
+    assert(registry:GetAddonBridge("placerone") == "PlacerOne" and registry:GetAddonBridge("PLACERTWO") == "PlacerTwo",
+        "the bridge lookup ignores case for data entries and bridges")
+    assert(registry:MergeData("DataOnly", {}) == true and registry:GetAddonBridge("DataOnly") == "DataOnly",
+        "addon data without placed frames still names its addon")
+    assert(registry:GetAddonBridge("Missing") == nil and registry:GetAddonBridge(nil) == nil,
+        "an addon without a bridge has none")
+end
+
 -- Core purity (final): no file under Core/, UI/ or Modules/, and not Bindings.xml, names a third-party
 -- addon. Every addon specific lives in Bridges/<Addon>/ behind the bridge contract. Locales/*.lua are
 -- outside the scan on purpose: player-facing text and key names such as ELLESMERE_HUD_*, OPENMAP_*,

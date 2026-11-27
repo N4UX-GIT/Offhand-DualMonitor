@@ -32,4 +32,4 @@ function bridge:GetDiagnostics()
     return Shared.Describe("MobInfo2Anchors", fitter)
 end
 
-if Shared.Register("MobInfo2", bridge) then bridge:Refresh("load") end
+if Shared.Register("MobInfo2", bridge, fitter) then bridge:Refresh("load") end

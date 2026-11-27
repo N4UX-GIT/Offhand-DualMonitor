@@ -131,4 +131,4 @@ function bridge:GetDiagnostics()
     return Shared.Describe("RareScannerAnchors", fitter) .. " RareScannerSaves=" .. tostring(saves)
 end
 
-if Shared.Register("RareScanner", bridge) then bridge:Refresh("load") end
+if Shared.Register("RareScanner", bridge, fitter) then bridge:Refresh("load") end

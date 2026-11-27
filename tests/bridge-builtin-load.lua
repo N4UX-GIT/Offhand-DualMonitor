@@ -73,6 +73,29 @@ for _, target in ipairs(TARGETS) do
     assert(Client.addon.Bridges:Get(target).catalog == nil,
         target .. " bridge must not change the learned-window catalog")
 end
+-- Each bridge declares the frames it places itself (data.placedFrames), so the seam scan
+-- reports them as handled by that bridge.
+local DECLARED = {
+    Beastfinder = { "BeastfinderNewBeastCard" },
+    EasyFishing = { "EasyFishingSessionWindow", "EasyFishingButton", "EasyFishingIndicator", "EasyFishingLureBadge",
+        "EasyFishingGlow", "EasyFishingSettings", "EasyFishingDebugConsole" },
+    ForeverLedger = { "ForeverLedgerCustomers", "ForeverLedgerDisenchant", "ForeverLedgerSessionTracker",
+        "ForeverLedgerSidePanel" },
+    Gathercraft = { "GathercraftRunSummary", "GathercraftSkillPlan", "GathercraftWelcome", "GathercraftWhatsNew",
+        "GathercraftPlanHint", "GathercraftPlanGathered", "GathercraftPlanZones", "GathercraftPanel",
+        "GathercraftArrow", "GathercraftMain", "OffhandGathercraftPins" },
+    MobInfo2 = { "MI2_TooltipAnchor" },
+    Questie = { "QuestieTutorialChooseObjectiveType", "QuestieProfilerIndicator", "OffhandQuestieIcons",
+        "QuestieTraceConsentFrame", "QuestieFrame12" },
+    RareScanner = { "RARESCANNER_BUTTON", "RSExplorerFrame", "LibDialog-1.0RS_Dialog1", "LibDialog-1.0RS_Dialog2",
+        "LibDialog-1.0RS_Dialog3", "LibDialog-1.0RS_Dialog4" },
+}
+for _, target in ipairs(TARGETS) do
+    for _, name in ipairs(DECLARED[target]) do
+        assert(Client.addon.Bridges:GetPlacedFrameOwner(name) == target, target .. " bridge must declare " .. name)
+    end
+    assert(Client.addon.Bridges:GetAddonBridge(target:lower()) == target, target .. " bridge must be found by its folder")
+end
 for _, reason in ipairs({ "tick", "layout", "map", "persistence", "something-new" }) do Client.Tick(reason) end
 Client.Geometry()
 Client.RunTimers()

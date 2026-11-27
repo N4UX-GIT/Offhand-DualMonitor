@@ -22,6 +22,8 @@ client. It replaces the standalone `GathercraftOffhand` addon.
 - **Farm panel, arrow and main window:** `GathercraftPanel` (`CENTER 0,200`),
   `GathercraftArrow` (`CENTER 0,300`) and `GathercraftMain` (`CENTER 0,0`)
   move while still at Gathercraft's default.
+- **Seam scan:** declares the ten windows above and `OffhandGathercraftPins`
+  in `placedFrames`, so `/offhand scan` reports them as handled by this bridge.
 
 ## What it leaves alone
 

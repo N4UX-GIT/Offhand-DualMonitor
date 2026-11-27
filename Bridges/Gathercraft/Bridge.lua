@@ -85,4 +85,4 @@ function bridge:GetDiagnostics()
     return Shared.Describe("GathercraftAnchors", fitter) .. " GathercraftPins=" .. tostring(holder.taken)
 end
 
-if Shared.Register("Gathercraft", bridge) then bridge:Refresh("load") end
+if Shared.Register("Gathercraft", bridge, fitter, { "OffhandGathercraftPins" }) then bridge:Refresh("load") end

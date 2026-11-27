@@ -254,4 +254,5 @@ function bridge:GetDiagnostics()
         .. " QuestieTooltips=" .. tostring(tooltipFixes)
 end
 
-if Shared.Register("Questie", bridge) then bridge:Refresh("load") end
+if Shared.Register("Questie", bridge, fitter,
+    { "OffhandQuestieIcons", "QuestieTraceConsentFrame", "^QuestieFrame%d+$" }) then bridge:Refresh("load") end

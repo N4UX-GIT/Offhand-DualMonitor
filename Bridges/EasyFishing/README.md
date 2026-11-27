@@ -23,6 +23,8 @@ EasyFishing is loaded on the Forever client. It replaces the standalone
   there is no cast button) move out of combat only.
 - **Settings and debug console:** `EasyFishingSettings` and
   `EasyFishingDebugConsole` (`CENTER 0,0`) move to the game rectangle's centre.
+- **Seam scan:** declares the seven named frames above in `placedFrames`, so
+  `/offhand scan` reports them as handled by this bridge (the popup is unnamed).
 
 ## What it leaves alone
 

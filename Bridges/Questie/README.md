@@ -22,6 +22,8 @@ hook or registration) unless Questie is loaded on the Forever client.
   rectangle's share of the screen, then restored, so the saved setting never changes.
 - **Quest item button tooltips:** `Questie_ItemButton<n>` picks its tooltip side from half of the whole
   screen width; on the game monitor the side is corrected to the game rectangle's own middle.
+- **Seam scan:** declares the two windows above, `OffhandQuestieIcons`, `QuestieTraceConsentFrame` and the
+  pattern `^QuestieFrame%d+$` in `placedFrames`, so `/offhand scan` reports them as handled by this bridge.
 
 ## What it leaves alone
 

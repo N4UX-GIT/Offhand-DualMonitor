@@ -17,6 +17,8 @@ Offhand.API = Offhand.API or {}
 Offhand.API.BRIDGE_CONTRACT = Bridges.CONTRACT
 
 local registry, order = {}, {}
+-- Lower-case bridge or addon data id to the first id registered under it.
+local bridgeIds = {}
 local namespaces, fallbackStorage = {}, {}
 local mapProviders = {}
 -- Bag providers (bridge.bagProvider) in (order, registration) order, the
@@ -65,6 +67,7 @@ function Bridges:Register(id, bridge)
         registry[id] = bridge
         order[#order + 1] = id
     end
+    if not bridgeIds[id:lower()] then bridgeIds[id:lower()] = id end
     bridge.id = id
     if type(bridge.catalog) == "table" and type(Offhand.AddonWindowCatalog) == "table" then
         Offhand.AddonWindowCatalog[id] = bridge.catalog
@@ -538,7 +541,10 @@ local guidance, diagnostics = {}, {}
 -- identifies it, owner folder to the bridge id that answers for its roots.
 local windowSourceless, windowNames, windowPatterns, windowOwners = {}, {}, {}, {}
 local windowHeaderDrag = {}
-local openers = { slash = {}, globals = {}, methods = {}, links = {}, linkSet = {} }
+-- Frames a bridge places itself (data.placedFrames): exact name to the addon
+-- that declared it, and "^" patterns in registration order.
+local placedNames, placedPatterns = {}, {}
+local openers ={ slash = {}, globals = {}, methods = {}, links = {}, linkSet = {} }
 
 local function NonEmpty(value)
     return type(value) == "string" and value ~= ""
@@ -744,7 +750,7 @@ local function MergeWindows(addon, windows)
 end
 
 -- data: ownership, frameRules, moverFields, catalogs, windows, settings,
--- guidance, diagnostics and parkedReason (see docs/BRIDGES.md). Unknown keys are ignored. A
+-- guidance, diagnostics, parkedReason and placedFrames (see docs/BRIDGES.md). Unknown keys are ignored. A
 -- data table merges only once.
 -- Returns true, or false and one of "id", "data".
 function Bridges:MergeData(addon, data)
@@ -752,6 +758,18 @@ function Bridges:MergeData(addon, data)
     if type(data) ~= "table" then return false, "data" end
     if merged[data] then return true end
     merged[data] = true
+    if not bridgeIds[addon:lower()] then bridgeIds[addon:lower()] = addon end
+    if type(data.placedFrames) == "table" then
+        for _, name in ipairs(data.placedFrames) do
+            if NonEmpty(name) then
+                if name:sub(1, 1) == "^" then
+                    placedPatterns[#placedPatterns + 1] = { pattern = name, id = addon }
+                elseif not placedNames[name] then
+                    placedNames[name] = addon
+                end
+            end
+        end
+    end
     if type(data.ownership) == "table" then
         for _, entry in ipairs(data.ownership) do
             if type(entry) == "table" and NonEmpty(entry.role) and NonEmpty(entry.name) then
@@ -921,6 +939,24 @@ end
 -- (data.parkedReason), else "bridge-parked".
 function Bridges:GetParkedReason(addon)
     return parkedReasons[addon] or "bridge-parked"
+end
+
+-- The addon that declared a frame it places itself (data.placedFrames): an
+-- exact name first, then the patterns in registration order, or nil. No pcall.
+function Bridges:GetPlacedFrameOwner(name)
+    if type(name) ~= "string" then return nil end
+    if placedNames[name] then return placedNames[name] end
+    for _, entry in ipairs(placedPatterns) do
+        if name:match(entry.pattern) then return entry.id end
+    end
+    return nil
+end
+
+-- The id of the bridge or addon data registered for an addon folder name,
+-- compared case-insensitively, or nil.
+function Bridges:GetAddonBridge(owner)
+    if type(owner) ~= "string" then return nil end
+    return bridgeIds[owner:lower()]
 end
 
 -- The same rule tested by name alone: frame selectors and parent never match.

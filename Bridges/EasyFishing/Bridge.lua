@@ -139,4 +139,4 @@ function bridge:GetDiagnostics()
     return Shared.Describe("EasyFishingAnchors", fitter) .. " EasyFishingPopup=" .. (popup and tostring(placed) or "-")
 end
 
-if Shared.Register("EasyFishing", bridge) then bridge:Refresh("load") end
+if Shared.Register("EasyFishing", bridge, fitter) then bridge:Refresh("load") end

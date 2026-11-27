@@ -1930,6 +1930,8 @@ SlashCmdList["OFFHAND"] = function(msg)
 
     if cmd == "window" and Offhand.LearnedAddonWindows then
         Offhand.LearnedAddonWindows:Run(input:match("^%S+%s*(.*)$"))
+    elseif cmd == "scan" and Offhand.SeamScan then
+        Offhand.SeamScan:Run(input:match("^%S+%s*(.*)$"))
     elseif Offhand.Bridges and Offhand.Bridges:RunSlashCommand(cmd, arg) then
         -- A built-in bridge's own command (Bridges:RunSlashCommand ran it).
     elseif cmd == "centerline" or cmd == "centre" or cmd == "center" then
@@ -2208,6 +2210,9 @@ SlashCmdList["OFFHAND"] = function(msg)
             if compatibility then
                 Offhand:Print("Compatibility diagnostics: %s.", compatibility)
             end
+        end
+        if Offhand.isForever and Offhand.SeamScan then
+            Offhand:Print("Seam scan diagnostics: %s.", Offhand.SeamScan:GetDiagnostics())
         end
         if fullDiagnostics and Offhand.CanvasCompatibility then
             Offhand:Print("Map integrations: %s.", Offhand.CanvasCompatibility.GetMapIntegrationDiagnostics())

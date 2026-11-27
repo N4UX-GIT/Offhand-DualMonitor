@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Forever: Offhand now notices third-party addon windows that open across the display seam or on the other display. `/offhand scan` lists them, and **Review seen windows** (Panel layout > Addon windows, or `/offhand scan review`) shows each one with a **Keep on game display** button for windows Offhand can place safely. `/offhand scan off` turns the scan off.
 - Added built-in Forever bridges for Beastfinder, EasyFishing, ForeverLedger, Gathercraft, MobInfo2, Questie (with QuestieTrace) and RareScanner. Windows, buttons and alerts those addons open at the middle, top or bottom of the whole screen, or against its right edge, now open at the same spot of Mainhand. A frame you have dragged is left where you put it. Each bridge does nothing unless its addon is loaded. Live Forever testing is pending.
 - Questie's automatic tracker width and its quest item tooltips use Mainhand, not the whole span. Questie and Gathercraft map icons no longer pile up as hidden frames on the main UI.
 - RareScanner's **Reset position** saves the Mainhand spot, so the button does not return to the seam at the next login.

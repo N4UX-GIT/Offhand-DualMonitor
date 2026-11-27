@@ -182,6 +182,14 @@ function Shared.NewAnchorFitter(spots)
         return moved, seen, total
     end
 
+    -- The spot names, sorted.
+    function fitter:Names()
+        local names = {}
+        for name in pairs(self.spots) do names[#names + 1] = name end
+        table.sort(names)
+        return names
+    end
+
     return fitter
 end
 
@@ -215,9 +223,24 @@ end
 -- Registration and diagnostics
 -- ---------------------------------------------------------------------
 
-function Shared.Register(id, bridge)
+-- Each extra argument is a fitter (its Names()) or a list of global frame
+-- names the bridge places itself; they join bridge.data.placedFrames, so the
+-- seam scan reports those frames as handled.
+function Shared.Register(id, bridge, ...)
     if type(bridge) ~= "table" then return false, "bridge" end
     bridge.contract = API.BRIDGE_CONTRACT
+    for index = 1, select("#", ...) do
+        local extra = select(index, ...)
+        local names = type(extra) == "table" and type(extra.Names) == "function" and extra:Names() or extra
+        if type(names) == "table" then
+            bridge.data = bridge.data or {}
+            bridge.data.placedFrames = bridge.data.placedFrames or {}
+            local placed = bridge.data.placedFrames
+            for _, name in ipairs(names) do
+                if type(name) == "string" then placed[#placed + 1] = name end
+            end
+        end
+    end
     local ok, why = API.RegisterBridge(id, bridge)
     if ok and type(API.RegisterGeometryCallback) == "function" and type(bridge.Refresh) == "function" then
         API.RegisterGeometryCallback(bridge, function() pcall(bridge.Refresh, bridge, "geometry"); return true end)

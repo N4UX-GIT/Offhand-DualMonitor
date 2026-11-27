@@ -42,4 +42,4 @@ function bridge:GetDiagnostics()
     return Shared.Describe("ForeverLedgerAnchors", fitter)
 end
 
-if Shared.Register("ForeverLedger", bridge) then bridge:Refresh("load") end
+if Shared.Register("ForeverLedger", bridge, fitter) then bridge:Refresh("load") end

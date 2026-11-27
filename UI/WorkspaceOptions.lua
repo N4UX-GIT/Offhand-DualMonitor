@@ -59,6 +59,14 @@ function UI.Build(tabs,card,options)
         if Offhand.SetTooltip then
             Offhand:SetTooltip(learnBtn, L.BINDING_NAME_OFFHAND_LEARN_WINDOW, L.LEARN_WINDOW_HELP)
         end
+        local scanText, scanBtn
+        if Offhand.SeamScan and Offhand.SeamScanReview then
+            scanText = Text(learning, "", 12, -(descBottom + 58), 628)
+            if scanText.SetTextColor then scanText:SetTextColor(0.76, 0.78, 0.84) end
+            scanBtn = Button(learning, L.SEAM_SCAN_BTN_REVIEW, 12, -(descBottom + 82), 330, function()
+                Offhand.SeamScanReview:Toggle(true)
+            end)
+        end
         refreshers[#refreshers + 1] = function()
             local names = Offhand.LearnedAddonWindows and Offhand.LearnedAddonWindows.ListNames
                 and Offhand.LearnedAddonWindows:ListNames() or {}
@@ -69,7 +77,21 @@ function UI.Build(tabs,card,options)
             local btnTop = descBottom + listHeight + 8
             learnBtn:ClearAllPoints()
             learnBtn:SetPoint("TOPLEFT", learning, "TOPLEFT", 12, -btnTop)
-            learning:SetHeight(btnTop + 40)
+            local cardHeight = btnTop + 40
+            if scanText then
+                local summary = Offhand.SeamScan:GetSummary()
+                local scanSummary = string.format(L.SEAM_SCAN_SUMMARY, summary.seen,
+                    summary.learnable + summary.manual, summary.bridged + summary.owned + summary.learned)
+                local scanTop = btnTop + 34
+                scanText:SetText(scanSummary)
+                scanText:ClearAllPoints()
+                scanText:SetPoint("TOPLEFT", learning, "TOPLEFT", 12, -scanTop)
+                local scanBtnTop = scanTop + Controls.FitCompactParagraph(scanText, scanSummary, 628) + 8
+                scanBtn:ClearAllPoints()
+                scanBtn:SetPoint("TOPLEFT", learning, "TOPLEFT", 12, -scanBtnTop)
+                cardHeight = scanBtnTop + 40
+            end
+            learning:SetHeight(cardHeight)
             if learning.onSizingChanged then learning.onSizingChanged() end
         end
     end
