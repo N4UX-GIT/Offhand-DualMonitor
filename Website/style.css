@@ -1314,7 +1314,7 @@ kbd {
 .community-support-copy p { color: var(--text-secondary); }
 .community-support-actions { display: flex; flex-direction: column; gap: 10px; }
 .community-support-actions .btn { min-width: 168px; }
-.community-support-actions img { width: 17px; height: 17px; }
+.community-support-actions .btn-wow-red img { width: 20px; height: 20px; filter: brightness(0); }
 
 .footer-nav a.footer-support {
     display: inline-flex;
