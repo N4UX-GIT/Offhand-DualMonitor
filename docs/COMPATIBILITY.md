@@ -81,16 +81,66 @@ current BugSack and taint results for the following checks.
 | Baganator | Keep an open Baganator backpack on Offhand with the bag-key option enabled. Use B and Escape before and after bank, auction, or merchant interaction. Compare Hide Bag Bar Forever enabled and disabled on the same character. Capture `/offhand diag panels` in the failing state before reloading. Repeat in combat and after combat, then move the backpack to Mainhand and check that its normal binding returns. |
 | OpenMap FPS | Keep client settings, character, map zoom, location, route and background addons constant. Sample frame times on the same route with OpenMap unloaded, loaded with its map closed, open with follow off, and open with follow on. Record OpenMap's FPS limit and whether the map was centered on the player. |
 
-The Forever source export shows that hiding a floating chat message frame can
-clear its native shown bit. A menu transition may recover that bit when Offhand
-saw the window open beforehand and its detached tab remains visible. The source
-does not establish what triggered the reporter's disappearance with Prat.
-[Forever chat source](https://github.com/reckhou/WoWBlzCode/blob/1b05ef13b99e97474cab1954e97a94ea20376d6d/Forever/BlizzardInterfaceCode/Interface/AddOns/Blizzard_ChatFrameBase/Mainline/FloatingChatFrame.lua#L118)
+On Forever 1.60.1.71139, searching in `/offhand` for `openmap follow` and
+`character scale` found the corresponding sections from Display & HUD. Enter
+opened the OpenMap section, and selecting the Character result switched tabs
+and scrolled to its scale control. An unmatched query showed an empty state,
+and Clear restored the active settings page.
 
-Hide Bag Bar Forever 1.0.126 can reposition stock containers when its optional
-bag positioning feature is enabled. The reviewed archive did not show a direct
-B or Escape rebind in the scanned files. Record that setting during the
-side-by-side check. [Hide Bag Bar Forever 1.0.126](https://www.curseforge.com/wow/addons/hide-bag-bar-forever/files/9821887)
+The Character slider and numeric entry both accepted 35%. The native frame
+reopened at 0.35 scale on Offhand after `/reload`. Offhand's Mainhand placement
+restored the frame to 1.00 while the preference stayed at 0.35. The original
+Offhand position and 100% preference were restored after the test.
+
+On Forever 1.60.1.71139 with Prat 3.9.117, Offhand's Mainhand placement put
+the detached message frame in Blizzard's Escape-close list. The first Escape
+hid the message frame, cleared its native shown state, and left the tab visible.
+The candidate keeps native chat frames out of that list when applying a
+Mainhand position. In the corrected live run, the first Escape opened the
+Game Menu and the detached chat stayed visible. Switching between docked
+General and Combat Log and opening the Game Menu showed only the active tab's
+background with Prat loaded. The reported phantom background remains unreproduced.
+[Forever panel-manager source](https://github.com/reckhou/WoWBlzCode/blob/1b05ef13b99e97474cab1954e97a94ea20376d6d/Forever/BlizzardInterfaceCode/Interface/AddOns/Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua#L1106)
+
+The Ironforge bank check with Baganator 868 and MoveMyBags 1.7.0 kept the
+manually opened Offhand backpack visible before, during, and after the bank
+interaction. Escape closed the bank, cleared the target, and opened the Game
+Menu. The sequence passed with Hide Bag Bar Forever 1.0.126 loaded with its
+optional bag mover off, and again with the addon unloaded. Blood's recurring
+flicker and lockout still need a reproduction.
+[Hide Bag Bar Forever 1.0.126](https://www.curseforge.com/wow/addons/hide-bag-bar-forever/files/9821887)
+
+With Hide Bag Bar Forever unloaded, the same Baganator backpack stayed visible
+through the Shaman trainer's greeting and training list with the bag-key ignore
+option enabled. Physical B left it open. Escape closed the training list,
+cleared the trainer target, and opened the Game Menu on successive presses.
+A frame-by-frame check recorded zero updates with the backpack hidden.
+
+On the same Forever build and mixed-height layout, right-clicking a nearby
+level 26 player's portrait and choosing View Talents opened a populated
+Shaman talent tree on Mainhand. Escape closed it, and the same menu action
+reopened it with the same allocation. The reported failure remains unreproduced.
+
+### Native separate-backpack Escape on Forever 71139
+
+On November 27, the installed Beta 43 candidate matched the checkout. The
+test used a 4000 × 2560 mixed-height span with Store Companion 2.1.9-beta.4,
+Blizzard separate bags, and Baganator and MoveMyBags unloaded. The first
+Escape closed the Ironforge Shaman trainer's gossip window and kept the
+trainer selected. The second cleared the target. Native `/inspect` on a
+nearby player returned equipment in the left panel slot, and the two Escape
+presses closed Inspect and cleared the target in the same order.
+
+For the early-show case, a local test command showed Inspect for the same
+player before requesting equipment. With equipment visible, all five native
+slots were empty. The test removed Inspect from the special-window list and
+verified Offhand's window Escape binding before pressing Escape. Inspect
+closed first, then the target cleared. The backpack remained visible on
+Offhand throughout all three sequences at `(637.62, 142.38)` with size
+`178 × 305` in frame units. A further Escape opened the Game Menu.
+BugGrabber session 1136 showed no stored gameplay UI errors. A separate
+query for the BugSack UI produced a diagnostic-command error. The taint log
+had last been written on November 21 and did not cover this run.
 
 ## Workspace restoration after a full restart
 
@@ -121,6 +171,27 @@ providers and Companion build. Repeat for changes to Companion window spanning
 as well as relevant addon changes. The restart receipt fingerprints the tested
 addon sources. CI checks its freshness on pull requests to main. The live run
 used OpenMap and combined bags. [November 23 restart results](FOREVER-BETA38-BAG-MAP-QA-20261121.md#full-client-restart-with-the-span-applied-after-login-on-november-23).
+
+### Beta 43 full restart on Forever 71139
+
+On November 27, Noggaholic quit the spanned client normally with OpenMap
+0.8.13, the separate Blizzard backpack, and Character open on Offhand.
+Collections had a saved position and was closed. WoW exited, then the release
+owner relaunched through Battle.net and logged in on one screen. The three
+workspace panels were closed at login. Store Companion 2.1.9-beta.4 applied
+the saved 4000 × 2560 span with Mainhand on the right. The three workspace
+panels reopened at their pre-exit bounds without `/reload` or a panel toggle.
+Collections stayed closed. BugGrabber session 1138 contained zero stored errors.
+
+| Panel | Frame bounds after spanning, as left, bottom, width, height |
+| --- | --- |
+| OpenMap | `19.05, 1313.00, 1064, 603` |
+| Separate backpack | `637.62, 142.38, 178, 305` |
+| Character | `91.36, 487.14, 631, 484` |
+
+After the readings, the temporary open panels were closed. The original
+combined-bag preference, Baganator and MoveMyBags were restored and verified
+after a cleanup reload. The taint log did not cover this session.
 
 ## Forever bag scope recorded through November 18, 2026
 

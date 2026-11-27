@@ -4,8 +4,11 @@
 
 ## [2.1.5-beta.43]
 
+Addon-only update for **Windows Companion 2.1.9-beta.4**.
+
+- Added search across the in-game Offhand settings. Select a result to open its section.
 - Lowered the Character window scale minimum from 75% to 35%.
-- On Forever, Offhand checks detached Mainhand chat when the Game Menu opens or closes. Closed and docked windows keep their native visibility.
+- On Forever, fixed an issue where Escape could hide a detached Mainhand chat window and leave only its tab visible. Closed and docked windows keep their native visibility.
 - OpenMap camera follow on Offhand is now optional and off by default. Turn it on under **Offhand Monitor > World Map Scaling & Navigation**.
 - Baganator's backpack keeps its Offhand bag-key and Escape protection while its layout recalculates. A stale open snapshot no longer reopens the backpack on an unrelated Escape press.
 

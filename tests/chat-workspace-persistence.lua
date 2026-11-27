@@ -508,6 +508,12 @@ assert(ChatFrame3.floatingAlpha == 0.72 and ChatFrame3.floatingFadedIn == true,
     "Closing Chat Settings must perform a final detached presentation repair")
 
 -- Escape can hide a detached Mainhand message frame while its tab stays shown.
+UISpecialFrames = {}
+assert(addon.Canvas:PlacePanelOnMainhand(ChatFrame3, metrics, addon.db.savedMainPositions.ChatFrame3),
+    "a detached Forever chat must still accept Mainhand placement")
+for _, name in ipairs(UISpecialFrames) do
+    assert(name ~= "ChatFrame3", "Mainhand placement must not let Escape close a native chat frame")
+end
 GameMenuFrame = makeMockFrame("GameMenuFrame", 300, 500)
 GameMenuFrame:Show()
 ChatFrame3:Hide()

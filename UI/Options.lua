@@ -297,6 +297,150 @@ function Options:GetConfigFrame()
     return configFrame
 end
 
+local function SearchText(text)
+    return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")):lower()
+end
+
+local function AddSearchLabels(frame, labels)
+    if not frame:IsShown() then return end
+    if frame:IsObjectType("Button") and frame:GetText() then
+        labels[#labels + 1] = frame:GetText()
+    end
+    for _, region in ipairs({ frame:GetRegions() }) do
+        if region:IsObjectType("FontString") and region:IsShown() and region:GetText() then
+            labels[#labels + 1] = region:GetText()
+        end
+    end
+    for _, child in ipairs({ frame:GetChildren() }) do
+        AddSearchLabels(child, labels)
+    end
+end
+
+local function CreateSettingsSearch(panel, parent, tabs, cards, showResults, openCard)
+    local input = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+    input:SetPoint("TOPLEFT", panel, "TOPLEFT", 218, -126)
+    input:SetSize(296, 22)
+    input:SetMaxLetters(100)
+    panel.settingsSearchBox = input
+
+    local hint = input:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    hint:SetPoint("LEFT", 8, 0)
+    hint:SetText(L["SETTINGS_SEARCH"])
+
+    local clear = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    clear:SetPoint("LEFT", input, "RIGHT", 6, 0)
+    clear:SetSize(54, 22)
+    clear:SetText(L["SETTINGS_SEARCH_CLEAR"])
+    clear:Hide()
+
+    local results = CreateFrame("Frame", nil, parent)
+    results:SetPoint("TOPLEFT")
+    results:SetPoint("TOPRIGHT")
+    results:SetHeight(1)
+    results:Hide()
+    panel.settingsSearchResults = results
+
+    local empty = results:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    empty:SetPoint("TOPLEFT", 12, -14)
+    empty:SetText(L["SETTINGS_SEARCH_EMPTY"])
+
+    local tabByFrame = {}
+    for _, tab in ipairs(tabs) do
+        tabByFrame[tab.frame] = tab
+    end
+    local buttons = {}
+    local matches = {}
+
+    local function SelectResult(match)
+        input:ClearFocus()
+        openCard(match.tab.id, match.card)
+    end
+
+    local function Refresh()
+        local text = input:GetText()
+        SetShown(hint, text == "")
+        SetShown(clear, text ~= "")
+        local terms = {}
+        for term in SearchText(text):gmatch("%S+") do
+            terms[#terms + 1] = term
+        end
+        if #terms == 0 then
+            matches = {}
+            if results:IsShown() then
+                results:Hide()
+                showResults(nil)
+            end
+            return
+        end
+
+        matches = {}
+        for _, card in ipairs(cards) do
+            local tab = tabByFrame[card.settingsTab]
+            if tab and card:IsShown() then
+                local labels = { card.sectionLabel, tab.label }
+                AddSearchLabels(card, labels)
+                local title = SearchText(card.sectionLabel)
+                local haystack = SearchText(table.concat(labels, "\n"))
+                local titleMatches = 0
+                local allMatch = true
+                for _, term in ipairs(terms) do
+                    if not haystack:find(term, 1, true) then
+                        allMatch = false
+                        break
+                    end
+                    if title:find(term, 1, true) then titleMatches = titleMatches + 1 end
+                end
+                if allMatch then
+                    matches[#matches + 1] = {
+                        tab = tab, card = card, score = titleMatches, order = #matches + 1,
+                    }
+                end
+            end
+        end
+        table.sort(matches, function(a, b)
+            if a.score ~= b.score then return a.score > b.score end
+            return a.order < b.order
+        end)
+
+        for index, match in ipairs(matches) do
+            local button = buttons[index]
+            if not button then
+                button = CreateFrame("Button", nil, results, "UIPanelButtonTemplate")
+                button:SetPoint("TOPLEFT", 0, -(index - 1) * 40)
+                button:SetPoint("TOPRIGHT", 0, -(index - 1) * 40)
+                button:SetHeight(36)
+                button:GetFontString():SetJustifyH("LEFT")
+                button:SetScript("OnClick", function(self) SelectResult(self.match) end)
+                buttons[index] = button
+            end
+            button.match = match
+            button:SetText(match.card.sectionLabel .. "   |cffadb4c0" .. match.tab.label .. "|r")
+            button:Show()
+        end
+        for index = #matches + 1, #buttons do buttons[index]:Hide() end
+        SetShown(empty, #matches == 0)
+
+        local entering = not results:IsShown()
+        local height = math.max(44, #matches * 40)
+        results:SetHeight(height)
+        results:Show()
+        showResults(height, entering)
+    end
+
+    input:SetScript("OnTextChanged", Refresh)
+    input:SetScript("OnEscapePressed", function(self)
+        self:SetText("")
+        self:ClearFocus()
+    end)
+    input:SetScript("OnEnterPressed", function(self)
+        if matches[1] then SelectResult(matches[1]) else self:ClearFocus() end
+    end)
+    clear:SetScript("OnClick", function()
+        input:SetText("")
+        input:SetFocus()
+    end)
+end
+
 -- ============================================================================
 -- Unified Clean Tabbed Dashboard
 -- ============================================================================
@@ -408,7 +552,11 @@ function Options:CreateFloatingPanel()
         Offhand:SetTooltip(discordButton, L["BTN_DISCORD"], L["DISCORD_LINK_TEXT"])
     end
 
-    configFrame:SetScript("OnHide", function()
+    configFrame:SetScript("OnHide", function(self)
+        if self.settingsSearchBox then
+            self.settingsSearchBox:ClearFocus()
+            self.settingsSearchBox:SetText("")
+        end
         Options:HideSeamGuide()
         if Options.gamepadFocusCapture then Options.gamepadFocusCapture:Hide() end
         if Offhand.HUD and Offhand.HUD.SetGroupLootMoverShown then
@@ -595,7 +743,7 @@ function Options:CreateFloatingPanel()
 
     local function RestackTab(tab, cards)
         local height = Options:StackCards(tab, cards)
-        if tab == activePage then
+        if tab == activePage and not (configFrame.settingsSearchResults and configFrame.settingsSearchResults:IsShown()) then
             optionsScrollChild:SetHeight(height)
             Controls.SetScrollOffset(optionsScrollFrame, optionsScrollFrame:GetVerticalScroll())
         end
@@ -607,6 +755,10 @@ function Options:CreateFloatingPanel()
     end
 
     local function SwitchTab(tabIndex)
+        if configFrame.settingsSearchBox then
+            configFrame.settingsSearchBox:ClearFocus()
+            configFrame.settingsSearchBox:SetText("")
+        end
         if activePage and optionsScrollFrame.GetVerticalScroll then
             tabScrollOffsets[currentTab] = optionsScrollFrame:GetVerticalScroll()
         end
@@ -652,7 +804,10 @@ function Options:CreateFloatingPanel()
             button:SetPoint("TOPLEFT", configFrame, "TOPLEFT", 20, -sectionTop - 20 - (index - 1) * 32)
             button:SetText(card.sectionLabel)
             local target = card
-            button:SetScript("OnClick", function() ScrollToCard(target) end)
+            button:SetScript("OnClick", function()
+                if configFrame.settingsSearchBox then configFrame.settingsSearchBox:SetText("") end
+                ScrollToCard(target)
+            end)
             if Offhand.SetTooltip then Offhand:SetTooltip(button, card.sectionLabel) end
             button:Show()
         end
@@ -3016,6 +3171,31 @@ function Options:CreateFloatingPanel()
         Options:RefreshPanel()
     end)
 
+    CreateSettingsSearch(configFrame, optionsScrollChild, tabConfig, registeredCards, function(height, entering)
+        if height then
+            if entering then tabScrollOffsets[currentTab] = optionsScrollFrame:GetVerticalScroll() end
+            activePage:Hide()
+            optionsScrollChild:SetHeight(height)
+        else
+            activePage:Show()
+            optionsScrollChild:SetHeight(activePage:GetHeight())
+        end
+        if optionsScrollFrame.UpdateScrollChildRect then optionsScrollFrame:UpdateScrollChildRect() end
+        Controls.SetScrollOffset(optionsScrollFrame, height and 0 or tabScrollOffsets[currentTab] or 0)
+    end, function(tabIndex, card)
+        SwitchTab(tabIndex)
+        local function RevealCard()
+            if configFrame:IsShown() and currentTab == tabIndex and not configFrame.settingsSearchResults:IsShown() then
+                ScrollToCard(card)
+            end
+        end
+        if C_Timer and C_Timer.After then
+            -- Give the scroll frame a layout pass after swapping results for the page.
+            C_Timer.After(0, RevealCard)
+        else
+            RevealCard()
+        end
+    end)
     SwitchTab(currentTab or 1)
     Options:UpdateCardThemes()
     configFrame:Hide()
