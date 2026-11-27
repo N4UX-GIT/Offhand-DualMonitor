@@ -391,7 +391,10 @@ function Placement.InstallMainhand(Canvas, services)
             local _, _, _, x, y = frame:GetPoint(1)
             settledCharacterAnchors[frame] = { x = x, y = y }
         end
-        if ok and not anchorOnly and name and not IsForeverProfessionsPanel(frame, name) then
+        -- A detached Forever chat keeps Blizzard's tab and visibility lifecycle.
+        -- Registering it here lets Escape hide the message frame and consume the menu key.
+        local foreverChat = Offhand.isForever and name and name:match("^ChatFrame%d+$")
+        if ok and not anchorOnly and name and not foreverChat and not IsForeverProfessionsPanel(frame, name) then
             RegisterSpecialFrame(name)
         end
         return ok

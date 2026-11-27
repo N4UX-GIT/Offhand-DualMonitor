@@ -19,26 +19,37 @@ local function Visible(frame)
     return frame and frame.IsVisible and (not frame.IsForbidden or not frame:IsForbidden()) and frame:IsVisible()
 end
 
-local function OnWorkspace(frame)
+local function OnWorkspace(frame, useLastLocation)
     if not Visible(frame) then return false end
-    local x, y, w, h = frame:GetRect()
-    if not x or not y or not w or not h then return false end
-    local scale = frame:GetEffectiveScale()
-    local last = locations[frame]
-    if last and last.x == x and last.y == y and last.w == w and last.h == h and last.scale == scale then
-        return last.workspace
-    end
     if spanned == nil then
         local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
         spanned = metrics and metrics.isSpanned == true or false
     end
-    local workspace = spanned and Offhand.Canvas.IsFrameOnWorkspace(frame)
+    if not spanned then return false end
+    local x, y, w, h = frame:GetRect()
+    local last = locations[frame]
+    if not x or not y or not w or not h or w <= 0 or h <= 0 then
+        return useLastLocation and last and last.workspace or false
+    end
+    local scale = frame:GetEffectiveScale()
+    if last and last.x == x and last.y == y and last.w == w and last.h == h and last.scale == scale then
+        return last.workspace
+    end
+    local workspace = Offhand.Canvas.IsFrameOnWorkspace(frame)
     locations[frame] = {x=x, y=y, w=w, h=h, scale=scale, workspace=workspace}
     return workspace
 end
 
 local function InventoryOnWorkspace(action)
     local id = bagIDByAction[action]
+    local bags = Offhand.BagPersistence
+    if _G.Baganator and bags and bags.GetVisibleBaganatorBackpack
+        and (id or action == "TOGGLEBACKPACK" or action == "OPENALLBAGS") then
+        -- Baganator routes the stock inventory bindings through its backpack,
+        -- including the numbered keys. Its hidden Blizzard roots are not targets.
+        local bag = bags:GetVisibleBaganatorBackpack()
+        if bag then return OnWorkspace(bag, true) end
+    end
     if id then
         local manager = _G.ContainerFrameSettingsManager
         if not manager or not manager.IsUsingCombinedBags then return false end
@@ -53,7 +64,6 @@ local function InventoryOnWorkspace(action)
         end
         return false
     end
-    local bags = Offhand.BagPersistence
     local better = bags and bags.betterBags
     if not better and action == "BETTERBAGS_TOGGLEBAGS" and LibStub then
         local ace = LibStub("AceAddon-3.0", true)
@@ -156,11 +166,24 @@ local function Poll(_, delta)
     if elapsed >= 0.05 then elapsed = 0; UpdateBindings() end
 end
 
+function Keys:Update(frame)
+    if frame and not Visible(frame) then locations[frame] = nil end
+    if observer then UpdateBindings() end
+end
+
+local trackingInventory
 function Keys:Refresh()
     if not observer then return end
     for frame in pairs(locations) do locations[frame] = nil end
     local db = Offhand.db
     local active = db and db.enabled and (db.keepMapToggleOpen or db.keepBagToggleOpen)
+    local trackInventory = active and db.keepBagToggleOpen
+    if not InCombatLockdown() then
+        if trackInventory and not trackingInventory and _G.Baganator and Offhand.BagPersistence then
+            Offhand.BagPersistence:Discover(true)
+        end
+        trackingInventory = trackInventory
+    end
     for key in pairs(assignments) do assignments[key] = nil end
     if active then
         if db.keepMapToggleOpen then ReadKeys("TOGGLEWORLDMAP") end
@@ -177,5 +200,7 @@ if Keys:Available() then
         "DISPLAY_SIZE_CHANGED", "UI_SCALE_CHANGED"}) do
         observer:RegisterEvent(event)
     end
-    observer:SetScript("OnEvent", function() Keys:Refresh() end)
+    observer:SetScript("OnEvent", function(_, event)
+        if event == "BAG_UPDATE_DELAYED" then Keys:Update() else Keys:Refresh() end
+    end)
 end

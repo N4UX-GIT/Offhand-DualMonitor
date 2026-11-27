@@ -2,15 +2,19 @@
   "schema": 1,
   "hash_mode": "utf8-lf",
   "id": "forever-native-bag-real-escape-20261125",
-  "client": "Forever (release-owner report, exact test build unrecorded)",
+  "client": "Forever 1.60.1.71139",
   "scope": "Native separate backpack on Offhand with Escape during trainer gossip, ordinary player inspection and early-shown Inspect",
-  "recorded_at": "2026-11-25",
+  "recorded_at": "2026-11-27",
   "cases": [
-    "Release owner confirmed the native separate-backpack Escape gate passed on Beta 42."
+    "Real Ironforge Shaman trainer gossip closed before the target cleared. The native separate backpack stayed at its Offhand bounds.",
+    "Native Inspect returned equipment in the left panel slot. The first Escape dismissed Inspect and the second cleared the player target while the backpack stayed visible.",
+    "Early-shown Inspect returned equipment outside the native slots. With Inspect absent from the special-window list, the first Escape closed Inspect and the second cleared the target while the backpack stayed visible.",
+    "With no target or interaction window, Escape opened the Game Menu."
   ],
   "providers": {
-    "Offhand": "2.1.5-beta.42 (owner-reported)",
-    "Companion": "2.1.9-beta.4 (owner-reported)"
+    "Offhand": "2.1.5-beta.43 combined checkout",
+    "Companion": "Microsoft Store 2.1.9-beta.4",
+    "Bags": "Blizzard separate backpack"
   },
   "deferred": [
     "flight paths",
@@ -19,21 +23,21 @@
   ],
   "evidence": "docs/COMPATIBILITY.md",
   "source_fingerprints": {
-    "Core/BagPersistence.lua": "291ac6230a4c827226c38c513601ee957f8e734562caecfbd9336854ed507a76",
+    "Core/BagPersistence.lua": "6a9a54d25f31da1ca83832b3882b75d45d916589fd7d34bded39b411b9f60ecd",
     "Core/CanvasAddonEscape.lua": "f4198a7c4e1ab2c546809a50f09bf33207765529241cfbc29b7dad424bfbe3dd",
     "Core/CanvasForeverBags.lua": "a727d4db7cbd24779efb787835d8ad54c315bb5b580252c106b168757160ef73",
     "Core/HUDCompatibility.lua": "f1add07dd33fa4f5ea8ea0a7bb360349443245da1bb3ad3cae620c4c07c512dd",
-    "Core/Canvas.lua": "fb6a7280cd1d9f9b29d343ba627425028a1c12341b8b3c73ed598b20a9e63c74",
+    "Core/Canvas.lua": "9e7d170ff85f52113383b7f3b54f390d19d0ed41358035d6ac1da28858291d4a",
     "Core/CanvasBackpackState.lua": "8f8c0407bb33ff8c1aaa0ac88e3ba661ba1a315a72606c24a014ae177158be15",
     "Core/CanvasCompatibility.lua": "3d14476a265200828cb764916f4d21c6dbcd2f4f624fb1129f480c70e5f7a861",
     "Core/CanvasPanelLifecycle.lua": "d851e1bf27ec8beacccf6d6149e58b98fdef84cce31c9d87c11a35fa4d75a29a",
-    "Core/CanvasPanelPlacement.lua": "c7040a45591468c466bd5f94d32bd7dd60a90127a15bf7a9b27de57ce4d4740d",
+    "Core/CanvasPanelPlacement.lua": "b0a70a09609d4091df36d463ff3eae489c899cc753e9aeb96a0f9b8b55864e6c",
     "Core/CanvasPanelRegistry.lua": "f4d64acd09d62365718ab3a102e9bffa26876a2cf61a458b7b7523cf90ae927d",
     "Core/CanvasPersistence.lua": "a9270ee2db9eee73e86c8001664e64829766fc58f8f082662d065d9cbce4391b",
-    "Core/WorkspaceBehavior.lua": "c362bcef96b2ba646595a6539c7c93b4dbe6ac042c7776362d4db9d1324ebe61",
+    "Core/WorkspaceBehavior.lua": "c30a72ebadb735e727c61491a8bbc39f4ef8d49bfcd11ab609d84e646dda12b2",
     "Core/MenuPlacement.lua": "873c2e0b94bf6b6c4384a10839d1670244b3a35008280d960a77c2a647b675a4",
     "Core/ClientRuntime.lua": "6c164c2b92b9eeaa3d1672507f3cb18b4fd4b3b99fef0066f2e973db91470638",
-    "Core/Init.lua": "4947067b493fb4fae09f66d4c2239bc604506c0266d75de821ff8e5ccb6c0813"
+    "Core/Init.lua": "8dc2ed1e6e3bdc0e9ec793ca800da0d817e2ca228edddcbcb5fcc756b7542170"
   },
-  "integration_note": "The release owner confirmed this live gate for the Beta 42 candidate with Companion 2.1.9-beta.4. Candidate 3daee6c and the verified Beta 42 ZIP match these scoped fingerprints. The local Forever installation separately matched the scoped source files while its version metadata remained Beta 41 with a Beta 3 topology writer."
+  "integration_note": "Tested on Noggaholic with Baganator and MoveMyBags temporarily unloaded. BugGrabber session 1136 reported zero stored gameplay UI errors. A separate BugSack diagnostic command failed. No current-session taint log was available."
 }

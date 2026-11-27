@@ -23,16 +23,21 @@ local function ParseMajorVersion(value)
     return tonumber(value:match("^v?(%d+)%."))
 end
 
+function Adapter.SupportsOpenMapFollow()
+    local api = _G.OpenMapAPI
+    return type(api) == "table" and api.major == 1
+        and type(api.GetView) == "function" and type(api.WorldFromMap) == "function"
+        and type(api.ShowWorld) == "function" and type(api.IsStitched) == "function"
+end
+
 -- OpenMap's camera glides for 0.4 seconds. A centered camera follows the
 -- player; browsing away pauses follow until the player centers it again.
 function Adapter.UpdateOpenMapFollow(map, state)
     local api = _G.OpenMapAPI
-    if type(api) ~= "table" or api.major ~= 1
-        or type(api.GetView) ~= "function" or type(api.WorldFromMap) ~= "function"
-        or type(api.ShowWorld) ~= "function" or type(api.IsStitched) ~= "function"
-        or not api.IsStitched()
+    if not Offhand.db or Offhand.db.followPlayerWithOpenMap ~= true
+        or not Adapter.SupportsOpenMapFollow() or not api.IsStitched()
         or Offhand.CanvasCompatibility.GetWorldMapExternalOwner() ~= "OpenMap"
-        or Offhand.db.persistentWorkspacePanels == false or InCombatLockdown() or IsInInstance()
+        or InCombatLockdown() or IsInInstance()
         or not Offhand.Viewport:GetMetrics().isSpanned or not Offhand.Canvas.IsFrameOnWorkspace(map) then
         state.u = nil
         return
@@ -824,7 +829,7 @@ function Adapter.Install(Canvas, services)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
             local maximized = mapShown and map.IsMaximized and map:IsMaximized()
-            if mapShown and not maximized and _G.OpenMapAPI then
+            if mapShown and not maximized and Offhand.db.followPlayerWithOpenMap == true then
                 followElapsed = followElapsed + elapsed
                 if followElapsed >= 0.5 then
                     followElapsed = 0

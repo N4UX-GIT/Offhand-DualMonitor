@@ -507,6 +507,52 @@ addon.Canvas:MonitorDetachedChatSettingsPresentation()
 assert(ChatFrame3.floatingAlpha == 0.72 and ChatFrame3.floatingFadedIn == true,
     "Closing Chat Settings must perform a final detached presentation repair")
 
+-- Escape can hide a detached Mainhand message frame while its tab stays shown.
+UISpecialFrames = {}
+assert(addon.Canvas:PlacePanelOnMainhand(ChatFrame3, metrics, addon.db.savedMainPositions.ChatFrame3),
+    "a detached Forever chat must still accept Mainhand placement")
+for _, name in ipairs(UISpecialFrames) do
+    assert(name ~= "ChatFrame3", "Mainhand placement must not let Escape close a native chat frame")
+end
+GameMenuFrame = makeMockFrame("GameMenuFrame", 300, 500)
+GameMenuFrame:Show()
+ChatFrame3:Hide()
+ChatFrame3.floatingAlpha = 0
+local writesBeforeMenu = CountChatStateWrites(3)
+addon.Canvas:MonitorDetachedChatSettingsPresentation()
+assert(ChatFrame3:IsShown() and ChatFrame3.floatingAlpha == 0.72
+    and CountChatStateWrites(3) == writesBeforeMenu,
+    "opening the menu must repair a live detached message frame without writing native chat settings")
+GameMenuFrame:Hide()
+addon.Canvas:MonitorDetachedChatSettingsPresentation()
+addon.Canvas:MonitorDetachedChatSettingsPresentation()
+appearanceTimers = {}
+C_Timer.After = function(delay, fn)
+    appearanceTimers[#appearanceTimers + 1] = {delay=delay, callback=fn}
+end
+FCF_SetWindowAlpha(ChatFrame3, 0, true)
+GameMenuFrame:Show()
+chatWindowPresentation[3].shown = false
+ChatFrame3:Hide()
+addon.Canvas:MonitorDetachedChatSettingsPresentation()
+assert(#appearanceTimers == 2, "menu recovery must reuse the already queued appearance callbacks")
+appearanceTimers[1].callback()
+appearanceTimers[2].callback()
+C_Timer.After = immediateAfter
+assert(ChatFrame3:IsShown() and shownChatWindows[3] and CountChatStateWrites(3) == writesBeforeMenu + 1,
+    "a visible tab that was open before the menu can recover its native shown bit")
+GameMenuFrame:Hide()
+chatWindowPresentation[3].shown = false
+ChatFrame3Tab:Hide()
+ChatFrame3:Hide()
+addon.Canvas:MonitorDetachedChatSettingsPresentation()
+addon.Canvas:EnableFreeDragging()
+assert(not ChatFrame3:IsShown() and CountChatStateWrites(3) == writesBeforeMenu + 1,
+    "a stale position must never resurrect a closed chat on a menu or layout transition")
+chatWindowPresentation[3].shown = true
+ChatFrame3Tab:Show()
+GameMenuFrame = nil
+
 -- A deliberate native "Close Window" action must remove Offhand's position
 -- record. Otherwise visibility recovery treats it as startup damage and brings
 -- the user's closed custom window back on every reload.

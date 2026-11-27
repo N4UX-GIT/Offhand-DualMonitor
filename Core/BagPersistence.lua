@@ -20,6 +20,11 @@ local function TrackEnabled()
     return db and db.enabled and db.persistentWorkspacePanels ~= false
 end
 
+local function DiscoverEnabled()
+    local db = Offhand.db
+    return TrackEnabled() or (Offhand.isForever and db and db.enabled and db.keepBagToggleOpen == true)
+end
+
 local function ReloadEnabled()
     local db = Offhand.db
     return TrackEnabled() and db.restoreWorkspaceOnReload ~= false
@@ -141,6 +146,27 @@ function Bags:GetVisibleFrame(name)
     end
 end
 
+function Bags:GetVisibleBaganatorBackpack()
+    for name, frame in pairs(self.frames) do
+        if _G[name] == frame and not (frame.IsForbidden and frame:IsForbidden())
+            and self.IsBaganatorBackpackRoot(frame, name) and frame:IsVisible() then return frame end
+    end
+end
+
+function Bags:GetBaganatorDiagnostics()
+    if not IsAddOnLoadedCompat("Baganator") or InCombatLockdown() then return end
+    local frame = self:GetVisibleBaganatorBackpack()
+    local name = frame and frame:GetName()
+    local db = Offhand.db or {}
+    local action = GetBindingAction or function() end
+    local snapshot = self:GetSavedPosition()
+    return string.format("backpack=%s | workspace=%s | escapeExcluded=%s | savedOpen=%s | keepBagKey=%s | B=%s/%s | Escape=%s",
+        name or "hidden", tostring(frame and Offhand.Canvas.IsFrameOnWorkspace(frame) == true or false),
+        tostring(frame ~= nil and self.escapeRegistrations[frame] ~= nil), snapshot or "none",
+        tostring(db.keepBagToggleOpen == true), action("B") or "none", action("B", true) or "none",
+        action("ESCAPE", true) or "none")
+end
+
 local function CopyPosition(position)
     local copy = {}
     for key, value in pairs(position or {}) do copy[key] = value end
@@ -175,8 +201,15 @@ local function UpdateBagEscapeRegistration(frame, name, supported, parent, proxy
         and not (frame.IsProtected and frame:IsProtected())
     local exclude = false
     if canPreserve and frame:IsVisible() and canvas and canvas.IsFrameOnWorkspace then
-        local ok, workspace = pcall(canvas.IsFrameOnWorkspace, frame)
-        exclude = ok and workspace == true
+        if state and state.removed and IsBaganatorRootName(name)
+            and (not frame:GetLeft() or (frame.GetBottom and not frame:GetBottom())) then
+            -- The vendor can briefly clear its anchors during a bag rebuild.
+            -- That intermediate rectangle does not move the bag to Mainhand.
+            exclude = true
+        else
+            local ok, workspace = pcall(canvas.IsFrameOnWorkspace, frame)
+            exclude = ok and workspace == true
+        end
     end
     if not state and not exclude then return end
     state = state or { name = name }
@@ -488,6 +521,10 @@ function Bags:RegisterRoot(name, frame)
     if IsBagnonInventoryRoot(name, frame) or IsForeverEllesmereBag(name) then return true end
     if not frame.HookScript then return true end
 
+    local function CaptureAfterLayout()
+        Bags:Capture()
+        if Offhand.WorkspaceToggleKeys then Offhand.WorkspaceToggleKeys:Update(frame) end
+    end
     local function Changed()
         -- A registered backpack can be hidden during the native Escape stack.
         -- A locally hidden, excluded backpack has no such native close route.
@@ -513,27 +550,29 @@ function Bags:RegisterRoot(name, frame)
                 end)
             end
         end
-        C_Timer.After(0, function() Bags:Capture() end)
+        C_Timer.After(0, CaptureAfterLayout)
     end
     -- Baganator shows its root before laying out its contents. Sample after
     -- that callback returns so the pre-layout size cannot revoke placement.
     frame:HookScript("OnShow", function()
         UpdateBagEscapeRegistration(frame, name, IsBaganatorRootName(name))
-        C_Timer.After(0, function() Bags:Capture() end)
+        C_Timer.After(0, CaptureAfterLayout)
     end)
     frame:HookScript("OnHide", Changed)
     if Offhand.isForever and Bags.IsBaganatorBackpackRoot(frame, name) then
         frame:HookScript("OnDragStop", function()
             -- Baganator has already saved its new anchor. Reconcile ownership
             -- before an Escape that arrives ahead of the capture ticker.
-            if not InCombatLockdown() and not InputReserved() then Bags:Capture() end
+            if not InCombatLockdown() and not InputReserved() then
+                CaptureAfterLayout()
+            end
         end)
     end
     return true
 end
 
 function Bags:Discover(scanBaganatorGlobals)
-    if not TrackEnabled() then return false end
+    if not DiscoverEnabled() then return false end
     local discovered = false
 
     -- EllesmereUI exposes a stable root name, so discovery never needs a
@@ -724,11 +763,11 @@ function Bags:InstallBaganatorCallbacks()
     if not registry or not registry.RegisterCallback then return end
     self.baganatorCallbacksInstalled = true
     registry:RegisterCallback("BackpackFrameChanged", function(_, frame)
-        if not TrackEnabled() or not frame or not frame.GetName then return end
+        if not DiscoverEnabled() or not frame or not frame.GetName then return end
         Bags:RegisterRoot(frame:GetName(), frame)
     end)
     registry:RegisterCallback("BagShow", function()
-        if not TrackEnabled() then return end
+        if not DiscoverEnabled() then return end
         for name in pairs(Bags.frames) do
             if IsBaganatorRootName(name) then return end
         end
@@ -911,9 +950,9 @@ function Bags:RestoreAfterEscape(pending)
         Offhand.db.savedWorkspacePositions[name] = position
         Offhand.db.baganatorWorkspacePanels = { [name] = position }
         Offhand.Canvas:RestoreWorkspacePosition(visible)
+        RestoreGameMenuAfterEscape(pending.menuWasShown)
     end
 
-    RestoreGameMenuAfterEscape(pending.menuWasShown)
     self.restoring = false
     self:Capture()
     return visible ~= nil
@@ -1002,7 +1041,11 @@ function Bags:InstallEscapeHooks()
             if Bags.escapePending and Bags.escapePending.explicit then return end
             local savedName, position = Bags:GetSavedPosition()
             if not position then return end
-            if IsForeverEllesmereBag(savedName) then return end
+            -- Forever Baganator reports its root's actual hide. A native
+            -- CloseAllBags by itself may only be closing parked containers or
+            -- ending a bank/merchant interaction.
+            if IsForeverEllesmereBag(savedName)
+                or (Offhand.isForever and IsBaganatorRootName(savedName)) then return end
             -- EllesmereUI distinguishes a user-requested bag close from its
             -- Escape proxy hiding the frame. Respect the former even if an
             -- older Offhand open-state sample has not yet been retired.
@@ -1056,6 +1099,7 @@ function Bags:InstallEscapeHooks()
                 local frame = savedName and Bags.frames[savedName]
                 local visible = frame and frame.IsVisible and frame:IsVisible() or false
                 if position and frame and IsDirectEscapeRoot(savedName, frame) and not visible
+                    and not (Offhand.isForever and IsBaganatorRootName(savedName))
                     and not HasConflictingEllesmereBagToggle() then
                     local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown
                         and GameMenuFrame:IsShown() or false

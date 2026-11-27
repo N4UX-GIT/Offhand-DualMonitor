@@ -136,4 +136,26 @@ addon.db.keepBagToggleOpen = false
 module:Refresh()
 assert(not overrides.B and overrides.M, "disabling keepBagToggleOpen must immediately unbind B while keeping M")
 
+Baganator = {}
+addon.Bridges = nil
+local vendorBag = root()
+local vendorRect = vendorBag.GetRect
+local scans = 0
+addon.BagPersistence = { frames = {}, Discover = function(_, scan) if scan then scans = scans + 1 end end,
+    GetVisibleBaganatorBackpack = function() return vendorBag.shown and vendorBag or nil end }
+addon.db.keepBagToggleOpen = true
+addon.db.persistentWorkspacePanels = false
+module:Refresh()
+assert(scans == 1 and not overrides.B, "the key option must discover Baganator independently of Escape persistence")
+vendorBag.shown = true
+module:Update()
+assert(overrides.B and overrides.F6, "Baganator uses the same visible backpack for B and numbered bag keys")
+vendorBag.GetRect = function() return nil end
+observer.scripts.OnEvent(observer, "BAG_UPDATE_DELAYED")
+assert(overrides.B, "an unresolved Baganator rectangle must retain the last known workspace binding")
+vendorBag.GetRect = vendorRect
+vendorBag.workspace = false
+module:Update()
+assert(not overrides.B and not overrides.F6, "the settled Mainhand rectangle must release the Baganator keys")
+
 print("PASS: map, backpack and individual bag keys, window ownership, rebinding and combat cleanup")
