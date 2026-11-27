@@ -69,7 +69,7 @@ body {
     font-family: var(--font-body);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 /* ============================================================================
@@ -360,6 +360,8 @@ code {
 .site-menu summary span { transition: transform 0.18s ease; }
 
 .site-menu-panel {
+    max-height: calc(100dvh - 94px);
+    overflow-y: auto;
     position: absolute;
     top: calc(100% + 10px);
     right: 0;
@@ -534,6 +536,31 @@ code {
     background: linear-gradient(135deg, rgba(39, 32, 18, 0.92), rgba(18, 20, 26, 0.96));
     box-shadow: inset 0 0 0 3px rgba(240, 184, 54, 0.035), 0 8px 24px rgba(0, 0, 0, 0.2);
 }
+
+.spanned-screen-examples img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+}
+.recovery-grid #loading-screen { grid-column: 1 / -1; }
+#loading-screen h4 { margin-top: 18px; }
+#loading-screen p + p { margin-top: 10px; }
+.spanned-screen-examples {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 16px 0;
+}
+.spanned-screen-examples figure { margin: 0; }
+.spanned-screen-examples figcaption { margin-top: 6px; color: var(--text-secondary); }
+@media (max-width: 600px) {
+    .spanned-screen-examples { grid-template-columns: 1fr; }
+}
+:where(main [id]) { scroll-margin-top: 105px; }
+.setup-stage code { overflow-wrap: anywhere; }
+.setup-stage details { margin-top: 10px; }
+.setup-stage summary { cursor: pointer; color: var(--rio-gold-bright); }
 
 .beta-notice-label {
     color: #ffd670;
@@ -1395,10 +1422,6 @@ kbd {
 }
 
 @media (max-width: 600px) {
-    html {
-        overflow-x: hidden;
-    }
-
     .navbar {
         top: 6px;
         width: calc(100% - 16px);
@@ -2083,6 +2106,9 @@ kbd {
 }
 
 @media (max-width: 560px) {
+    main .btn { max-width: 100%; white-space: normal; text-align: center; }
+    .background-promo-card { grid-template-columns: minmax(0, 1fr); padding: 16px; }
+    .media-package-diagram { padding: 12px; overflow-wrap: anywhere; }
     .download-badge { grid-template-columns: 46px minmax(0, 1fr); }
     .download-badge strong { font-size: 0.92rem; }
     .companion-control-grid { grid-template-columns: 1fr; }
@@ -2157,6 +2183,22 @@ kbd {
 .workspace-card-image .image-frame { display: flex; align-items: center; justify-content: center; height: 280px; background: #090909; border: 1px solid var(--rio-border-subtle); border-radius: 6px; overflow: hidden; }
 .workspace-card-image img { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
 .workspace-card-image figcaption, .guidance-crop figcaption { margin-top: 10px; color: var(--text-secondary); font-size: 0.84rem; line-height: 1.6; }
+.workspace-intro {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-areas: "intro photo" "action photo";
+    gap: 20px clamp(24px, 4vw, 48px);
+}
+.workspace-intro-copy { grid-area: intro; align-self: end; }
+.workspace-intro-copy .workspace-feature-name { color: var(--rio-gold); font-weight: 700; margin-bottom: 6px; }
+.workspace-intro-copy h2 { font-size: clamp(1.7rem, 2.7vw, 2.4rem); line-height: 1.2; margin: 0 0 16px; }
+.workspace-intro-copy p + p { margin-top: 10px; }
+.workspace-intro .guidance-crop { grid-area: photo; align-self: center; margin: 0; max-width: none; }
+.workspace-guide-action { grid-area: action; align-self: start; }
+@media (max-width: 800px) {
+    .workspace-intro { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "photo" "action"; }
+}
+#workspace-guide-caption { margin-top: 8px; color: var(--text-secondary); font-size: 0.9rem; }
 .guidance-crop { margin: 22px auto; max-width: 640px; }
 .guidance-crop img { display: block; max-width: 100%; height: auto; margin: auto; border: 1px solid var(--rio-border-subtle); border-radius: 5px; }
 

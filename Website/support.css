@@ -1,0 +1,50 @@
+.help-deck {
+    width: min(1060px, calc(100% - 32px));
+    margin: 32px auto;
+    padding: clamp(18px, 4vw, 48px);
+}
+.help-deck h1, .help-deck h2, .help-deck h3 { font-family: var(--font-warcraft); }
+.help-deck h1 { font-size: clamp(1.8rem, 4vw, 3rem); line-height: 1.15; }
+.help-deck h2 { font-size: 1.45rem; margin: 28px 0 12px; }
+.help-deck p { max-width: 72ch; margin: 12px 0; }
+.help-deck a:not(.btn) { color: var(--rio-gold-bright); text-decoration: underline; }
+.help-deck :focus-visible { outline: 2px solid var(--rio-gold); outline-offset: 3px; }
+.help-deck [hidden] { display: none; }
+.help-deck [id] { scroll-margin-top: 100px; }
+.help-heading label { display: block; margin: 20px 0 6px; font-weight: 700; }
+.help-heading input {
+    width: 100%;
+    padding: 12px 16px;
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--rio-bg);
+    border: 1px solid var(--rio-border-mid);
+    border-radius: var(--radius-sm);
+}
+.help-start, .topic-grid { display: grid; gap: 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.help-start { margin: 24px 0; }
+.help-start a, .topic-card, .help-community {
+    padding: 18px;
+    border: 1px solid var(--rio-border-mid);
+    background: var(--rio-surface-card);
+    border-radius: var(--radius-md);
+}
+.help-start a:hover, .help-start a:focus-visible { border-color: var(--rio-gold); }
+.help-start a:not(.btn) { border-left: 3px solid var(--rio-gold); text-decoration: none; }
+.help-start strong, .help-start span { display: block; }
+.help-start span, .help-article figcaption { color: var(--text-secondary); }
+.topic-card ul { list-style: none; margin: 10px 0 0; padding: 0; }
+.topic-card li + li { border-top: 1px solid var(--rio-border-subtle); }
+.topic-card a { display: block; padding: 8px 0; }
+.help-community { margin-top: 24px; }
+.help-community h2 { margin-top: 0; }
+.help-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.help-article { max-width: 850px; }
+.help-article h1 { margin-top: 18px; }
+.help-article ol, .help-article ul { padding-left: 1.5em; }
+.help-article li { padding: 5px 0; }
+.help-article figure { margin: 20px 0; }
+.help-article img { display: block; width: 100%; height: auto; margin-bottom: 8px; }
+@media (max-width: 650px) {
+    .help-start, .topic-grid { grid-template-columns: 1fr; }
+}
