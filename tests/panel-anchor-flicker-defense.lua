@@ -250,6 +250,7 @@ do
     assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
     assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
     assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
+    dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/OneForAll/Data.lua" })
     assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 
     addon.db.savedMainPositions.AddonList = { x = 1716, y = 896 }
@@ -445,6 +446,7 @@ do
     assert(loadfile("Core/CanvasMapPresentation.lua"))("Offhand", addon)
     assert(loadfile("Core/CanvasPanelLifecycle.lua"))("Offhand", addon)
     assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
+    dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/OneForAll/Data.lua" })
     assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
 
     addon.Canvas:EnableFreeDragging()

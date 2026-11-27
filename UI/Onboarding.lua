@@ -618,9 +618,11 @@ function Onboarding:CreateFrame()
         end
         if retryPlacement then text = L["ONBOARD_RELOAD_COMPLETE_PLACE"] .. "\n\n" .. text end
         if self.helpExpanded and method then text = text .. "\n\n" .. L["ONBOARD_PATH_" .. method .. "_4"] end
-        if needsSpan and Offhand.isForever and EllesmereUI
-            and type(EllesmereUI.ExportProfile) == "function" then
-            text = text .. "\n\n" .. L["ELLESMERE_HUD_BACKUP_BEFORE_SPAN"]
+        if needsSpan then
+            -- Bridges may add advice for this step (such as a profile backup).
+            local bridges = Offhand.Bridges
+            local note = bridges and bridges.GetSetupNotes and bridges:GetSetupNotes("before-span")
+            if note then text = text .. "\n\n" .. note end
         end
         self.pageBody:SetText(text)
         self.nextButton:SetEnabled(phase == 3 and ready and not combat)
@@ -818,11 +820,12 @@ function Onboarding:CreateFrame()
         elseif self.page == 4 then self.nextButton:SetText(L["ONBOARD_CONFIRM_PLACEMENT"])
         end
         if self.page == 6 then
-            local transfer = Offhand.EllesmereLayout
-            local ellesmereHelp = transfer and transfer.ShowPreview and transfer:IsAvailable()
-                and ("\n\n" .. L["ELLESMERE_HUD_SETUP_DESC"]) or ""
+            local transfer = Offhand.HUDTransfer
+            local transferKey = transfer and type(transfer.text) == "table" and transfer.text.setupDesc
+            local transferHelp = transfer and transfer.ShowPreview and transfer:IsAvailable()
+                and ("\n\n" .. (transferKey and L[transferKey] or "")) or ""
             self.pageBody:SetText(string.format(L[bodyKey], "|cffffd100" .. self.nextButton:GetText() .. "|r")
-                .. ellesmereHelp .. "\n\n" .. L["SETUP_FIRST_PANEL"])
+                .. transferHelp .. "\n\n" .. L["SETUP_FIRST_PANEL"])
         end
         local stateKey
         if self.page == 3 then

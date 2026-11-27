@@ -172,7 +172,7 @@ local function RestoreForeverNativeBubbleFont(externalOwner)
     if not ok or not file or not Positive(height) then return end
     -- This is startup recovery for old undersized Offhand experiments, not a
     -- recurring font policy. Other owners may intentionally choose any size.
-    -- Consume the startup check even while explicitly yielding to Ellesmere.
+    -- Consume the startup check even while explicitly yielding to another owner.
     foreverFontRecoveryComplete = true
     if externalOwner or height >= 10 then return end
     local savedHeight = Offhand.db
@@ -223,16 +223,12 @@ local function InInstance()
     return ok and inside == true and instanceType ~= "none"
 end
 
-local function EllesmereOwnsChatBubbles()
-    -- Compatibility-only, read-only ownership probe. Offhand does not call the
-    -- other addon's layout, refresh or mutation paths. A missing or changed
-    -- interface fails open; the native-child alpha gate below remains the
-    -- final authority before Offhand claims a bubble.
-    local eui = _G and _G.EllesmereUI
-    if not eui or type(eui.GetActiveProfileData) ~= "function" then return false end
-    local ok, profile = pcall(eui.GetActiveProfileData)
-    local config = ok and type(profile) == "table" and profile.chatBubbles or nil
-    return ok and type(config) == "table" and config.enabled == true
+-- The id of a bridge whose addon styles chat bubbles itself, or nil. A
+-- bridge's probe is read-only; the native-child alpha gate below remains the
+-- final authority before Offhand claims a bubble.
+local function ExternalChatBubbleOwner()
+    local bridges = Offhand.Bridges
+    return bridges and bridges.OwnsFeature and bridges:OwnsFeature("chatBubbles") or nil
 end
 
 local function ScheduleImmediateSweep()
@@ -250,8 +246,9 @@ local function ReplacementDecision()
     if not Offhand.db or Offhand.db.enabled ~= true then return false, "offhand-disabled" end
     if Offhand.db.speechBubbleCompensation == false then return false, "user-disabled" end
     if InInstance() then return false, "instance-native" end
-    if EllesmereOwnsChatBubbles() then
-        replacementConflict = "EllesmereUI"
+    local owner = ExternalChatBubbleOwner()
+    if owner then
+        replacementConflict = owner
         return false, "yielding"
     end
     if not Offhand.Viewport or type(Offhand.Viewport.GetMetrics) ~= "function" then
@@ -606,7 +603,7 @@ function Bubbles:ApplyLayout()
         -- Clean up every mutation made by earlier Beta 21 experiments before
         -- entering the replacement path. These are one-time ownership handbacks.
         RestoreTrackedBubbles()
-        RestoreForeverNativeBubbleFont(EllesmereOwnsChatBubbles())
+        RestoreForeverNativeBubbleFont(ExternalChatBubbleOwner())
         local replace, mode = ReplacementDecision()
         replacementMode = mode
         if replace then UpdateReplacements() else ReleaseAllReplacements() end
@@ -614,7 +611,7 @@ function Bubbles:ApplyLayout()
     end
 
     ReleaseAllReplacements()
-    if EllesmereOwnsChatBubbles() then
+    if ExternalChatBubbleOwner() then
         RestoreTrackedBubbles()
         RestoreInstanceFont()
         for frame in pairs(clampStates) do RestoreClamp(frame) end

@@ -8,6 +8,11 @@ local _, Offhand = ...
 local Compatibility = {}
 Offhand.MainhandCompatibility = Compatibility
 
+-- An external controller addon owns the protected controller HUD.
+local function HasExternalController()
+    return Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller") or false
+end
+
 -- Classic's default controls reference MainMenuBarArtFrame. Keep that entire
 -- native assembly together by relocating only its root, outside combat.
 -- No scripts, fields, parents, scale or visibility on native frames are changed.
@@ -46,7 +51,7 @@ function Compatibility.UpdateClassicNativeBar(metrics)
         and not Offhand.isRetail and not Offhand.isForever and not Offhand.isLegacyWrath
         and type(Offhand.HasBlizzardEditMode) == "function" and Offhand:HasBlizzardEditMode()
         and not Compatibility.IsNativeGamepadInterface()
-        and not _G.ConsolePort and not (Offhand.HasCustomActionBarAddon and Offhand.HasCustomActionBarAddon())
+        and not HasExternalController() and not (Offhand.HasCustomActionBarAddon and Offhand.HasCustomActionBarAddon())
         and _G.MainMenuBarArtFrame and root and main
         and not (root.IsForbidden and root:IsForbidden())
         and root.IsShown and root:IsShown()
@@ -148,7 +153,7 @@ function Compatibility.UpdateClassicRightContainer(metrics)
     end
     local eligible = not Offhand.isRetail and not Offhand.isForever and not Offhand.isLegacyWrath
         and Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect ~= false
-        and not _G.ConsolePort and not Compatibility.IsNativeGamepadInterface()
+        and not HasExternalController() and not Compatibility.IsNativeGamepadInterface()
         and metrics and metrics.isSpanned and tracker
         and not (tracker.IsForbidden and tracker:IsForbidden())
         and ((tracker.GetParent and tracker:GetParent() == root) or tracker.layoutParent == root)
@@ -234,7 +239,7 @@ function Offhand:GetForeverLayoutKeys(gamepad)
 end
 
 function Compatibility.IsControllerMode(presets)
-    if _G.ConsolePort or Compatibility.IsNativeGamepadInterface() then return true end
+    if HasExternalController() or Compatibility.IsNativeGamepadInterface() then return true end
     local gamepad = Enum and Enum.InputDeviceInterfaceType
         and Enum.InputDeviceInterfaceType.Gamepad
     return gamepad ~= nil and type(presets) == "table"
@@ -246,7 +251,7 @@ function Compatibility.ReadControllerPresetMode()
     local gamepad = Enum and Enum.InputDeviceInterfaceType
         and Enum.InputDeviceInterfaceType.Gamepad
     -- IsControllerMode cannot identify a controller preset without this enum.
-    -- Native Gamepad and ConsolePort checks already run before this adapter.
+    -- Native Gamepad and external controller checks already run before this adapter.
     -- Return that same false result without copying the unused presets.
     if gamepad == nil then return false end
     -- Forever's native preset manager has a stricter ownership boundary. Keep

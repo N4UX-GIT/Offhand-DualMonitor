@@ -48,6 +48,8 @@ local function press(key)
     if observer.scripts.OnUpdate then observer.scripts.OnUpdate(observer,0.06) end
 end
 assert(loadfile("Core/WorkspaceToggleKeys.lua"))("Offhand",addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ArkInventory/Bags.lua", "Bridges/Bagnon/Bags.lua",
+    "Bridges/BetterBags/Bags.lua" })
 local module=addon.WorkspaceToggleKeys
 module:Refresh(); assert(not owner and not next(overrides))
 addon.db.keepMapToggleOpen=true; module:Refresh()
@@ -68,7 +70,7 @@ addon.HasCustomBagAddon=function() return true end
 local bag=root(); bag.shown=true; addon.BagPersistence={frames={inventory=bag}};module:Refresh()
 press("SHIFT-B");assert(#dispatched==count,"replacement inventory")
 vendor.B="BETTERBAGS_TOGGLEBAGS"
-addon.BagPersistence.betterBags={Bags={Backpack={frame=bag}}}
+addon.API.GetBridgeNamespace("BetterBags").vendor={Bags={Backpack={frame=bag}}}
 addon.db.keepBagToggleOpen=false;module:Refresh()
 assert(GetBindingAction("B",true)=="BETTERBAGS_TOGGLEBAGS")
 addon.db.keepBagToggleOpen=true;module:Refresh()
@@ -121,7 +123,8 @@ end
 -- when keepBagToggleOpen is toggled off.
 local bridgeBag = root(); bridgeBag.shown = true
 addon.BagPersistence = { frames = {} }
-addon.Bridges = { IsBagOnWorkspace = function(_, fn) return fn(bridgeBag) end }
+addon.Bridges = { IsBagOnWorkspace = function(_, fn) return fn(bridgeBag) end,
+    HasRole = function() return false end }
 ContainerFrameCombinedBags.shown = false
 ContainerFrame1.shown = false
 WorldMapFrame.shown = true; WorldMapFrame.workspace = true
@@ -142,7 +145,8 @@ local vendorBag = root()
 local vendorRect = vendorBag.GetRect
 local scans = 0
 addon.BagPersistence = { frames = {}, Discover = function(_, scan) if scan then scans = scans + 1 end end,
-    GetVisibleBaganatorBackpack = function() return vendorBag.shown and vendorBag or nil end }
+    RoutesInventoryBindings = function() return Baganator ~= nil end,
+    GetVisibleBindingRoot = function() return vendorBag.shown and vendorBag or nil end }
 addon.db.keepBagToggleOpen = true
 addon.db.persistentWorkspacePanels = false
 module:Refresh()

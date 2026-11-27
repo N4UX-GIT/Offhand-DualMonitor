@@ -12,14 +12,11 @@ local Compatibility = assert(
     Offhand.CanvasCompatibility,
     "Offhand Canvas compatibility must load before Canvas"
 )
-local HasLeatrixMaps = Compatibility.HasLeatrixMaps
-local HasMoveAny = Compatibility.HasMoveAny
-local HasClassicUIForever = Compatibility.HasClassicUIForever
-local ShouldYieldFrameToClassicUIForever = Compatibility.ShouldYieldFrameToClassicUIForever
+local ShouldYieldFrameToExternalOwner = Compatibility.ShouldYieldFrameToExternalOwner
 local ShouldYieldNativeContainer = Compatibility.ShouldYieldNativeContainer
 local GetWorldMapExternalOwner = Compatibility.GetWorldMapExternalOwner
 local IsExternallyPositionedWorldMap = Compatibility.IsExternallyPositionedWorldMap
-local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
+local ShouldYieldWorldMap = Compatibility.ShouldYieldWorldMap
 local IsForeverProfessionsPanel = Compatibility.IsForeverProfessionsPanel
 local IsExperimentalForeverProfessionsMovementEnabled =
     Compatibility.IsExperimentalForeverProfessionsMovementEnabled
@@ -129,7 +126,6 @@ function Canvas:CreateFrames()
 end
 
 function Canvas:UpdateLayout()
-    if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
     if Offhand.Bridges then Offhand.Bridges:Refresh("layout") end
     if not rootCanvas then self:CreateFrames() end
 
@@ -137,8 +133,7 @@ function Canvas:UpdateLayout()
 
     if Offhand.isForever then
         Offhand.CanvasPanelPlacement.RefreshNativeMainhandOrigin(metrics,
-            Offhand.db.enabled and CanManagePanelsFromAddon() and not Compatibility.HasMoveAny()
-                and not Compatibility.HasClassicUIForever())
+            Offhand.db.enabled and CanManagePanelsFromAddon() and not Compatibility.HasPanelManagementOwner())
     end
 
     if not metrics.isSpanned or not Offhand.db.enabled then
@@ -187,29 +182,14 @@ function Canvas:UpdateLayout()
     self:UpdateMapMovementBehavior()
 end
 
--- Leatrix Maps configures Blizzard's player, cursor, and crosshair coordinate
--- labels before a live Companion span changes UIParent's effective scale. On
--- affected clients those font strings can retain their pre-span raster size
--- even though the World Map itself has the correct geometry; /reload fixes it
--- only because the labels are then configured after the final scale is known.
--- Refresh the known Blizzard coordinate labels when available, with a narrow
--- text/anchor fallback for older Leatrix releases that created their own
--- coordinate frames. Their font tuple and font object are preserved, and
--- Leatrix retains complete ownership of map scale, anchors, settings, scripts,
--- and saved variables.
+-- A World Map configuration owner's coordinate labels can keep their pre-span
+-- raster size after a live span; its provider refreshes them (see
+-- CanvasMapPresentation.InstallFonts). The owner keeps complete ownership of
+-- map scale, anchors, settings, scripts, and saved variables.
 assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before Canvas")
     .InstallFonts(Canvas, {
 
     })
-
-local function HasLeatrixPlus()
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded("Leatrix_Plus")
-    elseif IsAddOnLoaded then
-        return IsAddOnLoaded("Leatrix_Plus")
-    end
-    return false
-end
 
 local DemodalizePanel, RemodalizePanel, OnPanelDragStop, RestoreWorkspacePosition, IsFrameOnWorkspace
 local EvictWorkspacePanelSlot
@@ -220,18 +200,23 @@ local nonMovableSystemPanels
 -- Preserve the established Canvas API while the ownership policy lives in its
 -- dedicated compatibility module.
 function Canvas:ShouldYieldWorldMap(frameOrName)
-    return ShouldYieldWorldMapToMoveAny(frameOrName)
+    return ShouldYieldWorldMap(frameOrName)
 end
 
 function Canvas:GetCompatibilityDiagnostics(compact)
     local report = Compatibility.GetDiagnostics(
         compact,
-        self._lastLeatrixCoordinateFontRefreshCount
+        self._lastExternalCoordinateFontRefreshCount
     )
     local bridges = Offhand.Bridges and Offhand.Bridges:GetDiagnostics()
     if bridges then report = report .. " | " .. bridges end
-    local procDoc = Offhand.ProcDocCompatibility
-    if procDoc then report = report .. " | ProcDocCenter=" .. (procDoc.status or "inactive") end
+    -- Segments a bridge keeps at the very end of the report: " | label=value".
+    for _, segment in ipairs(Offhand.Bridges and Offhand.Bridges:GetDiagnosticSegments("compat.tail") or {}) do
+        if type(segment.value) == "function" then
+            local ok, value = pcall(segment.value)
+            report = report .. " | " .. segment.label .. "=" .. (ok and type(value) == "string" and value or "unavailable")
+        end
+    end
     return report
 end
 
@@ -239,7 +224,7 @@ local function IsUnsafeForDirectMutation(frame)
     if not frame then return true end
     local hudCompatibility = Offhand.HUDCompatibility
     if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame) then return true end
-    if ShouldYieldFrameToClassicUIForever(frame) then return true end
+    if ShouldYieldFrameToExternalOwner(frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame) then return true end
     if ShouldYieldForeverProfessionsPanel(frame) then return true end
     if frame.IsForbidden and frame:IsForbidden() then return true end
@@ -286,7 +271,7 @@ local function GetPanelController(frame, suppliedName)
     local name = suppliedName or (frame and frame.GetName and frame:GetName())
     if not Offhand.isForever then return "generic" end
     if name == "WorldMapFrame" or IsForeverWorldMap(frame) then
-        return ShouldYieldWorldMapToMoveAny(name or frame)
+        return ShouldYieldWorldMap(name or frame)
             and "external-world-map" or "forever-world-map"
     end
     if IsForeverProfessionsPanel(frame, name) then
@@ -372,14 +357,14 @@ local function IsUnsafeForPanelMutation(frame, name)
     if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
     local hudCompatibility = Offhand.HUDCompatibility
     if hudCompatibility and hudCompatibility.IsExternallyOwnedHUDFrame(frame, name) then return true end
-    if Offhand.isForever and Compatibility.IsForeverEllesmereBag(name or (frame.GetName and frame:GetName())) then
+    if Offhand.isForever and Compatibility.IsForeverSelfManagedBag(name or (frame.GetName and frame:GetName())) then
         return true
     end
     if Offhand.isForever and frame == _G.WorldMapFrame
         and not CanManagePanelsFromAddon() then return true end
-    if ShouldYieldFrameToClassicUIForever(frame, name) then return true end
+    if ShouldYieldFrameToExternalOwner(frame, name) then return true end
     if ShouldYieldNativeContainer(frame, name) then return true end
-    if ShouldYieldWorldMapToMoveAny(name or frame) then return true end
+    if ShouldYieldWorldMap(name or frame) then return true end
     if IsBlizzardEditModeOwnedFrame(frame, name) then return true end
     if ShouldYieldForeverProfessionsPanel(frame, name) then return true end
     if frame.IsForbidden and frame:IsForbidden() then return true end
@@ -562,8 +547,9 @@ local function IsBackpackRoot(name)
 end
 
 -- Only actual bag roots may request that bags reopen during persistent restore.
--- Baganator exposes many named child regions; treating its entire namespace as
--- a bag root lets stale child snapshots reopen Blizzard's backpack on login.
+-- Replacement bag addons can expose many named child regions; treating an
+-- entire namespace as a bag root lets stale child snapshots reopen Blizzard's
+-- backpack on login.
 local function IsRestorableBagRootName(name)
     return BackpackState.IsRestorableRootName(name)
 end
@@ -747,9 +733,9 @@ function Canvas:SetWorkspacePanelOpen(frameOrName, isOpen)
         end
         return false
     end
-    -- MoveAny owns the live map geometry, but Offhand still owns the user's
-    -- explicit request to reopen a saved workspace map after /reload.
-    if ShouldYieldWorldMapToMoveAny(name) and not IsExternallyPositionedWorldMap(name)
+    -- An external map owner owns the live map geometry, but Offhand still owns
+    -- the user's explicit request to reopen a saved workspace map after /reload.
+    if ShouldYieldWorldMap(name) and not IsExternallyPositionedWorldMap(name)
         and (name ~= "WorldMapFrame" or Offhand.isForever) then return false end
     if IsBackpackRoot(name) and not IsSpannedLayoutActive() then return false end
     if HasBlizzardEditMode() and IsForeverEditModeFrame(frameOrName, name) then
@@ -796,7 +782,6 @@ assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before
     })
 
 function Canvas:UpdatePersistenceBehavior()
-    if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
     if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
     if Offhand.Bridges then Offhand.Bridges:Refresh("persistence") end
     if Offhand.CanvasPanelLifecycle and Offhand.CanvasPanelLifecycle.UpdateTBCWorkspacePanelSlots then
@@ -808,7 +793,7 @@ function Canvas:UpdatePersistenceBehavior()
     -- opens, so native Escape behavior wins over persistent-open panels here.
     if Offhand.isForever then return end
     local shouldPersist = (Offhand.db.persistentWorkspacePanels ~= false)
-    if WorldMapFrame and not ShouldYieldFrameToClassicUIForever(WorldMapFrame) then
+    if WorldMapFrame and not ShouldYieldFrameToExternalOwner(WorldMapFrame) then
         local isWs = (Offhand.db.savedWorkspacePositions and Offhand.db.savedWorkspacePositions["WorldMapFrame"]) or IsFrameOnWorkspace(WorldMapFrame)
         if isWs and shouldPersist then
             UnregisterSpecialFrame("WorldMapFrame")
@@ -819,7 +804,7 @@ function Canvas:UpdatePersistenceBehavior()
     if Offhand.db.savedWorkspacePositions then
         for name, _ in pairs(Offhand.db.savedWorkspacePositions) do
             local frame = _G[name]
-            if frame and not ShouldYieldFrameToClassicUIForever(frame, name) then
+            if frame and not ShouldYieldFrameToExternalOwner(frame, name) then
                 if shouldPersist then
                     UnregisterSpecialFrame(name)
                 else
@@ -853,8 +838,8 @@ function Canvas:QueuePersistentPanelRestore(frame, name, delaySeconds)
     if not frame or not name or not C_Timer or not C_Timer.After then return false end
     if PanelRegistry.GetPositionRoot(frame) ~= frame then return false end
     if IsContextBoundPanel(name) then return false end
-    if ShouldYieldFrameToClassicUIForever(frame, name) then return false end
-    if ShouldYieldWorldMapToMoveAny(name) then return false end
+    if ShouldYieldFrameToExternalOwner(frame, name) then return false end
+    if ShouldYieldWorldMap(name) then return false end
     if IsForeverEditModeFrame(frame, name) then
         self:RelinquishForeverEditModeFrames(name)
         return false
@@ -975,7 +960,7 @@ local combatPanelLoadRequested = {}
 local function PrepareColdCombatPanels()
     local db = Offhand.db
     if not Offhand.isForever or not db.savedWorkspacePositions or not C_Timer or not C_Timer.After
-        or Compatibility.HasMoveAny() or Compatibility.HasClassicUIForever() then return end
+        or Compatibility.HasPanelManagementOwner() then return end
     for name, addonName in pairs(protectedCombatPanelAddons) do
         local position = db.savedWorkspacePositions[name]
         local openPanels = db.openWorkspacePanels
@@ -1100,7 +1085,7 @@ function Canvas:RestorePersistentFrames(mode)
     local genericRestoreIndex = 0
     for _, name in ipairs(savedNames) do
         local frame = _G[name]
-        if frame and ShouldYieldWorldMapToMoveAny(name) then
+        if frame and ShouldYieldWorldMap(name) then
             if canOpenPanels and name == "WorldMapFrame" and IsExternallyPositionedWorldMap(name)
                 and openPanels[name] and not IsContextBoundPanel(name) then
                 if not frame:IsShown() then
@@ -1181,11 +1166,11 @@ function Canvas:RestorePersistentFrames(mode)
         end
     end
     
-    -- Baganator has its own root-frame snapshot/restore path. The generic
-    -- prefix scan can see its still-shown child buttons while the bag is hidden.
-    -- Historical Baganator/EUI child snapshots must not resurrect the native
-    -- backpack on Forever. Only the explicit mode-independent native marker is
-    -- authoritative there.
+    -- A self-restoring bag addon has its own root-frame snapshot/restore path.
+    -- The generic prefix scan can see its still-shown child buttons while the
+    -- bag is hidden. Historical replacement-bag child snapshots must not
+    -- resurrect the native backpack on Forever. Only the explicit
+    -- mode-independent native marker is authoritative there.
     if Offhand.isForever then
         hasBag = IsNativeBackpackTrackedOpen() and not (Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon())
         if self.pendingSeparateBagIDs then
@@ -1203,7 +1188,8 @@ function Canvas:RestorePersistentFrames(mode)
         hasBag = false
         BackpackState.QueueTBCBagIDRestore(self, activeLockRestore and 0.10 or 1.5)
     end
-    if canOpenPanels and hasBag and not (Baganator and Offhand.BagPersistence)
+    if canOpenPanels and hasBag and not (Offhand.Bridges and Offhand.Bridges:HasRole("bags.selfRestoring")
+            and Offhand.BagPersistence)
         and (not activeLockRestore or not self.activeLockBagRestoreQueued) then
         if activeLockRestore then self.activeLockBagRestoreQueued = true end
         C_Timer.After(activeLockRestore and 0.10 or 1.5, function()
@@ -1214,7 +1200,7 @@ function Canvas:RestorePersistentFrames(mode)
             -- Combined Backpack mode may never create ContainerFrame1 during
             -- startup, which makes the general compatibility heuristic report
             -- a false custom-bag positive. An explicit saved native root wins.
-            local hasNativeCombinedSnapshot = not Compatibility.HasMoveMyBags()
+            local hasNativeCombinedSnapshot = not ShouldYieldNativeContainer("ContainerFrameCombinedBags")
                 and openPanels.ContainerFrameCombinedBags
                 and Offhand.db.savedWorkspacePositions.ContainerFrameCombinedBags
                 and _G.ContainerFrameCombinedBags
@@ -1228,7 +1214,7 @@ function Canvas:RestorePersistentFrames(mode)
                 -- their actual root frames before invoking it.
                 for k, v in pairs(_G) do
                     if type(k) == "string" and type(v) == "table" and type(rawget(v, 0)) == "userdata" then
-                        if k:match("^Baganator") or k:match("^Baginator") or k:match("^BGR") or k:match("^Bagnon") or k:match("^AdiBags") or k:match("^BetterBags") or k:match("^ArkInventory") or k:match("^ElvUI_ContainerFrame") then
+                        if Offhand.Bridges and Offhand.Bridges:MatchName("bagNamespace.openScan", k) then
                             local ok, isShown = pcall(function() return v:IsShown() end)
                             if ok and isShown then
                                 isAlreadyOpen = true
@@ -1388,8 +1374,8 @@ function Canvas:RestoreRegionScaledPanel(frame)
 end
 
 OnPanelDragStop = Persistence.InstallDrag(Canvas, {
-    ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
-    ShouldYieldWorldMapToMoveAny = function(...) return ShouldYieldWorldMapToMoveAny(...) end,
+    ShouldYieldFrameToExternalOwner = function(...) return ShouldYieldFrameToExternalOwner(...) end,
+    ShouldYieldWorldMap = function(...) return ShouldYieldWorldMap(...) end,
     IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
     IsExperimentalForeverProfessionsMovementEnabled = function(...) return IsExperimentalForeverProfessionsMovementEnabled(...) end,
     IsPersistentForeverProfessionsPanelName = function(...) return IsPersistentForeverProfessionsPanelName(...) end,
@@ -1485,8 +1471,8 @@ end
 
 Offhand.CanvasPanelPlacement.InstallMainhand(Canvas, {
     RemodalizePanel = function(...) return RemodalizePanel(...) end,
-    ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
-    ShouldYieldWorldMapToMoveAny = function(...) return ShouldYieldWorldMapToMoveAny(...) end,
+    ShouldYieldFrameToExternalOwner = function(...) return ShouldYieldFrameToExternalOwner(...) end,
+    ShouldYieldWorldMap = function(...) return ShouldYieldWorldMap(...) end,
     IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
     IsForeverEditModeFrame = function(...) return IsForeverEditModeFrame(...) end,
     IsWorldMapMaximized = function(...) return IsWorldMapMaximized(...) end,
@@ -1504,8 +1490,8 @@ Offhand.CanvasPanelPlacement.InstallMainhand(Canvas, {
 })
 
 RestoreWorkspacePosition = Persistence.InstallRestore(Canvas, {
-    ShouldYieldFrameToClassicUIForever = function(...) return ShouldYieldFrameToClassicUIForever(...) end,
-    ShouldYieldWorldMapToMoveAny = function(...) return ShouldYieldWorldMapToMoveAny(...) end,
+    ShouldYieldFrameToExternalOwner = function(...) return ShouldYieldFrameToExternalOwner(...) end,
+    ShouldYieldWorldMap = function(...) return ShouldYieldWorldMap(...) end,
     IsForeverProfessionsPanel = function(...) return IsForeverProfessionsPanel(...) end,
     IsExperimentalForeverProfessionsMovementEnabled = function(...) return IsExperimentalForeverProfessionsMovementEnabled(...) end,
     IsForeverEditModeFrame = function(...) return IsForeverEditModeFrame(...) end,
@@ -1597,7 +1583,8 @@ function Canvas:RepairShownWorkspacePanels(exceptFrame, skipBagCapture)
         repaired[name] = true
         local frame = _G[name]
         if frame and frame ~= exceptFrame and frame.IsShown and frame:IsShown()
-            and not IsPanelDragging(frame) and not frame.ofaMoving
+            and not IsPanelDragging(frame)
+            and not (Offhand.Bridges and Offhand.Bridges.IsExternallyMoving(frame))
             and GetPanelController(frame, name) == "generic"
             and not (isMainhand and IsBackpackRoot(name))
             and not IsUnsafeForPanelMutation(frame, name) then
@@ -1716,8 +1703,8 @@ local function RestoreSavedPositionAfterShow(frame)
         Offhand.SeamRedirect:LayoutBags()
         return
     end
-    if ShouldYieldFrameToClassicUIForever(frame, frameName) then return end
-    if ShouldYieldWorldMapToMoveAny(frameName or frame) then return end
+    if ShouldYieldFrameToExternalOwner(frame, frameName) then return end
+    if ShouldYieldWorldMap(frameName or frame) then return end
     if IsForeverEditModeFrame(frame, frameName) then
         Canvas:RelinquishForeverEditModeFrames(frameName)
         return
@@ -1826,11 +1813,12 @@ local function HookPanelCloseButton(frame, name)
     end)
 end
 
--- MoveAny can intentionally yield Retail's WorldMapFrame when another addon
--- has made it movable. If both addons then decline the live frame, Blizzard's
--- M/L toggle marks it shown without resolving any bounds. Bootstrap only that
--- anchorless state; once the frame has geometry, MoveAny remains its sole
--- scale, drag, and persistence owner.
+-- An external map owner whose map.owner entry sets bootstrapsAnchor can
+-- intentionally yield Retail's WorldMapFrame when another addon has made it
+-- movable. If both addons then decline the live frame, Blizzard's M/L toggle
+-- marks it shown without resolving any bounds. Bootstrap only that anchorless
+-- state; once the frame has geometry, that owner remains its sole scale, drag,
+-- and persistence owner.
 assert(Offhand.CanvasMapPresentation, "Offhand map presentation must load before Canvas")
     .InstallBootstrap(Canvas, {
         IsWorldMapMaximized = function(...) return IsWorldMapMaximized(...) end,
@@ -1893,8 +1881,8 @@ local HookKnownPanelAnchorResets = PanelMotion.HookKnownPanelAnchorResets
 local AttachGuardedForeverPanelMotion = PanelMotion.AttachGuardedForeverPanelMotion
 
 local MakePanelDraggable = Offhand.CanvasPanelMotion.InstallGenericDragging(Canvas, {
-    ShouldYieldFrameToClassicUIForever = ShouldYieldFrameToClassicUIForever,
-    ShouldYieldWorldMapToMoveAny = ShouldYieldWorldMapToMoveAny,
+    ShouldYieldFrameToExternalOwner = ShouldYieldFrameToExternalOwner,
+    ShouldYieldWorldMap = ShouldYieldWorldMap,
     IsForeverEditModeFrame = IsForeverEditModeFrame,
     IsForeverWorldMap = IsForeverWorldMap,
     SetPanelDragging = SetPanelDragging,
@@ -2069,8 +2057,8 @@ function Canvas:TryMakeFrameDraggable(frame)
     if not frame or not frame.GetName then return end
     if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
-    if ShouldYieldFrameToClassicUIForever(frame) then return end
-    if ShouldYieldWorldMapToMoveAny(frame) then return end
+    if ShouldYieldFrameToExternalOwner(frame) then return end
+    if ShouldYieldWorldMap(frame) then return end
     if IsForeverWorldMap(frame) then
         MakePanelDraggable(frame)
         return
@@ -2137,7 +2125,7 @@ function Canvas:EnableFreeDragging()
     if Offhand.isForever then InstallForeverOptionsOpeningObservers() end
     if Offhand.isForever and not CanManagePanelsFromAddon() then return end
     self:InitializePanelLoadTracking()
-    self:RelinquishClassicUIForeverFrames()
+    self:RelinquishExternalOwnerFrames()
     self:RelinquishForeverEditModeFrames()
     self:RelinquishForeverNativeBags()
     if not IsExperimentalForeverProfessionsMovementEnabled() then
@@ -2328,7 +2316,7 @@ function Canvas:EnableFreeDragging()
         local function SyncExplicitToggle(frame)
             if not frame or not C_Timer or not C_Timer.After then return end
             if PanelRegistry.GetPositionRoot(frame) ~= frame then return end
-            if ShouldYieldWorldMapToMoveAny(frame) then
+            if ShouldYieldWorldMap(frame) then
                 if Offhand.isForever then return end
                 Canvas:SetWorkspacePanelOpen(frame,
                     frame.IsShown and frame:IsShown() or false)
@@ -2569,8 +2557,8 @@ function Canvas:EnableFreeDragging()
     for _, name in ipairs(frameNames) do
         local frame = _G[name]
         if frame and not IsForeverEditModeFrame(frame, name)
-            and not ShouldYieldFrameToClassicUIForever(frame, name)
-            and not ShouldYieldWorldMapToMoveAny(frame) then
+            and not ShouldYieldFrameToExternalOwner(frame, name)
+            and not ShouldYieldWorldMap(frame) then
             local unsafe = IsUnsafeForPanelMutation(frame, name)
             if unsafe and name:match("^ContainerFrame") then
                 -- Protected native bags already implement title dragging. Only
@@ -2924,7 +2912,6 @@ function Offhand:InitializeCanvas()
         Canvas.foreverPositionTicker = C_Timer.NewTicker(0.5, function()
             if Offhand.Bridges then Offhand.Bridges:Refresh("tick") end
             if Offhand._displayGeometryTransitionActive then return end
-            if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:Refresh() end
             if Offhand.CanvasAddonEscape then Offhand.CanvasAddonEscape:Refresh() end
             if Offhand.LearnedAddonWindows then Offhand.LearnedAddonWindows:Refresh() end
             Canvas:RetryMissingExperimentalForeverProfessionsMovement()

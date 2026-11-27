@@ -1,8 +1,9 @@
 # Addon window compatibility catalog
 
-The [runtime catalog](../Core/AddonWindowCatalog.lua) starts with 23 providers
-on Forever (including full UI and bag suites whose HUD/mover modules stay under
-their own Edit Mode or dedicated Offhand adapters). Each entry describes a
+The [runtime catalog](../Core/AddonWindowCatalog.lua) is filled by the built-in
+[bridges](BRIDGES.md) and starts with 23 providers on Forever (including full UI
+and bag suites whose HUD/mover modules stay under their own Edit Mode or
+dedicated Offhand adapters). Each entry describes a
 specific window role under the addon's folder ID. Offhand's
 [settings and journal adapter](../Core/CanvasAddonEscape.lua) uses the catalog
 to select the existing opener observers and to check close policy after it

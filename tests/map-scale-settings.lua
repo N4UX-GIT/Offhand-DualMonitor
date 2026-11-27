@@ -18,6 +18,7 @@ local addon = {isForever=true, db={enabled=true,workspaceMapScale=1,mainMapScale
     Canvas={IsFrameOnWorkspace=function() return map.workspace end}}
 local applies = 0
 assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, {"Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua"})
 addon.CanvasCompatibility.GetWorldMapExternalOwner = function() return owner end
 function addon.Canvas:ConfigureWorldMap()
     applies = applies + 1

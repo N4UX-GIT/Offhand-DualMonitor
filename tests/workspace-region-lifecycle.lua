@@ -51,11 +51,12 @@ local function boot(db,topology,frameName)
     local services=setmetatable({WithWorkspace=function(m)return m end,
         IsFrameOnWorkspace=canvas.IsFrameOnWorkspace,
         IsUnsafeForPanelMutation=function()return env.unsafe==true end,
-        ShouldYieldFrameToClassicUIForever=function()return env.externalOwner==true end},
+        ShouldYieldFrameToExternalOwner=function()return env.externalOwner==true end},
         {__index=function()return function()return false end end})
     addon.CanvasPanelPlacement.InstallMainhand(canvas,services)
     canvas.RestoreWorkspacePosition=addon.CanvasPersistence.InstallRestore(canvas,services)
     canvas.OnPanelDragStop=addon.CanvasPersistence.InstallDrag(canvas,services)
+    load('Core/Bridges.lua');load('Bridges/Baganator/Data.lua')
     load('Core/BagPersistence.lua');addon.BagPersistence.frames[name]=frame;addon.BagPersistence.paused=false
     return addon,frame,env
 end

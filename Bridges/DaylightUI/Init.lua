@@ -4,6 +4,38 @@ local ns = shared
 if type(shared) == "table" and shared.API and shared.API.GetBridgeNamespace then
     ns = shared.API.GetBridgeNamespace("DaylightUI")
 end
+
+-- ---------------------------------------------------------------------
+-- Facts registered on every client, whether or not DaylightUI was there when
+-- this file loaded (formerly in Offhand's core): the Spellbook and Trainer
+-- panels DaylightUI lends back for some views count as parked while their
+-- parent is one of its follower holders (Forever only, read live on every
+-- check, so a DaylightUI the bridge below did not see is still answered);
+-- the reason Offhand reports for them; and DaylightUI's own book and NPC
+-- windows in the panel placement diagnostics.
+-- ---------------------------------------------------------------------
+
+local function IsFollowerParkedPanel(frame)
+    local win = _G.DaylightUI and _G.DaylightUI.Win
+    local followers = win and win.Followers
+    if not followers or not frame.GetParent or (frame.IsForbidden and frame:IsForbidden()) then return false end
+    local parent = frame:GetParent()
+    return parent ~= nil and (parent == followers.aside or parent == followers.hidden or parent == followers.veil)
+end
+
+if type(shared) == "table" and type(shared.API) == "table" and type(shared.API.RegisterAddonData) == "function" then
+    shared.API.RegisterAddonData("DaylightUI", {
+        parkedReason = "daylight-parked",
+        frameRules = {
+            parkedNativePanel = {
+                { identity = { "PlayerSpellsFrame", "ClassTrainerFrame" }, when = { forever = true },
+                    verify = IsFollowerParkedPanel },
+            },
+            diagnosticFrame = { "DaylightUIBook", "DaylightUINpc" },
+        },
+    })
+end
+
 if type(ns) ~= "table" or not ns.active then return end
 
 -- ---------------------------------------------------------------------

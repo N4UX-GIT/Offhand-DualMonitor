@@ -72,36 +72,37 @@ function Compatibility.IsAddonLoaded(addonName)
     return false
 end
 
-function Compatibility.HasLeatrixMaps()
-    if C_AddOns and C_AddOns.IsAddOnLoaded then
-        return C_AddOns.IsAddOnLoaded("Leatrix_Maps")
-    elseif IsAddOnLoaded then
-        return IsAddOnLoaded("Leatrix_Maps")
-    end
-    return false
+local function HasRole(role)
+    local bridges = Offhand.Bridges
+    return bridges ~= nil and bridges:HasRole(role)
 end
 
--- MoveAny registers and manages WorldMapFrame on every supported modern client.
--- Canvas must leave scale, anchor, persistence, drag, and post-toggle behavior
--- to a single owner while retaining dormant Offhand coordinates.
-function Compatibility.HasMoveAny()
-    return _G.MoveAny ~= nil or _G.MoveAnything ~= nil
-        or Compatibility.IsAddonLoaded("MoveAny")
-        or Compatibility.IsAddonLoaded("MoveAnything")
+-- An addon that owns the World Map's own configuration (scale, anchors,
+-- scripts and settings) keeps Offhand's map configuration and cursor
+-- conversion away (role map.configurationOwner).
+function Compatibility.HasWorldMapConfigurationOwner()
+    return HasRole("map.configurationOwner")
 end
 
-function Compatibility.HasClassicUIForever()
-    return Compatibility.IsAddonLoaded("ClassicUIForever")
+-- An addon that manages the native panels themselves (role
+-- map.blocksPanelManagement) keeps Offhand's native panel origin, cold combat
+-- panel loading, combat clamps and combat anchor repair away. Canvas leaves
+-- scale, anchor, persistence, drag, and post-toggle behavior to a single
+-- owner while retaining dormant Offhand coordinates.
+function Compatibility.HasPanelManagementOwner()
+    return HasRole("map.blocksPanelManagement")
 end
 
--- MoveMyBags moves Blizzard's native ContainerFrame windows directly and puts
--- any bag into permanent standby if another addon attaches OnDragStart first.
--- Yield drag, persistence, layout, and recovery for all native containers while
--- MoveMyBags is active while retaining dormant Offhand coordinates.
-function Compatibility.HasMoveMyBags()
-    return Compatibility.IsAddonLoaded("MoveMyBags") or rawget(_G, "MoveMyBags") ~= nil
+-- Role map.blocksSlotRepair: an addon whose panel movement replaces Offhand's
+-- default native slot repair.
+function Compatibility.HasPanelSlotRepairOwner()
+    return HasRole("map.blocksSlotRepair")
 end
 
+-- An addon that moves Blizzard's native ContainerFrame windows directly can
+-- need every native container left to it (rule yieldNativeContainer). Yield
+-- drag, persistence, layout, and recovery for those containers while retaining
+-- dormant Offhand coordinates.
 function Compatibility.ShouldYieldNativeContainer(frameOrName, suppliedName)
     local name = suppliedName
         or (type(frameOrName) == "string" and frameOrName)
@@ -110,47 +111,65 @@ function Compatibility.ShouldYieldNativeContainer(frameOrName, suppliedName)
     if name ~= "ContainerFrameCombinedBags" and not name:match("^ContainerFrame%d+$") then
         return false
     end
-    if Compatibility.HasMoveMyBags() then return true end
-    return type(frameOrName) == "table" and rawget(frameOrName, "moveMyBags") ~= nil
+    local bridges = Offhand.Bridges
+    return bridges ~= nil and bridges:MatchFrame("yieldNativeContainer",
+        type(frameOrName) == "table" and frameOrName or nil, name)
 end
 
-function Compatibility.IsForeverEllesmereBag(name)
-    return Offhand.isForever
-        and (name == "EUI_MainBagFrame" or name == "EUI_ReagentBagFrame" or name == "EUI_BagsWindowFrame")
+-- A bag addon whose roots own their visibility, layout and Escape proxy on
+-- Forever (rule selfManagedBag): the generic panel passes leave them alone.
+function Compatibility.IsForeverSelfManagedBag(name)
+    local bridges = Offhand.Bridges
+    return Offhand.isForever and bridges ~= nil and bridges:MatchName("selfManagedBag", name)
 end
 
--- ClassicUI Forever has its own persistent movement for these native frames.
--- The addon name is independent of Offhand.isForever, which identifies a
--- client family rather than a frame owner.
-function Compatibility.ShouldYieldFrameToClassicUIForever(frameOrName, suppliedName)
-    if not Compatibility.HasClassicUIForever() then return false end
+-- An addon with its own persistent movement for some native frames (role
+-- panels.externalOwner, the first present owner's frames list) keeps them.
+-- The owner is independent of Offhand.isForever, which identifies a client
+-- family rather than a frame owner.
+function Compatibility.ShouldYieldFrameToExternalOwner(frameOrName, suppliedName)
+    local bridges = Offhand.Bridges
+    if not bridges then return false end
+    local _, owner = bridges:FirstRoleOwner("panels.externalOwner")
+    if not owner or type(owner.frames) ~= "table" then return false end
     local name = suppliedName
         or (type(frameOrName) == "string" and frameOrName)
         or (frameOrName and frameOrName.GetName and frameOrName:GetName())
-    return name == "WorldMapFrame" or name == "CharacterFrame"
+    for _, frameName in ipairs(owner.frames) do
+        if name == frameName then return true end
+    end
+    return false
 end
 
-function Compatibility.GetWorldMapExternalOwner()
-    if Compatibility.HasMoveAny() then return "MoveAny" end
-    if Compatibility.HasClassicUIForever() then return "ClassicUIForever" end
-    -- OpenMap restores its private anchor and scale after native writes. Keep
-    -- it ahead of Leatrix so diagnostics identify the active geometry owner
-    -- when both addons are loaded.
-    if Compatibility.IsAddonLoaded("OpenMap") then return "OpenMap" end
-    if Compatibility.HasLeatrixMaps() then return "LeatrixMaps" end
-    return nil
+-- The names of the frames that owner keeps, in its order, or nil when no
+-- such owner is present.
+function Compatibility.GetExternalOwnerFrames()
+    local bridges = Offhand.Bridges
+    if not bridges then return nil end
+    local _, owner = bridges:FirstRoleOwner("panels.externalOwner")
+    if not owner or type(owner.frames) ~= "table" then return nil end
+    return owner.frames
 end
+
+-- The World Map's geometry owner: the first present owner of role map.owner
+-- in its fixed order, or nil when Offhand owns the map.
+function Compatibility.GetWorldMapExternalOwner()
+    local bridges = Offhand.Bridges
+    return bridges and bridges:FirstRoleOwner("map.owner") or nil
+end
+
+-- Facts the map.owner entry of owner declares (positionsMap,
+-- escapeProtection, bootstrapsAnchor, label), or nil.
+local function MapOwnerFacts(owner)
+    local bridges = Offhand.Bridges
+    return owner ~= nil and bridges and bridges:GetRoleEntry("map.owner", owner) or nil
+end
+Compatibility.GetWorldMapOwnerFacts = MapOwnerFacts
 
 function Compatibility.GetWorldMapFadeAddon()
-    if Compatibility.IsAddonLoaded("OpenMap") then return "OpenMap" end
-    if Compatibility.IsAddonLoaded("MapUtils") then return "MapUtils" end
-    if Compatibility.IsAddonLoaded("MapWise") then return "MapWise" end
-    if Compatibility.HasLeatrixMaps() then return "Leatrix_Maps" end
+    local bridges = Offhand.Bridges
+    return bridges and bridges:FirstRoleOwner("map.fade") or nil
 end
-
-local mapAddons = {"OpenMap", "MapWise", "MapUtils", "Leatrix_Maps",
-    "BlizzMove", "MoveAny", "MoveAnything", "ClassicUIForever"}
-local mapVersionNamespaces = {OpenMap = "OpenMap", MapWise = "MapWiseAPI"}
 
 local function DiagnosticVersion(value)
     if type(value) ~= "string" or (issecretvalue and issecretvalue(value)) then return end
@@ -158,14 +177,26 @@ local function DiagnosticVersion(value)
     if version ~= "" then return version:sub(1, 64) end
 end
 
+-- Map addons come from role map.integration in its fixed order (present or
+-- not; each is reported only while loaded), then from the bridges' mapAddons.
+-- An entry's versionNamespace names a global table whose version field wins
+-- over the addon's metadata.
 function Compatibility.GetMapIntegrationDiagnostics()
     local getMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local bridges = Offhand.Bridges
+    local integrations = bridges and bridges:GetRoleEntries("map.integration") or {}
+    local versionNamespaces = {}
+    for _, entry in ipairs(integrations) do
+        if versionNamespaces[entry.name] == nil and type(entry.versionNamespace) == "string" then
+            versionNamespaces[entry.name] = entry.versionNamespace
+        end
+    end
     local detected, seen = {}, {}
     local function Report(name)
         if seen[name] then return end
         seen[name] = true
         if Compatibility.IsAddonLoaded(name) then
-            local namespaceName = mapVersionNamespaces[name]
+            local namespaceName = versionNamespaces[name]
             local namespace = namespaceName and rawget(_G, namespaceName)
             local version
             if type(namespace) == "table" then version = DiagnosticVersion(rawget(namespace, "version")) end
@@ -176,78 +207,9 @@ function Compatibility.GetMapIntegrationDiagnostics()
             detected[#detected + 1] = name .. "=" .. (version or "unknown version")
         end
     end
-    for _, name in ipairs(mapAddons) do Report(name) end
-    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetMapAddons() or {}) do Report(name) end
+    for _, entry in ipairs(integrations) do Report(entry.name) end
+    for _, name in ipairs(bridges and bridges:GetMapAddons() or {}) do Report(name) end
     return #detected > 0 and table.concat(detected, " | ") or "none detected"
-end
-
-local function IsFiniteNumber(value)
-    if type(issecretvalue) == "function" then
-        local ok, secret = pcall(issecretvalue, value)
-        if not ok or secret then return false end
-    end
-    return type(value) == "number" and value == value and math.abs(value) < math.huge
-end
-
-local function ValidOpenMapWindowSchema(db, requireWindowFields)
-    if type(db) ~= "table" then return false end
-    if db.windowScale ~= nil or requireWindowFields then
-        if not IsFiniteNumber(db.windowScale) or db.windowScale <= 0 then return false end
-    end
-    local win = db.window
-    if win ~= nil and win ~= false then
-        if type(win) ~= "table" or type(win[1]) ~= "string" or type(win[2]) ~= "string"
-            or not IsFiniteNumber(win[3]) or not IsFiniteNumber(win[4]) then
-            return false
-        end
-    end
-    local size = db.windowSize
-    if size ~= nil and size ~= false then
-        if type(size) ~= "table" or not IsFiniteNumber(size[1]) or not IsFiniteNumber(size[2])
-            or size[1] <= 0 or size[2] <= 0 then
-            return false
-        end
-    end
-    return true
-end
-
--- Read-only contract check (safe for diagnostics; never calls GetModule).
--- Uses OpenMapAPI.major == 1 (OpenMap's documented semver boundary) and
--- version >= 4 plus runtime OpenMapDB.worldmap schema validation instead of
--- pinning exact patch strings.
-function Compatibility.InspectOpenMapContract()
-    local namespace, api = _G.OpenMap, _G.OpenMapAPI
-    if type(namespace) ~= "table" or type(namespace.GetModule) ~= "function"
-        or type(api) ~= "table" then return "absent" end
-    if api.major ~= 1 then return "unsupported-major" end
-    if type(api.version) ~= "number" or api.version < 4 then return "unsupported-api" end
-    local db = type(_G.OpenMapDB) == "table" and _G.OpenMapDB.worldmap
-    if type(db) ~= "table" then return "schema-mismatch" end
-    if db.enabled == false then return "disabled" end
-    if not ValidOpenMapWindowSchema(db) then return "schema-mismatch" end
-    return "ok"
-end
-
-function Compatibility.GetOpenMapWorldMapModule()
-    if Compatibility.InspectOpenMapContract() ~= "ok" then return end
-    local namespace = _G.OpenMap
-    local ok, module = pcall(namespace.GetModule, namespace, "worldmap")
-    local db = ok and type(module) == "table" and module.db
-    if type(db) ~= "table" or db.enabled == false or db ~= _G.OpenMapDB.worldmap
-        or not ValidOpenMapWindowSchema(db) then return end
-    return module, db
-end
-
--- Placement and expanded-map recovery require the stitched map; windowScale
--- itself applies to every windowed OpenMap view (allowUnstitched = true).
-function Compatibility.GetOpenMapWindowModule(allowUnstitched)
-    if not Offhand.isForever or Compatibility.GetWorldMapExternalOwner() ~= "OpenMap" then return end
-    local module, db = Compatibility.GetOpenMapWorldMapModule()
-    local api = _G.OpenMapAPI
-    if not module or not ValidOpenMapWindowSchema(db, true) then return end
-    if not allowUnstitched and (type(api.IsStitched) ~= "function" or not api.IsStitched()) then return end
-    if type(module.MoveAnyOn) == "function" and module.MoveAnyOn() then return end
-    return module, db
 end
 
 local function IsWorldMapFrame(frameOrName)
@@ -255,15 +217,19 @@ local function IsWorldMapFrame(frameOrName)
     return frameOrName ~= nil and frameOrName == _G.WorldMapFrame
 end
 
+-- The owner positions the map itself (its map.owner entry's positionsMap).
 function Compatibility.IsExternallyPositionedWorldMap(frameOrName)
-    local owner = Compatibility.GetWorldMapExternalOwner()
-    return (owner == "LeatrixMaps" or owner == "OpenMap") and IsWorldMapFrame(frameOrName)
+    local facts = MapOwnerFacts(Compatibility.GetWorldMapExternalOwner())
+    return (facts ~= nil and facts.positionsMap == true) and IsWorldMapFrame(frameOrName)
 end
 
+-- The owner keeps Offhand's Escape protection for the map: escapeProtection
+-- true, or "forever" on the Forever client only, where such an owner keeps
+-- the map's placement and reopening.
 function Compatibility.SupportsExternalWorldMapEscapeProtection(frameOrName)
-    local owner = Compatibility.GetWorldMapExternalOwner()
-    -- MoveAny continues to own the map's placement and reopening on Forever.
-    return (owner == "LeatrixMaps" or owner == "OpenMap" or (Offhand.isForever and owner == "MoveAny"))
+    local facts = MapOwnerFacts(Compatibility.GetWorldMapExternalOwner())
+    local protection = facts and facts.escapeProtection
+    return (protection == true or (Offhand.isForever and protection == "forever"))
         and IsWorldMapFrame(frameOrName)
 end
 
@@ -302,86 +268,46 @@ function Compatibility.GetTBCSpellbookDiagnostics()
     return " | Spellbook=" .. (ok and report or "unresolved")
 end
 
+-- The owner's display label (its map.owner entry's label), else its name.
 local function FormatMapOwnerLabel(owner)
-    if owner == "LeatrixMaps" then return "Leatrix Maps" end
-    if owner == "ClassicUIForever" then return "ClassicUI Forever" end
+    local facts = MapOwnerFacts(owner)
+    if facts and type(facts.label) == "string" then return facts.label end
     return owner
 end
 
-local function IsOneForAllMoveWindowsDisabled()
-    local db = rawget(_G, "OneForAllDB")
-    local qol = type(db) == "table" and rawget(db, "qol")
-    return type(qol) == "table" and qol.moveWindows == false
-end
-
-local function IsOneForAllMovingFrame(frameName)
-    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
-        return false
-    end
-    local frame = rawget(_G, frameName)
-    return type(frame) == "table" and frame.ofaMovable == true
-end
-
-local function IsOneForAllMovingWorldMap()
-    return IsOneForAllMovingFrame("WorldMapFrame")
-end
-
-local oneForAllDiagnosticFrameNames = {
-    "WorldMapFrame", "ContainerFrameCombinedBags", "SettingsPanel",
-    "CooldownViewerSettings", "AddonList", "MerchantFrame", "CharacterFrame",
-    "PlayerSpellsFrame", "GameMenuFrame",
-}
-
-local function IsOneForAllMovingAnyWindow()
-    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
-        return false
-    end
-    for _, frameName in ipairs(oneForAllDiagnosticFrameNames) do
-        if IsOneForAllMovingFrame(frameName) then return true end
-    end
-    return false
-end
-
-local function GetOneForAllUnmitigatedMoverTargets(mapOwner, bagOwners)
-    if not Compatibility.IsAddonLoaded("OneForAll") or IsOneForAllMoveWindowsDisabled() then
-        return nil
-    end
-    local targets = {}
-    if not mapOwner and IsOneForAllMovingFrame("WorldMapFrame") then
-        targets[#targets + 1] = "WorldMapFrame"
-    end
-    if (#bagOwners == 0) and IsOneForAllMovingFrame("ContainerFrameCombinedBags") then
-        targets[#targets + 1] = "ContainerFrameCombinedBags"
-    end
-    if Offhand.isForever then
-        if IsOneForAllMovingFrame("SettingsPanel") then
-            targets[#targets + 1] = "SettingsPanel"
+-- " | "-separable "label=text" parts of a diagnostics slot, in order. A
+-- segment with a detector shows text (default "loaded") while it passes,
+-- else its absent text, and is skipped when it has none; a value function is
+-- called with ... in pcall ("unavailable" when it fails or is not a string).
+local function DiagnosticParts(parts, slot, ...)
+    local bridges = Offhand.Bridges
+    if not bridges then return parts end
+    local entries, present = bridges:GetDiagnosticSegments(slot)
+    for index, entry in ipairs(entries) do
+        local text
+        if entry.detect ~= nil and not present[index] then
+            text = entry.absent
+        elseif type(entry.value) == "function" then
+            local ok, value = pcall(entry.value, ...)
+            text = ok and type(value) == "string" and value or "unavailable"
+        else
+            text = entry.text or "loaded"
         end
-        if IsOneForAllMovingFrame("CooldownViewerSettings") then
-            targets[#targets + 1] = "CooldownViewerSettings"
-        end
+        if type(text) == "string" then parts[#parts + 1] = entry.label .. "=" .. text end
     end
-    return #targets > 0 and targets or nil
+    return parts
 end
 
-local function IsElvUIBagsActive()
-    local elv = rawget(_G, "ElvUI")
-    if elv == nil then return false end
-    if rawget(_G, "ElvUI_ContainerFrame") ~= nil then return true end
-    local core = type(elv) == "table" and elv[1]
-    local bags = type(core) == "table" and type(core.private) == "table" and core.private.bags
-    return type(bags) == "table" and bags.enable == true
+-- A report.bags owner whose entry says yieldsToNativeGamepad is left out on
+-- Forever while the native Gamepad interface is in use.
+local function AcceptsBagOwner(entry)
+    return not (entry.yieldsToNativeGamepad and Offhand.isForever and Offhand.HUDCompatibility
+        and Offhand.HUDCompatibility.UsesNativeGamepadInterface
+        and Offhand.HUDCompatibility.UsesNativeGamepadInterface())
 end
 
-local function IsTukuiBagsActive()
-    local tuk = rawget(_G, "Tukui")
-    if tuk == nil then return false end
-    if rawget(_G, "TukuiBag") ~= nil then return true end
-    local cfg = type(tuk) == "table" and tuk[2]
-    local bags = type(cfg) == "table" and cfg.Bags
-    return type(bags) == "table" and bags.Enable == true
-end
-
+-- Replacement bag owners: role report.bags in its fixed order (the order is
+-- part of the bags-conflict id), then a bridge's live replacement bag.
 function Compatibility.GetActiveBagOwners()
     local owners, seen = {}, {}
     local function Add(name)
@@ -390,26 +316,24 @@ function Compatibility.GetActiveBagOwners()
             owners[#owners + 1] = name
         end
     end
-    if Compatibility.IsAddonLoaded("EllesmereUIBags")
-        and not (Offhand.isForever and Offhand.HUDCompatibility
-            and Offhand.HUDCompatibility.UsesNativeGamepadInterface
-            and Offhand.HUDCompatibility.UsesNativeGamepadInterface()) then
-        Add("EllesmereUIBags")
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRoleOwners("report.bags", AcceptsBagOwner) or {}) do
+        Add(name)
     end
-    for _, candidate in ipairs({"MoveMyBags", "Baganator", "Bagnon", "ArkInventory", "BetterBags", "Bagnaros", "AdiBags", "Inventorian"}) do
-        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
-            Add(candidate)
-        end
-    end
-    if Offhand.HUDCompatibility and Offhand.HUDCompatibility.GetBagSmithParkingParent
-        and Offhand.HUDCompatibility.GetBagSmithParkingParent() then
-        Add("BagSmith")
-    end
-    if IsElvUIBagsActive() then Add("ElvUI") end
-    if IsTukuiBagsActive() then Add("Tukui") end
     if Offhand.Bridges and Offhand.Bridges.HasCustomBag then
         local hasBridgeBag, bridgeId = Offhand.Bridges:HasCustomBag()
         if hasBridgeBag and bridgeId then Add(bridgeId) end
+    end
+    return owners
+end
+
+-- Present owners of a report role in role order, each name once.
+local function ReportOwners(role)
+    local owners, seen = {}, {}
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRoleOwners(role) or {}) do
+        if not seen[name] then
+            seen[name] = true
+            owners[#owners + 1] = name
+        end
     end
     return owners
 end
@@ -420,76 +344,23 @@ function Compatibility.GetActiveExternalOwners()
     if mapOwner then owners.map = FormatMapOwnerLabel(mapOwner) end
     local bags = Compatibility.GetActiveBagOwners()
     if #bags > 0 then owners.bags = bags end
-    local chat = {}
-    if Compatibility.IsAddonLoaded("Chattynator") then chat[#chat + 1] = "Chattynator" end
-    if Compatibility.IsAddonLoaded("EllesmereUIChat") then chat[#chat + 1] = "EllesmereUIChat" end
+    local chat = ReportOwners("report.chat")
     if #chat > 0 then owners.chat = chat end
-    local minimap
-    if Compatibility.IsAddonLoaded("EllesmereUIMinimap") then minimap = "EllesmereUIMinimap"
-    elseif rawget(_G, "SexyMap") ~= nil then minimap = "SexyMap"
-    elseif rawget(_G, "Carbonite") ~= nil then minimap = "Carbonite"
-    elseif rawget(_G, "ElvUI") ~= nil then minimap = "ElvUI" end
+    local minimap = Offhand.Bridges and Offhand.Bridges:FirstRoleOwner("report.minimap")
     if minimap then owners.minimap = minimap end
-
-    local unitFrames, seenUF = {}, {}
-    local function AddUF(name)
-        if name and not seenUF[name] then
-            seenUF[name] = true
-            unitFrames[#unitFrames + 1] = name
-        end
-    end
-    if Compatibility.IsAddonLoaded("ShadowedUnitFrames") or rawget(_G, "ShadowUF") ~= nil then
-        AddUF("ShadowedUnitFrames")
-    end
-    if Compatibility.IsAddonLoaded("EllesmereUIUnitFrames") then AddUF("EllesmereUIUnitFrames") end
-    if rawget(_G, "ElvUF_Player") ~= nil or Compatibility.IsAddonLoaded("ElvUI") and rawget(_G, "ElvUI") ~= nil then
-        local elv = rawget(_G, "ElvUI")
-        local core = type(elv) == "table" and elv[1]
-        local uf = type(core) == "table" and type(core.private) == "table" and core.private.unitframe
-        if rawget(_G, "ElvUF_Player") ~= nil or (type(uf) == "table" and uf.enable == true) then
-            AddUF("ElvUI")
-        end
-    end
-    if rawget(_G, "TukuiPlayerFrame") ~= nil or rawget(_G, "TukuiUnitFrames") ~= nil then AddUF("Tukui") end
-    for _, candidate in ipairs({"Cell", "PitBull4", "ZPerl", "XPerl"}) do
-        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
-            AddUF(candidate)
-        end
-    end
+    local unitFrames = ReportOwners("report.unitFrames")
     if #unitFrames > 0 then owners.unitFrames = unitFrames end
-
-    local actionBars, seenAB = {}, {}
-    local function AddAB(name)
-        if name and not seenAB[name] then
-            seenAB[name] = true
-            actionBars[#actionBars + 1] = name
-        end
-    end
-    for _, candidate in ipairs({"Bartender4", "Dominos", "EllesmereUIActionBars", "ConsolePort"}) do
-        if Compatibility.IsAddonLoaded(candidate) or rawget(_G, candidate) ~= nil then
-            AddAB(candidate)
-        end
-    end
-    if rawget(_G, "ElvUI_Bar1") ~= nil then AddAB("ElvUI") end
-    if rawget(_G, "TukuiActionBars") ~= nil then AddAB("Tukui") end
+    local actionBars = ReportOwners("report.actionBars")
     if #actionBars > 0 then owners.actionBars = actionBars end
-
-    local movers, seenMover = {}, {}
-    local function AddMover(name)
-        if name and not seenMover[name] then
-            seenMover[name] = true
-            movers[#movers + 1] = name
-        end
-    end
-    if Compatibility.HasMoveAny() then AddMover("MoveAny") end
-    if Compatibility.IsAddonLoaded("BlizzMove") or rawget(_G, "BlizzMove") ~= nil then AddMover("BlizzMove") end
-    if Compatibility.IsAddonLoaded("MoveMyBags") or rawget(_G, "MoveMyBags") ~= nil then AddMover("MoveMyBags") end
+    local movers = ReportOwners("report.movers")
     if #movers > 0 then owners.movers = movers end
     return owners
 end
 
 -- Actionable guidance for external addons that legitimately own specific HUD or
 -- UI frames (never treated as chat-spam conflicts, surfaced in Options/diag).
+-- Each bridge guidance entry is shown when any owner its when table names
+-- ({ [ownersList] = name }) is in that list of GetActiveExternalOwners.
 function Compatibility.GetExternalControlGuidance()
     local L = Offhand.L or {}
     local owners = Compatibility.GetActiveExternalOwners()
@@ -500,106 +371,79 @@ function Compatibility.GetExternalControlGuidance()
             guidance[#guidance + 1] = { id = id, addon = addon, text = text }
         end
     end
-    local hasUF = {}
-    for _, name in ipairs(owners.unitFrames or {}) do hasUF[name] = true end
-    local hasAB = {}
-    for _, name in ipairs(owners.actionBars or {}) do hasAB[name] = true end
-    local hasMover = {}
-    for _, name in ipairs(owners.movers or {}) do hasMover[name] = true end
-
-    if hasUF.ShadowedUnitFrames then
-        Add("suf", "ShadowedUnitFrames", L["COMPAT_GUIDE_SUF"]
-            or "Shadowed Unit Frames controls Player/Target/Focus frames. Move them with /suf, or disable Shadowed Unit Frames (or specific unit modules) to move them in Blizzard Edit Mode.")
-    end
-    if hasMover.MoveAny then
-        Add("moveany", "MoveAny", L["COMPAT_GUIDE_MOVEANY"]
-            or "MoveAny controls frame movement. Move or unlock frames with /move, or disable an element in MoveAny to let Blizzard Edit Mode or Offhand move it.")
-    end
-    if hasMover.MoveMyBags then
-        local mmbText = L["COMPAT_GUIDE_MOVEMYBAGS"]
-            or "MoveMyBags controls Blizzard bag positions. Drag or reset bags with /movemybags reset, or disable MoveMyBags to let Offhand manage bag placement."
-        local mmbDB = rawget(_G, "MoveMyBagsDB")
-        if Offhand.isForever and (type(mmbDB) ~= "table" or mmbDB.layers ~= false) then
-            local layersTip = L["COMPAT_GUIDE_MOVEMYBAGS_LAYERS"]
-                or "If a reagent or specialty bag turns grey while dragging, uncheck 'Keep the window you are using in front' in Options > AddOns > MoveMyBags."
-            mmbText = mmbText .. " " .. layersTip
-        end
-        Add("movemybags", "MoveMyBags", mmbText)
-    end
-    if hasMover.BlizzMove then
-        Add("blizzmove", "BlizzMove", L["COMPAT_GUIDE_BLIZZMOVE"]
-            or "BlizzMove controls window dragging and scaling. Check /bm if a panel snaps back or resists Offhand placement.")
-    end
-    for _, barAddon in ipairs({"Bartender4", "Dominos"}) do
-        if hasAB[barAddon] then
-            local fmt = L["COMPAT_GUIDE_ACTIONBARS"]
-                or "%s controls action bars. Unlock and move bars in %s instead of Blizzard Edit Mode."
-            Add("ab:" .. barAddon, barAddon, string.format(fmt, barAddon, barAddon))
+    local active = {}
+    for list, names in pairs(owners) do
+        if type(names) == "table" then
+            active[list] = {}
+            for _, name in ipairs(names) do active[list][name] = true end
         end
     end
-    for _, suite in ipairs({"ElvUI", "Tukui"}) do
-        if hasUF[suite] or hasAB[suite] then
-            local fmt = L["COMPAT_GUIDE_SUITE"]
-                or "%s controls its enabled HUD and unit frames. Move them with /moveui, or disable individual modules in %s to use Blizzard Edit Mode."
-            Add("suite:" .. suite, suite, string.format(fmt, suite, suite))
+    if not Offhand.Bridges then return guidance end
+    local entries, suffixes = Offhand.Bridges:GetGuidanceEntries()
+    for index, entry in ipairs(entries) do
+        local shown = false
+        for list, name in pairs(type(entry.when) == "table" and entry.when or {}) do
+            if active[list] and active[list][name] then shown = true; break end
         end
-    end
-    if hasUF.EllesmereUIUnitFrames or hasAB.EllesmereUIActionBars
-        or (owners.chat and table.concat(owners.chat, ","):find("EllesmereUIChat", 1, true)) then
-        Add("ellesmere", "EllesmereUI", L["COMPAT_GUIDE_ELLESMERE"]
-            or "EllesmereUI controls its enabled HUD modules. Position them in EllesmereUI's own unlock/layout settings instead of Blizzard Edit Mode.")
-    end
-    for _, ufAddon in ipairs({"PitBull4", "ZPerl", "XPerl", "Cell"}) do
-        if hasUF[ufAddon] then
-            local fmt = L["COMPAT_GUIDE_UNITFRAMES"]
-                or "%s controls its unit frames. Move them in %s's own settings instead of Blizzard Edit Mode."
-            Add("uf:" .. ufAddon, ufAddon, string.format(fmt, ufAddon, ufAddon))
+        if shown then
+            local text = L[entry.key] or entry.fallback
+            if entry.args == 2 and type(text) == "string" then
+                text = string.format(text, entry.addon, entry.addon)
+            end
+            if suffixes[index] and type(text) == "string" then
+                text = text .. " " .. (L[entry.suffixKey] or entry.suffixFallback)
+            end
+            Add(entry.id, entry.addon, text)
         end
     end
     return guidance
 end
 
+local function ByConflictOrder(a, b)
+    if a.order ~= b.order then return a.order < b.order end
+    return a.index < b.index
+end
+
 -- Returns genuine active conflicts only (never normal single-addon coexistence).
+-- The map owner's contract notice comes first (order 10) and the multiple bag
+-- addon conflict at order 30; window mover bridges add theirs through
+-- GetOwnershipConflicts(context), each carrying its own order.
 function Compatibility.GetOwnershipConflicts()
-    local conflicts = {}
+    local found = {}
+    local function Add(order, conflict)
+        found[#found + 1] = { conflict = conflict, index = #found + 1,
+            order = type(order) == "number" and order or math.huge }
+    end
     local mapOwner = Compatibility.GetWorldMapExternalOwner()
-    local openMapContract = (Offhand.isForever and mapOwner == "OpenMap")
-        and Compatibility.InspectOpenMapContract() or nil
-    if openMapContract and openMapContract ~= "ok" and openMapContract ~= "absent" and openMapContract ~= "disabled" then
-        conflicts[#conflicts + 1] = {
-            id = "openmap-contract:" .. openMapContract,
-            kind = "openmap-contract",
-            reason = openMapContract,
-        }
-    end
-    if (mapOwner == "LeatrixMaps" or mapOwner == "OpenMap") and IsOneForAllMovingWorldMap() then
-        local mitigated = (mapOwner == "OpenMap" and openMapContract == "ok")
-        if not mitigated then
-            conflicts[#conflicts + 1] = {
-                id = "worldmap-mover:OneForAll+" .. mapOwner,
-                kind = "worldmap-mover",
-                mover = "OneForAll",
-                owner = FormatMapOwnerLabel(mapOwner),
-            }
-        end
-    end
+    local bridges = Offhand.Bridges
+    -- On Forever the map owner's provider reports its own contract notice and
+    -- whether it keeps a window mover's writes in sync.
+    local ownerConflict = Offhand.isForever and bridges and bridges:CallMap(mapOwner, "GetContractConflict") or nil
+    if type(ownerConflict) == "table" then Add(10, ownerConflict) end
     local bags = Compatibility.GetActiveBagOwners()
+    if bridges and bridges.GetOwnershipConflicts then
+        local mapFacts = MapOwnerFacts(mapOwner)
+        local context = {
+            mapOwner = mapOwner,
+            mapLabel = mapOwner and FormatMapOwnerLabel(mapOwner) or nil,
+            positionsMap = mapFacts ~= nil and mapFacts.positionsMap == true,
+            bagOwners = bags,
+            SyncsWorldMapMover = function()
+                return Offhand.isForever and bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
+            end,
+        }
+        for _, conflict in ipairs(bridges:GetOwnershipConflicts(context)) do Add(conflict.order, conflict) end
+    end
     if #bags >= 2 then
-        conflicts[#conflicts + 1] = {
+        Add(30, {
             id = "bags-conflict:" .. table.concat(bags, "+"),
             kind = "bags-conflict",
             addons = table.concat(bags, ", "),
-        }
+        })
     end
-    local ofaTargets = GetOneForAllUnmitigatedMoverTargets(mapOwner, bags)
-    if ofaTargets then
-        conflicts[#conflicts + 1] = {
-            id = "window-mover:OneForAll",
-            kind = "window-mover",
-            mover = "OneForAll",
-            targets = table.concat(ofaTargets, ","),
-        }
-    end
+    table.sort(found, ByConflictOrder)
+    local conflicts = {}
+    for index, item in ipairs(found) do conflicts[index] = item.conflict end
     return conflicts
 end
 
@@ -615,15 +459,14 @@ function Compatibility.FormatConflictMessage(conflict)
         local fmt = L["COMPAT_CONFLICT_WINDOW_MOVER"]
             or "Conflict: %s's Move Blizzard windows option is active alongside Offhand. Disable Move Blizzard windows in %s if windows, bags, or the World Map flicker or snap back."
         return string.format(fmt, conflict.mover, conflict.mover)
-    elseif conflict.kind == "openmap-contract" then
-        local fmt = L["COMPAT_CONFLICT_OPENMAP_CONTRACT"]
-            or "Notice: OpenMap updated to an unsupported contract (%s). Offhand stood down its OpenMap drag sync and recovery helpers."
-        return string.format(fmt, conflict.reason)
     elseif conflict.kind == "bags-conflict" then
         local fmt = L["COMPAT_CONFLICT_BAGS"]
             or "Conflict: multiple bag addons are active (%s). Keep only one bag addon enabled for reliable Offhand bag persistence."
         return string.format(fmt, conflict.addons)
     end
+    -- A conflict the map owner's provider reported is worded by that provider.
+    local bridges = Offhand.Bridges
+    if bridges then return bridges:CallMap(Compatibility.GetWorldMapExternalOwner(), "FormatConflict", conflict) end
 end
 
 function Compatibility.NotifyActiveConflicts()
@@ -649,41 +492,39 @@ function Compatibility.ResetConflictNotifications()
     notifiedConflicts = {}
 end
 
+-- The map owner's segments come from the bridges' diagnostics slots:
+-- "compact" after WorldMapOwner in the compact line; "compat.head" before it
+-- and "compat.map" after it in the full line, whose value functions receive
+-- coordinateFontRefreshCount (the last external map coordinate font refresh).
 function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
-    local mapOwner = Compatibility.GetWorldMapExternalOwner() or "Offhand"
+    local externalOwner = Compatibility.GetWorldMapExternalOwner()
+    local mapOwner = externalOwner or "Offhand"
     if compact then
-        return string.format("WorldMapOwner=%s | LeatrixMaps=%s | OpenMap=%s",
-            mapOwner, Compatibility.HasLeatrixMaps() and "loaded" or "absent",
-            Compatibility.IsAddonLoaded("OpenMap") and "loaded" or "absent")
+        return table.concat(DiagnosticParts({"WorldMapOwner=" .. mapOwner}, "compact"), " | ")
     end
-    local leatrixStatus = Compatibility.HasLeatrixMaps() and string.format(
-        " | LeatrixMaps=loaded | CoordinateFontRefresh=%s",
-        tostring(coordinateFontRefreshCount or "pending")) or ""
+    local head = DiagnosticParts({}, "compat.head")
+    head[#head + 1] = "WorldMapOwner=" .. mapOwner
+    local ownerStatus = table.concat(DiagnosticParts(head, "compat.map", coordinateFontRefreshCount), " | ")
     local spellbookStatus = Compatibility.GetTBCSpellbookDiagnostics()
-    local openMapStatus = ""
-    if Offhand.isForever and mapOwner == "OpenMap" then
-        local ok, status = pcall(function()
-            local namespace, data = _G.OpenMap, _G.OpenMapDB
-            local version = type(namespace) == "table" and namespace.version
-            local db = type(data) == "table" and data.worldmap
-            if type(version) ~= "string" or type(db) ~= "table" then return end
-            local getCVar = C_CVar and C_CVar.GetCVar or _G.GetCVar
-            local cap = tonumber(db.mapFpsCap)
-            local current = type(getCVar) == "function" and tonumber(getCVar("maxFPS"))
-            local contract = Compatibility.InspectOpenMapContract()
-            return string.format(" | OpenMap=%s | MapFPSCap=%s | maxFPS=%s | OpenMapWindow=%s | OpenMapContract=%s",
-                version, cap or "unavailable", current or "unavailable",
-                type(db.window) == "table" and "saved" or "none", contract)
-        end)
-        if ok and status then openMapStatus = status end
-    end
+    -- On Forever the map owner's provider adds its own part of the line.
+    local bridges = Offhand.Bridges
+    local ownerDetail = ""
+    local status = Offhand.isForever and bridges and bridges:CallMap(mapOwner, "GetOwnerDiagnostics") or nil
+    if type(status) == "string" then ownerDetail = " | " .. status end
+    -- Window mover bridges add their own segments after the owner's part.
     local moverStatus = ""
-    if (mapOwner == "OpenMap" or mapOwner == "LeatrixMaps") and IsOneForAllMovingWorldMap() then
-        local mitigated = (mapOwner == "OpenMap" and Compatibility.InspectOpenMapContract() == "ok")
-        moverStatus = " | WorldMapMover=OneForAll(" .. (mitigated and "synced" or "conflict") .. ")"
-    end
-    if IsOneForAllMovingAnyWindow() then
-        moverStatus = moverStatus .. " | OneForAllMover=active"
+    if bridges and bridges.GetMoverDiagnostics then
+        local mapFacts = MapOwnerFacts(mapOwner)
+        local context = {
+            mapOwner = externalOwner,
+            positionsMap = mapFacts ~= nil and mapFacts.positionsMap == true,
+            SyncsWorldMapMover = function()
+                return bridges:CallMap(mapOwner, "SyncsWorldMapMover") == true
+            end,
+        }
+        for _, text in ipairs(bridges:GetMoverDiagnostics(context)) do
+            moverStatus = moverStatus .. " | " .. text
+        end
     end
     local conflictList = Compatibility.GetOwnershipConflicts()
     local conflictStatus = ""
@@ -718,78 +559,7 @@ function Compatibility.GetDiagnostics(compact, coordinateFontRefreshCount)
             .. tostring(Offhand.Canvas and Offhand.Canvas.tbcBagIDRestoreStatus or "idle")
             .. ",capture=" .. tostring(Offhand.Canvas and Offhand.Canvas.tbcBagCaptureStatus or "idle")
     end
-    if Compatibility.HasClassicUIForever() then
-        return string.format(
-            "MoveAny=%s | ClassicUIForever=loaded | WorldMapOwner=%s | CharacterFrameOwner=ClassicUIForever",
-            Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner)
-            .. leatrixStatus .. spellbookStatus .. bagStatus .. moverStatus .. controllerStatus .. conflictStatus
-    end
-    return string.format("MoveAny=%s | WorldMapOwner=%s",
-        Compatibility.HasMoveAny() and "loaded" or "absent", mapOwner)
-        .. leatrixStatus .. spellbookStatus .. bagStatus .. openMapStatus .. moverStatus .. controllerStatus .. conflictStatus
-end
-
--- Support-only inspection. Never move, show, hook or read guide contents from
--- third-party frames. A missing named root is not proof that an addon is absent.
-function Compatibility.GetGuideAddonDiagnostics()
-    local loaded = Compatibility.IsAddonLoaded("ZygorGuidesViewer")
-        or Compatibility.IsAddonLoaded("ZygorGuidesViewerClassic")
-    local namespace = type(_G.ZygorGuidesViewer) == "table"
-    local reports, seen, scanned, truncated = {}, {}, 0, false
-    local function Public(value)
-        if type(issecretvalue) == "function" then
-            local ok, secret = pcall(issecretvalue, value)
-            if not ok or secret then return nil end
-        end
-        return value
-    end
-    local function Read(frame, method)
-        local ok, value = pcall(function()
-            local getter = frame and frame[method]
-            if type(getter) == "function" then return getter(frame) end
-        end)
-        if ok then return Public(value) end
-    end
-    local function Value(value)
-        if type(value) == "boolean" then return value and "1" or "0" end
-        if type(value) == "number" and value == value and value > -math.huge and value < math.huge then
-            return string.format("%.2f", value)
-        end
-        return "unavailable"
-    end
-    for _, parent in pairs({UIParent, WorldFrame}) do
-        if parent and type(parent.GetChildren) == "function" then
-            local ok, children = pcall(function() return {parent:GetChildren()} end)
-            if ok then
-                if #children > 256 then truncated = true end
-                for index = 1, math.min(#children, 256) do
-                    local frame = children[index]
-                    scanned = scanned + 1
-                    local name = Read(frame, "GetName")
-                    if type(name) == "string" and name:lower():find("zygor", 1, true) and not seen[frame] then
-                        seen[frame] = true
-                        if #reports < 8 then
-                            local strata = Read(frame, "GetFrameStrata")
-                            reports[#reports + 1] = string.format(
-                                "%s parent=%s shown=%s visible=%s alpha=%s effectiveAlpha=%s strata=%s level=%s scale=%s bounds=%s/%s/%s/%s",
-                                name:sub(1, 96), parent == UIParent and "UIParent" or "WorldFrame",
-                                Value(Read(frame, "IsShown")), Value(Read(frame, "IsVisible")),
-                                Value(Read(frame, "GetAlpha")), Value(Read(frame, "GetEffectiveAlpha")),
-                                type(strata) == "string" and strata:sub(1, 32) or "unavailable",
-                                Value(Read(frame, "GetFrameLevel")),
-                                Value(Read(frame, "GetEffectiveScale")), Value(Read(frame, "GetLeft")),
-                                Value(Read(frame, "GetBottom")), Value(Read(frame, "GetRight")), Value(Read(frame, "GetTop")))
-                        else truncated = true end
-                    end
-                end
-            end
-        end
-    end
-    if not loaded and not namespace and #reports == 0 then return nil end
-    table.insert(reports, 1, string.format("Zygor probes: knownAddonID=%s namespace=%s namedRoots=%d scanned=%d truncated=%s",
-        loaded and "loaded" or "not-observed", namespace and "present" or "not-observed",
-        #reports, scanned, truncated and "yes" or "no"))
-    return reports
+    return ownerStatus .. spellbookStatus .. bagStatus .. ownerDetail .. moverStatus .. controllerStatus .. conflictStatus
 end
 
 function Compatibility.IsForeverProfessionsPanel(frame, suppliedName)

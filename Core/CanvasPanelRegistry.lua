@@ -141,7 +141,7 @@ end
 function PanelRegistry.CanAutoOpen(frame, name)
     local ok, allowed = pcall(function()
         if not frame or frame ~= _G[name] then return false end
-        if Offhand.IsDaylightParkedPanel and Offhand.IsDaylightParkedPanel(frame) then return false end
+        if Offhand.IsBridgeParkedPanel and Offhand.IsBridgeParkedPanel(frame) then return false end
         if frame.IsForbidden and frame:IsForbidden() then return false end
         if PanelRegistry.IsInputWidget(frame, name) then return false end
         -- Keyboard-enabled roots and full-screen takeover panels must stay

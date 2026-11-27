@@ -37,6 +37,13 @@ local function SaveChoice(choice, complete)
     return true
 end
 
+-- The HUD transfer provider's own review prompt (a status key it names), or
+-- nil without one.
+local function TransferReviewKey()
+    local transfer = Offhand.HUDTransfer
+    return transfer and type(transfer.text) == "table" and transfer.text.characterReview or nil
+end
+
 function Setup:InitializePopups(statusKey)
     local L = Offhand.L
     if statusKey == "CHARACTER_SETUP_WAITING_FOR_SPAN" then
@@ -56,7 +63,7 @@ function Setup:InitializePopups(statusKey)
         }
         return
     end
-    local review = statusKey == "CHARACTER_SETUP_ELLESMERE"
+    local review = statusKey ~= nil and statusKey == TransferReviewKey()
     local refresh = statusKey == "CHARACTER_SETUP_REFRESH"
     local offerReuse = not review and not refresh and statusKey ~= "CHARACTER_SETUP_NO_LAYOUT"
     local function Customize()
@@ -72,7 +79,7 @@ function Setup:InitializePopups(statusKey)
         end
     end
     StaticPopupDialogs.OFFHAND_CHARACTER_SETUP = {
-        text = review and L.CHARACTER_SETUP_ELLESMERE or L.CHARACTER_SETUP_TEXT,
+        text = review and L[statusKey] or L.CHARACTER_SETUP_TEXT,
         button1 = review and L.CHARACTER_SETUP_REVIEW or refresh and L.CHARACTER_SETUP_REFRESH_BUTTON
             or offerReuse and L.CHARACTER_SETUP_USE or L.CHARACTER_SETUP_CUSTOMIZE,
         button2 = L.CHARACTER_SETUP_LATER,
@@ -114,8 +121,9 @@ function Setup:ReviewExisting(anchor)
         return
     end
     local choices = status.choices
-    if status.ellesmereReview and (not choices or #choices == 0) then
-        return self:Show("CHARACTER_SETUP_ELLESMERE")
+    local reviewKey = TransferReviewKey()
+    if status.transferReview and reviewKey and (not choices or #choices == 0) then
+        return self:Show(reviewKey)
     end
     if not status.available then
         return self:Show(status.reason == "span" and "CHARACTER_SETUP_WAITING_FOR_SPAN"
@@ -163,7 +171,7 @@ function Setup:UseExisting(expectedName)
     if not ok then
         local blocked = layoutName == "combat" or layoutName == "open" or layoutName == "input"
         self:Show(blocked and "CHARACTER_SETUP_RETRY"
-            or layoutName == "review" and "CHARACTER_SETUP_ELLESMERE"
+            or layoutName == "review" and TransferReviewKey()
             or layoutName == "ownership" and "CHARACTER_SETUP_REFRESH"
             or "CHARACTER_SETUP_NO_LAYOUT")
         return false
@@ -192,7 +200,7 @@ function Setup:Refresh()
     if sameContext and record.choice == "later" then return true end
     if not record and OffhandCharDB.hudSetupReminderDeclined then return true end
     local pending = record ~= nil or OffhandCharDB.hudSetupReminder or OffhandCharDB.mainhandLayoutDeferred
-    local transfer = Offhand.EllesmereLayout
+    local transfer = Offhand.HUDTransfer
     local canReview = transfer and transfer.ShowPreview and transfer.IsAvailable and transfer:IsAvailable()
     if not pending and not canReview then return false end
     local metrics = Offhand.Viewport and Offhand.Viewport:GetMetrics()
@@ -212,7 +220,7 @@ function Setup:Refresh()
     end
     if self.shown == "CHARACTER_SETUP_WAITING_FOR_SPAN" then self:Hide() end
     local status = mainhand:GetCharacterSetupLayoutStatus()
-    local review = canReview and status.ellesmereReview
+    local review = canReview and status.transferReview
     if not pending and not review then return false end
     if status.reason == "open" or status.reason == "gamepad" then return true end
     if status.ready then
@@ -223,7 +231,7 @@ function Setup:Refresh()
     local identity = tostring(OffhandCharDB.characterGUID or "") .. "|" .. geometry .. "|" .. tostring(gamepad)
     if self.offeredContext == identity then return true end
     self.offeredContext = identity
-    return self:Show(review and "CHARACTER_SETUP_ELLESMERE"
-        or (status.reason == "ownership" or status.ellesmereReview) and "CHARACTER_SETUP_REFRESH"
+    return self:Show(review and TransferReviewKey()
+        or (status.reason == "ownership" or status.transferReview) and "CHARACTER_SETUP_REFRESH"
         or status.available and "CHARACTER_SETUP_READY" or "CHARACTER_SETUP_NO_LAYOUT")
 end

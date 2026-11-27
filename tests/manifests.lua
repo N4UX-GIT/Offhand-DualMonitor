@@ -58,10 +58,6 @@ assert(classicText:match("## Interface:%s*30300"),
 assert(wrathText:match("## Interface:%s*30300%s*\r?\n"),
     "dedicated Wrath test manifest must target only interface 30300")
 local main = entries(tocs[1])
-local procDocIndex
-for index, file in ipairs(main) do
-    if file == "Core/ProcDocCompatibility.lua" then procDocIndex = index end
-end
 local initIndex
 local viewportIndex
 local topologyDetectionIndex
@@ -77,7 +73,6 @@ local hudRecoveryIndex
 local hudTransientFramesIndex
 local seamRedirectIndex
 local compatibilityIndex
-local kerzoQuestLogIndex
 local addonEscapeIndex
 local frameStateIndex
 local panelRegistryIndex
@@ -111,7 +106,6 @@ for index, file in ipairs(main) do
     if file == "Core/HUDRecovery.lua" then hudRecoveryIndex = index end
     if file == "Core/HUDTransientFrames.lua" then hudTransientFramesIndex = index end
     if file == "Core/SeamRedirect.lua" then seamRedirectIndex = index end
-    if file == "Core/CanvasKerzoQuestLog.lua" then kerzoQuestLogIndex = index end
     if file == "Core/CanvasAddonEscape.lua" then addonEscapeIndex = index end
     if file == "Core/CanvasCompatibility.lua" then compatibilityIndex = index end
     if file == "Core/CanvasFrameState.lua" then frameStateIndex = index end
@@ -171,11 +165,7 @@ assert(compatibilityIndex and frameStateIndex and panelRegistryIndex and canvasP
         and canvasPanelLifecycleIndex + 1 == canvasPanelPlacementIndex
         and canvasPanelPlacementIndex + 1 == canvasIndex,
     "Canvas support services must load together immediately before Canvas")
-assert(kerzoQuestLogIndex and kerzoQuestLogIndex + 1 == compatibilityIndex,
-    "Kerzo Escape adapter must load before Canvas initializes its persistence policy")
-assert(procDocIndex and procDocIndex > viewportIndex and procDocIndex < canvasIndex,
-    "ProcDoc adapter must load after viewport services and before Canvas refresh")
-assert(addonEscapeIndex and addonEscapeIndex + 1 == kerzoQuestLogIndex,
+assert(addonEscapeIndex and addonEscapeIndex + 1 == compatibilityIndex,
     "addon settings Escape adapters must load before Canvas persistence initialization")
 assert(main[addonEscapeIndex - 1] == "Core/AddonWindowCatalog.lua",
     "the addon window catalog must load before the Escape adapter")
@@ -208,9 +198,120 @@ local expectedBridge = {
 for i, path in ipairs(expectedBridge) do
     assert(main[bridgeStart + i - 1] == path, "Built-in DaylightUI bridge order mismatch: " .. tostring(main[bridgeStart + i - 1]))
 end
+-- The shared default-anchor helper loads first, then its bridges, directly
+-- ahead of the DaylightUI block.
+local expectedAnchorBridges = {
+    "Bridges/Shared/DefaultAnchors.lua",
+    "Bridges/AdiBags/Bridge.lua",
+    "Bridges/ArkInventory/Bridge.lua",
+    "Bridges/ArkInventory/Bags.lua",
+    "Bridges/Baganator/Data.lua",
+    "Bridges/Baganator/Bags.lua",
+    "Bridges/Bagnaros/Bridge.lua",
+    "Bridges/Bagnaros/Bags.lua",
+    "Bridges/Bagnon/Bridge.lua",
+    "Bridges/Bagnon/Bags.lua",
+    "Bridges/BagSmith/Bridge.lua",
+    "Bridges/BagSmith/Bags.lua",
+    "Bridges/Bartender4/Bridge.lua",
+    "Bridges/Beastfinder/Bridge.lua",
+    "Bridges/BetterBags/Data.lua",
+    "Bridges/BetterBags/Bags.lua",
+    "Bridges/BlizzMove/Bridge.lua",
+    "Bridges/BugSack/Bridge.lua",
+    "Bridges/Carbonite/Bridge.lua",
+    "Bridges/Cell/Bridge.lua",
+    "Bridges/Chattynator/Bridge.lua",
+    "Bridges/ClassicUIForever/Bridge.lua",
+    "Bridges/ConsolePort/Bridge.lua",
+    "Bridges/Details/Bridge.lua",
+    "Bridges/DialogueUI/Bridge.lua",
+    "Bridges/Dominos/Bridge.lua",
+    "Bridges/DonCore/Bridge.lua",
+    "Bridges/EasyFishing/Bridge.lua",
+    "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/EllesmereUI/Bags.lua",
+    "Bridges/EllesmereUI/Layout.lua",
+    "Bridges/EllesmereUI/Preview.lua",
+    "Bridges/EllesmereUI/Scale.lua",
+    "Bridges/EllesmereUI/Windows.lua",
+    "Bridges/ElvUI/Bridge.lua",
+    "Bridges/ElvUI/Bags.lua",
+    "Bridges/FlareUI/Bridge.lua",
+    "Bridges/ForeverDungeonJournal/Bridge.lua",
+    "Bridges/ForeverLedger/Bridge.lua",
+    "Bridges/ForeverPlus/Bridge.lua",
+    "Bridges/ForeverXPBar/Bridge.lua",
+    "Bridges/Gathercraft/Bridge.lua",
+    "Bridges/Inventorian/Bridge.lua",
+    "Bridges/ItemRack/Bridge.lua",
+    "Bridges/KerzoQuestLog/Bridge.lua",
+    "Bridges/Leatrix/Maps.lua",
+    "Bridges/Leatrix/Settings.lua",
+    "Bridges/MapUtils/Bridge.lua",
+    "Bridges/MapWise/Data.lua",
+    "Bridges/MapWise/Bridge.lua",
+    "Bridges/MobInfo2/Bridge.lua",
+    "Bridges/MoveAny/Bridge.lua",
+    "Bridges/MoveMyBags/Bridge.lua",
+    "Bridges/OneForAll/Data.lua",
+    "Bridges/OneForAll/Bridge.lua",
+    "Bridges/OpenMap/Data.lua",
+    "Bridges/OpenMap/Contract.lua",
+    "Bridges/OpenMap/Recovery.lua",
+    "Bridges/OpenMap/Map.lua",
+    "Bridges/OpenMap/Init.lua",
+    "Bridges/PitBull4/Bridge.lua",
+    "Bridges/Platynator/Bridge.lua",
+    "Bridges/ProcDoc/Data.lua",
+    "Bridges/ProcDoc/Bridge.lua",
+    "Bridges/Questie/Bridge.lua",
+    "Bridges/Questie/Rules.lua",
+    "Bridges/Questie/Options.lua",
+    "Bridges/RareScanner/Bridge.lua",
+    "Bridges/RedIsFriend/Bridge.lua",
+    "Bridges/RestedXP/Bridge.lua",
+    "Bridges/SexyMap/Bridge.lua",
+    "Bridges/ShadowedUnitFrames/Bridge.lua",
+    "Bridges/TinyTooltip/Bridge.lua",
+    "Bridges/TinyTooltipReforged/Bridge.lua",
+    "Bridges/TipTac/Bridge.lua",
+    "Bridges/Titan/Bridge.lua",
+    "Bridges/Tukui/Bridge.lua",
+    "Bridges/XPerl/Bridge.lua",
+    "Bridges/ZPerl/Bridge.lua",
+    "Bridges/Zygor/Bridge.lua",
+}
+local anchorBridgeStart = bridgeStart - #expectedAnchorBridges
+for i, path in ipairs(expectedAnchorBridges) do
+    assert(main[anchorBridgeStart + i - 1] == path,
+        "Built-in default-anchor bridge order mismatch: " .. tostring(main[anchorBridgeStart + i - 1]))
+end
 local foreverText = assert(io.open("Offhand_Forever.toc", "rb")):read("*a")
 assert(foreverText:match("## OptionalDeps:%s*DaylightUI"), "Forever manifest should declare OptionalDeps: DaylightUI for load order")
+local foreverOptionalDeps = "," .. (assert(foreverText:match("## OptionalDeps:([^\r\n]*)")):gsub("%s", "")) .. ","
+for _, target in ipairs({ "Beastfinder", "DialogueUI", "EasyFishing", "ForeverLedger", "ForeverPlus", "Gathercraft",
+    "MobInfo2", "Questie", "QuestieTrace", "RareScanner" }) do
+    assert(foreverOptionalDeps:find("," .. target .. ",", 1, true),
+        "Forever manifest should declare OptionalDeps: " .. target .. " so its bridge loads after it")
+end
 assert(not foreverText:match("## Dependencies:"), "Offhand must never require third-party addons via Dependencies")
+assert(io.open("Core/ForeverPlusWarnings.lua", "rb") == nil,
+    "Core/ForeverPlusWarnings.lua must remain retired into Bridges/ForeverPlus/Bridge.lua")
+assert(io.open("Core/DialogueUICompat.lua", "rb") == nil,
+    "Core/DialogueUICompat.lua must remain retired into Bridges/DialogueUI/Bridge.lua")
+assert(io.open("Core/ProcDocCompatibility.lua", "rb") == nil,
+    "Core/ProcDocCompatibility.lua must remain retired into Bridges/ProcDoc/Bridge.lua")
+assert(io.open("Core/CanvasKerzoQuestLog.lua", "rb") == nil,
+    "Core/CanvasKerzoQuestLog.lua must remain retired into Bridges/KerzoQuestLog/Bridge.lua")
+assert(io.open("Core/EllesmereScaleCompatibility.lua", "rb") == nil,
+    "Core/EllesmereScaleCompatibility.lua must remain retired into Bridges/EllesmereUI/Scale.lua")
+assert(io.open("Core/OpenMapRecovery.lua", "rb") == nil,
+    "Core/OpenMapRecovery.lua must remain retired into Bridges/OpenMap/Recovery.lua")
+assert(io.open("Core/ForeverEllesmereLayout.lua", "rb") == nil,
+    "Core/ForeverEllesmereLayout.lua must remain retired into Bridges/EllesmereUI/Layout.lua")
+assert(io.open("UI/EllesmereLayoutPreview.lua", "rb") == nil,
+    "UI/EllesmereLayoutPreview.lua must remain retired into Bridges/EllesmereUI/Preview.lua")
 local bindings = assert(io.open("Bindings.xml", "rb")):read("*a")
 assert(bindings:match('<Binding name="OFFHAND_TOGGLE_SETTINGS" header="OFFHAND">'),
     "Offhand settings binding is missing")

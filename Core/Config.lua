@@ -46,9 +46,7 @@ local defaultSettings = {
 
     -- Feature toggles
     seamRedirect = true,            -- Redirect popups and errors away from center bezel
-    centerProcDocOnMainhand = false, -- Optional reversible ProcDoc center adapter
     preventMapCloseOnMove = true,   -- Keep WorldMap open while running/walking
-    followPlayerWithOpenMap = false, -- Opt in to moving the stitched OpenMap camera on Offhand
     independentWorkspacePanels = true, -- Panels placed on the secondary workspace stay open independently
     persistentWorkspacePanels = true,  -- Keep workspace panels and maps open when pressing Escape
     hideWorkspaceCloseButtons = false, -- Hide supported X buttons only while their windows are on the workspace
@@ -74,6 +72,17 @@ local function CopyDefaults(src, dst)
         end
     end
     return dst
+end
+
+-- Profile settings that bridges declare (data.settings) join the defaults
+-- under their stored key, so profiles keep holding them as before. Bridges
+-- register at file load, before the configuration is initialized.
+local function MergeBridgeDefaults()
+    local bridges = Offhand.Bridges
+    if not bridges or type(bridges.GetSettingDefaults) ~= "function" then return end
+    for key, value in pairs(bridges:GetSettingDefaults()) do
+        if defaultSettings[key] == nil then defaultSettings[key] = value end
+    end
 end
 
 local FOREVER_EDIT_MODE_MIGRATION_VERSION = 1
@@ -525,10 +534,12 @@ function ForeverPersistence:RestoreProfileSnapshot(accountDB, characterDB)
     return "fallback"
 end
 
+-- Frames whose addon saves its own placement (frame rule unsavedPosition)
+-- never get a Forever position record.
 local function IsSafeFrameName(name)
-    local adapter = Offhand.CanvasAddonEscape
+    local bridges = Offhand.Bridges
     return type(name) == "string" and name ~= "" and name:match("^[%w_]+$") ~= nil
-        and not (adapter and adapter.restedXPFrames[name])
+        and not (bridges and bridges:MatchName("unsavedPosition", name))
 end
 
 local function PositionCVar(name)
@@ -976,8 +987,11 @@ function Offhand:EnsureCharacterIdentity()
             "mainhandWindowedManualLayout", "foreverEditModeLayoutName", "foreverEditModeLayoutID",
             "foreverEditModeLayoutNameGamepad", "foreverEditModeLayoutIDGamepad",
             "foreverEditModeLegacyRecovery", "foreverEditModeRecovery", "mainhandLayoutDeferred",
-            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup",
-            "kerzoQuestLogOpen"}) do OffhandCharDB[key] = nil end
+            "hudSetupReminderDeclined", "hudSpanNoticeDismissed", "characterSetup"}) do OffhandCharDB[key] = nil end
+        -- Character settings bridges declare with resetOnCharacterChange.
+        for _, key in ipairs(Offhand.Bridges and Offhand.Bridges:GetCharacterResetKeys() or {}) do
+            OffhandCharDB[key] = nil
+        end
     end
     OffhandCharDB.characterGUID = guid
     if not self.isLegacyWrath and (stale or (not previous and not OffhandCharDB.mainhandLayout)) then
@@ -1031,6 +1045,7 @@ local function BridgeRecoveryCharacter()
 end
 
 function Offhand:InitializeConfig()
+    MergeBridgeDefaults()
     -- ForeverState.lua loads before this module. A fresh bridge can recover
     -- missing or older SavedVariables, but a strictly newer disk revision
     -- already contains the state we would otherwise be trying to recover.
@@ -1139,8 +1154,8 @@ function Offhand:InitializeConfig()
     -- Earlier Gather passes recorded guide coordinates in the active profile.
     -- Scrub inactive profiles as well, after selecting the disk or bridge snapshot.
     for profileName, profileData in pairs(OffhandDB.profiles) do
-        if Offhand.CanvasAddonEscape then
-            for name in pairs(Offhand.CanvasAddonEscape.restedXPFrames) do
+        if Offhand.Bridges then
+            for _, name in ipairs(Offhand.Bridges:GetRuleNames("unsavedPosition")) do
                 if type(profileData.savedWorkspacePositions) == "table" then profileData.savedWorkspacePositions[name] = nil end
                 if type(profileData.savedMainPositions) == "table" then profileData.savedMainPositions[name] = nil end
                 if type(profileData.openWorkspacePanels) == "table" then profileData.openWorkspacePanels[name] = nil end

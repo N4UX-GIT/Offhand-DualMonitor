@@ -10,6 +10,13 @@ load with zero frames, hooks, or slash commands. When DaylightUI is enabled,
 loads first, and the bridge activates automatically through `Offhand.API`
 ([docs/BRIDGES.md](../../docs/BRIDGES.md)).
 
+`Init.lua` also registers DaylightUI facts on every client, even when DaylightUI
+was not there when it loaded (facts only, no frame or hook; formerly in
+Offhand's core): `PlayerSpellsFrame` and `ClassTrainerFrame` count as parked
+on Forever while their parent is one of DaylightUI's live `Win.Followers`
+holders (frame rule `parkedNativePanel`, reason `daylight-parked`), and
+`DaylightUIBook` and `DaylightUINpc` join the panel placement diagnostics.
+
 ## What it does
 
 - **Anchor area and mover defaults:** Creates `OffhandDaylightUIArea` over

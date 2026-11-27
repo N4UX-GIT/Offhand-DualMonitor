@@ -30,22 +30,18 @@ local function IsSpanned()
     return metrics and metrics.isSpanned == true
 end
 
-local function IsAddonLoadedCompat(name)
-    local checker = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
-    if checker then
-        local ok, loaded = pcall(checker, name)
-        if ok then return loaded == true end
-    end
-    return _G[name] ~= nil
+-- A replacement bag root whose open state lives in the custom bag workspace
+-- record (rule customBagRoot).
+local function IsCustomBagRoot(name)
+    return Offhand.Bridges ~= nil and Offhand.Bridges:MatchName("customBagRoot", name)
 end
 
 local function WindowType(name)
     if name == "WorldMapFrame" then return "map" end
     if name == "CharacterFrame" then return "character" end
-    if name == "EUI_MainBagFrame"
-        or (type(name) == "string" and name:match("^ContainerFrame%d+$"))
+    if (type(name) == "string" and name:match("^ContainerFrame%d+$"))
         or name == "ContainerFrameCombinedBags"
-        or (type(name) == "string" and name:match("^Baganator_.*BackpackViewFrame")) then
+        or IsCustomBagRoot(name) then
         return "bags"
     end
 end
@@ -144,7 +140,8 @@ function Behavior:RefreshCharacterScale(metrics, onWorkspace)
     end
     metrics = metrics or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
     local owned = db and db.enabled and metrics and metrics.isSpanned and onWorkspace
-        and not IsAddonLoadedCompat("ClassicUIForever")
+        and not (Offhand.CanvasCompatibility
+            and Offhand.CanvasCompatibility.ShouldYieldFrameToExternalOwner("CharacterFrame"))
     local multiplier = self:GetCharacterScale()
 
     if owned then
@@ -193,8 +190,9 @@ function Behavior:RestoreLockedWindows()
             if kind == "bags" then
                 if name == "ContainerFrameCombinedBags" or name:match("^ContainerFrame%d+$") then
                     Offhand.db.nativeBackpackWorkspaceOpen = true
-                elseif name == "EUI_MainBagFrame" or name:match("^Baganator_.*BackpackViewFrame") then
-                    Offhand.db.baganatorWorkspacePanels = { [name] = position }
+                elseif IsCustomBagRoot(name) then
+                    local recordKey = Offhand.Bridges:GetSettingKey("customBagWorkspacePanels")
+                    if recordKey then Offhand.db[recordKey] = { [name] = position } end
                 end
             end
             if not IsVisible(frame) then needsRestore = true end
@@ -255,7 +253,8 @@ function Behavior:RefreshGamepadWorkspaceBack()
     local mainhand = Offhand.Mainhand
     local active = Offhand.db and Offhand.db.enabled
         and Offhand.db.persistentWorkspacePanels ~= false
-        and not _G.ConsolePort and mainhand and mainhand:IsNativeGamepadInterface()
+        and not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+        and mainhand and mainhand:IsNativeGamepadInterface()
         and mainhand:GetRect().isSpanned
         and not (Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved())
     local panels = active and mainhand:GetShownForeverGamepadWorkspacePanels() or {}

@@ -183,6 +183,8 @@ addon.CanvasForeverMap.Install = function(...)
     return mapTransactions
 end
 assert(loadfile("Core/Canvas.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ClassicUIForever/Bridge.lua", "Bridges/Leatrix/Maps.lua",
+    "Bridges/MapWise/Data.lua", "Bridges/MapWise/Bridge.lua", "Bridges/MoveAny/Bridge.lua", "Bridges/OpenMap/Data.lua" })
 addon.Canvas:ConfigureWorldMap()
 addon.Canvas.MakePanelDraggable(WorldMapFrame)
 

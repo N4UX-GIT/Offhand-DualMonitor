@@ -4,8 +4,8 @@ local Motion = {}
 Offhand.CanvasPanelMotion = Motion
 
 function Motion.InstallGenericDragging(Canvas, services)
-    local ShouldYieldFrameToClassicUIForever = services.ShouldYieldFrameToClassicUIForever
-    local ShouldYieldWorldMapToMoveAny = services.ShouldYieldWorldMapToMoveAny
+    local ShouldYieldFrameToExternalOwner = services.ShouldYieldFrameToExternalOwner
+    local ShouldYieldWorldMap = services.ShouldYieldWorldMap
     local IsForeverEditModeFrame = services.IsForeverEditModeFrame
     local IsForeverWorldMap = services.IsForeverWorldMap
     local SetPanelDragging = services.SetPanelDragging
@@ -40,8 +40,8 @@ function Motion.InstallGenericDragging(Canvas, services)
     local function MakePanelDraggable(frame)
         if not frame then return end
         if Offhand.CanvasPanelRegistry.GetPositionRoot(frame) ~= frame then return end
-        if ShouldYieldFrameToClassicUIForever(frame) then return end
-        if ShouldYieldWorldMapToMoveAny(frame) then return end
+        if ShouldYieldFrameToExternalOwner(frame) then return end
+        if ShouldYieldWorldMap(frame) then return end
         if IsForeverWorldMap(frame) then
             AttachForeverWorldMapDragHandle(frame)
             return
@@ -86,13 +86,13 @@ function Motion.InstallGenericDragging(Canvas, services)
                 surface:RegisterForDrag("LeftButton")
                 surface:HookScript("OnDragStart", function()
                     if InCombatLockdown() or not Offhand.db.enabled
-                        or ShouldYieldFrameToClassicUIForever(frame, name) then return end
+                        or ShouldYieldFrameToExternalOwner(frame, name) then return end
                     local started = pcall(function() frame:StartMoving() end)
                     frame._OffhandDragging = started and true or false
                     if started then WatchInteractionRelease(frame, name) end
                 end)
                 surface:HookScript("OnDragStop", function()
-                    if ShouldYieldFrameToClassicUIForever(frame, name) then
+                    if ShouldYieldFrameToExternalOwner(frame, name) then
                         SetPanelDragging(frame, false)
                         return
                     end
@@ -138,14 +138,14 @@ function Motion.InstallGenericDragging(Canvas, services)
 
             frame:HookScript("OnDragStart", function(self)
                 if InCombatLockdown() or not Offhand.db.enabled
-                    or ShouldYieldFrameToClassicUIForever(frame, name) then return end
+                    or ShouldYieldFrameToExternalOwner(frame, name) then return end
                 local started = pcall(frame.StartMoving, frame)
                 frame._OffhandDragging = started and true or false
                 if started then WatchInteractionRelease(frame, name) end
             end)
 
             frame:HookScript("OnDragStop", function(self)
-                if ShouldYieldFrameToClassicUIForever(frame, name) then
+                if ShouldYieldFrameToExternalOwner(frame, name) then
                     SetPanelDragging(frame, false)
                     return
                 end
@@ -202,7 +202,7 @@ function Motion.InstallGenericDragging(Canvas, services)
                 WorldMapTitleButton:RegisterForDrag("LeftButton")
                 WorldMapTitleButton:HookScript("OnDragStart", function(self)
                     if InCombatLockdown() or not Offhand.db.enabled
-                        or ShouldYieldFrameToClassicUIForever(frame) then return end
+                        or ShouldYieldFrameToExternalOwner(frame) then return end
                     frame._OffhandDragging = true
                 end)
                 WorldMapTitleButton:HookScript("OnDragStop", function(self)
@@ -240,10 +240,14 @@ function Motion.Install(Canvas, services)
     local OnPanelDragStop = assert(services.OnPanelDragStop, "Missing panel motion service: OnPanelDragStop")
     local HookPanelCloseButton = assert(services.HookPanelCloseButton, "Missing panel motion service: HookPanelCloseButton")
     local interactionAnchorState = setmetatable({}, { __mode = "k" })
+    -- Marks an external window mover sets on frames (the bridges' moverFields).
+    local function NoMover() return false end
+    local IsExternallyMovable = Offhand.Bridges and Offhand.Bridges.IsExternallyMovable or NoMover
+    local IsExternallyMoving = Offhand.Bridges and Offhand.Bridges.IsExternallyMoving or NoMover
 
     -- Communities, Retail native-registration panels, and guarded Forever
     -- UIPanels can have their anchors overwritten after OnShow by Blizzard's
-    -- layout passes or external window movers (such as OneForAll). Repair
+    -- layout passes or external window movers (see moverFields). Repair
     -- synchronously inside the SetPoint post-hook so no intermediate anchor
     -- flashes before render, while yielding to active drags and combat.
     local function HookKnownPanelAnchorResets(frame, name)
@@ -274,7 +278,7 @@ function Motion.Install(Canvas, services)
             end
             local function IsSuppressed()
                 return state.repairing or state.moveStartX or IsPanelDragging(frame)
-                    or frame._OffhandDragging or frame.ofaMoving
+                    or frame._OffhandDragging or IsExternallyMoving(frame)
                     or (FrameState.IsEvicting and FrameState.IsEvicting(frame))
                     or (FrameState.IsRestoring and FrameState.IsRestoring(frame))
                     or InCombatLockdown() or not CanManagePanelsFromAddon()
@@ -300,15 +304,15 @@ function Motion.Install(Canvas, services)
             local function ShouldRepairSynchronously(point, relativeTo, relativePoint)
                 -- Blizzard panel layout anchors to TOPLEFT/TOPLEFT, TOP/TOP,
                 -- CENTER/CENTER, or sibling panels (never TOPLEFT/BOTTOMLEFT).
-                -- OneForAll's applyPos writes TOPLEFT/UIParent/BOTTOMLEFT while
-                -- frame.ofaMovable is set and frame.ofaMoving is false. Repair
-                -- both synchronously before render, while letting non-OneForAll
+                -- An external window mover writes TOPLEFT/UIParent/BOTTOMLEFT
+                -- while the frame is marked movable and not moving. Repair
+                -- both synchronously before render, while letting other
                 -- TOPLEFT/BOTTOMLEFT updates (such as drag fixtures) settle via
                 -- the bounded next-frame pass.
                 local isBottomLeftAnchor = (point == "TOPLEFT"
                     and (relativeTo == UIParent or relativeTo == "UIParent")
                     and relativePoint == "BOTTOMLEFT")
-                return not isBottomLeftAnchor or frame.ofaMovable == true
+                return not isBottomLeftAnchor or IsExternallyMovable(frame)
             end
             hooksecurefunc(frame, "SetPoint", function(_, point, relativeTo, relativePoint)
                 if IsSuppressed() or (frame.IsShown and not frame:IsShown()) then return end
@@ -319,7 +323,7 @@ function Motion.Install(Canvas, services)
                 QueueRepair()
             end)
             if (isForeverSpellbook or isForeverGuardedPanel) and frame.StartMoving and frame.StopMovingOrSizing then
-                -- An external window mover (such as OneForAll) can drag the
+                -- An external window mover can drag the
                 -- panel by its body, bypassing our guarded title grip. Observe
                 -- the completed drop so Offhand adopts the user's new placement
                 -- instead of snapping back on reopen or resize.
@@ -328,7 +332,7 @@ function Motion.Install(Canvas, services)
                     if InCombatLockdown() or not db or not db.enabled or not CanManagePanelsFromAddon()
                         or IsPanelDragging(frame) or frame._OffhandDragging
                         or not frame:IsShown() then return end
-                    if not frame.ofaMoving and not HasSavedPosition() then return end
+                    if not IsExternallyMoving(frame) and not HasSavedPosition() then return end
                     local metrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
                     if not metrics or not metrics.isSpanned then return end
                     state.moveStartX, state.moveStartY = frame:GetLeft(), frame:GetTop()
@@ -375,7 +379,7 @@ function Motion.Install(Canvas, services)
         frame._OffhandAnchorResetHooked = true
         hooksecurefunc(frame, "SetPoint", function(_, point, relativeTo, relativePoint)
             if frame._OffhandAnchorRepairing or IsPanelDragging(frame) or frame._OffhandDragging
-                or frame.ofaMoving or (FrameState.IsEvicting and FrameState.IsEvicting(frame))
+                or IsExternallyMoving(frame) or (FrameState.IsEvicting and FrameState.IsEvicting(frame))
                 or (FrameState.IsRestoring and FrameState.IsRestoring(frame))
                 or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled then return end
             local workspace = Offhand.db.savedWorkspacePositions
@@ -396,7 +400,7 @@ function Motion.Install(Canvas, services)
             local isBottomLeftAnchor = (point == "TOPLEFT"
                 and (relativeTo == UIParent or relativeTo == "UIParent")
                 and relativePoint == "BOTTOMLEFT")
-            if (not isBottomLeftAnchor or frame.ofaMovable == true)
+            if (not isBottomLeftAnchor or IsExternallyMovable(frame))
                 and (not frame.IsShown or frame:IsShown()) then
                 frame._OffhandAnchorRepairing = true
                 pcall(RestoreWorkspacePosition, frame)
@@ -406,7 +410,7 @@ function Motion.Install(Canvas, services)
             frame._OffhandAnchorRepairPending = true
             C_Timer.After(0, function()
                 frame._OffhandAnchorRepairPending = nil
-                if IsPanelDragging(frame) or frame._OffhandDragging or frame.ofaMoving
+                if IsPanelDragging(frame) or frame._OffhandDragging or IsExternallyMoving(frame)
                     or InCombatLockdown() or not Offhand.db or not Offhand.db.enabled
                     or (frame.IsShown and not frame:IsShown()) then return end
                 frame._OffhandAnchorRepairing = true

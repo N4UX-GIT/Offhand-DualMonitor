@@ -19,10 +19,11 @@ local function Active()
     return metrics and metrics.isSpanned and metrics or false
 end
 
+-- The first present owner of the bridges' tooltip.owner role: an addon that
+-- positions tooltips itself.
 local function ExternalTooltipOwner()
-    if _G.TipTac then return "TipTac" end
-    if _G.TinyTooltip then return "TinyTooltip" end
-    if _G.TinyTooltipReforged then return "TinyTooltipReforged" end
+    local bridges = Offhand.Bridges
+    if bridges then return (bridges:FirstRoleOwner("tooltip.owner")) end
 end
 
 local function Positionable(frame)
@@ -967,17 +968,6 @@ function PopupBounds:Queue(frame)
     if C_Timer and C_Timer.After then C_Timer.After(0, constrain) else constrain() end
 end
 
--- These are EllesmereUI presentation roots. Its HUD, movers, dimmers and
--- input handlers keep their own layout. The full UIParent can include space
--- with no physical display, so fit these windows once per presentation.
-local ellesmereWindows = {
-    "EllesmereUIFrame", "EUIFirstInstallPopup", "EUIStyleChoicePopup",
-    "EUIConfirmPopup", "EUIInfoPopup", "EUIInputPopup",
-}
-local ellesmerePlacement = setmetatable({}, { __mode = "k" })
-local unlockToolbar
-local unlockPlacement
-
 local function Fits(left, right, top, bottom, minLeft, maxRight, maxTop, minBottom)
     return left >= minLeft and right <= maxRight and top <= maxTop and bottom >= minBottom
 end
@@ -986,8 +976,6 @@ local function SetWindowPoint(frame, point)
     frame:ClearAllPoints()
     frame:SetPoint(unpack(point, 1, 5))
 end
-
-local addonOptions = setmetatable({}, { __mode = "k" })
 
 local function CanLayoutAddonOptions(frame)
     return Positionable(frame) and frame.IsProtected and not frame:IsProtected()
@@ -1053,394 +1041,42 @@ local function GetOptionsBounds(frame, metrics)
     end
 end
 
-local function MirrorDock(point, from, to)
-    local mirrored = point:gsub(from, to)
-    if mirrored ~= point then return mirrored end
-    return (point:gsub(to, from))
-end
+-- The generic addon options window fitting helpers, for the bridges that fit
+-- an addon's own options window (Offhand.API.GetOptionsWindowHelpers()).
+PopupBounds.optionsWindowHelpers = {
+    CanLayoutAddonOptions = CanLayoutAddonOptions,
+    ReadWindowPoint = ReadWindowPoint,
+    SetWindowPoint = SetWindowPoint,
+    OwnsOptionsPoint = OwnsOptionsPoint,
+    FitAddonOptions = FitAddonOptions,
+    GetOptionsBounds = GetOptionsBounds,
+    FrameBounds = FrameBounds,
+    Fits = Fits,
+    PublicNumber = PublicNumber,
+}
 
-local itemRackFlyoutScale
-
-local function RestoreItemRackFlyoutScale(menu)
-    local state = itemRackFlyoutScale
-    if not state or not CanLayoutAddonOptions(menu) then return end
-    itemRackFlyoutScale = nil
-    if state.menu == menu and menu:GetScale() == state.applied then menu:SetScale(state.original) end
-end
-
-local function FitItemRackFlyout(rack)
-    local menu, options = _G.ItemRackMenuFrame, _G.ItemRackOptFrame
-    if not options or not CanLayoutAddonOptions(menu) or not menu:IsVisible() then return end
-    local owner = menu:GetParent()
-    local point = ReadWindowPoint(menu)
-    if not owner or owner:GetParent() ~= options or not point or point[2] ~= owner then return end
-    local name = owner:GetName()
-    if not name or not name:match("^ItemRackOptInv%d+$") then return end
-    local metrics = GetOptionsMetrics()
-    if not metrics then return end
-    local minLeft, maxRight, maxTop, minBottom = GetOptionsBounds(owner, metrics)
-    if not minLeft then return end
-    local menuDock, mainDock = rack.menuDock, rack.mainDock
-    local nativeDock = rack.DockInfo and rack.DockInfo[rack.currentDock]
-    if not nativeDock or not menuDock or not mainDock then return end
-    local originalMenuDock = menuDock
-    RestoreItemRackFlyoutScale(menu)
-    if point[1] ~= menuDock or point[3] ~= mainDock
-        or math.abs(point[4] - nativeDock.xoff) > 0.01 or math.abs(point[5] - nativeDock.yoff) > 0.01 then
-        -- ItemRack can rebuild an open menu without docking it again.
-        SetWindowPoint(menu, {menuDock, owner, mainDock, nativeDock.xoff, nativeDock.yoff})
-    end
-
-    local left, right, top, bottom, uiScale, menuScale = FrameBounds(menu)
-    if not left or Fits(left, right, top, bottom, minLeft, maxRight, maxTop, minBottom) then return end
-    local ownerLeft, ownerRight, ownerTop, ownerBottom = FrameBounds(owner)
-    if not ownerLeft then return end
-    local width, height = right - left, top - bottom
-    if width <= 0 or height <= 0 then return end
-    local fit = math.min((maxRight - minLeft - 8) / width, (maxTop - minBottom - 8) / height)
-    if fit > 0 and fit < 1 then
-        -- ItemRack wraps against the whole canvas. If its wrapped menu is
-        -- still larger than this display, fit the completed menu as a unit.
-        local original = menu:GetScale()
-        menu:SetScale(original * fit)
-        itemRackFlyoutScale = {menu = menu, original = original, applied = menu:GetScale()}
-        SetWindowPoint(menu, {menuDock, owner, mainDock, nativeDock.xoff, nativeDock.yoff})
-        left, right, top, bottom, uiScale, menuScale = FrameBounds(menu)
-        if not left then return end
-        width, height = right - left, top - bottom
-    end
-    -- A whole-window clamp can hide the outward overflow at coordinate zero.
-    -- Favor the side with more room even if both sides need a final offset.
-    local mirrorX = (left < minLeft and maxRight - ownerRight > ownerLeft - minLeft)
-        or (right > maxRight and ownerLeft - minLeft > maxRight - ownerRight)
-    local mirrorY = (bottom < minBottom and maxTop - ownerTop > ownerBottom - minBottom)
-        or (top > maxTop and ownerBottom - minBottom > maxTop - ownerTop)
-    if mirrorX then
-        menuDock = MirrorDock(menuDock, "LEFT", "RIGHT")
-        mainDock = MirrorDock(mainDock, "LEFT", "RIGHT")
-    end
-    if mirrorY then
-        menuDock = MirrorDock(menuDock, "TOP", "BOTTOM")
-        mainDock = MirrorDock(mainDock, "TOP", "BOTTOM")
-    end
-    local dock = rack.DockInfo[mainDock .. menuDock]
-    if not dock then return end
-
-    if dock ~= nativeDock then
-        -- Mirror the completed vendor layout around the slot. Keep its rows,
-        -- item buttons and click handlers, including ItemRack's wrap choice.
-        SetWindowPoint(menu, {menuDock, owner, mainDock, dock.xoff, dock.yoff})
-        for index = 1, #rack.Menu do
-            local button = _G["ItemRackMenu" .. index]
-            if CanLayoutAddonOptions(button) then
-                local anchor = ReadWindowPoint(button)
-                if anchor and anchor[2] == menu and anchor[3] == originalMenuDock then
-                    local x = dock.xstart + (anchor[4] - nativeDock.xstart) * dock.xdir / nativeDock.xdir
-                    local y = dock.ystart + (anchor[5] - nativeDock.ystart) * dock.ydir / nativeDock.ydir
-                    SetWindowPoint(button, {anchor[1], menu, menuDock, x, y})
-                end
-            end
-        end
-    end
-    left, right, top, bottom = FrameBounds(menu)
-    if not left then return end
-    if not Fits(left, right, top, bottom, minLeft, maxRight, maxTop, minBottom) then
-        local inset = 2
-        local targetLeft = math.max(minLeft + inset, math.min(left, maxRight - inset - (right - left)))
-        local targetTop = math.min(maxTop - inset, math.max(top, minBottom + inset + (top - bottom)))
-        local fromUI = uiScale / menuScale
-        local rx = mainDock:find("LEFT", 1, true) and ownerLeft or ownerRight
-        local ry = mainDock:find("TOP", 1, true) and ownerTop or ownerBottom
-        local x = menuDock:find("LEFT", 1, true) and targetLeft or targetLeft + (right - left)
-        local y = menuDock:find("TOP", 1, true) and targetTop or targetTop - (top - bottom)
-        SetWindowPoint(menu, {menuDock, owner, mainDock, (x - rx) * fromUI, (y - ry) * fromUI})
-    end
-end
-
-local function RefreshItemRackOptions(frame, metrics, requestedScale)
-    if not CanLayoutAddonOptions(frame) then return end
-    local state = addonOptions[frame]
-    if not state then
-        if not metrics or not frame:IsShown() or frame:GetParent() then return end
-        state = {}
-        addonOptions[frame] = state
-    end
-
-    local current = frame:GetScale()
-    if PublicNumber(current) and state.scale ~= current then state.nativeScale = current end
-    if PublicNumber(requestedScale) and requestedScale > 0 then state.nativeScale = requestedScale end
-    local native = state.nativeScale
-    if not metrics or frame:GetParent() then
-        if state.scale == current and current ~= native then frame:SetScale(native) end
-        if OwnsOptionsPoint(frame, state) then SetWindowPoint(frame, state.original) end
-        addonOptions[frame] = nil
-        return
-    end
-    if not frame:IsShown() or not PublicNumber(current) or not PublicNumber(native) or native <= 0 then return end
-
-    -- ItemRack's parentless root is rendered relative to the canvas height.
-    -- Preserve the vendor preset while sizing it against the game display.
-    local width, height, rootScale = frame:GetWidth(), frame:GetHeight(), UIParent:GetEffectiveScale()
-    if not PublicNumber(width) or not PublicNumber(height) or not PublicNumber(rootScale)
-        or width <= 0 or height <= 0 or rootScale <= 0 or metrics.physicalHeight <= 0 then return end
-    local scale = native * metrics.gamePixelHeight / metrics.physicalHeight
-    if scale <= 0 then return end
-    local toUI = scale / rootScale
-    scale = scale * math.min(1,
-        (metrics.gameRight - metrics.gameLeft - 8) / (width * toUI),
-        (metrics.gameTop - metrics.gameBottom - 8) / (height * toUI))
-    if scale <= 0 then return end
-    if math.abs(current - scale) > 0.0001 then frame:SetScale(scale) end
-    state.scale = frame:GetScale()
-    FitAddonOptions(frame, state, metrics)
-end
-
-local function RefreshQuestieOptions(frame, metrics)
-    if not CanLayoutAddonOptions(frame) then return end
-    local state = addonOptions[frame]
-    if not state then
-        if not metrics or not frame:IsShown() or frame:GetParent() ~= UIParent then return end
-        state = {}
-        addonOptions[frame] = state
-    end
-    local height = frame:GetHeight()
-    if not metrics or frame:GetParent() ~= UIParent then
-        if height == state.height then
-            local target = math.max(1, math.floor(UIParent:GetHeight() * 0.7))
-            if height ~= target then frame:SetHeight(target) end
-        end
-        if OwnsOptionsPoint(frame, state) then SetWindowPoint(frame, state.original) end
-        addonOptions[frame] = nil
-        return
-    end
-    if not frame:IsShown() or frame.isMoving then return end
-
-    -- Questie keeps its lazily created frame, so resize on layout changes too.
-    local target = math.max(1, math.floor((metrics.gameTop - metrics.gameBottom)
-        * UIParent:GetEffectiveScale() / frame:GetEffectiveScale() * 0.7))
-    if height ~= target then frame:SetHeight(target) end
-    state.height = frame:GetHeight()
-    FitAddonOptions(frame, state, metrics)
-end
-
+-- Addon options windows are fitted by their bridges. The metrics are read at
+-- most once per pass, and only when a bridge asks for them.
 function PopupBounds:RefreshAddonOptions()
     if not Offhand.isForever then return end
-    local itemRack, questie = _G.ItemRackOptFrame, _G.QuestieStandaloneSettings
-    if not itemRack and not questie then return end
-    local metrics = GetOptionsMetrics()
-    RefreshItemRackOptions(itemRack, metrics)
-    RefreshQuestieOptions(questie, metrics)
-    local menu = _G.ItemRackMenuFrame
-    if not metrics or (menu and not menu:IsVisible()) then
-        RestoreItemRackFlyoutScale(menu)
-    end
+    local bridges = Offhand.Bridges
+    if not bridges or not bridges.RefreshAddonOptions then return end
+    local metrics, read
+    bridges:RefreshAddonOptions(function()
+        if not read then metrics, read = GetOptionsMetrics(), true end
+        return metrics
+    end)
 end
 
+-- Leaving combat refits the options windows a combat layout pass skipped.
+-- The bridges install their own addon hooks from InitializePopupWindows().
 local function InitializeAddonOptions()
     if not Offhand.isForever or not hooksecurefunc or not CreateFrame then return end
-    local itemRackHooked, flyoutHooked, questieHooked
-    local function installHooks()
-        local options = _G.ItemRackOpt
-        if not itemRackHooked and options and type(options.ReflectOptScale) == "function" then
-            itemRackHooked = true
-            hooksecurefunc(options, "ReflectOptScale", function(scale)
-                if scale == nil and _G.ItemRackUser then scale = _G.ItemRackUser.OptScale end
-                RefreshItemRackOptions(_G.ItemRackOptFrame, GetOptionsMetrics(), scale)
-            end)
-        end
-        local rack = _G.ItemRack
-        if not flyoutHooked and itemRackHooked and rack and type(rack.BuildMenu) == "function" then
-            flyoutHooked = true
-            hooksecurefunc(rack, "BuildMenu", function() FitItemRackFlyout(rack) end)
-            if type(rack.ReflectMenuScale) == "function" then
-                hooksecurefunc(rack, "ReflectMenuScale", function() itemRackFlyoutScale = nil end)
-            end
-            if type(rack.MenuOnHide) == "function" then
-                hooksecurefunc(rack, "MenuOnHide", function() RestoreItemRackFlyoutScale(_G.ItemRackMenuFrame) end)
-            end
-        end
-        local loader = _G.QuestieLoader
-        local engine = loader and loader._modules and loader._modules.QuestieOptionsEngine
-        if not questieHooked and engine and type(engine.ShowFrame) == "function" then
-            questieHooked = true
-            hooksecurefunc(engine, "ShowFrame", function()
-                RefreshQuestieOptions(_G.QuestieStandaloneSettings, GetOptionsMetrics())
-            end)
-        end
-    end
     local observer = CreateFrame("Frame")
-    observer:RegisterEvent("ADDON_LOADED")
     observer:RegisterEvent("PLAYER_REGEN_ENABLED")
-    observer:SetScript("OnEvent", function(_, event, name)
-        if event == "PLAYER_REGEN_ENABLED" then
-            PopupBounds:RefreshAddonOptions()
-        elseif name == "ItemRackOptions" or name == "Questie" then
-            installHooks()
-        end
+    observer:SetScript("OnEvent", function()
+        PopupBounds:RefreshAddonOptions()
     end)
-    installHooks()
-end
-
-local function OwnsEllesmerePlacement(frame, placement)
-    if not placement.original or frame:GetNumPoints() ~= 1
-        or frame:GetScale() ~= placement.scale then return false end
-    local point, relative, relativePoint, x, y = frame:GetPoint(1)
-    local applied = placement.applied
-    return point == applied[1] and relative == applied[2] and relativePoint == applied[3]
-        and PublicNumber(x) and PublicNumber(y)
-        and math.abs(x - applied[4]) < 0.01 and math.abs(y - applied[5]) < 0.01
-end
-
-local function RestoreEllesmereWindow(frame, placement)
-    if OwnsEllesmerePlacement(frame, placement) then
-        if placement.scale ~= placement.originalScale then frame:SetScale(placement.originalScale) end
-        SetWindowPoint(frame, placement.original)
-    end
-end
-
-local function GetUnlockToolbar(overlay)
-    if unlockToolbar and unlockToolbar:GetParent() == overlay then return unlockToolbar end
-    local getAnchor = _G.EllesmereUI.GetUnlockModeTopBarAnchor
-    if type(getAnchor) ~= "function" then return end
-    local hoverZone = getAnchor(_G.EllesmereUI)
-    if not hoverZone or hoverZone:GetParent() ~= overlay then return end
-    for _, child in ipairs({overlay:GetChildren()}) do
-        if child._hoverZone == hoverZone then
-            unlockToolbar = child
-            return child
-        end
-    end
-end
-
-local function RefreshEllesmereUnlockToolbar(metrics)
-    local overlay = _G.EllesmereUnlockMode
-    if not overlay then return end
-    local frame = overlay:IsVisible() and GetUnlockToolbar(overlay) or unlockToolbar
-    if not frame or frame:IsForbidden() or frame:IsProtected() then return end
-    if not metrics or not frame:IsVisible() then
-        if unlockPlacement then RestoreEllesmereWindow(frame, unlockPlacement) end
-        unlockPlacement = nil
-        return
-    end
-    -- Window/UI scale and topology can settle after the first span callback.
-    -- Ownership alone does not mean that the old physical target still fits.
-    local geometry = { UIParent:GetWidth(), UIParent:GetHeight(), UIParent:GetEffectiveScale(),
-        metrics.gameLeft, metrics.gameRight, metrics.gameBottom, metrics.gameTop,
-        metrics.workspaceLeft, metrics.workspaceRight, metrics.workspaceBottom, metrics.workspaceTop,
-        frame:GetWidth(), frame:GetHeight() }
-    for index = 1, 13 do if not PublicNumber(geometry[index]) then return end end
-    if unlockPlacement and OwnsEllesmerePlacement(frame, unlockPlacement) then
-        local same = unlockPlacement.geometry ~= nil
-        for index = 1, 13 do
-            if not same or math.abs(geometry[index] - unlockPlacement.geometry[index]) > 0.01 then
-                same = false
-                break
-            end
-        end
-        if same then return end
-        -- Refit from the vendor's original size, never from our shrunken size.
-        RestoreEllesmereWindow(frame, unlockPlacement)
-    end
-    unlockPlacement = nil
-
-    -- Wait for EllesmereUI to finish sliding the banner in or resizing it.
-    -- Its hover handler uses the real UIParent top, so keep the banner flush
-    -- with that edge and choose a physical display that reaches it.
-    if frame:GetNumPoints() ~= 1 then return end
-    local point, relative, relativePoint, x, y = frame:GetPoint(1)
-    if point ~= "TOP" or relative ~= UIParent or relativePoint ~= "TOP"
-        or not PublicNumber(x) or not PublicNumber(y) or x ~= 0 or y ~= 0 then return end
-    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
-    if not left or right <= left or top <= bottom then return end
-    if Fits(left, right, top, bottom, metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom)
-        or Fits(left, right, top, bottom, metrics.workspaceLeft, metrics.workspaceRight,
-            metrics.workspaceTop, metrics.workspaceBottom) then return end
-
-    local screenWidth, screenHeight = UIParent:GetWidth(), UIParent:GetHeight()
-    local minLeft, maxRight, minBottom
-    if math.abs(metrics.gameTop - screenHeight) < 1 then
-        minLeft, maxRight, minBottom = metrics.gameLeft, metrics.gameRight, metrics.gameBottom
-    elseif math.abs(metrics.workspaceTop - screenHeight) < 1 then
-        minLeft, maxRight, minBottom = metrics.workspaceLeft, metrics.workspaceRight, metrics.workspaceBottom
-    else
-        return
-    end
-    local scale = frame:GetScale()
-    local ratio = math.min(1, (maxRight - minLeft - 8) / (right - left),
-        (screenHeight - minBottom) / (top - bottom))
-    if ratio <= 0 or not PublicNumber(scale) or scale <= 0 then return end
-    local offset = ((minLeft + maxRight - screenWidth) / 2) * uiScale / (frameScale * ratio)
-    local applied = {"TOP", UIParent, "TOP", offset, 0}
-    if ratio < 1 then frame:SetScale(scale * ratio) end
-    SetWindowPoint(frame, applied)
-    unlockPlacement = {
-        original = {point, relative, relativePoint, x, y},
-        originalScale = scale, scale = frame:GetScale(), applied = applied, geometry = geometry,
-    }
-end
-
-local function GetEllesmereMetrics()
-    local viewport = Offhand.Viewport
-    local metrics = Offhand.db and Offhand.db.enabled and viewport and viewport:GetMetrics()
-    return metrics and metrics.isSpanned and metrics or false
-end
-
-local function FitEllesmereWindow(frame, metrics)
-    local left, right, top, bottom, uiScale, frameScale = FrameBounds(frame)
-    if not left or right <= left or top <= bottom then return end
-    if Fits(left, right, top, bottom, metrics.gameLeft, metrics.gameRight, metrics.gameTop, metrics.gameBottom)
-        or Fits(left, right, top, bottom, metrics.workspaceLeft, metrics.workspaceRight,
-            metrics.workspaceTop, metrics.workspaceBottom) then return {} end
-    if frame:GetNumPoints() ~= 1 then return {} end
-    local point, relative, relativePoint, x, y = frame:GetPoint(1)
-    if not point or (relative and relative ~= UIParent)
-        or (not relative and frame:GetParent() ~= UIParent)
-        or not PublicNumber(x) or not PublicNumber(y) then return {} end
-
-    local scale = frame:GetScale()
-    local minLeft, maxRight = metrics.gameLeft + 4, metrics.gameRight - 4
-    local minBottom, maxTop = metrics.gameBottom + 4, metrics.gameTop - 4
-    if not PublicNumber(scale) or scale <= 0 or maxRight <= minLeft or maxTop <= minBottom then return {} end
-    local width, height = right - left, top - bottom
-    local ratio = math.min(1, (maxRight - minLeft) / width, (maxTop - minBottom) / height)
-    local fromUI = uiScale / (frameScale * ratio)
-    local newLeft = math.max(minLeft, math.min(left, maxRight - width * ratio))
-    local newTop = math.min(maxTop, math.max(top, minBottom + height * ratio))
-    local applied = {"TOPLEFT", UIParent, "BOTTOMLEFT", newLeft * fromUI, newTop * fromUI}
-    if ratio < 1 then frame:SetScale(scale * ratio) end
-    SetWindowPoint(frame, applied)
-    return {
-        original = {point, relative or UIParent, relativePoint or point, x, y},
-        originalScale = scale, scale = frame:GetScale(), applied = applied,
-    }
-end
-
-function PopupBounds:RefreshEllesmereWindows()
-    if not Offhand.isForever or not _G.EllesmereUI
-        or (InCombatLockdown and InCombatLockdown()) then return end
-    local metrics
-    local overlay = _G.EllesmereUnlockMode
-    if unlockPlacement or (overlay and overlay:IsVisible()) then
-        metrics = GetEllesmereMetrics()
-        RefreshEllesmereUnlockToolbar(metrics)
-    end
-    for _, name in ipairs(ellesmereWindows) do
-        local frame = _G[name]
-        if frame and frame.IsProtected and not frame:IsProtected()
-            and frame.IsForbidden and not frame:IsForbidden() then
-            local placement = ellesmerePlacement[frame]
-            local visible = frame:IsVisible()
-            if visible or placement then
-                if metrics == nil then metrics = GetEllesmereMetrics() end
-                if metrics and visible then
-                    if not placement then ellesmerePlacement[frame] = FitEllesmereWindow(frame, metrics) end
-                elseif placement then
-                    RestoreEllesmereWindow(frame, placement)
-                    ellesmerePlacement[frame] = nil
-                end
-            end
-        end
-    end
 end
 
 local function LegacyUnitMenu(dropdown)
@@ -1455,11 +1091,9 @@ function PopupBounds:Initialize()
     self.initialized = true
     InitializeAddonOptions()
 
-    -- Observe from Offhand's own timer. These windows can raise Forever's
-    -- gamepad cursor from their show handlers and may be created lazily.
-    if Offhand.isForever and _G.EllesmereUI and C_Timer and C_Timer.NewTicker then
-        self.ellesmereTicker = C_Timer.NewTicker(0.2, function() self:RefreshEllesmereWindows() end)
-    end
+    -- A bridge may observe an addon's presentation windows from its own timer.
+    local bridges = Offhand.Bridges
+    if bridges and bridges.InitializePopupWindows then bridges:InitializePopupWindows() end
 
     -- Mainline and current Classic branches expose the acquired menu frame as a
     -- supported proxy. Registering against unit-menu tags avoids scanning _G or

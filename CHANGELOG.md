@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+- Added built-in Forever bridges for Beastfinder, EasyFishing, ForeverLedger, Gathercraft, MobInfo2, Questie (with QuestieTrace) and RareScanner. Windows, buttons and alerts those addons open at the middle, top or bottom of the whole screen, or against its right edge, now open at the same spot of Mainhand. A frame you have dragged is left where you put it. Each bridge does nothing unless its addon is loaded. Live Forever testing is pending.
+- Questie's automatic tracker width and its quest item tooltips use Mainhand, not the whole span. Questie and Gathercraft map icons no longer pile up as hidden frames on the main UI.
+- RareScanner's **Reset position** saves the Mainhand spot, so the button does not return to the seam at the next login.
+- The 2 second maintenance pass no longer stops when an addon leaves the main UI with more frames than one scan can read; that scan is skipped and the passes after it still run.
+- Internal: the ForeverPlus warning bar handling moved from the core into a built-in bridge. Its behaviour is unchanged.
+- Internal: the DialogueUI handling moved from the core into a built-in bridge. Its behaviour is unchanged.
+- Internal: the bridge contract gained declarative addon data (ownership roles, frame rules, mover fields, catalogs, settings), map providers, settings contributions, slash commands and more core services, ready for addon handling to move from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the ConsolePort controller ownership checks moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the HUD and compatibility report ownership checks (action, status and unit frames, minimap, chat, movers, Edit Mode systems, layout ownership signature, guidance and minimap and chat diagnostics) moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the addon popup roots, addon menu names, tooltip owners, native container yield and external window mover marks moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the ProcDoc alert centering, its setting and its diagnostics moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the Kerzo Classic Quest Log Escape and reload handling, its catalog entry, close button frame and saved open state moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the EllesmereUI pixel grid scale adapter moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the addon window catalog, the addon settings window Escape handling for the Don addons, Platynator, ForeverDungeonJournal and Leatrix, and the vendor gameplay frames moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the World Map owner and fade addon detection (MoveAny, ClassicUI Forever, OpenMap, Leatrix Maps, MapUtils, MapWise), their yield, panel management and diagnostics facts and the map integration list moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the OpenMap world map handling (contract checks, recovery and /offhand recovermap, camera follow, movement fade, map scale, expanded and fullscreen map, conflict notice, diagnostics and its World Map settings controls) moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the MapWise position guard and fade reader, the MapUtils fade reader and the Leatrix Maps coordinate label refresh and settings description moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the replacement bag addon detection, bag owner report order, bag name lists, bag toggle keys, the EllesmereUI bag close button and the Forever bag Escape adapters for ArkInventory, Bagnaros, BetterBags, BagSmith, ElvUI and EllesmereUI moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the persistent workspace bag roots of Baganator, Bagnon and EllesmereUI (root discovery, script and Escape handling, reopen after Escape, panels, Talents and reload, parked native bags and diagnostics) moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the EllesmereUI settings window, popup and Unlock Mode toolbar fitting and its chat bubble ownership check moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the EllesmereUI HUD layout transfer (visual preview, profile import, Blizzard fallback layout, /offhand ellesmere, its setup wizard step, settings, onboarding and character review texts) moved from the core into a built-in bridge. Behaviour is unchanged.
+- Internal: the ItemRack Options window and flyout fitting, the Questie standalone settings window fitting, the OneForAll window mover conflicts and diagnostics and the Zygor guide frame probe moved from the core into built-in bridges. Behaviour is unchanged.
+- Internal: the DaylightUI parked Spellbook and Trainer check and its window names in the panel placement diagnostics moved from the core into its built-in bridge, and the core no longer names any third-party addon. Behaviour is unchanged.
+- Internal: the Beta 43 bag backpack tracking and map follow option moved from the core into built-in bridges. Behaviour is unchanged.
+
 ## [2.1.5-beta.43]
 
 Addon-only update for **Windows Companion 2.1.9-beta.4**.

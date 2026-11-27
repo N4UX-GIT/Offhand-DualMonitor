@@ -119,6 +119,10 @@ hooksecurefunc=function(target, methodOrCallback, maybeCallback)
 end
 assert(loadfile("Core/CanvasForeverBags.lua"))("Offhand",addon)
 assert(loadfile("Core/BagPersistence.lua"))("Offhand",addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ArkInventory/Bags.lua", "Bridges/Baganator/Data.lua",
+    "Bridges/Baganator/Bags.lua", "Bridges/Bagnaros/Bags.lua", "Bridges/Bagnon/Bags.lua", "Bridges/BagSmith/Bridge.lua",
+    "Bridges/BagSmith/Bags.lua", "Bridges/BetterBags/Bags.lua", "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/EllesmereUI/Bags.lua", "Bridges/ElvUI/Bags.lua" })
 local tracker=addon.BagPersistence
 
 local function CheckTargetEscape(frame, close)
@@ -155,8 +159,8 @@ onEvent(nil,"PLAYER_LOGIN"); onEvent(nil,"PLAYER_ENTERING_WORLD"); flush()
 addon.isForever = false
 assert(tracker.frames[name] == bag and tracker.frames[childName] == nil,
     "Baganator child regions must not be mistaken for backpack roots")
-assert(tracker.IsBaganatorBackpackRoot(bag, name)
-    and not tracker.IsBaganatorBackpackRoot(child, childName),
+assert(tracker.IsSelfAnchoredRoot(bag, name)
+    and not tracker.IsSelfAnchoredRoot(child, childName),
     "popup ownership must recognize the backpack root without claiming its children")
 assert(globalScans == 1,
     "Baganator discovery must scan globals only once during lifecycle initialization")
@@ -338,7 +342,7 @@ bagnonLoaded=true
 onEvent(nil,"ADDON_LOADED","Bagnon"); flush()
 assert(tracker.frames.BagnonFrameinventory == bagnon,
     "Bagnon's public inventory root must be discovered without a global scan")
-assert(tracker.bagnonCallbacksInstalled,
+assert(tracker.callbacksInstalled.Bagnon,
     "Bagnon's lazy root observer must be enabled")
 assert(bagnon.scripts.OnShow == nil and bagnon.scripts.OnHide == nil,
     "Offhand must not install scripts in Bagnon's Gamepad focus ancestry")
@@ -866,6 +870,7 @@ BagSmithFrame = smith
 local smithView = {frame=smith, isMain=true, Hide=function(self) self.frame:Hide() end}
 smith.view = smithView
 addon.HUDCompatibility = {GetBagSmithParkingParent=function() return parkingParent end}
+addon.API.GetBridgeNamespace("BagSmith").GetParkingParent = function() return parkingParent end
 C_AddOns.IsAddOnLoaded = function(addonName) return addonName == "BagSmith" or query(addonName) end
 local smithEscape
 debugstack = function()

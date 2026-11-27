@@ -8,6 +8,7 @@ local addon={db={enabled=true},Mainhand={},MainhandGeometry={
     IsControllerMode=function() return gamepad end},
     IsCinematicOrMovieActive=function() return cinematic end}
 addon.Mainhand.GetGeometrySignature=function() return signature end
+dofile('tests/support/core-bridges.lua').Load(addon,{'Bridges/ConsolePort/Bridge.lua'})
 local m={isSpanned=true}
 addon.Viewport={GetMetrics=function() return m end}
 local data,presets,calls,reject,unconfirmed

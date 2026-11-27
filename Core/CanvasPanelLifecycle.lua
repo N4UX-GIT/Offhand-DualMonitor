@@ -125,7 +125,7 @@ end
 
 function Lifecycle.InstallClosePolicy(Canvas, services)
     local IsFrameOnWorkspace = services.IsFrameOnWorkspace
-    local ShouldYieldFrameToClassicUIForever = Offhand.CanvasCompatibility.ShouldYieldFrameToClassicUIForever
+    local ShouldYieldFrameToExternalOwner = Offhand.CanvasCompatibility.ShouldYieldFrameToExternalOwner
     local IsForeverNativeContainerName = Offhand.CanvasBackpackState.IsForeverContainerName
     local explicitCombinedBagClose = false
     local toc = tonumber(Offhand.tocVersion) or 0
@@ -170,7 +170,7 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
                     end
                     return frame.IsShown and frame:IsShown()
                         and (not frame.IsVisible or frame:IsVisible())
-                        and not ShouldYieldFrameToClassicUIForever(frame) and IsFrameOnWorkspace(frame)
+                        and not ShouldYieldFrameToExternalOwner(frame) and IsFrameOnWorkspace(frame)
                 end)
                 return ok and keep
             end
@@ -302,7 +302,7 @@ function Lifecycle.InstallClosePolicy(Canvas, services)
             
             local function TrackFrame(f)
                 if not f or not f.IsShown or not f:IsShown() then return end
-                if ShouldYieldFrameToClassicUIForever(f) then return end
+                if ShouldYieldFrameToExternalOwner(f) then return end
                 local name = f.GetName and f:GetName()
                 if name and Offhand.CanvasPanelRegistry.IsContextBoundPanel(name) then return end
                 for _, existing in ipairs(activeWorkspaceFrames) do
@@ -520,7 +520,7 @@ function Lifecycle.InstallModality(Canvas, services)
     local IsBackpackRoot = Offhand.CanvasBackpackState.IsRoot
     local IsContextBoundPanel = Offhand.CanvasPanelRegistry.IsContextBoundPanel
     local RequiresNativePanelRegistration = Offhand.CanvasPanelRegistry.RequiresNativePanelRegistration
-    local HasClassicUIForever = Offhand.CanvasCompatibility.HasClassicUIForever
+    local GetExternalOwnerFrames = Offhand.CanvasCompatibility.GetExternalOwnerFrames
     local State = Offhand.CanvasFrameState
     local IsPanelEvicting = State.IsEvicting
     local SetPanelEvicting = State.SetEvicting
@@ -651,9 +651,11 @@ function Lifecycle.InstallModality(Canvas, services)
           end
       end
 
-    function Canvas:RelinquishClassicUIForeverFrames()
-        if not HasClassicUIForever() then return false end
-        for _, name in ipairs({"WorldMapFrame", "CharacterFrame"}) do
+    -- Hand the frames an external owner keeps (panels.externalOwner) back to it.
+    function Canvas:RelinquishExternalOwnerFrames()
+        local names = GetExternalOwnerFrames()
+        if not names then return false end
+        for _, name in ipairs(names) do
             local frame = _G[name]
             if frame then
                 SetPanelDragging(frame, false)

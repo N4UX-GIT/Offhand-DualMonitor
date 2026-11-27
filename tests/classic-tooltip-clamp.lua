@@ -7,6 +7,7 @@ local metrics = { isSpanned = true, hudScale = 1,
 local addon = { modules = {}, db = { enabled = true, seamRedirect = true },
     Viewport = { GetMetrics = function() return metrics end } }
 assert(loadfile("Core/PopupBounds.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/TinyTooltip/Bridge.lua", "Bridges/TinyTooltipReforged/Bridge.lua", "Bridges/TipTac/Bridge.lua" })
 local ownerX = 10
 local function frame(left, right, top, bottom)
     return {

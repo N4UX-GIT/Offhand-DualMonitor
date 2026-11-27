@@ -22,7 +22,8 @@ local function ValidName(name)
 end
 
 local function CanInspect()
-    return Offhand.isForever and not ConsolePort and not Offhand._displayGeometryTransitionActive
+    return Offhand.isForever and not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+        and not Offhand._displayGeometryTransitionActive
         and not (InCombatLockdown and InCombatLockdown())
         and not (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled())
         and not (EditModeManagerFrame and EditModeManagerFrame:IsShown())

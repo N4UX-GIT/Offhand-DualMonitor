@@ -46,8 +46,8 @@ local function Session(saved, options)
             assert(increment); s.snapshots=s.snapshots+1
         end},
     }
-    assert(loadfile('Core/CanvasKerzoQuestLog.lua'))('Offhand',addon)
-    s.adapter,s.frame,s.addon,s.metrics=addon.CanvasKerzoQuestLog,frame,addon,metrics
+    s.bridges=dofile('tests/support/core-bridges.lua').Load(addon,{'Bridges/KerzoQuestLog/Bridge.lua'})
+    s.adapter,s.frame,s.addon,s.metrics=addon.API.GetBridgeNamespace('KerzoQuestLog'),frame,addon,metrics
     return s
 end
 
@@ -111,4 +111,20 @@ s.frame.cfg={}; s.time=4; s.adapter:Refresh()
 assert(s.opens==1,'late vendor initialization should restore within the startup deadline')
 s.frame:Hide(); s.frame:Show(); s.workspace=false; s.frame:MemorizarPosicion()
 assert(not OffhandCharDB.kerzoQuestLogOpen,'moving to Mainhand must clear workspace reload intent')
-print('PASS: Kerzo character reload intent, vendor opener, explicit closure, teardown, startup limits and owner gates')
+
+-- Core reaches the session through the bridge dispatchers, and the intent
+-- stays under its stored key kerzoQuestLogOpen.
+s=Session({kerzoQuestLogOpen=true})
+assert(s.addon.API.GetBridgeCharacterSetting('KerzoQuestLog','kerzoQuestLogOpen')==true,
+    'a value saved under kerzoQuestLogOpen must be read back through the bridge setting')
+s.bridges:BeginSession(); s.bridges:Refresh('persistence')
+assert(s.shown and s.opens==1,'BeginSession must arm the restoration of the saved intent')
+s.bridges:PrepareTransition(); s.frame:Hide(); s.bridges:Refresh('tick')
+assert(OffhandCharDB.kerzoQuestLogOpen==true,'PrepareTransition must stop sampling before teardown')
+s.bridges:BeginSession(); s.bridges:Refresh('tick')
+assert(OffhandCharDB.kerzoQuestLogOpen==nil,'BeginSession must resume sampling')
+OffhandCharDB=nil
+s=Session(nil); OffhandCharDB=nil
+s.bridges:BeginSession(); s.frame:Show(); s.bridges:Refresh('persistence')
+assert(OffhandCharDB==nil and s.snapshots==0,'without character state the intent must not be written')
+print('PASS: Kerzo character reload intent, vendor opener, explicit closure, teardown, startup limits and owner gates through the bridge contract')

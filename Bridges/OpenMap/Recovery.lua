@@ -1,0 +1,197 @@
+--[[
+    Offhand: Multi-Monitor Setup Addon
+    Bridges/OpenMap/Recovery.lua: version-scoped compatibility for OpenMap's
+    saved window placement
+
+    The former Core/OpenMapRecovery.lua, moved behind the bridge contract with
+    unchanged behaviour: the user drag observer that saves a released map
+    point in OpenMap's own settings, and the one-shot recovery of the windowed
+    map to Mainhand or the workspace. Creates no frame, hook or timer at load.
+
+    Registered on every client, like the core module it replaces; OpenMap is
+    read when asked.
+--]]
+
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.GetBridgeNamespace) ~= "function" then return end
+
+local namespace = API.GetBridgeNamespace("OpenMap")
+local Contract = namespace.Contract
+if type(Contract) ~= "table" then return end
+local Recovery = {}
+namespace.Recovery = Recovery
+
+local function Number(value)
+    if type(issecretvalue) == "function" and issecretvalue(value) then return nil end
+    if type(value) ~= "number" or value ~= value or math.abs(value) == math.huge then return nil end
+    return value
+end
+
+local dragObservers = setmetatable({}, { __mode = "k" })
+
+local function GetDraggableOpenMapDB(map)
+    if API.IsLoggingOut() or not API.IsEnabled() or InCombatLockdown()
+        or API.IsGamepadUIEnabled()
+        or map:IsForbidden() or not map:IsShown() or map:IsMaximized() then return end
+    if API.GetExternalMapOwner() ~= "OpenMap" then return end
+    local module, db = Contract.GetOpenMapWorldMapModule()
+    -- OpenMap's window code is active even when its stitched canvas is not.
+    if not module or (module.MoveAnyOn and module.MoveAnyOn()) then return end
+    local scale, savedScale = Number(map:GetScale()), Number(db.windowScale)
+    if scale and savedScale and savedScale > 0 and math.abs(scale - savedScale) < .001 then return db end
+end
+
+function Recovery:ObserveUserDrag(map)
+    if dragObservers[map] or not hooksecurefunc
+        or not map.StartMoving or not map.StopMovingOrSizing then return end
+    local drag
+    hooksecurefunc(map, "StartMoving", function()
+        drag = nil
+        local ok, db, left, top = pcall(function()
+            -- A paired native move is enough. Querying the mouse button from
+            -- this post-hook can fail under Forever's limited input rules.
+            return GetDraggableOpenMapDB(map), Number(map:GetLeft()), Number(map:GetTop())
+        end)
+        if ok and db and left and top then
+            drag = { db = db, window = db.window, left = left, top = top }
+        end
+    end)
+    hooksecurefunc(map, "StopMovingOrSizing", function()
+        local completed = drag
+        drag = nil
+        if not completed then return end
+        -- Other movers can bypass OpenMap's title script. Store the released
+        -- point in the same owner settings that OpenMap reads on panel reflow.
+        pcall(function()
+            local db = GetDraggableOpenMapDB(map)
+            if db ~= completed.db or db.window ~= completed.window or map:GetNumPoints() ~= 1 then return end
+            local left, top = Number(map:GetLeft()), Number(map:GetTop())
+            if not left or not top
+                or (math.abs(left - completed.left) < .5 and math.abs(top - completed.top) < .5) then return end
+            local point, relative, relativePoint, x, y = map:GetPoint(1)
+            if issecretvalue and (issecretvalue(point) or issecretvalue(relative) or issecretvalue(relativePoint)) then return end
+            -- StopMovingOrSizing may omit the relative frame for a screen anchor.
+            if (relative == UIParent or relative == nil) and type(point) == "string"
+                and type(relativePoint) == "string" and Number(x) and Number(y) then
+                db.window = { point, relativePoint, x, y }
+            end
+        end)
+    end)
+    dragObservers[map] = true
+end
+
+local function Inspect(workspace)
+    if not API.IsEnabled() then return end
+    if API.IsGamepadUIEnabled() then return end
+    if IsMouseButtonDown and IsMouseButtonDown("LeftButton") then return end
+    local _, db = Contract.GetOpenMapWindowModule()
+    if not db or not Number(db.windowScale) or db.windowScale <= 0
+        or (db.window ~= false and type(db.window) ~= "table") then return end
+    if type(db.window) == "table" and (type(db.window[1]) ~= "string" or type(db.window[2]) ~= "string"
+        or not Number(db.window[3]) or not Number(db.window[4])) then return end
+    local map = _G.WorldMapFrame
+    if not map or (map.IsForbidden and map:IsForbidden()) or not map:IsShown()
+        or not map:IsVisible() or map:IsMaximized() then return end
+    -- A SetPoint post-hook can also reapply the owner's saved size/scale. Refuse
+    -- unsettled or malformed state rather than implicitly changing those values.
+    local localScale, mapWidth, mapHeight = Number(map:GetScale()), Number(map:GetWidth()), Number(map:GetHeight())
+    if not localScale or math.abs(localScale - db.windowScale) > .001
+        or not mapWidth or not mapHeight or mapWidth <= 0 or mapHeight <= 0 then return end
+    local size = db.windowSize
+    if size ~= false and (type(size) ~= "table" or not Number(size[1]) or not Number(size[2])
+        or math.abs(size[1] - mapWidth) > .5 or math.abs(size[2] - mapHeight) > .5) then return end
+    local scale, parentScale = Number(map:GetEffectiveScale()), Number(UIParent:GetEffectiveScale())
+    local width, height = Number(UIParent:GetWidth()), Number(UIParent:GetHeight())
+    if not scale or not parentScale or scale <= 0 or parentScale <= 0
+        or not width or not height or width <= 0 or height <= 0 then return end
+    local factor = Number(scale / parentScale)
+    if not factor or factor <= 0 then return end
+    local metrics = API.GetViewportMetrics()
+    if not metrics then return end
+    local left, right, bottom, top
+    if workspace then
+        if not metrics.isSpanned then return end
+        local region = API.GetWorkspaceRegion(metrics)
+        if region then
+            left, bottom = Number(region.x), Number(region.y)
+            local regionWidth, regionHeight = Number(region.width), Number(region.height)
+            if not left or not bottom or not regionWidth or not regionHeight then return end
+            right, top = left + regionWidth, bottom + regionHeight
+        else
+            left, right = Number(metrics.workspaceLeft), Number(metrics.workspaceRight)
+            bottom, top = Number(metrics.workspaceBottom), Number(metrics.workspaceTop)
+        end
+    else
+        left, right = Number(metrics.gameLeft), Number(metrics.gameRight)
+        bottom, top = Number(metrics.gameBottom), Number(metrics.gameTop)
+    end
+    if not left or not right or not bottom or not top then return end
+    -- Metrics are UIParent units. Intersect with the current canvas; never use a
+    -- stale saved desktop rectangle or the center of a span's physical void.
+    left, right = math.max(0, left), math.min(width, right)
+    bottom, top = math.max(0, bottom), math.min(height, top)
+    if right - left < 160 or top - bottom < 100 then return end
+    if workspace and (mapWidth * factor > right - left or mapHeight * factor > top - bottom) then
+        return nil, "workspace-fit"
+    end
+    local count = Number(map:GetNumPoints())
+    if not count or count < 1 or count > 16 or count % 1 ~= 0 then return end
+    local points = {}
+    for i = 1, count do points[i] = {map:GetPoint(i)} end
+    local inset = workspace and math.min(24, top - bottom - mapHeight * factor) or 24
+    return {map=map, db=db, points=points, factor=factor,
+        left=left, right=right, bottom=bottom, top=top,
+        anchor={"TOP", "BOTTOMLEFT", (left + right) / 2 / factor, (top - inset) / factor}}
+end
+
+function Recovery:Run(workspace)
+    if InCombatLockdown and InCombatLockdown() then return false, "combat" end
+    local read, state, reason = pcall(Inspect, workspace)
+    if not read or not state then return false, read and reason or "unavailable" end
+    local map, db, anchor = state.map, state.db, state.anchor
+    local previous = db.window
+    -- Set the owner's saved anchor BEFORE touching the root. Its existing Hold
+    -- hook now agrees with the recovery instead of restoring the hidden anchor.
+    local moved = pcall(function()
+        db.window = anchor
+        map:ClearAllPoints()
+        map:SetPoint(anchor[1], UIParent, anchor[2], anchor[3], anchor[4])
+        local point, relative, relativePoint, x, y = map:GetPoint(1)
+        if map:GetNumPoints() ~= 1 or point ~= anchor[1] or relative ~= UIParent
+            or relativePoint ~= anchor[2] or not Number(x) or not Number(y)
+            or math.abs(x - anchor[3]) > .5 or math.abs(y - anchor[4]) > .5 then error("anchor rejected") end
+        local titleTop = Number(map:GetTop())
+        local mapLeft, mapWidth = Number(map:GetLeft()), Number(map:GetWidth())
+        if not titleTop or not mapLeft or not mapWidth or mapWidth <= 0 then error("bounds unavailable") end
+        local titleX, titleY = (mapLeft + mapWidth / 2) * state.factor, titleTop * state.factor
+        if workspace then
+            local mapHeight = Number(map:GetHeight())
+            if not mapHeight or mapLeft * state.factor < state.left - .5
+                or (mapLeft + mapWidth) * state.factor > state.right + .5
+                or titleY > state.top + .5 or titleY - mapHeight * state.factor < state.bottom - .5 then
+                error("map outside workspace")
+            end
+        elseif titleX < state.left + 12 or titleX > state.right - 12
+            or titleY < state.bottom + 24 or titleY > state.top - 12 then error("title unreachable") end
+    end)
+    if not moved then
+        db.window = previous
+        pcall(function()
+            map:ClearAllPoints()
+            for _, point in ipairs(state.points) do map:SetPoint(unpack(point)) end
+        end)
+        return false, "unavailable"
+    end
+    return true
+end
+
+function Recovery:RunAndReport(workspace)
+    local ok, reason = self:Run(workspace)
+    local key = ok and (workspace and "OPENMAP_WORKSPACE_DONE" or "OPENMAP_RECOVERY_DONE")
+        or (reason == "workspace-fit" and "OPENMAP_WORKSPACE_FIT")
+        or (reason == "combat" and "OPENMAP_RECOVERY_COMBAT" or "OPENMAP_RECOVERY_UNAVAILABLE")
+    API.Print(API.GetText(key))
+    return ok, reason
+end

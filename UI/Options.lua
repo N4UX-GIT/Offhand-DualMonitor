@@ -46,6 +46,14 @@ local function IsIntegrationActive(name)
     return true
 end
 
+-- Locale text the HUD transfer provider (Offhand.HUDTransfer) names for one
+-- of its texts, or "" without one.
+local function HUDTransferText(name)
+    local transfer = Offhand.HUDTransfer
+    local key = transfer and type(transfer.text) == "table" and transfer.text[name]
+    return key and L[key] or ""
+end
+
 local function BackdropTemplate()
     return not Offhand.isLegacyWrath and "BackdropTemplate" or nil
 end
@@ -1306,22 +1314,58 @@ function Options:CreateFloatingPanel()
     mapTip:SetPoint("TOPLEFT", 12, -88)
     mapTip:SetWidth(530)
     mapTip:SetWordWrap(true)
+    -- Controls bridges add to this card: a scale title suffix and its help
+    -- (slot mapScaleTitle, kind suffix), a description prefix (slot
+    -- mapDescription, kind prefix), buttons and then checkboxes below the
+    -- description (slot map, kinds button and check), each shown while its
+    -- owner holds the map and its addon is loaded and enabled for this
+    -- character; and a description shown instead of the default one off
+    -- Forever while its addon is (slot mapDescription, kind fallback). One
+    -- table, because this builder is at Lua's limit of 200 locals.
+    local mapExtras = { suffix = {}, prefix = {}, fallback = {}, button = {}, check = {} }
+    for _, slot in ipairs({ { "mapScaleTitle", suffix = true }, { "mapDescription", prefix = true, fallback = true },
+        { "map", button = true, check = true } }) do
+        for _, entry in ipairs(Offhand.Bridges and Offhand.Bridges:GetSettingsContributions(slot[1]) or {}) do
+            local kind = entry.kind
+            if type(kind) == "string" and slot[kind] and type(entry.text) == "string" and type(entry.addon) == "string"
+                and (kind ~= "button" or type(entry.onClick) == "function")
+                and (kind ~= "check" or (type(entry.get) == "function" and type(entry.set) == "function")) then
+                mapExtras[kind][#mapExtras[kind] + 1] = { entry = entry }
+            end
+        end
+    end
+    function mapExtras.IsShown(entry, owner)
+        return IsIntegrationActive(entry.addon) and owner == entry.owner
+    end
+    -- The current map owner, read only while an owner control's addon is active.
+    function mapExtras.ActiveOwner()
+        for _, list in ipairs({ mapExtras.prefix, mapExtras.button }) do
+            for _, item in ipairs(list) do
+                if IsIntegrationActive(item.entry.addon) then return Offhand.MapScale:GetState().owner end
+            end
+        end
+    end
     local function RefreshMapScaleControls()
         local state = Offhand.MapScale:GetState()
-        local openMapActive = IsIntegrationActive("OpenMap")
-        local openMapOwner = openMapActive and state.owner == "OpenMap"
+        local titleSuffix, titleHelp = "", nil
+        for _, item in ipairs(mapExtras.suffix) do
+            if mapExtras.IsShown(item.entry, state.owner) then
+                titleSuffix = titleSuffix .. item.entry.text
+                titleHelp = titleHelp or item.entry.help
+            end
+        end
         mapScaleSlider:SetRange(state.min, state.max, state.step)
-        mapScaleSlider.title:SetText(L["MAP_SCALE"] .. (openMapOwner and " (OpenMap)" or ""))
+        mapScaleSlider.title:SetText(L["MAP_SCALE"] .. titleSuffix)
         Controls.SetSliderEnabled(mapScaleSlider, state.available)
         autoFitBtn:SetEnabled(state.available)
         p100Btn:SetEnabled(state.available and state.max >= 1)
         p150Btn:SetEnabled(state.available and state.max >= 1.5)
         p200Btn:SetEnabled(state.available and state.max >= 2)
         p250Btn:SetEnabled(state.available and state.max >= 2.5)
-        mapTip:SetText(L[not state.available and "MAP_SCALE_UNAVAILABLE"
-            or (openMapOwner and "MAP_SCALE_OPENMAP_HELP" or "MAP_SCALE_TARGET_HELP")])
+        mapTip:SetText(not state.available and L["MAP_SCALE_UNAVAILABLE"]
+            or titleHelp or L["MAP_SCALE_TARGET_HELP"])
         mapScaleSlider:UpdateText()
-        if card2_1.RefreshIntegration then card2_1.RefreshIntegration(openMapOwner) end
+        if card2_1.RefreshIntegration then card2_1.RefreshIntegration(state.owner) end
     end
     card2_1:SetScript("OnShow", RefreshMapScaleControls)
     card2_1:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -1360,27 +1404,25 @@ function Options:CreateFloatingPanel()
         mapDesc:SetJustifyH("LEFT")
         mapDesc:SetWidth(530)
         mapDesc:SetWordWrap(true)
-        local recoverMap, placeOpenMap, openMapFollow
-        if Offhand.isForever and Offhand.OpenMapRecovery then
-            recoverMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
-            recoverMap:SetHeight(24)
-            recoverMap:SetText(L["OPENMAP_RECOVERY_BUTTON"])
-            recoverMap:SetScript("OnClick", function()
-                if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport() end
+        for _, item in ipairs(mapExtras.button) do
+            local entry = item.entry
+            item.button = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
+            item.button:SetHeight(24)
+            item.button:SetText(entry.text)
+            item.button:SetScript("OnClick", function()
+                if IsIntegrationActive(entry.addon) then entry.onClick() end
             end)
-            placeOpenMap = CreateFrame("Button", nil, card2_1, "UIPanelButtonTemplate")
-            placeOpenMap:SetHeight(24)
-            placeOpenMap:SetText(L["OPENMAP_WORKSPACE_BUTTON"])
-            placeOpenMap:SetScript("OnClick", function()
-                if IsIntegrationActive("OpenMap") then Offhand.OpenMapRecovery:RunAndReport(true) end
-            end)
-            if Offhand.SetTooltip then
-                Offhand:SetTooltip(recoverMap, L["OPENMAP_RECOVERY_BUTTON"], L["OPENMAP_RECOVERY_TIP"])
+        end
+        if Offhand.SetTooltip then
+            for _, item in ipairs(mapExtras.button) do
+                if type(item.entry.tooltip) == "string" then
+                    Offhand:SetTooltip(item.button, item.entry.text, item.entry.tooltip)
+                end
             end
-            openMapFollow = CreateNativeCheckbox(card2_1, L["OPENMAP_FOLLOW_PLAYER"],
-                function() return Offhand.db and Offhand.db.followPlayerWithOpenMap == true end,
-                function(value) Offhand.db.followPlayerWithOpenMap = value == true end,
-                L["OPENMAP_FOLLOW_PLAYER"], L["OPENMAP_FOLLOW_PLAYER_TIP"])
+        end
+        for _, item in ipairs(mapExtras.check) do
+            local entry = item.entry
+            item.check = CreateNativeCheckbox(card2_1, entry.text, entry.get, entry.set, entry.text, entry.tooltip)
         end
         local keepOpenChecks = {}
         if Offhand.WorkspaceToggleKeys and Offhand.WorkspaceToggleKeys:Available() then
@@ -1398,45 +1440,62 @@ function Options:CreateFloatingPanel()
             AddKeepOpenCheck("keepMapToggleOpen", "KEEP_MAP_TOGGLE_OPEN")
             AddKeepOpenCheck("keepBagToggleOpen", "KEEP_BAG_TOGGLE_OPEN")
         end
-        function card2_1.RefreshIntegration(openMapOwner)
+        -- owner: the World Map's external owner, or nil.
+        function card2_1.RefreshIntegration(owner)
             local fadeHelp
             if Offhand.isForever then
                 local fadeAddon = Offhand.CanvasCompatibility.GetWorldMapFadeAddon()
                 local mapAdapter = Offhand.CanvasForeverMap
+                -- The fade addon's map.fade entry names its help (helpKey).
+                local fadeFacts = fadeAddon and Offhand.Bridges and Offhand.Bridges:GetRoleEntry("map.fade", fadeAddon)
                 if mapAdapter and mapAdapter.SupportsAddonMovementFade(fadeAddon, WorldMapFrame) then
                     fadeHelp = "MAP_MOVEMENT_FOREVER"
-                elseif fadeAddon == "OpenMap" then fadeHelp = "MAP_MOVEMENT_OPENMAP"
-                elseif fadeAddon == "MapUtils" then fadeHelp = "MAP_MOVEMENT_MAPUTILS"
-                elseif fadeAddon == "MapWise" then fadeHelp = "MAP_MOVEMENT_MAPWISE"
+                elseif fadeFacts and type(fadeFacts.helpKey) == "string" then fadeHelp = fadeFacts.helpKey
                 else fadeHelp = "MAP_MOVEMENT_FOREVER" end
             end
-            local description = L[fadeHelp
-                or (IsIntegrationActive("Leatrix_Maps") and "COMPAT_LEATRIX")
-                or "MAP_KEEP_OPEN_DESC"]
-            if openMapOwner then
-                description = L["OPENMAP_WORKSPACE_HELP"] .. " " .. description
+            local description
+            if fadeHelp then
+                description = L[fadeHelp]
+            else
+                for _, item in ipairs(mapExtras.fallback) do
+                    if IsIntegrationActive(item.entry.addon) then
+                        description = item.entry.text
+                        break
+                    end
+                end
+                description = description or L["MAP_KEEP_OPEN_DESC"]
+            end
+            for _, item in ipairs(mapExtras.prefix) do
+                if mapExtras.IsShown(item.entry, owner) then
+                    description = item.entry.text .. " " .. description
+                end
             end
             mapDesc:SetText(description)
             local top = descriptionTop + 12 + Controls.FitCompactParagraph(mapDesc, description, 530)
-            if recoverMap then
-                SetShown(recoverMap, openMapOwner)
-                recoverMap:SetPoint("TOPLEFT", 12, -top)
-                recoverMap:SetPoint("TOPRIGHT", -12, -top)
-                SetShown(placeOpenMap, openMapOwner)
-                placeOpenMap:SetPoint("TOPLEFT", 12, -top - 30)
-                placeOpenMap:SetPoint("TOPRIGHT", -12, -top - 30)
+            -- Each button takes its entry's height (default 30) below the
+            -- previous one; the card grows to the last shown button.
+            local offset, used = 0, 0
+            for _, item in ipairs(mapExtras.button) do
+                local shown = mapExtras.IsShown(item.entry, owner)
+                SetShown(item.button, shown)
+                item.button:SetPoint("TOPLEFT", 12, -top - offset)
+                item.button:SetPoint("TOPRIGHT", -12, -top - offset)
+                offset = offset + (item.entry.height or 30)
+                if shown then used = offset end
             end
-            top = top + (recoverMap and openMapOwner and 66 or 0)
-            if openMapFollow then
-                local mapAdapter = Offhand.CanvasForeverMap
-                local supportsFollow = openMapOwner and mapAdapter
-                    and mapAdapter.SupportsOpenMapFollow and mapAdapter.SupportsOpenMapFollow()
-                SetShown(openMapFollow, supportsFollow)
-                if supportsFollow then
-                    openMapFollow:SetPoint("TOPLEFT", 10, -top)
-                    openMapFollow:SetChecked(Offhand.db and Offhand.db.followPlayerWithOpenMap == true)
+            top = top + used
+            -- Each check below the buttons, while its entry's shown() also
+            -- holds (when given).
+            for _, item in ipairs(mapExtras.check) do
+                local entry = item.entry
+                local shown = mapExtras.IsShown(entry, owner)
+                    and (type(entry.shown) ~= "function" or entry.shown() and true or false)
+                SetShown(item.check, shown)
+                if shown then
+                    item.check:SetPoint("TOPLEFT", 10, -top)
+                    item.check:SetChecked(entry.get() == true)
                     top = top + math.max(28, Controls.MeasureWrappedText(
-                        openMapFollow.Text, openMapFollow.Text:GetText(), 530) + 10)
+                        item.check.Text, item.check.Text:GetText(), 530) + 10)
                 end
             end
             for _, entry in ipairs(keepOpenChecks) do
@@ -1446,13 +1505,33 @@ function Options:CreateFloatingPanel()
             end
             ResizeMonitorCard(card2_1, top)
         end
-        card2_1.RefreshIntegration(IsIntegrationActive("OpenMap") and Offhand.MapScale:GetState().owner == "OpenMap")
+        card2_1.RefreshIntegration(mapExtras.ActiveOwner())
     end
 
     local card2_2 = CreateCard(tab2, L["CARD_PERSISTENCE"], 374,
         L["CHECK_ALLOW_DRAG_TIP_DESC"], Offhand.isForever and L["CHECK_ESC_PERSIST_TIP_DESC_FOREVER"] or L["CHECK_ESC_PERSIST_TIP_DESC"])
+    -- Checkboxes bridges add to the Pop-ups & alerts card, below the redirect
+    -- option. Each is shown only while its addon is loaded and enabled for
+    -- this character, and that addon's ADDON_LOADED refreshes the card. One
+    -- table, because this builder is at Lua's limit of 200 locals.
+    local alertsExtras = { items = {}, addons = {} }
+    for _, entry in ipairs(Offhand.Bridges and Offhand.Bridges:GetSettingsContributions("alerts") or {}) do
+        if entry.kind == "check" and type(entry.get) == "function" and type(entry.set) == "function" then
+            alertsExtras.items[#alertsExtras.items + 1] = { entry = entry }
+            if type(entry.addon) == "string" then alertsExtras.addons[entry.addon] = true end
+        end
+    end
+    function alertsExtras.IsShown(entry)
+        return entry.addon == nil or IsIntegrationActive(entry.addon)
+    end
     local alertsCard = CreateCard(tab2, L["CARD_POPUPS_ALERTS"], 92, L["SETTINGS_HELP_POPUPS"], function()
-        if Offhand.ProcDocCompatibility and IsIntegrationActive("ProcDoc") then return L["PROCDOC_MAINHAND_DESC"] end
+        local help = {}
+        for _, item in ipairs(alertsExtras.items) do
+            if type(item.entry.help) == "string" and alertsExtras.IsShown(item.entry) then
+                help[#help + 1] = item.entry.help
+            end
+        end
+        if #help > 0 then return table.concat(help, "\n\n") end
     end)
     alertsCard.title:SetJustifyH("LEFT")
     local controllerCard
@@ -1461,7 +1540,9 @@ function Options:CreateFloatingPanel()
     -- Forever has two layout-status rows plus wrapped Edit Mode guidance.
     -- Keep the preview checkbox below that text instead of sharing its line.
     local recoveryHeight = Offhand.isForever and 374 or (supportsMainhandLayout and 302 or 152)
-    local transfer = Offhand.EllesmereLayout
+    -- The HUD transfer provider (an addon suite whose layout Offhand can
+    -- import); the load and enable state of its addon show its controls.
+    local transfer = Offhand.HUDTransfer
     local recoveryCard = CreateCard(tab2, L["CARD_RECOVERY"], recoveryHeight,
         L["RECOVERY_MISSING_LABEL"], L["GATHER_MAINHAND_UI_DESC"])
     local advancedCard
@@ -1875,18 +1956,18 @@ function Options:CreateFloatingPanel()
         autoEditModeControls:SetPoint("TOPLEFT", forceCheck, "BOTTOMLEFT", 0, -6)
     end
 
-    local ellesmereCaption, ellesmerePreview
+    local transferCaption, transferPreview
     if transfer and transfer.ShowPreview then
-        ellesmereCaption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-        ellesmereCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
-        ellesmereCaption:SetJustifyH("LEFT")
-        ellesmereCaption:SetWordWrap(true)
-        ellesmereCaption:SetText(L["ELLESMERE_HUD_PREVIEW_DESC"])
-        ellesmerePreview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
-        ellesmerePreview:SetSize(220, 26)
-        ellesmerePreview:SetText(L["ELLESMERE_HUD_VISUAL"])
-        ellesmerePreview:SetScript("OnClick", function()
-            if IsIntegrationActive("EllesmereUI") then transfer:ShowPreview() end
+        transferCaption = recoveryCard:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        transferCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+        transferCaption:SetJustifyH("LEFT")
+        transferCaption:SetWordWrap(true)
+        transferCaption:SetText(HUDTransferText("previewDesc"))
+        transferPreview = CreateFrame("Button", nil, recoveryCard, "UIPanelButtonTemplate")
+        transferPreview:SetSize(220, 26)
+        transferPreview:SetText(HUDTransferText("title"))
+        transferPreview:SetScript("OnClick", function()
+            if IsIntegrationActive(transfer.addon) then transfer:ShowPreview() end
         end)
     end
 
@@ -1906,20 +1987,20 @@ function Options:CreateFloatingPanel()
         end)
     end
 
-    function recoveryCard.RefreshIntegration(showEllesmere)
+    function recoveryCard.RefreshIntegration(showTransfer)
         local extraHeight = 0
-        if ellesmerePreview and ellesmereCaption then
-            SetShown(ellesmerePreview, showEllesmere)
-            SetShown(ellesmereCaption, showEllesmere)
-            if showEllesmere then
+        if transferPreview and transferCaption then
+            SetShown(transferPreview, showTransfer)
+            SetShown(transferCaption, showTransfer)
+            if showTransfer then
                 local topOffset = -(recoveryHeight + extraHeight)
-                ellesmerePreview:ClearAllPoints()
-                ellesmerePreview:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, topOffset)
-                ellesmereCaption:ClearAllPoints()
-                ellesmereCaption:SetPoint("TOPLEFT", ellesmerePreview, "BOTTOMLEFT", 0, -6)
-                ellesmereCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
+                transferPreview:ClearAllPoints()
+                transferPreview:SetPoint("TOPLEFT", recoveryCard, "TOPLEFT", 12, topOffset)
+                transferCaption:ClearAllPoints()
+                transferCaption:SetPoint("TOPLEFT", transferPreview, "BOTTOMLEFT", 0, -6)
+                transferCaption:SetPoint("RIGHT", recoveryCard, "RIGHT", -12, 0)
                 extraHeight = extraHeight + 48 + Controls.MeasureWrappedText(
-                    ellesmereCaption, ellesmereCaption:GetText(), 638)
+                    transferCaption, transferCaption:GetText(), 638)
             end
         end
 
@@ -1992,32 +2073,43 @@ function Options:CreateFloatingPanel()
         ResizeMonitorCard(recoveryCard, recoveryHeight + extraHeight)
     end
 
-    local procDocCheck = CreateNativeCheckbox(alertsCard, L["PROCDOC_MAINHAND"],
-        function() return Offhand.db and Offhand.db.centerProcDocOnMainhand == true end,
-        function(value)
-            Offhand.db.centerProcDocOnMainhand = value == true
-            if Offhand.ProcDocCompatibility then Offhand.ProcDocCompatibility:Refresh() end
-        end, L["PROCDOC_MAINHAND"], L["PROCDOC_MAINHAND_DESC"])
+    for _, item in ipairs(alertsExtras.items) do
+        local entry = item.entry
+        item.check = CreateNativeCheckbox(alertsCard, entry.text, entry.get, entry.set, entry.text, entry.tooltip)
+    end
     local alertsTop = Controls.GetCardContentTop(alertsCard)
     seamCheck:SetPoint("TOPLEFT", 10, -alertsTop)
-    local procDocTop = alertsTop + math.max(30,
+    alertsExtras.top = alertsTop + math.max(30,
         Controls.MeasureWrappedText(seamCheck.Text, L["REDIRECT_POPUPS"], 600) + 12)
-    procDocCheck:SetPoint("TOPLEFT", 10, -procDocTop)
+    -- Stacks the shown checkboxes below the redirect option and sizes the card.
+    function alertsExtras.Layout()
+        local contributionTop = alertsExtras.top
+        for _, item in ipairs(alertsExtras.items) do
+            local entry, shown = item.entry, alertsExtras.IsShown(item.entry)
+            SetShown(item.check, shown)
+            if item.top ~= contributionTop then
+                item.check:SetPoint("TOPLEFT", 10, -contributionTop)
+                item.top = contributionTop
+            end
+            if shown then
+                contributionTop = contributionTop + math.max(entry.height or 32,
+                    Controls.MeasureWrappedText(item.check.Text, entry.text, entry.width or 600) + 14)
+            end
+        end
+        ResizeMonitorCard(alertsCard, contributionTop)
+        for _, item in ipairs(alertsExtras.items) do item.check:SetChecked(item.entry.get() == true) end
+    end
     local compatDesc = card2_2:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
     compatDesc:SetPoint("TOPLEFT", 32, -330)
     compatDesc:SetWidth(530)
     compatDesc:SetJustifyH("LEFT")
     compatDesc:SetWordWrap(true)
     local function RefreshWindowCompatibility()
-        local hasProcDoc = Offhand.ProcDocCompatibility ~= nil and IsIntegrationActive("ProcDoc")
-        SetShown(procDocCheck, hasProcDoc)
-        ResizeMonitorCard(alertsCard, procDocTop + (hasProcDoc and math.max(32,
-            Controls.MeasureWrappedText(procDocCheck.Text, L["PROCDOC_MAINHAND"], 600) + 14) or 0))
-        procDocCheck:SetChecked(Offhand.db and Offhand.db.centerProcDocOnMainhand == true or false)
-        local hasEllesmere = transfer and transfer.ShowPreview and IsIntegrationActive("EllesmereUI")
+        alertsExtras.Layout()
+        local hasTransfer = transfer and transfer.ShowPreview and IsIntegrationActive(transfer.addon)
             and transfer:IsAvailable() and true or false
-        if recoveryCard.RefreshIntegration then recoveryCard.RefreshIntegration(hasEllesmere) end
-        if tab5.RefreshEllesmereHelp then tab5.RefreshEllesmereHelp(hasEllesmere) end
+        if recoveryCard.RefreshIntegration then recoveryCard.RefreshIntegration(hasTransfer) end
+        if tab5.RefreshTransferHelp then tab5.RefreshTransferHelp(hasTransfer) end
         local bagAddon = Offhand.HasCustomBagAddon and Offhand.HasCustomBagAddon()
         local minimapAddon = Offhand.HasCustomMinimapAddon and Offhand.HasCustomMinimapAddon()
         local key = bagAddon and (minimapAddon and "COMPAT_BOTH" or "COMPAT_BAGS")
@@ -2866,8 +2958,8 @@ function Options:CreateFloatingPanel()
         FitHelpCard(card, body, text, contentTop + 16, 88)
         helpCards[#helpCards + 1] = card
         if topic == "EDIT_MODE" and Offhand.isForever then
-            function tab5.RefreshEllesmereHelp(show)
-                local description = show and text .. "\n\n" .. L["ELLESMERE_HUD_HELP_BODY"] or text
+            function tab5.RefreshTransferHelp(show)
+                local description = show and text .. "\n\n" .. HUDTransferText("helpBody") or text
                 if description == body:GetText() then return end
                 body:SetText(description)
                 FitHelpCard(card, body, description, contentTop + 16, 88)
@@ -2886,7 +2978,9 @@ function Options:CreateFloatingPanel()
     RefreshWindowCompatibility()
     configFrame:RegisterEvent("ADDON_LOADED")
     configFrame:SetScript("OnEvent", function(_, _, addonName)
-        if addonName == "ProcDoc" or addonName == "EllesmereUI" then RefreshWindowCompatibility() end
+        if alertsExtras.addons[addonName] or (transfer and addonName == transfer.addon) then
+            RefreshWindowCompatibility()
+        end
     end)
     do
         local appearanceCards = {card3_1, card3_2, card3_3, card3_4}

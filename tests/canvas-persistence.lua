@@ -146,10 +146,11 @@ addon.Viewport = {GetMetrics=function() return workspace end}
 addon.CanvasPanelRegistry = {GetPositionRoot=function(frame) return frame end, IsInputWidget=no}
 CreateFrame = function() return {RegisterEvent=noop, SetScript=noop} end
 assert(loadfile("Core/BagPersistence.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/Baganator/Bags.lua" })
 local restore = persistence.InstallRestore({ShouldDeferSecondaryChatRestore=no, PlacePanelOnMainhand=function(_,frame)
     anchor(frame, "TOPLEFT", UIParent, "BOTTOMLEFT")
 end}, {
-    IsWorldMapMaximized=no, ShouldYieldFrameToClassicUIForever=no, ShouldYieldWorldMapToMoveAny=no,
+    IsWorldMapMaximized=no, ShouldYieldFrameToExternalOwner=no, ShouldYieldWorldMap=no,
     IsForeverEditModeFrame=no, IsUnsafeForPanelMutation=no, IsForeverProfessionsPanel=no,
     IsRetailChatEditModeActive=no, WithWorkspace=function(metrics) return metrics end,
     UnregisterSpecialFrame=function() specialFrameRemovals = specialFrameRemovals + 1 end,
