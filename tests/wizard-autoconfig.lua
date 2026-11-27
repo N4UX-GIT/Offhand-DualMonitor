@@ -2052,15 +2052,13 @@ do
     assert(addon.SetupPlacement:GetStage()=="CONFIRM" and addon:GetPlacementCheckpoint()==checkpoint,
         "an unsuccessful span must not erase the fact that the UI actually reloaded")
     assert(onboardingFrame.placementPhase==1 and onboardingFrame.modeIllustration.kind=="POSITION"
-        and onboardingFrame.actionButton:GetText() == addon.L.QUICK_RELOAD
+        and onboardingFrame.actionButton:GetText() == addon.L.ONBOARD_RELOAD_UI
         and onboardingFrame.pageBody:GetText():find(addon.L.ONBOARD_RELOAD_COMPLETE_PLACE,1,true)
         and not onboardingFrame.nextButton.enabled,
         "an unspanned post-reload window must show placement instructions and lock confirmation")
     onboardingFrame.nextButton.scripts.OnClick()
     assert(onboardingFrame.page==4 and reloads==0,"a stale confirmation bypassed missing span")
-    assert(not onboardingFrame.actionButton.enabled)
-    onboardingFrame.actionButton.scripts.OnClick()
-    assert(reloads == 0 and addon:GetPlacementCheckpoint() == checkpoint, "early clicks must preserve the checkpoint")
+    assert(onboardingFrame.actionButton.enabled, "the reload action must be available while exact topology is unavailable")
     matched=true
     addon.SetupPlacement:Reset()
     onboardingFrame:RefreshPlacementState()
@@ -2282,7 +2280,7 @@ onboardingFrame.nextButton.scripts.OnClick() -- Windowed -> placement
 addon.SetupPlacement:Reset()
 onboardingFrame:RefreshPlacementState()
 local beforeQuickReload = reloadCount
-assert(onboardingFrame.actionButton:GetText() == addon.L.QUICK_RELOAD)
+assert(onboardingFrame.actionButton:GetText() == addon.L.ONBOARD_RELOAD_UI)
 onboardingFrame.actionButton.scripts.OnClick()
 assert(reloadCount == beforeQuickReload + 1 and addon:GetOnboardingResumeStep() == 4)
 assert(not onboardingFrame.nextButton.enabled and #quickChoices == 0)
@@ -2314,7 +2312,7 @@ for _, method in ipairs({"FANCYZONES", "COMPANION", "MANUAL"}) do
         onboardingFrame:SetPage(page)
         local expectedBody = page == 3 and addon.L["ONBOARD_MODE_READY_BODY"]
             or (method == "COMPANION" and "" or addon.L.ONBOARD_WINDOWS_DISPLAY_PLACEMENT .. "\n\n") ..
-                string.format(addon.L["ONBOARD_SPAN_" .. method], "|cffffd100" .. addon.L[method == "COMPANION" and "QUICK_RELOAD" or "ONBOARD_SPAN_ACK"] .. "|r")
+                string.format(addon.L["ONBOARD_SPAN_" .. method], "|cffffd100" .. addon.L[method == "COMPANION" and "ONBOARD_RELOAD_UI" or "ONBOARD_SPAN_ACK"] .. "|r")
         assert(onboardingFrame.pageBody:GetText() == expectedBody,
             "preparation must be one task and placement must describe only the selected method")
         onboardingFrame.helpButton.scripts.OnClick()
@@ -3485,9 +3483,9 @@ do
     coreFrame.scripts.OnEvent(coreFrame, "DISPLAY_SIZE_CHANGED")
     onboardingFrame.scripts.OnEvent(onboardingFrame, "DISPLAY_SIZE_CHANGED")
     settle()
-    assert(not onboardingFrame.nextButton.enabled and not onboardingFrame.actionButton.enabled
-        and onboardingFrame.actionButton:GetText() == addon.L.QUICK_RELOAD,
-        "Restore must return to positioning and block placement confirmation")
+    assert(not onboardingFrame.nextButton.enabled and onboardingFrame.actionButton.enabled
+        and onboardingFrame.actionButton:GetText() == addon.L.ONBOARD_RELOAD_UI,
+        "Restore must offer another reload while blocking placement confirmation")
     geometry.isSpanned, geometry.topologyStatus, geometry.companionTopology = true, "READY", true
     coreFrame.scripts.OnEvent(coreFrame, "DISPLAY_SIZE_CHANGED")
     onboardingFrame.scripts.OnEvent(onboardingFrame, "DISPLAY_SIZE_CHANGED")
@@ -3509,57 +3507,53 @@ do
 end
 
 
--- A fresh install may only know the chosen Mainhand after the external resize.
+-- The first Companion span can be loaded only after the addon reloads.
 do
     local original = _G.OffhandCompanionTopology
     local getMetrics = addon.Viewport.GetMetrics
-    addon.Viewport.GetMetrics = function()
-        return {companionTopology=false, topologyStatus="ABSENT", isSpanned=false, physicalWidth=2560, physicalHeight=1440}
-    end
-    local method, width, height = addon:GetOnboardingSetupMethod(), UIParent:GetSize()
-    local getPhysical, loadAddon = GetPhysicalScreenSize, C_AddOns.LoadAddOn
-    local snapshot = {schema = 1, physicalWidth = 4000, physicalHeight = 2560,
-        game = {x = 1440, y = 6, width = 2560, height = 1440},
-        workspace = {x = 0, y = 0, width = 1440, height = 2560}}
+    local method, oldCheckpoint = addon:GetOnboardingSetupMethod(), addon:GetPlacementCheckpoint()
+    local oldUI, loadAddon = C_UI, C_AddOns.LoadAddOn
+    local reloads = 0
+    local metrics = {
+        companionTopology=false, topologyStatus="ABSENT", isSpanned=false,
+        physicalWidth=4000, physicalHeight=2560,
+    }
+    addon.Viewport.GetMetrics = function() return metrics end
     _G.OffhandCompanionTopology = nil
+    C_AddOns.LoadAddOn = function() error("Companion setup must not load a second addon") end
+    C_UI = {Reload=function() reloads=reloads+1 end}
     addon:SetOnboardingSetupMethod("COMPANION")
-    UIParent:SetSize(2560, 1440)
-    GetPhysicalScreenSize = function() return 2560, 1440 end
-    local reads = 0
-    C_AddOns.LoadAddOn = function(name)
-        assert(name == "Offhand_Placement")
-        local private = {}
-        assert(loadfile("Offhand_Placement/Before.lua"))(name, private)
-        _G.OffhandCompanionTopology = snapshot
-        assert(loadfile("Offhand_Placement/After.lua"))(name, private)
-        reads = reads + 1
-    end
-    onboardingFrame.previewAttempted = nil
+    addon.SetupPlacement:Reset()
     onboardingFrame:SetPage(3)
     onboardingFrame:SetPage(4)
-    onboardingFrame:ReadPlacementPreview()
-    assert(reads == 0 and not onboardingFrame.actionButton.enabled, "wait for confirmed Companion geometry")
-    UIParent:SetSize(1200, 768)
-    onboardingFrame:ReadPlacementPreview()
-    onboardingFrame:ReadPlacementPreview()
-    local bounds = onboardingFrame:GetDialogBounds({})
-    assert(reads == 1 and not _G.OffhandCompanionTopology and bounds.isSpanned)
-    onboardingFrame:RefreshPlacementState()
-    assert(onboardingFrame.actionButton.enabled, "a matching pre-reload preview unlocks the first click")
-    assert(math.abs(bounds.gameLeft - 432) < 0.01 and math.abs(bounds.gameHeight - 432) < 0.01)
-    local scale = addon.UIControls.FitDialog(onboardingFrame, {})
-    assert(onboardingFrame:GetHeight() * scale <= bounds.gameHeight * 0.75 + 0.01)
-    UIParent:SetSize(2560, 1440)
-    local checkpoint=addon:GetPlacementCheckpoint()
+    assert(onboardingFrame:GetDialogBounds(metrics) == metrics, "never assume a Mainhand before topology is loaded")
+    assert(onboardingFrame.actionButton.enabled and not onboardingFrame.nextButton.enabled,
+        "a first span must offer Reload UI without claiming that its topology is known")
     onboardingFrame.actionButton.scripts.OnClick()
-    assert(not onboardingFrame.actionButton.enabled and checkpoint == addon:GetPlacementCheckpoint(),
-        "recheck a stale enabled button before writing a checkpoint")
-    assert(not onboardingFrame:GetDialogBounds({}).isSpanned, "ignore preview after restoring the window")
+    assert(reloads==1 and addon:GetOnboardingResumeStep()==4 and not onboardingFrame.nextButton.enabled)
+    assert(loadfile("Core/SetupPlacement.lua"))("Offhand", addon)
+    onboardingFrame:SetPage(4)
+    assert(onboardingFrame.placementPhase==1 and not onboardingFrame.nextButton.enabled,
+        "a reload without a Companion snapshot must never confirm placement")
+    onboardingFrame.actionButton.scripts.OnClick()
+    assert(reloads==2, "after spanning, the user can retry the reload")
+    assert(loadfile("Core/SetupPlacement.lua"))("Offhand", addon)
+    metrics = {
+        companionTopology=true, topologyStatus="READY", isSpanned=true, companionVersionStatus="MATCH",
+        physicalWidth=4000, physicalHeight=2560,
+        gamePixelLeft=1440,gamePixelBottom=6,gamePixelWidth=2560,gamePixelHeight=1440,
+        workspacePixelLeft=0,workspacePixelBottom=0,workspacePixelWidth=1440,workspacePixelHeight=2560,
+        gameLeft=432,gameBottom=1.8,gameRight=1200,gameTop=433.8,gameWidth=768,gameHeight=432,
+    }
+    onboardingFrame:SetPage(4)
+    assert(onboardingFrame.placementPhase==3 and onboardingFrame.nextButton.enabled,
+        "the first valid snapshot must unlock confirmation after reload")
+    assert(onboardingFrame:GetDialogBounds(metrics) == metrics, "the guide uses the loaded Mainhand bounds")
     addon.Viewport.GetMetrics = getMetrics
-    UIParent:SetSize(width, height)
-    _G.OffhandCompanionTopology, GetPhysicalScreenSize, C_AddOns.LoadAddOn = original, getPhysical, loadAddon
-    addon.Onboarding.placementPreview, onboardingFrame.previewAttempted = nil, nil
-    if method then addon:SetOnboardingSetupMethod(method) end
+    _G.OffhandCompanionTopology, C_UI, C_AddOns.LoadAddOn = original, oldUI, loadAddon
+    addon:SetOnboardingSetupMethod(method)
+    addon:SetPlacementCheckpoint(oldCheckpoint)
+    assert(loadfile("Core/SetupPlacement.lua"))("Offhand", addon)
 end
 
 -- Unconfirmed independent placement uses the proposed game area only for the guide.

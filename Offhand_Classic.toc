@@ -5,6 +5,7 @@
 ## Version: 2.1.5
 ## X-Offhand-Release: beta.44
 ## X-Offhand-Addon-Release: beta.44
+## X-Offhand-Revision: 2
 ## X-Offhand-Companion-Version: 2.1.9
 ## X-Offhand-Companion-Release: beta.4
 ## X-Offhand-Companion-Protocol: 1

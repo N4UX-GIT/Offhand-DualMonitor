@@ -988,7 +988,7 @@ L["HUD_SETUP_DECLINE"] = "Don't remind me"
 
 L["HUD_SETUP_CALIBRATE"] = "Calibration"
 
-L["IDENTIFY_UNSPANNED_COMPANION"] = "Companion placement has not been confirmed for this window.\n\n1. Click |cffffd100Back to setup|r.\n2. In Companion, select your screens and Mainhand, then click |cffffd100Span WoW Now|r.\n3. Return to WoW, click |cffffd100視窗已就位 · 重新載入介面|r, then |cffffd100確認並使用此配置|r.\n\nFor physical monitor numbers, use |cffffd100Windows Settings > System > Display > Identify|r."
+L["IDENTIFY_UNSPANNED_COMPANION"] = "Companion placement has not been confirmed for this window.\n\n1. Click |cffffd100Back to setup|r.\n2. In Companion, select your screens and Mainhand, then click |cffffd100Span WoW Now|r.\n3. Return to WoW, click |cffffd100Reload UI|r, then |cffffd100確認並使用此配置|r.\n\nFor physical monitor numbers, use |cffffd100Windows Settings > System > Display > Identify|r."
 
 L["IDENTIFY_BACK_TO_SETUP"] = "Back to setup"
 
@@ -1055,7 +1055,7 @@ L["ONBOARD_PATH_FANCYZONES_4"] = "Check that WoW occupies your intended FancyZon
 L["ONBOARD_PATH_MANUAL_4"] = "Check that you deliberately placed WoW across the intended screens or ultrawide region.\n\nClick Confirm placement, then Remember Window to confirm the current canvas size. WoW cannot verify physical monitor boundaries or desktop position. Calibration still follows."
 L["ONBOARD_STATUS_CHECK_PROMPT"] = "Place WoW using your selected method, then click Confirm placement."
 L["HELP_OVERVIEW_BODY"] = "首次設定或更換顯示器？請先設定視窗，然後進行校準。\n\n如需找回視窗或修復 HUD，請開啟 Offhand 顯示器 > 復原與預覽。"
-L["HELP_SETUP_BODY"] = "1. Back up your Blizzard Edit Mode layout and UI addon profiles. Open /offhand guide and click Start setup.\n2. Choose Use Companion for the recommended Windows setup. FancyZones and manual placement remain alternatives; portable Linux/Wine support is experimental.\n3. Use standard Windowed mode. In the game world, select displays and Mainhand in Companion and click Span WoW Now. 視窗已就位 · 重新載入介面 > 確認並使用此配置.\n4. With FancyZones or manual placement, visually check the window, click Confirm placement, then Remember Window.\n5. For manual placement, click Start Calibration to review the seam and UI scale. Where supported, create the Mainhand HUD layout outside combat with Edit Mode closed, then reload.\n6. Exit WoW normally, relaunch, restore the intended span and check the workspace and HUD."
+L["HELP_SETUP_BODY"] = "1. Back up your Blizzard Edit Mode layout and UI addon profiles. Open /offhand guide and click Start setup.\n2. Choose Use Companion for the recommended Windows setup. FancyZones and manual placement remain alternatives; portable Linux/Wine support is experimental.\n3. Use standard Windowed mode. In the game world, select displays and Mainhand in Companion and click Span WoW Now. Reload UI > 確認並使用此配置.\n4. With FancyZones or manual placement, visually check the window, click Confirm placement, then Remember Window.\n5. For manual placement, click Start Calibration to review the seam and UI scale. Where supported, create the Mainhand HUD layout outside combat with Edit Mode closed, then reload.\n6. Exit WoW normally, relaunch, restore the intended span and check the workspace and HUD."
 L["HELP_COMPANION_TITLE"] = "Window placement: Companion and alternatives"
 L["HELP_COMPANION_BODY"] = "Companion is recommended on Windows for exact display geometry and borderless spanning. Choose displays and Mainhand there, click Span WoW Now in the game world, then Reload UI and Confirm placement in Offhand. Maximizing one monitor is not spanning.\n\nFancyZones and manual placement are alternatives. Position WoW yourself, visually verify both screens, then Confirm placement and Remember Window. Offhand can read the canvas size but cannot verify the native window position. Remember Current Window is the equivalent action in settings.\n\nCompanion-supplied geometry controls are intentionally locked. Change displays or Mainhand in Companion and span again. Portable Linux/Wine support remains experimental.\n\n僅當版面是新的、已變更或尚未在 WoW 中載入時，才需要在延伸後重載介面。Restore Window 和 Span WoW Now 可以重用已載入的相同版面，無需再次重載或校準。"
 L["HELP_PANELS_BODY"] = "拖曳標題列即可移動支援的視窗。在 Offhand 螢幕中調整 Esc 和重新載入介面的設定。地圖大小可在地圖選項中調整，動作列請用編輯模式調整。離開 NPC 後對話會關閉。\n\n如果視窗拖不動或跳回原位，請只用一個插件設定它的位置。載入 MoveAny 後，Offhand 會將世界地圖的位置和大小交給 MoveAny 管理。如果是其他插件提供的視窗，例如背包，請在該插件中尋找解鎖或配置選項。\n\nBlizzMove 支援拖曳標題來移動部分暴雪視窗，輸入 /bm 可開啟設定。開啟另一個視窗時，遊戲仍可能重新排列原有視窗。BlizzMove 支援整合背包，暴雪的個別背包則有自己的定位方式。"
@@ -1133,11 +1133,9 @@ L["MAP_SCALE_OPENMAP_HELP"] = "OpenMap：50–160%。自動調整使用目前顯
 L["MAP_SCALE_UNAVAILABLE"] = "請在非戰鬥狀態下使用滑鼠鍵盤介面開啟視窗模式地圖。其他地圖插件使用其自身設定。"
 
 -- Guided placement checkpoint and recommended next action.
-L["QUICK_RELOAD"] = "視窗已就位 · 重新載入介面"
 L["QUICK_CONFIRM"] = "確認並使用此配置"
 L["QUICK_ADJUST"] = "調整對齊與縮放"
 L["QUICK_CHECK"] = "檢查螢幕"
-L["QUICK_WAIT_SPAN"] = "正在等待 WoW 視窗符合 Companion 的配置。請在 Companion 中點選 Span WoW Now。"
 L["QUICK_REVIEW"] = "WoW 視窗是否涵蓋選定的螢幕？請在示意圖中確認 Mainhand 標示的是你玩遊戲的螢幕。點選%s可套用 Offhand 中儲存的縮放比例。若要檢查螢幕接縫或文字大小，請選擇調整選項。"
 L["ONBOARD_PATH_COMPANION_3"] = "在 WoW 圖形設定中選擇視窗模式並套用。使用 Companion 放置視窗時，請保持本指南開啟。"
 L["ONBOARD_PATH_COMPANION_4"] = "若視窗涵蓋的螢幕不正確，請在 Companion 檢查螢幕與 Mainhand 的選擇，再次展開視窗。若 WoW 已涵蓋所選螢幕但按鈕仍呈灰色，請輸入 /reload 重新讀取配置。"

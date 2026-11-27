@@ -38,7 +38,7 @@ The official website brings the interactive demo, illustrated setup guides, and 
 
 ### 1. Install Offhand for your WoW client
 
-Close WoW, install Offhand through CurseForge or WowUp, and check that you selected the intended WoW installation. For manual installation, extract both `Offhand` and `Offhand_Placement` from the ZIP into that client's `Interface\AddOns` folder. Launch WoW and enter the game world.
+Close WoW, install Offhand through CurseForge or WowUp, and check that you selected the intended WoW installation. For manual installation, extract the `Offhand` folder from the ZIP into that client's `Interface\AddOns` folder. Launch WoW and enter the game world.
 
 The addon and the optional Companion are separate components. Installing the addon does not install Companion.
 
@@ -56,7 +56,7 @@ At the display-mode step, click **Set to Windowed**. If WoW is already Windowed,
 
 ### 3. Place the window, then confirm it
 
-**Companion:** after your character has entered the game world, select your displays and **Mainhand (game)** in Companion, then click **Span WoW Now**. Return to the guide and click **Window fits · Reload UI**. If prompted, type `/reload`. After reloading, check your screens and click **Confirm and use this layout** or **Adjust alignment and scale**. Maximizing WoW onto one monitor does not replace spanning.
+**Companion:** after your character has entered the game world, select your displays and **Mainhand (game)** in Companion, then click **Span WoW Now**. Return to the guide and click **Reload UI**. If prompted, type `/reload`. After reloading, check your screens and click **Confirm and use this layout** or **Adjust alignment and scale**. Maximizing WoW onto one monitor does not replace spanning.
 
 **FancyZones or manual:** place the window across the intended screens, visually check its position, choose **Window is positioned**, then **Reload UI**. After reload, choose **Confirm placement**, then **Remember Window**. This confirms your chosen canvas; it does not automatically detect physical monitor boundaries.
 
