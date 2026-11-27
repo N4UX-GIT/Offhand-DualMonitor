@@ -1890,11 +1890,32 @@ do
     local buttons = openMap:GetSettingsContributions("map")
     local title = openMap:GetSettingsContributions("mapScaleTitle")[1]
     local prefix = openMap:GetSettingsContributions("mapDescription")[1]
-    assert(#buttons == 2 and buttons[1].kind == "button" and buttons[1].text == "OPENMAP_RECOVERY_BUTTON"
+    assert(#buttons == 3 and buttons[1].kind == "button" and buttons[1].text == "OPENMAP_RECOVERY_BUTTON"
         and buttons[1].tooltip == "OPENMAP_RECOVERY_TIP" and buttons[1].height == 30
         and buttons[2].text == "OPENMAP_WORKSPACE_BUTTON" and buttons[2].tooltip == nil and buttons[2].height == 36
         and buttons[1].owner == "OpenMap" and buttons[2].addon == "OpenMap",
         "the OpenMap buttons must keep their texts, tooltip and 66 units of height")
+    -- The Beta 43 camera follow opt-in: a map check after the buttons, shown
+    -- while OpenMapAPI supports follow, under its stored key and default.
+    local follow = buttons[3]
+    assert(follow.kind == "check" and follow.id == "openmap.follow" and follow.owner == "OpenMap"
+        and follow.addon == "OpenMap" and follow.text == "OPENMAP_FOLLOW_PLAYER"
+        and follow.tooltip == "OPENMAP_FOLLOW_PLAYER_TIP", "the OpenMap follow check must keep its texts")
+    assert(registry:GetSettingDefaults().followPlayerWithOpenMap == false and follow.get() == false,
+        "camera follow must stay off by default under its stored key")
+    maps.db = {}
+    follow.set(true)
+    assert(maps.db.followPlayerWithOpenMap == true and follow.get() == true, "the check must write the stored key")
+    follow.set(false)
+    assert(maps.db.followPlayerWithOpenMap == false and follow.get() == false, "the check must clear the stored key")
+    maps.db = nil
+    assert(follow.shown() == false, "the follow check is hidden without OpenMapAPI")
+    OpenMapAPI = {major = 1, GetView = function() end, WorldFromMap = function() end, ShowWorld = function() end,
+        IsStitched = function() end}
+    assert(follow.shown() == true, "the follow check is shown while OpenMapAPI major 1 supports follow")
+    OpenMapAPI.major = 2
+    assert(follow.shown() == false, "a breaking OpenMapAPI major hides the follow check")
+    OpenMapAPI = nil
     assert(title.kind == "suffix" and title.text == " (OpenMap)" and title.help == "MAP_SCALE_OPENMAP_HELP"
         and prefix.kind == "prefix" and prefix.text == "OPENMAP_WORKSPACE_HELP" and prefix.owner == "OpenMap",
         "the OpenMap scale title and description must keep their texts")
@@ -2463,6 +2484,182 @@ do
         "addon data without placed frames still names its addon")
     assert(registry:GetAddonBridge("Missing") == nil and registry:GetAddonBridge(nil) == nil,
         "an addon without a bridge has none")
+end
+
+-- The Beta 43 bag provider hooks (Core/BagPersistence.lua): discovery also runs
+-- for the Forever bag key option alone, rebuildsAnchors keeps an excluded root
+-- excluded while its rectangle is missing, reportsRootHide keeps a native
+-- CloseAllBags and an unpaired Escape from standing in for its root's hide on
+-- Forever, RoutesInventoryBindings names the root the workspace toggle keys
+-- follow, and GetPanelDiagnostics reports by bridge id. Then the Baganator
+-- provider's flags and its diagnostics line.
+do
+    local names = {"CreateFrame", "C_Timer", "InCombatLockdown", "UIParent", "hooksecurefunc", "ToggleGameMenu",
+        "GameMenuFrame", "C_AddOns", "CloseSpecialWindows", "CloseAllBags", "ShowUIPanel", "HideUIPanel",
+        "EventRegistry", "GetBindingAction", "Baganator", "DeltaRoot", "Baganator_SingleViewBackpackViewFrameX"}
+    local saved = {}
+    for _, name in ipairs(names) do saved[name] = _G[name] end
+    local queue = {}
+    CreateFrame = function() return {RegisterEvent = function() end, SetScript = function() end} end
+    C_Timer = {After = function(delay, fn) queue[#queue + 1] = fn end, NewTicker = function() return {} end}
+    InCombatLockdown = function() return false end
+    C_AddOns = {IsAddOnLoaded = function() return false end}
+    UIParent = {GetEffectiveScale = function() return 1 end}
+    GameMenuFrame = {IsShown = function() return false end}
+    CloseSpecialWindows, ShowUIPanel, HideUIPanel, EventRegistry = nil, nil, nil, nil
+    CloseAllBags = function() end
+    ToggleGameMenu = function() end
+    hooksecurefunc = function(name, callback)
+        local original = _G[name]
+        _G[name] = function(...) local result = original(...); callback(...); return result end
+    end
+
+    local engine = {AddonWindowCatalog = {}, Canvas = {}, isForever = true,
+        db = {enabled = true, persistentWorkspacePanels = false, keepBagToggleOpen = true,
+            savedWorkspacePositions = {}}}
+    engine.Canvas.IsFrameOnWorkspace = function(frame) return frame.workspace == true end
+    engine.Canvas.RestoreWorkspacePosition = function() end
+    assert(loadfile("Core/BagPersistence.lua"))("Offhand", engine)
+    CoreBridges.Load(engine, {})
+    local bags = engine.BagPersistence
+    engine.API.RegisterAddonData("SyntheticRecord", {settings = {
+        customBagWorkspacePanels = {store = "profile", legacyKey = "syntheticRecord"}}})
+
+    local root = {shown = true, workspace = true, left = 10}
+    function root:GetName() return "DeltaRoot" end
+    function root:GetParent() return UIParent end
+    function root:IsShown() return self.shown end
+    function root:IsVisible() return self.shown end
+    function root:GetLeft() return self.left end
+    function root:GetTop() return 20 end
+    function root:GetEffectiveScale() return 1 end
+    local state, seen = {routes = false}, {}
+    local delta = {order = 10, hookScripts = false, rebuildsAnchors = true, reportsRootHide = true,
+        escapeOrder = 10, escapeSource = "delta_observer",
+        IsRoot = function(name) return name == "DeltaRoot" end,
+        IsRootName = function(name) return name == "DeltaRoot" end,
+        IsDirectEscapeRoot = function(name) return name == "DeltaRoot" end,
+        Discover = function(register, deep, services)
+            seen.deep, seen.services = deep, services
+            if _G.DeltaRoot then return register("DeltaRoot", _G.DeltaRoot) end
+            return false
+        end,
+        RoutesInventoryBindings = function() return state.routes end,
+        GetPanelDiagnostics = function(services) return "keep=" .. tostring(services.KeepsBagToggleOpen()) end,
+    }
+    assert(engine.API.RegisterBridge("Delta", {contract = 1, bagProvider = delta}))
+
+    -- The Forever bag key option discovers roots without Escape persistence.
+    bags:Discover(true)
+    local services = seen.services
+    assert(seen.deep == true and services.DiscoverEnabled() == true and services.TrackEnabled() == false,
+        "the Forever bag key option alone must enable discovery")
+    engine.isForever, seen.deep = false, nil
+    assert(bags:Discover(true) == false and seen.deep == nil and services.DiscoverEnabled() == false,
+        "off Forever the bag key option does not discover roots")
+    engine.isForever = true
+    _G.DeltaRoot = root
+    assert(bags:Discover(false) and bags.frames.DeltaRoot == root, "a discovered root must register")
+
+    -- The binding root follows RoutesInventoryBindings and the root's visibility.
+    assert(not bags:RoutesInventoryBindings() and bags:GetVisibleBindingRoot() == nil,
+        "without a routing provider there is no binding root")
+    state.routes = true
+    assert(bags:RoutesInventoryBindings() and bags:GetVisibleBindingRoot() == root,
+        "the routing provider's visible root is the binding root")
+    root.shown = false
+    assert(bags:GetVisibleBindingRoot() == nil, "a hidden root is not a binding root")
+    root.shown = true
+
+    -- Panel diagnostics and the services they read.
+    engine.db.syntheticRecord = {DeltaRoot = {x = 1, y = 2}}
+    local reports = bags:GetPanelDiagnostics()
+    assert(#reports == 1 and reports[1].label == "Delta" and reports[1].text == "keep=true",
+        "a provider's panel diagnostics must be labelled by its bridge id")
+    local savedName, position = services.GetSavedPosition()
+    assert(savedName == "DeltaRoot" and position.x == 1, "the saved position service must name the open root")
+    engine.db.keepBagToggleOpen = nil
+    assert(services.KeepsBagToggleOpen() == false, "the bag key service reads the preference")
+
+    -- rebuildsAnchors: an excluded root without a rectangle stays excluded.
+    engine.db.persistentWorkspacePanels = true
+    local excluded = {}
+    engine.CanvasAddonEscape = {SetSpecialFrameExcluded = function(_, registration, record, exclude)
+        record.removed = exclude or nil
+        excluded[registration] = exclude
+    end}
+    bags.paused = false
+    bags:Capture()
+    assert(excluded[root] == true and services.IsEscapeRegistered(root), "a workspace root leaves the registration")
+    root.left, root.workspace = nil, false
+    bags:Capture()
+    assert(excluded[root] == true, "a rebuilding root must stay excluded until its anchor resolves")
+    delta.rebuildsAnchors = nil
+    bags:Capture()
+    assert(excluded[root] == false, "without rebuildsAnchors the missing rectangle is judged as is")
+    root.left, root.workspace = 10, true
+
+    -- reportsRootHide: on Forever a native CloseAllBags and an unpaired Escape
+    -- leave a hidden root's hide to its provider.
+    bags:Capture()
+    bags.paused, root.shown = true, false
+    engine.db.syntheticRecord = {DeltaRoot = {x = 1, y = 2}}
+    bags:InstallEscapeHooks()
+    CloseAllBags()
+    assert(bags.escapePending == nil, "a native CloseAllBags must not stand in for the root's reported hide")
+    ToggleGameMenu()
+    assert(bags.escapePending == nil, "an unpaired Escape must not reopen a root whose hide is reported")
+    engine.isForever = false
+    CloseAllBags()
+    assert(bags.escapePending ~= nil, "off Forever a native CloseAllBags still pairs with Escape")
+    bags.escapePending = nil
+    engine.isForever, delta.reportsRootHide = true, nil
+    ToggleGameMenu()
+    assert(bags.escapePending and bags.escapePending.source == "delta_observer",
+        "without reportsRootHide an unpaired Escape restores the direct-Escape root")
+    bags.escapePending, queue = nil, {}
+    assert(not next(engine.Bridges.errors), "no synthetic provider call may fail")
+
+    -- The Baganator provider: its flags, its binding routing and its line.
+    local builtin = {AddonWindowCatalog = {}}
+    local registry = CoreBridges.Load(builtin, {"Bridges/Baganator/Data.lua", "Bridges/Baganator/Bags.lua"})
+    local provider = registry:GetBagProviders()[1].provider
+    assert(provider.rebuildsAnchors == true and provider.reportsRootHide == true,
+        "Baganator rebuilds its anchors and reports its root's hide")
+    Baganator = nil
+    assert(not provider.RoutesInventoryBindings(), "Baganator routes the bindings only while its global exists")
+    Baganator = {}
+    assert(provider.RoutesInventoryBindings(), "Baganator routes the stock inventory bindings")
+    local backpack = {IsVisible = function() return true end, GetParent = function() return UIParent end,
+        GetName = function() return "Baganator_SingleViewBackpackViewFrameX" end}
+    _G.Baganator_SingleViewBackpackViewFrameX = backpack
+    local bagServices = {
+        GetRoots = function() return {Baganator_SingleViewBackpackViewFrameX = backpack} end,
+        GetSavedPosition = function() return "Baganator_SingleViewBackpackViewFrameX", {} end,
+        IsFrameOnWorkspace = function(frame) return frame == backpack end,
+        IsEscapeRegistered = function(frame) return frame == backpack end,
+        KeepsBagToggleOpen = function() return true end,
+    }
+    assert(provider.GetPanelDiagnostics(bagServices) == nil, "the Baganator line needs Baganator loaded")
+    C_AddOns = {IsAddOnLoaded = function(name) return name == "Baganator" end}
+    GetBindingAction = function(key, check)
+        if key == "B" then return check and "CLICK OffhandWorkspaceToggleKey:LeftButton" or "OPENALLBAGS" end
+        return check and "TOGGLEGAMEMENU" or nil
+    end
+    assert(provider.GetPanelDiagnostics(bagServices) == "backpack=Baganator_SingleViewBackpackViewFrameX"
+        .. " | workspace=true | escapeExcluded=true | savedOpen=Baganator_SingleViewBackpackViewFrameX"
+        .. " | keepBagKey=true | B=OPENALLBAGS/CLICK OffhandWorkspaceToggleKey:LeftButton | Escape=TOGGLEGAMEMENU",
+        "the Baganator diagnostics line changed")
+    GetBindingAction = nil
+    bagServices.GetRoots = function() return {} end
+    bagServices.GetSavedPosition = function() end
+    bagServices.KeepsBagToggleOpen = function() return false end
+    assert(provider.GetPanelDiagnostics(bagServices) == "backpack=hidden | workspace=false | escapeExcluded=false"
+        .. " | savedOpen=none | keepBagKey=false | B=none/none | Escape=none", "the hidden Baganator line changed")
+    InCombatLockdown = function() return true end
+    assert(provider.GetPanelDiagnostics(bagServices) == nil, "the Baganator line is skipped in combat")
+
+    for _, name in ipairs(names) do _G[name] = saved[name] end
 end
 
 -- Core purity (final): no file under Core/, UI/ or Modules/, and not Bindings.xml, names a third-party

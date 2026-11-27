@@ -49,22 +49,33 @@ local function Number(value)
     return value
 end
 
--- OpenMap's camera glides for 0.4 seconds. A centered camera follows the
--- player; browsing away pauses follow until the player centers it again.
 local function IsSpanned()
     local metrics = API.GetViewportMetrics()
     return metrics and metrics.isSpanned
 end
 
+-- The player's opt-in to camera follow (data.settings in Init.lua, stored
+-- key followPlayerWithOpenMap).
+function namespace.FollowsPlayer()
+    return API.GetBridgeSetting("OpenMap", "followPlayerWithOpenMap") == true
+end
+
+function namespace.SupportsFollow()
+    local api = _G.OpenMapAPI
+    return type(api) == "table" and api.major == 1
+        and type(api.GetView) == "function" and type(api.WorldFromMap) == "function"
+        and type(api.ShowWorld) == "function" and type(api.IsStitched) == "function"
+end
+
+-- OpenMap's camera glides for 0.4 seconds. A centered camera follows the
+-- player; browsing away pauses follow until the player centers it again.
 -- Returns true once it has handled the follow state.
 function Provider:UpdateFollow(map, state)
     local api = _G.OpenMapAPI
-    if type(api) ~= "table" or api.major ~= 1
-        or type(api.GetView) ~= "function" or type(api.WorldFromMap) ~= "function"
-        or type(api.ShowWorld) ~= "function" or type(api.IsStitched) ~= "function"
-        or not api.IsStitched()
+    if not namespace.FollowsPlayer()
+        or not namespace.SupportsFollow() or not api.IsStitched()
         or API.GetExternalMapOwner() ~= "OpenMap"
-        or not API.KeepsWorkspacePanelsOpen() or InCombatLockdown() or IsInInstance()
+        or InCombatLockdown() or IsInInstance()
         or not IsSpanned() or not API.IsFrameOnWorkspace(map) then
         state.u = nil
         return true

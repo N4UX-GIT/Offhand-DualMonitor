@@ -14,6 +14,7 @@ local L = Offhand.L or setmetatable({}, {
 
 Offhand.L = L
 L["WHATS_NEW_TITLE"] = "What's new in Offhand v%s"
+L["WHATS_NEW_BETA43"] = "Search Offhand settings to find a feature and jump to its section. Character window scale now goes down to 35%. On Forever, OpenMap camera follow is optional and starts off. This update also improves detached chat visibility and Baganator backpack handling."
 L["WHATS_NEW_BETA42"] = "Improved Forever chat, map, and bag placement when switching between a single window and a span. DaylightUI and OneForAll coexistence is more reliable. Window behavior explains which addons control panels and where to move them."
 L["WHATS_NEW_BETA41"] = "|cffffd100Bug Fixes|r\n• Fixed DaylightUI action bars jumping upward and bouncing back when dragged or adjusted with X/Y coordinates on stacked or asymmetrical multi-monitor setups. If your bars shifted on Beta 40, drag them back once or reset them in Offhand Monitor > Recovery & Preview.\n• Improved DaylightUI layout alignment and fishing, crafting, and campfire scenes on vertically stacked monitors.\n• Fixed Offhand setup and notice windows reopening after flight paths, fears, or other loss-of-control effects.\n• Fixed the Barbershop customization panel and Accept/Cancel buttons disappearing or spanning off-screen on multi-monitor setups."
 L["WHATS_NEW_BETA40"] = "|cffffd100DaylightUI Support|r (by Kintrok / @DCtheGeek)\n• DaylightUI now works seamlessly with Offhand out of the box, keeping your action bars, frames, bags, map, and menus on the right screen.\n• Align or reset your DaylightUI layout anytime in Offhand Monitor > Recovery & Preview, and keep your open windows across reloads and restarts.\n\n|cffffd100Custom Addon Windows|r (Forever)\n• Keep third-party addon windows on your Offhand screen using Panel layout > Addon windows, Key Bindings > Offhand, or /offhand window.\n\n|cffffd100Maps, Bags & Fixes|r (Forever)\n• Outdoor maps (Blizzard and OpenMap) now follow you into new zones on Offhand, and Window behavior shows which addons manage your map or bags.\n• Fixed the grey overlay on the separate Blizzard backpack, kept Questdon open on Escape, and fixed world tooltip positioning (Questdon & tooltips by Abysmal Kabal)."
@@ -179,6 +180,9 @@ L["IDENTIFY_TIP_MAC"] = "Temporarily labels Mainhand and Offhand inside WoW. Use
 L["BTN_APPLY_SHORT"] = "Apply"
 L["TAB_HELP"] = "Help & Setup"
 L["UI_SECTIONS"] = "On this page"
+L["SETTINGS_SEARCH"] = "Search settings"
+L["SETTINGS_SEARCH_CLEAR"] = "Clear"
+L["SETTINGS_SEARCH_EMPTY"] = "No matching settings."
 
 -- Settings and guided setup
 L["CARD_SCALE_ALIGNMENT"] = "Game alignment & UI scale"
@@ -1036,6 +1040,8 @@ L["MAP_KEEP_OPEN"] = "Keep World Map open while running / walking"
 L["MAP_KEEP_OPEN_DESC"] = "Keeps the map visible while you move."
 L["MAP_MOVEMENT_FOREVER"] = "The Blizzard world map stays fully visible while you move with it on Offhand."
 L["MAP_MOVEMENT_OPENMAP"] = "In OpenMap, set Look > Fade while moving to 0%."
+L["OPENMAP_FOLLOW_PLAYER"] = "Follow the player with OpenMap on Offhand"
+L["OPENMAP_FOLLOW_PLAYER_TIP"] = "When you center OpenMap on your character, the map follows as you move. Pan away to pause following. Leave this off to keep the camera still."
 L["MAP_MOVEMENT_MAPUTILS"] = "In MapUtils, turn off Fade the world map while moving."
 L["MAP_MOVEMENT_MAPWISE"] = "In MapWise, turn off Fade while moving in the View settings."
 L["PANELS_INDEPENDENT"] = "Keep panels placed on Offhand Monitor open independently"

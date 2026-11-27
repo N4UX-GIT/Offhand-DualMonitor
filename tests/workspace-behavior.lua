@@ -154,6 +154,11 @@ local writes = CharacterFrame.scaleWrites
 behavior:RefreshCharacterScale()
 assert(CharacterFrame.scaleWrites == writes,
     "an unchanged CharacterFrame scale must not be rewritten every refresh")
+assert(behavior:SetCharacterScale(0.20) and behavior:GetCharacterScale() == 0.35
+    and math.abs(CharacterFrame.scale - 0.315) < 0.001,
+    "both the saved multiplier and applied Character scale must accept the new minimum")
+assert(behavior:SetCharacterScale(1.75) and behavior:GetCharacterScale() == 1.50,
+    "the upper limit still protects manually entered values")
 
 addon.db.savedWorkspacePositions.CharacterFrame = nil
 behavior:RefreshCharacterScale()

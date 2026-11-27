@@ -651,6 +651,11 @@ bag.x = 100
 bag:Show()
 assert(#UISpecialFrames == 1, "an already positioned bag must stay open even before deferred capture")
 flush(); tick()
+bag.x = nil
+tick()
+assert(#UISpecialFrames == 1 and tracker.escapeRegistrations[bag],
+    "a Baganator rebuild must keep an excluded backpack protected until its anchor resolves")
+bag.x = 100
 targetSelected = true
 other.shown = true
 ToggleGameMenu(); flush()
@@ -686,6 +691,12 @@ assert(not ContainerFrame3.shown, "closing the workspace backpack must not leave
 ToggleGameMenu(); flush()
 assert(not bag.shown and hideCalls == 1 and UISpecialFrames[2] == name,
     "an explicit bag close must restore its registration and survive the next Escape")
+local togglesBeforeStaleSnapshot = toggles
+addon.db.baganatorWorkspacePanels[name] = { x=100, y=300, coordinateVersion=2 }
+ToggleGameMenu(); flush()
+assert(not bag.shown and toggles == togglesBeforeStaleSnapshot,
+    "an unpaired Escape must not reopen a closed Baganator from a stale snapshot")
+tracker:ForgetOpenSnapshot(name)
 bag:Show(); flush()
 bag.x = 2000; bag.scripts.OnDragStop()
 assert(UISpecialFrames[2] == name and UISpecialFrames[1] == "TestSpecialWindow",

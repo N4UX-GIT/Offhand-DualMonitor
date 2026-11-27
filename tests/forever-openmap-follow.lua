@@ -2,13 +2,13 @@ local base = arg[1] or "."
 local combat, mouse, onWorkspace = false, false, true
 local px, py, cx, cy, zoom = 0.5, 0.4, 0.5, 0.4, 20
 local moves, version, owner = 0, "v0.8.13", "OpenMap"
-local zone = 1455
+local zone, positionReads = 1455, 0
 C_AddOns = {GetAddOnMetadata = function() return version end}
 InCombatLockdown = function() return combat end
 IsInInstance = function() return false end
 IsMouseButtonDown = function() return mouse end
 C_Map = {
-    GetBestMapForUnit = function() return zone end,
+    GetBestMapForUnit = function() positionReads = positionReads + 1; return zone end,
     GetPlayerMapPosition = function() return {GetXY = function() return px, py end} end,
 }
 OpenMapAPI = {
@@ -29,6 +29,9 @@ dofile(base .. "/tests/support/core-bridges.lua").Load(addon, {"Bridges/OpenMap/
 local map = {IsMouseOver = function() return true end}
 local state = {}
 local function tick() addon.CanvasForeverMap.UpdateExternalMapFollow(map, state) end
+tick()
+assert(state.u == nil and positionReads == 0, "a missing preference must leave camera follow off")
+addon.db.followPlayerWithOpenMap = true
 tick()
 zone, px = 1426, 0.53
 tick()
@@ -67,6 +70,12 @@ assert(state.u == nil)
 owner = "OpenMap"
 tick()
 assert(state.u == px, "recenter resumes following")
+addon.db.followPlayerWithOpenMap = false
+local readsBeforeDisable = positionReads
+tick()
+assert(state.u == nil and positionReads == readsBeforeDisable and moves == 2,
+    "disabling follow clears its tracking state without touching OpenMap or player coordinates")
+addon.db.followPlayerWithOpenMap = true
 issecretvalue = function(value) return value == zone end
 tick()
 assert(state.u == nil and moves == 2, "skip restricted positions")

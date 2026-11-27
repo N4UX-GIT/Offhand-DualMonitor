@@ -106,14 +106,21 @@ function Behavior:SetWindowTypeLocked(kind, enabled)
     return types[kind]
 end
 
+Behavior.MIN_CHARACTER_SCALE = 0.35
+Behavior.MAX_CHARACTER_SCALE = 1.50
+
+local function ClampCharacterScale(value)
+    return math.max(Behavior.MIN_CHARACTER_SCALE, math.min(Behavior.MAX_CHARACTER_SCALE, tonumber(value) or 1))
+end
+
 function Behavior:GetCharacterScale()
     local value = Offhand.db and tonumber(Offhand.db.characterWorkspaceScale) or 1
-    return math.max(0.75, math.min(1.50, value or 1))
+    return ClampCharacterScale(value)
 end
 
 function Behavior:SetCharacterScale(value)
     if not Offhand.db then return false end
-    Offhand.db.characterWorkspaceScale = math.max(0.75, math.min(1.50, tonumber(value) or 1))
+    Offhand.db.characterWorkspaceScale = ClampCharacterScale(value)
     self:RefreshCharacterScale()
     return true
 end

@@ -118,9 +118,8 @@ assert(dialog.link.text == addon.companionStoreUrl and dialog.link.focus and dia
 dialog.children[3].scripts.OnClick() -- Release notes link.
 assert(dialog.link.text == "https://github.com/N4UX-GIT/Offhand-DualMonitor/releases/tag/v" .. firstRelease,
     "the current beta must link to its matching release notes")
-assert(dialog.body.text:find(addon.L.WHATS_NEW_BETA42, 1, true), "Beta 42 should show its workspace highlights")
-assert(dialog.body.text:find(addon.L.WHATS_NEW_COMPANION_PAIRED:format("2.1.9-beta.4"), 1, true),
-    "Beta 42 should identify the paired Companion")
+local currentHighlights = addon.L["WHATS_NEW_BETA" .. assert(firstRelease:match("beta%.(%d+)$"))]
+assert(dialog.body.text:find(currentHighlights, 1, true), "the current beta should show its localized highlights")
 assert(not dialog.body.text:find("2.1.7-beta.9", 1, true), "span history is not release news")
 assert(dialog:GetHeight() - 44 > 52 + dialog.body:GetHeight(), "footer overlaps release notes")
 
@@ -165,6 +164,17 @@ for _,version in ipairs({"2.1.9-beta.1", "2.1.9-beta.2", "2.1.9-beta.3", "invali
     addon.WhatsNew:Dismiss()
 end
 metrics = normalMetrics
+
+for _, release in ipairs({
+    {version="2.1.5-beta.42", text=addon.L.WHATS_NEW_COMPANION_PAIRED:format("2.1.9-beta.4")},
+    {version="2.1.5-beta.43", text=addon.L.WHATS_NEW_COMPANION_UNCHANGED},
+}) do
+    addon.fullVersion = release.version
+    addon.WhatsNew:Open(metrics)
+    assert(dialog.body.text:find(release.text, 1, true), "Companion announcement mismatch for " .. release.version)
+    addon.WhatsNew:Interrupt()
+end
+addon.fullVersion = firstRelease
 
 local account = OffhandDB
 metadata["X-Offhand-Release"] = ""

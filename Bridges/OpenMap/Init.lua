@@ -7,8 +7,10 @@
     /offhand recovermap command and the World Map card controls the Options
     panel showed for OpenMap: the "(OpenMap)" scale title and its help, the
     workspace help ahead of the map description, and on Forever the two
-    recovery buttons, all shown only while OpenMap is loaded, enabled and the
-    World Map owner.
+    recovery buttons and the camera follow opt-in (shown while OpenMapAPI
+    supports follow; profile setting followPlayerWithOpenMap, stored key
+    unchanged), all shown only while OpenMap is loaded, enabled and the World
+    Map owner.
 
     Registered on every client, like the core code it replaces, so an OpenMap
     that loads after Offhand is still handled.
@@ -35,6 +37,10 @@ local bridge = {
                 read = namespace.ReadFade, key = "moveFade", opaque = 0,
                 refresh = namespace.RefreshReleasedFade, helpKey = "MAP_MOVEMENT_OPENMAP" },
         },
+        settings = {
+            -- Opt in to moving the stitched OpenMap camera on Offhand.
+            followPlayerWithOpenMap = { legacyKey = "followPlayerWithOpenMap", default = false },
+        },
     },
     slashCommands = {
         recovermap = function(arg) Recovery:RunAndReport(strtrim(arg or "") == "offhand") end,
@@ -60,6 +66,10 @@ function bridge:GetSettingsContributions(slot)
             { id = "openmap.workspace", kind = "button", owner = "OpenMap", addon = "OpenMap", height = 36,
                 text = API.GetText("OPENMAP_WORKSPACE_BUTTON"),
                 onClick = function() Recovery:RunAndReport(true) end },
+            { id = "openmap.follow", kind = "check", owner = "OpenMap", addon = "OpenMap",
+                text = API.GetText("OPENMAP_FOLLOW_PLAYER"), tooltip = API.GetText("OPENMAP_FOLLOW_PLAYER_TIP"),
+                shown = namespace.SupportsFollow, get = namespace.FollowsPlayer,
+                set = function(value) API.SetBridgeSetting("OpenMap", "followPlayerWithOpenMap", value == true) end },
         }
     end
 end
