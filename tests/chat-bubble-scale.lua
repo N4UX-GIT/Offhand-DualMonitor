@@ -170,6 +170,7 @@ local function Near(actual, expected)
 end
 
 assert(loadfile("Core/ChatBubbles.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/EllesmereUI/Windows.lua" })
 local module = addon.modules.ChatBubbles
 module:Initialize(); module:Initialize()
 assert(ticks == 1, "Initialization must not duplicate the watcher")

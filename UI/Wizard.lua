@@ -20,16 +20,30 @@ local wizardFrame = nil
 local editModeReturnWatcher
 local pendingHUDReload
 local waitingForWorkspaceReload
-local HUD_STEP, ELLESMERE_STEP = 5, 6
+local HUD_STEP, TRANSFER_STEP = 5, 6
 
-local function EllesmereTransfer()
-    local transfer = Offhand.EllesmereLayout
+-- The HUD transfer provider (Offhand.HUDTransfer) while it can preview: it
+-- adds the transfer step after the HUD step.
+local function HUDTransfer()
+    local transfer = Offhand.HUDTransfer
     if transfer and transfer.ShowPreview and transfer:IsAvailable() then return transfer end
+end
+
+-- The locale key the HUD transfer provider names for one of its texts, and
+-- that text ("" without one).
+local function TransferKey(name)
+    local transfer = Offhand.HUDTransfer
+    return transfer and type(transfer.text) == "table" and transfer.text[name] or nil
+end
+
+local function TransferText(name)
+    local key = TransferKey(name)
+    return key and L[key] or ""
 end
 
 function Wizard:GetSavedStep()
     local step = type(OffhandCharDB) == "table" and tonumber(OffhandCharDB.wizardProgressStep)
-    local lastStep = EllesmereTransfer() and ELLESMERE_STEP or HUD_STEP
+    local lastStep = HUDTransfer() and TRANSFER_STEP or HUD_STEP
     if not step or step ~= step or step < 1 or step > lastStep then
         if type(OffhandCharDB) == "table" then OffhandCharDB.wizardProgressStep = nil end
         return nil
@@ -111,9 +125,9 @@ local function SupportsGeneratedMainhandLayout()
         and type(Offhand.Options.CreateMainhandHUDLayout) == "function"
 end
 
-local function EllesmereNativeLayout()
+local function TransferNativeLayout()
     local mainhand = Offhand.Mainhand
-    local context = mainhand and mainhand.GetEllesmereLayoutSource and mainhand:GetEllesmereLayoutSource()
+    local context = mainhand and mainhand.GetHUDTransferSource and mainhand:GetHUDTransferSource()
     if context and context.generated and context.characterOwned ~= false then return context end
 end
 
@@ -902,34 +916,36 @@ function Wizard:CreateFrame()
     layoutStatus:SetJustifyH("CENTER")
     f.mainhandLayoutStatus = layoutStatus
 
-    local card6 = CreateWizardCard(f, L["ELLESMERE_HUD_VISUAL"], -690, 160)
+    local card6 = CreateWizardCard(f, TransferText("title"), -690, 160)
     local transferHelp = card6:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     transferHelp:SetJustifyH("LEFT")
     if transferHelp.SetJustifyV then transferHelp:SetJustifyV("TOP") end
     if transferHelp.SetWordWrap then transferHelp:SetWordWrap(true) end
-    transferHelp:SetText(L["ELLESMERE_HUD_WIZARD_BODY"])
+    transferHelp:SetText(TransferText("wizardBody"))
     local previewBtn = CreateFrame("Button", nil, card6, "UIPanelButtonTemplate")
-    previewBtn:SetText(L["ELLESMERE_HUD_VISUAL"])
+    previewBtn:SetText(TransferText("title"))
     previewBtn:SetSize(260, 28)
-    local function OpenEllesmerePreview()
-        local transfer, layout = EllesmereTransfer(), EllesmereNativeLayout()
+    local function OpenTransferPreview()
+        local transfer, layout = HUDTransfer(), TransferNativeLayout()
         if not transfer or not layout or NeedsLayoutSelection(layout) then
             f:SetStep(HUD_STEP)
             return
         end
         local function ReturnToWizard(result)
             if Wizard.previewReturn ~= ReturnToWizard then return end
-            if result then Wizard.ellesmereImportInactive = result == "inactive" end
-            Wizard:Open(ELLESMERE_STEP)
+            if result then Wizard.transferImportInactive = result == "inactive" end
+            Wizard:Open(TRANSFER_STEP)
         end
         Wizard.previewReturn = ReturnToWizard
         f:Hide()
-        local direction = (layout.controller or layout.ellesmereReview) and "ellesmere" or "fit"
+        -- Preview directions: "fit" places the suite's HUD in Mainhand; the
+        -- provider's copyDirection copies the native layout into its profile.
+        local direction = (layout.controller or layout.transferReview) and transfer.copyDirection or "fit"
         if not transfer:ShowPreview(direction, ReturnToWizard) then
             ReturnToWizard()
         end
     end
-    previewBtn:SetScript("OnClick", OpenEllesmerePreview)
+    previewBtn:SetScript("OnClick", OpenTransferPreview)
 
     -- ========================================================================
     -- FOOTER ACTIONS
@@ -956,11 +972,11 @@ function Wizard:CreateFrame()
     finishBtn:SetPoint("BOTTOMRIGHT", -18, 14)
     finishBtn:SetText("|cffffd100" .. L["WIZARD_BTN_FINISH"] .. "|r")
 
-    local keepEllesmereBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    keepEllesmereBtn:SetSize(250, 28)
-    keepEllesmereBtn:SetPoint("BOTTOMLEFT", 18, 14)
-    keepEllesmereBtn:SetText(L["ELLESMERE_HUD_FINISH_CURRENT"])
-    keepEllesmereBtn:Hide()
+    local keepTransferBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    keepTransferBtn:SetSize(250, 28)
+    keepTransferBtn:SetPoint("BOTTOMLEFT", 18, 14)
+    keepTransferBtn:SetText(TransferText("finishCurrent"))
+    keepTransferBtn:Hide()
 
     local skipLayoutBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
     f.skipLayoutBtn = skipLayoutBtn
@@ -1070,14 +1086,14 @@ function Wizard:CreateFrame()
         end
         if not ValidateTopology() then return end
         ActivateCalibration()
-        if f.step == ELLESMERE_STEP then
-            local transfer = EllesmereTransfer()
-            local layout = transfer and EllesmereNativeLayout()
+        if f.step == TRANSFER_STEP then
+            local transfer = HUDTransfer()
+            local layout = transfer and TransferNativeLayout()
             if not layout or NeedsLayoutSelection(layout) then
                 f:SetStep(HUD_STEP)
             elseif Offhand.Mainhand.UseExistingEditModeLayout
                 and not Offhand.Mainhand:UseExistingEditModeLayout(layout.generated.layoutName) then
-                validationStatus:SetText(L["ELLESMERE_HUD_BUSY"])
+                validationStatus:SetText(TransferText("busy"))
                 f:LayoutStep()
             else
                 local needsReload = transfer.HasPendingReload and transfer:HasPendingReload()
@@ -1097,10 +1113,10 @@ function Wizard:CreateFrame()
             return
         end
 
-        local transfer = EllesmereTransfer()
-        local layout = transfer and EllesmereNativeLayout()
+        local transfer = HUDTransfer()
+        local layout = transfer and TransferNativeLayout()
         if transfer and pendingHUDReload then
-            SaveReloadStep(ELLESMERE_STEP)
+            SaveReloadStep(TRANSFER_STEP)
             Wizard:Close()
             PromptNativeHUD(layout and layout.generatedActive and "active" or pendingHUDReload.activation,
                 pendingHUDReload.name, true)
@@ -1113,11 +1129,11 @@ function Wizard:CreateFrame()
                     and Offhand.Mainhand:UseExistingEditModeLayout(name)
                 local activation = activated and "active" or "select"
                 pendingHUDReload = {activation = activation, name = name}
-                SaveReloadStep(ELLESMERE_STEP)
+                SaveReloadStep(TRANSFER_STEP)
                 Wizard:Close()
                 PromptNativeHUD(activation, name, true)
             else
-                f:SetStep(ELLESMERE_STEP)
+                f:SetStep(TRANSFER_STEP)
             end
             return
         end
@@ -1152,7 +1168,7 @@ function Wizard:CreateFrame()
         end
         if transfer then
             pendingHUDReload = {activation = activation, name = value}
-            SaveReloadStep(ELLESMERE_STEP)
+            SaveReloadStep(TRANSFER_STEP)
             Wizard:Close()
         else
             CompleteSetup(false, true)
@@ -1160,10 +1176,10 @@ function Wizard:CreateFrame()
         PromptNativeHUD(activation, value, transfer ~= nil)
     end
     finishBtn:SetScript("OnClick", function()
-        if keepEllesmereBtn:IsShown() then OpenEllesmerePreview()
+        if keepTransferBtn:IsShown() then OpenTransferPreview()
         else Advance(false) end
     end)
-    keepEllesmereBtn:SetScript("OnClick", function() Advance(false) end)
+    keepTransferBtn:SetScript("OnClick", function() Advance(false) end)
     refreshLayoutBtn:SetScript("OnClick", function() Advance(true) end)
 
 
@@ -1241,7 +1257,7 @@ function Wizard:CreateFrame()
         if Offhand.Options.HideSeamGuide then Offhand.Options:HideSeamGuide() end
         for _, card in ipairs(self.pages) do card:Hide() end
         advBtn:Hide(); skipLayoutBtn:Hide(); refreshLayoutBtn:Hide(); backBtn:Hide()
-        keepEllesmereBtn:Hide()
+        keepTransferBtn:Hide()
         restartBtn:Hide()
         local method = Offhand.GetOnboardingSetupMethod and Offhand:GetOnboardingSetupMethod()
         local macManual = false
@@ -1290,11 +1306,11 @@ function Wizard:CreateFrame()
         progress:SetText(caption)
         local card = self.recoveryReason and recoveryCard or self.pages[self.step or 1]
         if not card then return end
-        local compactReview = self.step == ELLESMERE_STEP and not self.recoveryReason
+        local compactReview = self.step == TRANSFER_STEP and not self.recoveryReason
         if card.setupBaseHeight then card:SetHeight(card.setupBaseHeight) end
         local labels={L.SETUP_STAGE_DETECT,L.SETUP_STAGE_PLACE,L.SETUP_STAGE_SEAM,L.SETUP_STAGE_SCALE}
         if self.totalSteps>=5 then labels[5]=L.SETUP_STAGE_HUD end
-        if self.totalSteps>=6 then labels[6]=L.SETUP_STAGE_ELLESMERE end
+        if self.totalSteps>=6 then labels[6]=TransferText("stage") end
         self.progressRail:Update(self.step,labels)
         if self.recoveryReason then
             local top = Controls.GetCardContentTop(card, 36)
@@ -1425,7 +1441,7 @@ function Wizard:CreateFrame()
             card:SetHeight(card.setupBaseHeight+self.stepIllustration:GetHeight()+14)
         else self.stepIllustration:Hide() end
         local footerHeight = 28
-        local footerButtons = { advBtn, skipLayoutBtn, refreshLayoutBtn, backBtn, finishBtn, recoveryBack, keepEllesmereBtn }
+        local footerButtons = { advBtn, skipLayoutBtn, refreshLayoutBtn, backBtn, finishBtn, recoveryBack, keepTransferBtn }
         for _, button in ipairs(footerButtons) do
             if button:IsShown() then
                 footerHeight = math.max(footerHeight,
@@ -1464,11 +1480,11 @@ function Wizard:CreateFrame()
         Controls.FitDialog(self, Offhand.Viewport and Offhand.Viewport:GetMetrics())
     end
     function f:SetStep(step)
-        local transfer = self.pages[HUD_STEP] and EllesmereTransfer()
-        self.totalSteps = transfer and ELLESMERE_STEP or self.pages[HUD_STEP] and HUD_STEP or 4
-        self.pages[ELLESMERE_STEP] = transfer and card6 or nil
-        local layout = transfer and step >= HUD_STEP and EllesmereNativeLayout()
-        if step == ELLESMERE_STEP and (pendingHUDReload or not layout or NeedsLayoutSelection(layout)) then
+        local transfer = self.pages[HUD_STEP] and HUDTransfer()
+        self.totalSteps = transfer and TRANSFER_STEP or self.pages[HUD_STEP] and HUD_STEP or 4
+        self.pages[TRANSFER_STEP] = transfer and card6 or nil
+        local layout = transfer and step >= HUD_STEP and TransferNativeLayout()
+        if step == TRANSFER_STEP and (pendingHUDReload or not layout or NeedsLayoutSelection(layout)) then
             step = HUD_STEP
         end
         self.step = math.max(1, math.min(self.totalSteps, step))
@@ -1485,7 +1501,7 @@ function Wizard:CreateFrame()
         validationStatus:SetText("")
         if PlacementFailure() then self:ShowRecovery("span"); return end
         for i, card in ipairs(self.pages) do SetShown(card, i == self.step) end
-        local helpKey = self.step == ELLESMERE_STEP and "ELLESMERE_HUD_WIZARD_INTRO"
+        local helpKey = self.step == TRANSFER_STEP and TransferKey("wizardIntro")
             or self.step == HUD_STEP and "STEP_5_HELP"
             or (self.step == 4 and self.totalSteps == 4 and "STEP_4_HELP_NO_EDITMODE")
             or (self.step == 4 and "STEP_4_HELP_EDITMODE")
@@ -1500,11 +1516,11 @@ function Wizard:CreateFrame()
         local canCreateController = controllerLayout and CanCreateControllerLayout()
         local pendingSelection = transfer and pendingHUDReload and pendingHUDReload.activation == "select"
             and not (layout and layout.generatedActive)
-        local importReload = self.step == ELLESMERE_STEP and transfer.HasPendingReload
+        local importReload = self.step == TRANSFER_STEP and transfer.HasPendingReload
             and transfer:HasPendingReload()
-        local reviewProfile = self.step == ELLESMERE_STEP and not importReload and not Wizard.ellesmereImportInactive
-        SetShown(keepEllesmereBtn, reviewProfile)
-        SetShown(previewBtn, self.step == ELLESMERE_STEP and not reviewProfile)
+        local reviewProfile = self.step == TRANSFER_STEP and not importReload and not Wizard.transferImportInactive
+        SetShown(keepTransferBtn, reviewProfile)
+        SetShown(previewBtn, self.step == TRANSFER_STEP and not reviewProfile)
         local state = self.step == HUD_STEP and Offhand.Mainhand and Offhand.Mainhand.GetLayoutStatus
             and Offhand.Mainhand:GetLayoutStatus()
         local needsRefresh = state and state.configured and not state.deferred
@@ -1518,8 +1534,8 @@ function Wizard:CreateFrame()
                 or controllerLayout and canCreateController and L["WIZARD_GAMEPAD_FINISH"]
                 or controllerLayout and L["BTN_FINISH"]
                 or needsRefresh and L["MAINHAND_LAYOUT_REFRESH"] or L["MAINHAND_LAYOUT_CREATE"])
-            or (reviewProfile and L["ELLESMERE_HUD_VISUAL"]
-                or importReload and L["ELLESMERE_HUD_FINISH_RELOAD"]
+            or (reviewProfile and TransferText("title")
+                or importReload and TransferText("finishReload")
                 or self.step == self.totalSteps and L["BTN_FINISH"] or L["BTN_NEXT"]))
         finishBtn:SetSize((self.step == HUD_STEP or reviewProfile) and 230 or 170, 28)
         if self.step == HUD_STEP then
@@ -1533,25 +1549,25 @@ function Wizard:CreateFrame()
             layoutStatus:SetText(controllerLayout and not layout and (canCreateController
                     and L["MAINHAND_LAYOUT_GAMEPAD_STATUS"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
                 or string.format(L["MAINHAND_LAYOUT_STATUS"], tostring(name)))
-            local nextStep = transfer and ("\n\n" .. L["ELLESMERE_HUD_SETUP_DESC"]) or ""
+            local nextStep = transfer and ("\n\n" .. TransferText("setupDesc")) or ""
             local instructions = controllerLayout and (canCreateController
                 and L["WIZARD_GAMEPAD_LAYOUT_BODY"] or L["MAINHAND_LAYOUT_GAMEPAD_FAILED"])
                 or L["WIZARD_HUD_SHORT_BODY"]
             if transfer and pendingHUDReload then
-                instructions = L[pendingSelection and "ELLESMERE_HUD_WIZARD_SELECT" or "ELLESMERE_HUD_WIZARD_RELOAD"]
+                instructions = TransferText(pendingSelection and "wizardSelect" or "wizardReload")
             elseif layout then
-                instructions = L[NeedsLayoutSelection(layout)
-                    and "ELLESMERE_HUD_WIZARD_SELECT" or "ELLESMERE_HUD_WIZARD_EXISTING"]
+                instructions = TransferText(NeedsLayoutSelection(layout)
+                    and "wizardSelect" or "wizardExisting")
             elseif needsRefresh then
                 instructions = L["MAINHAND_LAYOUT_REFRESH_BODY"]
             end
             layoutHelp:SetText(instructions .. nextStep)
-        elseif self.step == ELLESMERE_STEP then
-            local body = L["ELLESMERE_HUD_WIZARD_BODY"]
+        elseif self.step == TRANSFER_STEP then
+            local body = TransferText("wizardBody")
             if importReload then
-                body = L["ELLESMERE_HUD_IMPORT_READY"]
-            elseif Wizard.ellesmereImportInactive then
-                body = L["ELLESMERE_HUD_SAVED_INACTIVE"]
+                body = TransferText("importReady")
+            elseif Wizard.transferImportInactive then
+                body = TransferText("savedInactive")
             end
             transferHelp:SetText(body)
         end
@@ -1741,8 +1757,8 @@ function Wizard:ResumeAfterReload()
         and Offhand.IsSetupComplete and not Offhand:IsSetupComplete() then
         step = self:GetSavedStep()
     end
-    if pendingHUDReload and step == ELLESMERE_STEP then return false end
-    if not step or step ~= step or step < 1 or step > ELLESMERE_STEP then
+    if pendingHUDReload and step == TRANSFER_STEP then return false end
+    if not step or step ~= step or step < 1 or step > TRANSFER_STEP then
         if type(OffhandCharDB) == "table" then OffhandCharDB.wizardRecoveryStep = nil end
         return false
     end
@@ -1903,9 +1919,9 @@ function Wizard:IsOpen()
     return (wizardFrame and wizardFrame:IsShown()) or self.previewReturn ~= nil
 end
 
-function Wizard:OpenHUDSetup(reviewEllesmere)
-    if reviewEllesmere then
-        self:Open(ELLESMERE_STEP)
+function Wizard:OpenHUDSetup(reviewTransfer)
+    if reviewTransfer then
+        self:Open(TRANSFER_STEP)
         return
     end
     self:Open()
@@ -1919,7 +1935,7 @@ end
 
 function Wizard:Close()
     self.previewReturn = nil
-    self.ellesmereImportInactive = nil
+    self.transferImportInactive = nil
     self:CancelEditModeReturn()
     if Offhand.Options and Offhand.Options.HideSeamGuide then
         Offhand.Options:HideSeamGuide()

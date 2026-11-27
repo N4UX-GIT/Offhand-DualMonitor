@@ -7,8 +7,13 @@ local NativeGamepadInterface = Compatibility.IsNativeGamepadInterface
 local ControllerMode = Compatibility.IsControllerMode
 local fallbackBase = "Offhand HUD - Blizzard"
 
-local function IsEllesmereFallbackName(name)
+local function IsTransferFallbackName(name)
     return name == fallbackBase or name:match("^Offhand HUD %- Blizzard %(%d+%)$") ~= nil
+end
+
+-- An external controller addon owns the protected controller HUD.
+local function HasExternalController()
+    return Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller") or false
 end
 
 local function ExternallyOwnedSystem(entry)
@@ -1235,35 +1240,56 @@ local function SharedLayoutClient()
         or tostring(WOW_PROJECT_ID or Offhand.tocVersion or "classic")
 end
 
+-- The saved signature joins the present owners of the hud.layoutSignature role
+-- in role order; the stored strings depend on that order.
 local function LayoutOwnershipSignature()
     local policy = Offhand.HUDCompatibility
-    if not policy or not policy.IsAddonPresent then return "" end
-    local owners = {}
-    for _, name in ipairs({"EllesmereUIActionBars", "EllesmereUIMinimap", "EllesmereUIChat",
-        "EllesmereUICooldownManager", "EllesmereUIQuestTracker", "EllesmereUIUnitFrames",
-        "EllesmereUIRaidFrames", "Bartender4", "Dominos", "ElvUI", "Tukui", "Chattynator"}) do
-        if policy.IsAddonPresent(name) then owners[#owners + 1] = name end
+    if not policy or not policy.IsAddonPresent or not Offhand.Bridges then return "" end
+    local owners, entries = Offhand.Bridges:GetRoleOwners("hud.layoutSignature")
+    local statusOwner = false
+    for _, entry in ipairs(entries) do
+        if entry.statusOwner then statusOwner = true end
     end
     -- Old signatures already represent replacement status bars by default.
-    -- Mark the case where Action Bars is loaded but Blizzard owns XP/Rep.
-    if policy.IsAddonPresent("EllesmereUIActionBars") and policy.HasCustomStatusBarAddon
+    -- Mark the case where a status owner is loaded but Blizzard owns XP/Rep.
+    if statusOwner and policy.HasCustomStatusBarAddon
         and not policy.HasCustomStatusBarAddon() then owners[#owners + 1] = "native-status" end
     return table.concat(owners, ":")
 end
 
-local function OnlyEllesmereGainedOwnership(previous, current)
+-- True when the only change is a suite (an owner matching a suitePattern of
+-- the signature entries) gaining ownership, with status bar ownership kept.
+local function OnlySuiteGainedOwnership(previous, current)
     if type(previous) ~= "string" or previous == current then return false end
+    local statusOwners, suitePatterns = {}, {}
+    for _, entry in ipairs(Offhand.Bridges and Offhand.Bridges:GetRoleEntries("hud.layoutSignature") or {}) do
+        if entry.statusOwner then statusOwners[#statusOwners + 1] = entry.name end
+        if type(entry.suitePattern) == "string" then suitePatterns[#suitePatterns + 1] = entry.suitePattern end
+    end
+    local function NativeStatus(set)
+        if set["native-status"] then return true end
+        for _, name in ipairs(statusOwners) do
+            if set[name] then return false end
+        end
+        return true
+    end
+    local function SuiteOwner(owner)
+        for _, pattern in ipairs(suitePatterns) do
+            if owner:match(pattern) then return true end
+        end
+        return false
+    end
     local before, after = {}, {}
     for owner in previous:gmatch("[^:]+") do before[owner] = true end
     for owner in current:gmatch("[^:]+") do after[owner] = true end
-    local hadNativeStatus = not before.EllesmereUIActionBars or before["native-status"]
-    local hasNativeStatus = not after.EllesmereUIActionBars or after["native-status"]
+    local hadNativeStatus = NativeStatus(before)
+    local hasNativeStatus = NativeStatus(after)
     if hasNativeStatus and not hadNativeStatus then return false end
     for owner in pairs(before) do
         if owner ~= "native-status" and not after[owner] then return false end
     end
     for owner in pairs(after) do
-        if owner ~= "native-status" and not before[owner] and not owner:match("^EllesmereUI") then return false end
+        if owner ~= "native-status" and not before[owner] and not SuiteOwner(owner) then return false end
     end
     return true
 end
@@ -1366,7 +1392,7 @@ function Mainhand:IsNativeGamepadInterface()
 end
 
 function Mainhand:IsControllerLayout()
-    if _G.ConsolePort or NativeGamepadInterface() then return true end
+    if HasExternalController() or NativeGamepadInterface() then return true end
     -- Without the Gamepad enum, ControllerMode always returns false. Avoid
     -- copying every preset/system tree for a result the copies cannot change.
     if not (Enum and Enum.InputDeviceInterfaceType
@@ -1381,7 +1407,7 @@ function Mainhand:IsControllerLayout()
 end
 
 function Mainhand:CanCreateControllerLayout()
-    if _G.ConsolePort or not Offhand.isForever or not NativeGamepadInterface() then
+    if HasExternalController() or not Offhand.isForever or not NativeGamepadInterface() then
         return false
     end
     EnsureEditModeLoaded()
@@ -1397,7 +1423,7 @@ end
 -- transition. The return ticket is character-scoped and survives /reload.
 local selectingWindowLayout = false
 function Mainhand:UpdateWindowModeLayout(metrics)
-    if Offhand.isForever or Offhand.isLegacyWrath or _G.ConsolePort or NativeGamepadInterface()
+    if Offhand.isForever or Offhand.isLegacyWrath or HasExternalController() or NativeGamepadInterface()
         or type(OffhandCharDB) ~= "table" then return false, "unsupported" end
     local record = OffhandCharDB.mainhandLayout
     if type(record) ~= "table" or record.controllerLayout or record.activationPending
@@ -1547,10 +1573,10 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     if Offhand._displayGeometryTransitionActive then return false, "span" end
     local rect = self:GetRect()
     if not rect.isSpanned then return false, "span" end
-    -- ConsolePort remains the external owner of its protected controller HUD.
+    -- An external controller addon remains the owner of its protected HUD.
     -- Forever's native Gamepad interface can use a custom Edit Mode layout on
     -- current beta builds, but the built-in preset itself remains read-only.
-    if _G.ConsolePort then return false, "gamepad" end
+    if HasExternalController() then return false, "gamepad" end
     local nativeGamepadLayout = Offhand.isForever and NativeGamepadInterface()
     EnsureEditModeLoaded()
     if not C_EditMode or type(C_EditMode.GetLayouts) ~= "function" then
@@ -1590,7 +1616,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
     local activeName = activeSource and LayoutName(activeSource, "")
     local explicitSource = not nativeGamepadLayout and not repairFrameName and not repairSystems and activeSource
         and not (IsCharacterLayoutName(activeName) or IsSharedLayoutName(activeName, false)
-            or IsSharedLayoutName(activeName, true) or IsEllesmereFallbackName(activeName))
+            or IsSharedLayoutName(activeName, true) or IsTransferFallbackName(activeName))
     if nativeGamepadLayout then
         -- Old beta builds could leave a controller record pointing at Classic
         -- after rejecting custom-layout activation. Always rebuild a Gamepad
@@ -1644,7 +1670,7 @@ function Mainhand:CreateOrUpdateEditModeLayout(options)
             if not original or original == source then return false, "source" end
             source, sourceID, sourceIndex, sourcePreset = original, originalID, originalIndex, originalPreset
         elseif IsCharacterLayoutName(LayoutName(source))
-            or IsEllesmereFallbackName(LayoutName(source, "")) then
+            or IsTransferFallbackName(LayoutName(source, "")) then
             -- A legacy account row may have no provenance at all. Never use
             -- another incarnation/character's already-translated HUD as source.
             source, sourceID, sourceIndex, sourcePreset = presets[1], 1, 1, true
@@ -2054,11 +2080,11 @@ function Mainhand:GetLayoutStatus(geometrySignature, layoutRecord)
         presetApplied = record.presetApplied == true,
         currentGeometry = record.geometrySignature == (geometrySignature or self:GetGeometrySignature()),
         currentOwnership = ownership == nil or ownership == currentOwnership,
-        ellesmereGainedOwnership = OnlyEllesmereGainedOwnership(ownership, currentOwnership),
+        suiteGainedOwnership = OnlySuiteGainedOwnership(ownership, currentOwnership),
     }
 end
 
-local function EllesmereTransferLayout(source, generated, rect, controller, targetSizes)
+local function HUDTransferLayout(source, generated, rect, controller, targetSizes)
     if not source or not generated then return end
     local projected = DeepCopy(source)
     local defaults = {}
@@ -2091,9 +2117,10 @@ local function EllesmereTransferLayout(source, generated, rect, controller, targ
     return result, defaultRows
 end
 
--- Read-only source selection for the EllesmereUI transfer. A generated row
--- can still contain the native anchor for a system owned by another addon.
-function Mainhand:GetEllesmereLayoutSource(geometryOnly, targetSizes)
+-- Read-only source selection for the HUD layout transfer (Offhand.HUDTransfer).
+-- A generated row can still contain the native anchor for a system owned by
+-- another addon.
+function Mainhand:GetHUDTransferSource(geometryOnly, targetSizes)
     local rect = Geometry.GetCurrentRect()
     if not Offhand.isForever or not rect.isSpanned then return nil end
     local controller = NativeGamepadInterface() == true
@@ -2104,16 +2131,16 @@ function Mainhand:GetEllesmereLayoutSource(geometryOnly, targetSizes)
     local geometry = Geometry.Signature(rect)
     local status = self:GetLayoutStatus(geometry, CharacterModeRecord(controller))
     local characterType = ForeverCharacterLayoutType()
-    local source, generated, ellesmereReview
+    local source, generated, transferReview
     if status.configured and status.controllerLayout == controller then
         source = FindNamedLayout(data, presets, status.sourceName)
         if status.currentGeometry then
             local saved = FindNamedLayout(data, presets, status.generatedName)
             -- This takeover only removes work from Blizzard. The active
             -- character row still has the anchors the preview can copy.
-            ellesmereReview = status.ellesmereGainedOwnership and saved and saved == active
+            transferReview = status.suiteGainedOwnership and saved and saved == active
                 and characterType and saved.layoutType == characterType
-            if status.currentOwnership or ellesmereReview then
+            if status.currentOwnership or transferReview then
                 generated = saved
             end
         end
@@ -2136,22 +2163,22 @@ function Mainhand:GetEllesmereLayoutSource(geometryOnly, targetSizes)
             -- as already projected when setup confirms this exact span.
             generated = active
         elseif not controller and not (IsSharedLayoutName(name, false) or IsSharedLayoutName(name, true)
-            or IsEllesmereFallbackName(name) or IsCharacterLayoutName(name)) then
+            or IsTransferFallbackName(name) or IsCharacterLayoutName(name)) then
             source = active
         end
     end
     if controller and not source and not generated then source = FindGamepadPreset(presets) end
     if not (source or generated) then return nil end
     local context = {source = source, generated = generated, generatedActive = generated ~= nil and generated == active,
-        rect = rect, controller = controller, ellesmereReview = ellesmereReview}
-    context.transferLayout, context.transferDefaults = EllesmereTransferLayout(source, generated, rect, controller, targetSizes)
+        rect = rect, controller = controller, transferReview = transferReview}
+    context.transferLayout, context.transferDefaults = HUDTransferLayout(source, generated, rect, controller, targetSizes)
     if generated and characterType then context.characterOwned = generated.layoutType == characterType end
     return context
 end
 
 -- A fallback is a separate, inactive native layout. Leave the active layout,
 -- shared Mainhand registry and character recovery ticket with their current owners.
-function Mainhand:SaveEllesmereFallback(context, rows)
+function Mainhand:SaveHUDTransferFallback(context, rows)
     if not Offhand.isForever or InCombatLockdown() or not context.generated then return false, "unavailable" end
     local data, presets = EditModeData(), Presets()
     if not data or type(C_EditMode.SaveLayouts) ~= "function" then return false, "save-api" end
@@ -2175,7 +2202,7 @@ function Mainhand:SaveEllesmereFallback(context, rows)
 
     for _, existing in ipairs(data.layouts) do
         local name = LayoutName(existing, "")
-        if IsEllesmereFallbackName(name) and existing.interfaceStyle == layout.interfaceStyle
+        if IsTransferFallbackName(name) and existing.interfaceStyle == layout.interfaceStyle
             and SameLayoutData(existing.systems, layout.systems) then return true, name end
     end
 
@@ -2264,7 +2291,10 @@ function Mainhand:PromptManualLayoutSelection(layoutName, resumeWizard)
         timeout = 0, whileDead = true, hideOnEscape = true, preferredIndex = 3,
     }
     StaticPopupDialogs.OFFHAND_MAINHAND_LAYOUT_SELECT = dialog
-    dialog.text = Offhand.L[resumeWizard and "ELLESMERE_HUD_WIZARD_SELECT_MANUAL" or "MAINHAND_LAYOUT_SELECT_MANUAL"]
+    -- Resuming the wizard means its HUD transfer step follows: the provider names that text.
+    local transfer = Offhand.HUDTransfer
+    local resumeKey = resumeWizard and transfer and type(transfer.text) == "table" and transfer.text.wizardSelectManual
+    dialog.text = Offhand.L[resumeKey or "MAINHAND_LAYOUT_SELECT_MANUAL"]
     dialog.button1 = OKAY or "OK"
     dialog.button2 = nil
     dialog.OnAccept = nil
@@ -2278,7 +2308,7 @@ local function CharacterSetupLayoutContext(mainhand, expectedName, choices)
     if InCombatLockdown and InCombatLockdown() then return nil, "combat" end
     if not Offhand.db or not Offhand.db.enabled then return nil, "disabled" end
     if not mainhand:GetRect().isSpanned then return nil, "span" end
-    if _G.ConsolePort then return nil, "gamepad" end
+    if HasExternalController() then return nil, "gamepad" end
     if Offhand.IsBlizzardInputReserved and Offhand:IsBlizzardInputReserved() then return nil, "input" end
     local manager = _G.EditModeManagerFrame
     if manager and ((manager.IsShown and manager:IsShown()) or manager.editModeActive) then return nil, "open" end
@@ -2300,7 +2330,7 @@ local function CharacterSetupLayoutContext(mainhand, expectedName, choices)
         local context = {
             data = data, presets = presets, candidate = row, id = id,
             controller = controller, ownRecord = record, shared = shared,
-            ellesmereReview = review, active = tonumber(data.activeLayout) == id,
+            transferReview = review, active = tonumber(data.activeLayout) == id,
         }
         preferred = preferred or context
         if expectedName == name then selected = context end
@@ -2316,7 +2346,7 @@ local function CharacterSetupLayoutContext(mainhand, expectedName, choices)
         local row, id, index, preset = FindNamedLayout(data, presets, name)
         if not row or preset then return end
         local characterType = ForeverCharacterLayoutType()
-        local review = status.ellesmereGainedOwnership and characterType and row.layoutType == characterType
+        local review = status.suiteGainedOwnership and characterType and row.layoutType == characterType
             and tonumber(data.activeLayout) == id
         if not status.currentOwnership and not review then needsRefresh = true; return end
         local shared = SharedLayoutRecord(name, controller, record.geometrySignature)
@@ -2347,8 +2377,8 @@ function Mainhand:GetCharacterSetupLayoutStatus(includeChoices)
     local context, reason = CharacterSetupLayoutContext(self, nil, choices)
     if not context then return {ready = false, available = false, reason = reason} end
     return {
-        ready = context.ownRecord ~= nil and context.active and not context.ellesmereReview,
-        available = true, name = LayoutName(context.candidate), ellesmereReview = context.ellesmereReview,
+        ready = context.ownRecord ~= nil and context.active and not context.transferReview,
+        available = true, name = LayoutName(context.candidate), transferReview = context.transferReview,
         choices = choices,
     }
 end
@@ -2357,7 +2387,7 @@ function Mainhand:UseExistingEditModeLayout(expectedName, requireCurrentOwnershi
     local context, reason = CharacterSetupLayoutContext(self, expectedName)
     if not context then return false, reason end
     local name = LayoutName(context.candidate)
-    if context.ellesmereReview and (not expectedName or requireCurrentOwnership) then return false, "review" end
+    if context.transferReview and (not expectedName or requireCurrentOwnership) then return false, "review" end
     -- Capture rollback provenance before SetActiveLayout can change live data.
     local source, sourceID, _, preset = ResolveActiveLayout(context.data, context.presets)
     local active = context.active
@@ -2395,7 +2425,7 @@ function Mainhand:UseExistingEditModeLayout(expectedName, requireCurrentOwnershi
         }
     end
     record.generatedID, record.activationPending = context.id, nil
-    if context.ellesmereReview then record.ownershipSignature = LayoutOwnershipSignature() end
+    if context.transferReview then record.ownershipSignature = LayoutOwnershipSignature() end
     local previous = OffhandCharDB.mainhandLayout
     if context.shared and type(previous) == "table" and
         IsNamedForPlayer(previous.generatedName, UnitName and UnitName("player"), previous.controllerLayout) then

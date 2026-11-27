@@ -42,7 +42,8 @@ function addon:IsGamepadUIEnabled() return gamepad end
 function addon:Print(text, ...) message = string.format(text, ...) end
 for _, file in ipairs({"Locales/enUS.lua", "Core/WorkspaceRegions.lua", "Core/HUDCompatibility.lua",
     "Core/CanvasCompatibility.lua", "Core/AddonWindowCatalog.lua", "Core/Bridges.lua",
-    "Core/CanvasAddonEscape.lua", "Core/LearnedAddonWindows.lua",
+    "Core/CanvasAddonEscape.lua", "Core/LearnedAddonWindows.lua", "Bridges/EllesmereUI/Bridge.lua",
+    "Bridges/ForeverDungeonJournal/Bridge.lua", "Bridges/Platynator/Bridge.lua",
     "UI/AddonWindowSelection.lua"}) do
     assert(loadfile(file))("Offhand", addon)
 end

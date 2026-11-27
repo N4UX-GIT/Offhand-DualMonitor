@@ -5,7 +5,7 @@ local addon = {
     db={enabled=true}, isForever=true,
     HUDCompatibility={
         HasBlizzardEditMode=function() return true end,
-        HasEllesmerePartyFrames=function() return false end,
+        HasCustomPartyFrames=function() return false end,
         UsesControllerInterface=function() return gamepad end,
         UsesForeverEditMode=function() return true end,
         IsExternallyOwnedEditModeSystem=function(entry)

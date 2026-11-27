@@ -8,18 +8,9 @@ local catalog = Offhand.AddonWindowCatalog or {}
 local states = setmetatable({}, {__mode="k"})
 local MAX_SPECIAL, MAX_ROOTS = 256, 64
 local openerHooks = setmetatable({}, {__mode="k"})
-local donGameplayAddons = {LeveldonPanel = "Leveldon", DonMapArrow = "DonMap"}
--- DonCore (shared by Questdon, Leveldon, DonMap) adds every Kit.Window it makes
--- to UISpecialFrames. Questdon's quest book is a workspace panel; DonCore's
--- shared options window is already handled via DonCoreOptions. Its dialogs,
--- menus, the album view and the way box keep closing with Escape; the Leveldon
--- guide, the quest list and the arrows are never registered. Verified against
--- Questdon 1.7.0, Leveldon 0.3.4-beta and DonMap 1.3.6 (Libs/DonCore/Kit.lua).
-local donWindows = {
-    QuestdonQuestBook = {owner = "Questdon", role = "questBook"},
-}
--- Also used during profile migration, when the guide may not be loaded.
-Adapter.restedXPFrames = {RXPFrame = true, RXPItemFrame = true}
+-- Which roots are addon windows, how they open and close, and which frames
+-- their addons keep for themselves come from the bridges: their window index
+-- (data.windows) and the frame rule vendorGameplay.
 
 local function Loaded(name)
     local query = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
@@ -42,95 +33,64 @@ local function OrdinaryRoot(frame, parent)
         and frame:GetParent() == (parent or UIParent)
 end
 
-local function IsDonGameplayRoot(frame, name, addon)
-    if not Loaded(addon) or not OrdinaryRoot(frame) then return false end
-    if name == "LeveldonPanel" then
-        local header = frame._header
-        return frame._isStylePanel == true and type(frame.ApplySettings) == "function"
-            and header and header.GetParent and header:GetParent() == frame
-    end
-    return frame.GetObjectType and frame:GetObjectType() == "Button"
-        and frame.icon and frame.shadow and frame.glow
-end
-
+-- Frames an addon positions and shows itself (frame rule vendorGameplay):
+-- Offhand neither saves nor gathers their placement.
 function Adapter:IsVendorGameplayFrame(frame, name)
     if issecretvalue and issecretvalue(name) then return false end
-    if self.restedXPFrames[name] or (frame and (frame == _G.RXPFrame or frame == _G.RXPItemFrame)) then
-        return true
-    end
-    if not Offhand.isForever then return false end
-    local addon = donGameplayAddons[name]
-    if not addon or not frame or _G[name] ~= frame then return false end
-    local ok, owned = pcall(IsDonGameplayRoot, frame, name, addon)
-    return ok and owned and true or false
+    local bridges = Offhand.Bridges
+    return bridges and bridges:MatchFrame("vendorGameplay", frame, name) or false
 end
 
-local function RetireDonGameplayOwnership(db)
-    local main, workspace, open = db.savedMainPositions, db.savedWorkspacePositions, db.openWorkspacePanels
-    local persistence = Offhand.ForeverPersistence
-    local openChanged = false
-    for name in pairs(donGameplayAddons) do
-        if ((main and main[name]) or (workspace and workspace[name]) or (open and open[name]))
-            and Adapter:IsVendorGameplayFrame(_G[name], name) then
-            if main then main[name] = nil end
-            if workspace and workspace[name] then
-                workspace[name] = nil
-                if persistence and persistence.ClearPosition then persistence:ClearPosition(name) end
-            end
-            if open and open[name] then
-                open[name] = nil
-                openChanged = true
-            end
+-- The services RetireStalePlacements hands the bridges, over the profile of
+-- the refresh in progress.
+local retireDb, retireOpenChanged
+local retireServices = {
+    HasPlacement = function(name)
+        local main, workspace, open = retireDb.savedMainPositions, retireDb.savedWorkspacePositions,
+            retireDb.openWorkspacePanels
+        return ((main and main[name]) or (workspace and workspace[name]) or (open and open[name])) and true or false
+    end,
+    IsVendorGameplayFrame = function(frame, name) return Adapter:IsVendorGameplayFrame(frame, name) end,
+    ForgetPosition = function(name)
+        local main, workspace = retireDb.savedMainPositions, retireDb.savedWorkspacePositions
+        local persistence = Offhand.ForeverPersistence
+        if main then main[name] = nil end
+        if workspace and workspace[name] then
+            workspace[name] = nil
+            if persistence and persistence.ClearPosition then persistence:ClearPosition(name) end
         end
-    end
+    end,
+    ForgetOpen = function(name)
+        local open = retireDb.openWorkspacePanels
+        if open and open[name] then
+            open[name] = nil
+            retireOpenChanged = true
+        end
+    end,
+}
+
+local function RetireStalePlacements(db)
+    local bridges = Offhand.Bridges
+    if not bridges then return end
+    retireDb, retireOpenChanged = db, false
+    bridges:RetireStalePlacements(retireServices)
+    local open, openChanged = db.openWorkspacePanels, retireOpenChanged
+    retireDb, retireOpenChanged = nil, nil
+    local persistence = Offhand.ForeverPersistence
     if openChanged and persistence and persistence.SaveOpenPanels then persistence:SaveOpenPanels(open) end
 end
 
-local function DonOptions()
-    if not Loaded("Leveldon") or type(LibStub) ~= "table" and type(LibStub) ~= "function" then return end
-    local core = LibStub("DonCore-1.0", true)
-    return core and core.Get and core:Get("Options", 1)
-end
-
+-- The bridges identify the addon roots their window index names; an exact
+-- sourceless name is answered before the source location is read.
 local function Identify(frame, name)
     if not OrdinaryRoot(frame) then return nil end
     if name == "OffhandFloatingConfigFrame" then
         local options = Offhand.Options
         return options and options.GetConfigFrame and options:GetConfigFrame() == frame and "Offhand" or nil
     end
-    if name == "ForeverDungeonJournalFrame" and Loaded("ForeverDungeonJournal") then
-        return "ForeverDungeonJournal", "journal"
-    end
-    if name == "DonCoreOptions" then
-        local options = DonOptions()
-        if options and options.Frame and options.Frame() == frame then return "Leveldon", "settings" end
-        return nil
-    end
-    local source = Source(frame)
-    if not source then return nil end
-    local don = donWindows[name]
-    if don then
-        -- Kit.Window's own shape: a header and a close button; any addon's copy of DonCore
-        if not (source:find("/libs/doncore/kit.lua:", 1, true) and type(frame.header) == "table"
-            and type(frame.close) == "table") then return nil end
-        if Loaded(don.owner) then return don.owner, don.role end
-        return nil
-    end
-    if name:match("^PlatynatorCustomiseDialog[%w_]+$") and Loaded("Platynator")
-        and source:find("/platynator/customisedialog/main.lua:", 1, true)
-        and frame.Tabs and frame.CloseButton then return "Platynator", "settings" end
-    if #name ~= 17 or not name:match("^F%w+$") or not frame.GetFrameStrata
-        or frame:GetFrameStrata() ~= "FULLSCREEN_DIALOG" then return nil end
-    for _, vendor in ipairs({"Leatrix_Maps", "Leatrix_Plus", "Leatrix_Sounds"}) do
-        local lower = vendor:lower()
-        if Loaded(vendor) and source:find("/" .. lower .. "/" .. lower .. ".lua:", 1, true) then
-            if vendor == "Leatrix_Sounds" then
-                if frame.cb and frame.mainTex and frame.footTex then return vendor, "settings" end
-            elseif (frame.mt and frame.v) or (frame.c and frame.r and frame.b) then
-                return vendor, "settings"
-            end
-        end
-    end
+    local bridges = Offhand.Bridges
+    if not bridges then return nil end
+    return bridges:IdentifyWindow(frame, name, Source)
 end
 
 function Adapter:CanLearnPlacement(frame, name, owner, file)
@@ -142,7 +102,8 @@ end
 
 local function ControllerOwned()
     local compatibility = Offhand.MainhandCompatibility
-    return _G.ConsolePort ~= nil or (compatibility and compatibility.IsNativeGamepadInterface
+    return (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+        or (compatibility and compatibility.IsNativeGamepadInterface
         and compatibility.IsNativeGamepadInterface())
 end
 
@@ -166,15 +127,19 @@ local function InstallOpeners()
             end
         end
     end
-    Observe(SlashCmdList, "DONCORE")
-    Observe(_G, "Platynator_AddonCompartmentCallback")
+    local bridges = Offhand.Bridges
+    if bridges then
+        bridges:ObserveWindowOpeners("slash", Observe)
+        bridges:ObserveWindowOpeners("globals", Observe)
+    end
     Observe(Offhand.Options, "Open")
-    Observe(DonOptions(), "Open")
-    if Loaded("Platynator") and EventRegistry and EventRegistry.RegisterCallback
+    if not bridges then return end
+    bridges:ObserveWindowOpeners("methods", Observe)
+    if bridges:HasWindowOpenerLinks() and EventRegistry and EventRegistry.RegisterCallback
         and not Adapter.linkObserved then
         EventRegistry:RegisterCallback("SetItemRef", function(_, link)
             if issecretvalue and issecretvalue(link) then return end
-            if link == "addon:platynatorsettings" then AfterOpen() end
+            if bridges:IsWindowOpenerLink(link) then AfterOpen() end
         end, Adapter)
         Adapter.linkObserved = true
     end
@@ -191,7 +156,8 @@ local function ObserveRoot(frame, state)
             state.scripts[key] = true
         end
     end
-    if (state.owner == "Leveldon" or donWindows[state.name]) and not state.scripts.headerDrag then
+    local bridges = Offhand.Bridges
+    if bridges and bridges:WindowUsesHeaderDrag(state.owner) and not state.scripts.headerDrag then
         local header = frame.header
         if header and header.GetParent and header:GetParent() == frame and header.HookScript
             and not (header.IsForbidden and header:IsForbidden())
@@ -217,35 +183,9 @@ end
 function Adapter:GetCloseButtons(frame)
     local state = states[frame]
     if not state or not OrdinaryRoot(frame) then return {} end
-    if state.owner == "Platynator" then return {frame.CloseButton} end
-    if state.owner == "ForeverDungeonJournal" then return {frame.closeButton} end
     if state.owner == "Offhand" then return {frame.workspaceCloseButton} end
-    if state.owner == "Leveldon" or donWindows[state.name] then return {frame.close} end
-    if state.owner == "Leatrix_Sounds" then return {frame.cb} end
-    if frame.c then return {frame.c} end
-    -- Maps/Plus main X buttons are anonymous helper-created children. Inspect
-    -- only this verified root's bounded direct children, not its whole tree.
-    if not frame.GetNumChildren or frame:GetNumChildren() > 128 or not frame.GetChildren then return {} end
-    local result = {}
-    for _, child in ipairs({frame:GetChildren()}) do
-        if child and not (child.IsForbidden and child:IsForbidden())
-            and not (child.IsProtected and child:IsProtected())
-            and child.GetObjectType and child:GetObjectType() == "Button"
-            and child.GetParent and child:GetParent() == frame and child.GetPoint then
-            local point, relative, relativePoint, x, y = child:GetPoint(1)
-            local source = Source(child)
-            local vendor = state.owner:lower()
-            if point == "TOPRIGHT" and relative == frame and relativePoint == "TOPRIGHT"
-                and x == 0 and y == 0 and source
-                and source:find("/" .. vendor .. "/" .. vendor .. ".lua:", 1, true)
-                -- Native scaled dimensions contain small floating-point drift.
-                and child.GetWidth and math.abs(child:GetWidth() - 30) < .01
-                and child.GetHeight and math.abs(child:GetHeight() - 30) < .01 then
-                result[#result + 1] = child
-            end
-        end
-    end
-    return result
+    local bridges = Offhand.Bridges
+    return bridges and bridges:GetWindowCloseButtons(frame, state.owner, state.name) or {}
 end
 
 local function Release(frame, state)
@@ -292,10 +232,10 @@ local function Refresh()
     local enabled = Offhand.isForever and db and db.enabled
         and not ControllerOwned() and not Offhand._displayGeometryTransitionActive
     if enabled then
-        -- Older Gather passes saved these vendor anchors and also registered
+        -- Older Gather passes saved some vendor anchors and also registered
         -- them for Escape. Installation reloads the Lua-only registry. Retire
         -- the records that can recreate our old placement after that reload.
-        RetireDonGameplayOwnership(db)
+        RetireStalePlacements(db)
         InstallOpeners()
     end
     if enabled then
@@ -310,7 +250,7 @@ local function Refresh()
     local count = 0
     for _ in pairs(states) do count = count + 1 end
     -- UISpecialFrames is the bounded source of candidates, never the global
-    -- namespace or the UIParent child tree. Anonymous Leatrix roots need their
+    -- namespace or the UIParent child tree. Anonymous addon roots need their
     -- source metadata as well as their specific configuration-panel shape.
     for _, name in ipairs(UISpecialFrames) do
         if type(name) == "string" then

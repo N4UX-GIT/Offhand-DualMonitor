@@ -188,6 +188,8 @@ assert(loadfile("UI/Controls.lua"))("Offhand", addon)
 assert(loadfile("Core/TopologyDetection.lua"))("Offhand", addon)
 assert(loadfile("UI/OptionsActions.lua"))("Offhand", addon)
 assert(loadfile("Core/MapScale.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua",
+    "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua", "Bridges/OpenMap/Init.lua" })
 assert(loadfile("UI/Options.lua"))("Offhand", addon)
 assert(loadfile("UI/SetupVisuals.lua"))("Offhand", addon)
 assert(loadfile("UI/Wizard.lua"))("Offhand", addon)

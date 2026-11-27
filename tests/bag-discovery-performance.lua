@@ -33,6 +33,8 @@ C_Timer = {
 }
 
 assert(loadfile("Core/BagPersistence.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/Baganator/Bags.lua",
+    "Bridges/EllesmereUI/Bags.lua" })
 onEvent(nil, "PLAYER_LOGIN")
 addon.BagPersistence.paused = false -- simulate the settled, resumed gameplay session
 local oldSnapshot = addon.db.baganatorWorkspacePanels

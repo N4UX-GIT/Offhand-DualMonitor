@@ -38,77 +38,46 @@ function Compatibility.IsAddonPresent(name)
     return false
 end
 
+-- Replacement HUD owners come from the bridges' ownership roles.
+local function HasRole(role, accept)
+    return Offhand.Bridges and Offhand.Bridges:HasRole(role, accept) or false
+end
+
 function Compatibility.HasCustomActionBarAddon()
-    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
-    if Compatibility.IsAddonPresent("EllesmereUIActionBars") then return true end
+    if HasRole("hud.actionBars") then return true end
     local main = _G.MainMenuBar or _G.MainActionBar
     return not main
 end
 
 function Compatibility.HasCustomStatusBarAddon()
-    if _G.Bartender4 or _G.Dominos or _G.ElvUI or _G.Tukui or _G.ConsolePort then return true end
-    if not Compatibility.IsAddonPresent("EllesmereUIActionBars") then return false end
-    -- DataBars is a separate information-panel module, not the native XP/Rep
-    -- replacement. ActionBars owns that replacement unless the player opts back
-    -- into Blizzard's bars. Read its cross-addon accessor without changing state.
-    local lite = _G.EllesmereUI and _G.EllesmereUI.Lite
-    if lite and type(lite.GetAddon) == "function" then
-        local ok, addon = pcall(lite.GetAddon, "EllesmereUIActionBars", true)
-        local profile = ok and addon and addon.db and addon.db.profile
-        if profile and profile.useBlizzardDataBars == true then return false end
-    end
-    return true
+    return HasRole("hud.statusBars")
 end
 
-local function GetBagSmithParkingParent(frame)
-    -- BagSmith can leave the native bag binding enabled. Its replacement
-    -- parks the native backpack under a hidden, anonymous UIParent child.
-    if not frame or not frame.GetParent or (frame.IsForbidden and frame:IsForbidden()) then return end
-    local parent = frame:GetParent()
-    if parent and parent ~= UIParent and parent ~= _G.ContainerFrameContainer
-        and not (parent.IsForbidden and parent:IsForbidden())
-        and parent.GetName and parent:GetName() == nil and parent.GetParent
-        and parent:GetParent() == UIParent and parent.IsShown and not parent:IsShown() then
-        return parent
-    end
+-- A replacement bag owner whose entry says yieldsToNativeGamepad stands
+-- aside on Forever while the native Gamepad interface is in use.
+local function AcceptsBagOwner(entry)
+    return not (entry.yieldsToNativeGamepad and Offhand.isForever and Compatibility.UsesNativeGamepadInterface())
 end
 
-function Compatibility.GetBagSmithParkingParent()
-    if Offhand.isForever and Compatibility.IsAddonPresent("BagSmith") then
-        return GetBagSmithParkingParent(_G.ContainerFrame1)
-            or GetBagSmithParkingParent(_G.ContainerFrameCombinedBags)
-    end
-end
-
-function Compatibility.HasMoveMyBags()
-    return Compatibility.IsAddonPresent("MoveMyBags")
-end
-
+-- Replacement bag owners come from the bridges' hud.bags role, then a
+-- bridge's live replacement bag frame.
 function Compatibility.HasCustomBagAddon()
-    if Compatibility.IsAddonPresent("EllesmereUIBags")
-        and not (Offhand.isForever and Compatibility.UsesNativeGamepadInterface()) then return true end
-    if Compatibility.HasMoveMyBags() then return true end
-    if _G.Baganator or _G.Baginator or _G.Bagnon or _G.AdiBags
-        or _G.ArkInventory or _G.BetterBags or _G.Inventorian
-        or _G.ElvUI or _G.Tukui then return true end
-    if Compatibility.IsAddonPresent("BetterBags") or Compatibility.IsAddonPresent("Bagnaros") then return true end
+    if HasRole("hud.bags", AcceptsBagOwner) then return true end
     if Offhand.Bridges and Offhand.Bridges.HasCustomBag and Offhand.Bridges:HasCustomBag() then return true end
-    if Compatibility.GetBagSmithParkingParent() then return true end
     -- Combined mode can exist without an individual backpack root. Either
     -- native root is sufficient; explicit replacement owners above still win.
     return not (_G.ContainerFrame1 or _G.ContainerFrameCombinedBags)
 end
 
 function Compatibility.HasCustomMinimapAddon()
-    if _G.SexyMap or _G.Carbonite or _G.ElvUI then return true end
-    if Compatibility.IsAddonPresent("EllesmereUIMinimap") then return true end
+    if HasRole("hud.minimap") then return true end
     local minimap = _G.MinimapCluster
     if not minimap then return true end
     return minimap.IsUserPlaced and minimap:IsUserPlaced() or false
 end
 
-function Compatibility.HasEllesmerePartyFrames()
-    return Compatibility.IsAddonPresent("EllesmereUIRaidFrames")
+function Compatibility.HasCustomPartyFrames()
+    return HasRole("hud.partyFrames")
 end
 
 function Compatibility.IsBlizzardEditModeOwnedFrame(frame, name)
@@ -139,38 +108,29 @@ function Compatibility.UsesControllerInterface()
         and mainhand:IsControllerLayout() or false
 end
 
-function Compatibility.HasChattynator()
-    return Compatibility.IsAddonPresent("Chattynator")
-end
-
 function Compatibility.HasCustomChatAddon()
-    return Compatibility.HasChattynator() or Compatibility.IsAddonPresent("EllesmereUIChat")
+    return HasRole("hud.chat")
 end
 
--- DaylightUI lends these native panels back for some views. Check the
--- current parent on every placement, including delayed repairs after a span.
-function Offhand.IsDaylightParkedPanel(frame)
+-- A native panel a bridge's addon lends back for some views and parks under
+-- its own holder in between (Bridges:IsParkedNativePanel). Check the current
+-- parent on every placement, including delayed repairs after a span. Returns
+-- true and the reason the parking addon declares for it.
+function Offhand.IsBridgeParkedPanel(frame)
     if not frame then return false end
-    if Offhand.Bridges and Offhand.Bridges.IsParkedNativePanel
-        and Offhand.Bridges:IsParkedNativePanel(frame) then
-        return true
-    end
-    if not Offhand.isForever or
-        (frame ~= _G.PlayerSpellsFrame and frame ~= _G.ClassTrainerFrame) then return false end
-    local win = _G.DaylightUI and _G.DaylightUI.Win
-    local followers = win and win.Followers
-    if not followers or not frame.GetParent or (frame.IsForbidden and frame:IsForbidden()) then return false end
-    local parent = frame:GetParent()
-    return parent ~= nil and (parent == followers.aside or parent == followers.hidden or parent == followers.veil)
+    local bridges = Offhand.Bridges
+    if not bridges or not bridges.IsParkedNativePanel then return false end
+    return bridges:IsParkedNativePanel(frame)
 end
 
 function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
-    if Offhand.IsDaylightParkedPanel(frame) then return true end
-    if Offhand.ForeverPlusWarnings and Offhand.ForeverPlusWarnings:IsOwnedFrame(frame) then return true end
+    if Offhand.IsBridgeParkedPanel(frame) then return true end
+    if Offhand.Bridges and Offhand.Bridges.IsExternallyOwnedFrame
+        and Offhand.Bridges:IsExternallyOwnedFrame(frame, name) then return true end
     name = name or (frame and frame.GetName and frame:GetName())
     -- Replacement minimaps detach the visible canvas from MinimapCluster.
     -- Treat that canvas as HUD even when it overhangs Mainhand or sits at the
-    -- seam. Cropped Ellesmere maps can also use an anonymous UIParent root.
+    -- seam. Cropped replacement maps can also use an anonymous UIParent root.
     if name == "Minimap" or (frame and frame == _G.Minimap) then return true end
     if frame and frame ~= UIParent and Compatibility.HasCustomMinimapAddon() then
         local ok, owned = pcall(function()
@@ -185,31 +145,12 @@ function Compatibility.IsExternallyOwnedHUDFrame(frame, name)
         end)
         if ok and owned then return true end
     end
-    -- These public roots are positioned by Ellesmere's player aura-bar module
-    -- and its unlock anchors. The generic popup pass must not compete with it.
-    return name == "EllesmereUIPlayerAuraBars_Buffs"
-        or name == "EllesmereUIPlayerAuraBars_Debuffs"
+    -- Vendor HUD roots the bridges name (rule externalHUD) are positioned by
+    -- their own addon and its unlock anchors. The generic popup pass must not
+    -- compete with it.
+    local bridges = Offhand.Bridges
+    return bridges ~= nil and bridges:MatchFrame("externalHUD", frame, name)
 end
-
-local positionedAddonPopupRoots = {
-    BetterBagsBagBackpack = true, BetterBagsBagBank = true,
-    BetterBagsBagBackpackAnchor = true, BetterBagsBagBankAnchor = true,
-    -- Next persists its own panel placement and deliberately clears the native
-    -- user-placed flag after dragging. It has no Classic anchor roots.
-    BetterBagsNextBackpack = true, BetterBagsNextBank = true,
-    BetterBagsNextVendor = true, BetterBagsNextGuildBank = true,
-    RXPFrame = true, RXPItemFrame = true,
-    -- This one-unit presentation anchor belongs to ProcDoc, including while
-    -- Offhand's optional Mainhand centering is off. Popup recovery must not
-    -- supply an offset that the centering adapter would then apply again.
-    ProcDocAlertFrame = true,
-    -- ForeverXPbar owns its saved UIParent point, even when that point looks
-    -- like a newly opened popup or falls in a gap between displays.
-    ForeverXPBarMainFrame = true,
-    -- Questie owns TrackerLocation and its Ctrl-drag/lock behavior. Its reset
-    -- anchor deliberately uses screen center and need not be IsUserPlaced.
-    Questie_BaseFrame = true,
-}
 
 local linkedChatPopupRoots = {
     -- Social and Quick Join are two states of the same native button. The
@@ -226,10 +167,11 @@ local function IsOrdinaryPopupValue(value)
     return ok and secret == false
 end
 
-function Compatibility.GetRestedXPGuideFrame()
-    -- V2 exposes an AceGUI widget whose actual UIParent child is anonymous.
-    local guide = _G.RXPV2GuideWindow
-    if type(guide) == "table" then return rawget(guide, "frame") end
+-- An addon window whose actual UIParent child is anonymous, reached through a
+-- named widget (rule recoverableGuide): returns the frame and the widget's name.
+function Compatibility.GetPreservedAnonymousRoot()
+    local bridges = Offhand.Bridges
+    if bridges then return bridges:GetRuleWidget("recoverableGuide") end
 end
 
 -- Only automatic popup redirection yields here. Explicit workspace movement
@@ -246,30 +188,13 @@ function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
         name = value
     end
     if not IsOrdinaryPopupValue(name) then return true end
-    local addonEscape = Offhand.CanvasAddonEscape
-    if addonEscape and addonEscape:IsVendorGameplayFrame(frame, name) then return true end
-    if type(name) == "string" and positionedAddonPopupRoots[name] then return true end
+    -- Addon windows whose vendor saves or derives the position itself, even
+    -- when it looks like a newly opened popup or leaves IsUserPlaced false
+    -- (rule preservePopup, named by the bridges; it also holds every frame of
+    -- rule vendorGameplay).
+    local bridges = Offhand.Bridges
+    if bridges and bridges:MatchFrame("preservePopup", frame, name) then return true end
     if type(name) == "string" and linkedChatPopupRoots[name] then return true end
-    -- Titan's full-width bars derive their size from two anchors. Popup
-    -- recovery collapses that rectangle if it replaces them with one point.
-    local titanBars = _G.TitanBarData
-    if type(titanBars) == "table" and type(name) == "string" and _G[name] == frame then
-        local bar = titanBars[name]
-        if type(bar) == "table" and bar.frame_name == name then return true end
-    end
-    -- Details owns each numbered meter through its instance/LibWindow store.
-    -- Its drag completion clears IsUserPlaced; configuration dialogs are separate.
-    if type(name) == "string" and name:match("^DetailsBaseFrame%d+$") then return true end
-    -- Baganator owns the backpack anchor and also clears IsUserPlaced on drag.
-    local bags = Offhand.BagPersistence
-    if bags and bags.IsBaganatorBackpackRoot and bags.IsBaganatorBackpackRoot(frame, name) then return true end
-    -- MoveMyBags owns native ContainerFrame placement and leaves IsUserPlaced false.
-    if frame.moveMyBags ~= nil
-        or (Compatibility.HasMoveMyBags() and type(name) == "string"
-            and (name == "ContainerFrameCombinedBags" or name:match("^ContainerFrame%d+$") ~= nil)) then
-        return true
-    end
-    if Compatibility.GetRestedXPGuideFrame() == frame then return true end
     if allowUserPlaced then return false end
     local learned = Offhand.LearnedAddonWindows
     if learned and learned:OwnsPosition(frame, name) then return true end
@@ -281,7 +206,7 @@ function Compatibility.ShouldPreservePopupPosition(frame, name, allowUserPlaced)
 end
 
 -- Serialized HUD generation must respect the same owners as runtime movement.
--- Profile bundles such as Naowh use their actual installed frame providers.
+-- Profile bundles use their actual installed frame providers.
 function Compatibility.IsExternallyOwnedEditModeSystem(entry)
     local systems = Enum and Enum.EditModeSystem
     if not systems or type(entry) ~= "table" then return false end
@@ -296,16 +221,16 @@ function Compatibility.IsExternallyOwnedEditModeSystem(entry)
     elseif system == systems.ChatFrame then
         return Compatibility.HasCustomChatAddon()
     elseif system == systems.CooldownViewer then
-        return Compatibility.IsAddonPresent("EllesmereUICooldownManager")
+        return HasRole("hud.cooldownViewer")
     elseif system == systems.ObjectiveTracker then
-        return Compatibility.IsAddonPresent("EllesmereUIQuestTracker")
+        return HasRole("hud.objectiveTracker")
     elseif system == systems.UnitFrame then
         local indices = Enum.EditModeUnitFrameSystemIndices or {}
         if (indices.Party ~= nil and entry.systemIndex == indices.Party)
             or (indices.Raid ~= nil and entry.systemIndex == indices.Raid) then
-            return Compatibility.HasEllesmerePartyFrames() or _G.ElvUI ~= nil
+            return Compatibility.HasCustomPartyFrames() or HasRole("hud.groupFrames")
         end
-        return Compatibility.IsAddonPresent("EllesmereUIUnitFrames") or _G.ElvUI ~= nil
+        return HasRole("hud.unitFrames")
     end
     return false
 end
@@ -345,4 +270,4 @@ end
 Offhand.HasCustomActionBarAddon = Compatibility.HasCustomActionBarAddon
 Offhand.HasCustomBagAddon = Compatibility.HasCustomBagAddon
 Offhand.HasCustomMinimapAddon = Compatibility.HasCustomMinimapAddon
-Offhand.HasEllesmerePartyFrames = Compatibility.HasEllesmerePartyFrames
+Offhand.HasCustomPartyFrames = Compatibility.HasCustomPartyFrames

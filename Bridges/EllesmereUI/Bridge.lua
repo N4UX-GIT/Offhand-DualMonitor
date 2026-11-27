@@ -1,0 +1,164 @@
+-- EllesmereUI data bridge (built into Offhand). Facts only: no frame, hook or timer.
+-- The bag provider is Bags.lua, the HUD layout transfer Layout.lua and Preview.lua, the
+-- pixel-grid scale adapter Scale.lua and the window fitting and chat bubble probe Windows.lua
+-- beside this file.
+-- EllesmereUI ships one addon folder per module; each module owns its frame family while
+-- loaded or present: ActionBars the action bars (hud.actionBars) and, unless the player opts
+-- back into Blizzard's XP/Rep bars, the status bars (hud.statusBars); Minimap the minimap
+-- (hud.minimap); Chat the chat frames (hud.chat); RaidFrames the party and raid frames, which
+-- the player positions in EllesmereUI Unlock Mode (hud.partyFrames, notice
+-- COMPAT_ELLESMERE_PARTY); UnitFrames, CooldownManager and QuestTracker their Edit Mode
+-- systems (hud.unitFrames, hud.cooldownViewer, hud.objectiveTracker).
+-- The seven modules lead the saved HUD layout ownership signature (hud.layoutSignature,
+-- orders 10 to 70). ActionBars is the status owner there ("native-status" marks Blizzard's
+-- XP/Rep bars), and a new owner matching ^EllesmereUI counts as the suite gaining ownership.
+-- In the compatibility report: ActionBars (report.actionBars, order 30, loaded or present),
+-- Chat (report.chat, order 20, loaded), Minimap first (report.minimap, order 10, loaded),
+-- UnitFrames (report.unitFrames, order 20, loaded), and the EllesmereUI guidance line
+-- (order 90). Diagnostics: EllesmereUIChat leads the chat providers, and the minimap
+-- visibility report names the core, Minimap and Options folders, the unlock mover and the
+-- minimap profile switch after SexyMap.
+-- The player aura-bar module and its unlock anchors position the public roots
+-- EllesmereUIPlayerAuraBars_Buffs and _Debuffs, so the generic popup pass treats them as
+-- externally owned HUD and does not compete with it (frame rule externalHUD).
+-- Addon window catalog: the EllesmereUI suite (suite prefix ellesmereui, its HUD and movers
+-- stay out of the addon window picker) and the EllesmereUIBags backpack (dedicated bag
+-- handling).
+-- EllesmereUIBags: it replaces the bags while loaded or present (hud.bags, order 10) and is
+-- the first bag owner in the compatibility report while loaded (report.bags, order 10), both
+-- standing aside on Forever under the native Gamepad interface (yieldsToNativeGamepad). Its
+-- roots EUI_MainBagFrame, EUI_ReagentBagFrame and EUI_BagsWindowFrame own their visibility,
+-- layout and Escape proxy on Forever (frame rule selfManagedBag). EUI_MainBagFrame gets the
+-- workspace close button handling (workspaceChrome), is a reload bag root (bagRestorable)
+-- and keeps its open state in the custom bag workspace record (customBagRoot). Its bag
+-- Escape adapter, close button finder and persistent-root provider are in Bags.lua beside
+-- this file.
+-- HUD layout transfer texts: the locale keys the transfer provider of Layout.lua names for the
+-- setup wizard step, the Options controls, the onboarding notes and the character review
+-- prompt (core shows provider.text[name]; the keys keep their EllesmereUI names).
+-- Registered on every client, like the checks it replaces.
+
+local ADDON_NAME, shared = ...
+local Offhand = type(shared) == "table" and (shared.Offhand or (shared.API and shared)) or _G.Offhand
+local API = type(Offhand) == "table" and Offhand.API
+if type(API) ~= "table" or API.BRIDGE_CONTRACT ~= 1 or type(API.RegisterAddonData) ~= "function" then return end
+
+local SUITE = "^EllesmereUI"
+
+local function Present(name) return { present = name } end
+
+-- DataBars is a separate information-panel module, not the native XP/Rep
+-- replacement. ActionBars owns that replacement unless the player opts back
+-- into Blizzard's bars. Read its cross-addon accessor without changing state.
+local function OwnsStatusBars()
+    local lite = _G.EllesmereUI and _G.EllesmereUI.Lite
+    if lite and type(lite.GetAddon) == "function" then
+        local ok, addon = pcall(lite.GetAddon, "EllesmereUIActionBars", true)
+        local profile = ok and addon and addon.db and addon.db.profile
+        if profile and profile.useBlizzardDataBars == true then return false end
+    end
+    return true
+end
+
+local function MinimapMover()
+    local eui = _G.EllesmereUI
+    local registered = eui and eui._unlockRegisteredElements and eui._unlockRegisteredElements.EBS_Minimap
+    return registered and "registered" or "missing"
+end
+
+local function MinimapProfileEnabled()
+    local eui = _G.EllesmereUI
+    local get = eui and eui.Lite and eui.Lite.GetAddon
+    local module = type(get) == "function" and get("EllesmereUIMinimap", true)
+    return module and module.db and module.db.profile and module.db.profile.minimap
+        and module.db.profile.minimap.enabled
+end
+
+if type(API.GetBridgeNamespace) == "function" then
+    API.GetBridgeNamespace("EllesmereUI").transferText = {
+        title = "ELLESMERE_HUD_VISUAL",
+        stage = "SETUP_STAGE_ELLESMERE",
+        wizardIntro = "ELLESMERE_HUD_WIZARD_INTRO",
+        wizardBody = "ELLESMERE_HUD_WIZARD_BODY",
+        wizardSelect = "ELLESMERE_HUD_WIZARD_SELECT",
+        wizardReload = "ELLESMERE_HUD_WIZARD_RELOAD",
+        wizardExisting = "ELLESMERE_HUD_WIZARD_EXISTING",
+        wizardSelectManual = "ELLESMERE_HUD_WIZARD_SELECT_MANUAL",
+        setupDesc = "ELLESMERE_HUD_SETUP_DESC",
+        finishCurrent = "ELLESMERE_HUD_FINISH_CURRENT",
+        finishReload = "ELLESMERE_HUD_FINISH_RELOAD",
+        importReady = "ELLESMERE_HUD_IMPORT_READY",
+        savedInactive = "ELLESMERE_HUD_SAVED_INACTIVE",
+        busy = "ELLESMERE_HUD_BUSY",
+        previewDesc = "ELLESMERE_HUD_PREVIEW_DESC",
+        helpBody = "ELLESMERE_HUD_HELP_BODY",
+        characterReview = "CHARACTER_SETUP_ELLESMERE",
+    }
+end
+
+API.RegisterAddonData("EllesmereUI", {
+    ownership = {
+        { role = "hud.actionBars", name = "EllesmereUIActionBars", order = 60, detect = Present("EllesmereUIActionBars") },
+        { role = "hud.statusBars", name = "EllesmereUIActionBars", order = 60,
+            detect = { present = "EllesmereUIActionBars", active = OwnsStatusBars } },
+        { role = "hud.minimap", name = "EllesmereUIMinimap", order = 40, detect = Present("EllesmereUIMinimap") },
+        { role = "hud.chat", name = "EllesmereUIChat", order = 20, detect = Present("EllesmereUIChat") },
+        { role = "hud.partyFrames", name = "EllesmereUIRaidFrames", detect = Present("EllesmereUIRaidFrames"),
+            noticeKey = "COMPAT_ELLESMERE_PARTY" },
+        { role = "hud.unitFrames", name = "EllesmereUIUnitFrames", order = 10, detect = Present("EllesmereUIUnitFrames") },
+        { role = "hud.cooldownViewer", name = "EllesmereUICooldownManager", detect = Present("EllesmereUICooldownManager") },
+        { role = "hud.objectiveTracker", name = "EllesmereUIQuestTracker", detect = Present("EllesmereUIQuestTracker") },
+        { role = "hud.layoutSignature", name = "EllesmereUIActionBars", order = 10, detect = Present("EllesmereUIActionBars"),
+            suitePattern = SUITE, statusOwner = true },
+        { role = "hud.layoutSignature", name = "EllesmereUIMinimap", order = 20, detect = Present("EllesmereUIMinimap"),
+            suitePattern = SUITE },
+        { role = "hud.layoutSignature", name = "EllesmereUIChat", order = 30, detect = Present("EllesmereUIChat"),
+            suitePattern = SUITE },
+        { role = "hud.layoutSignature", name = "EllesmereUICooldownManager", order = 40,
+            detect = Present("EllesmereUICooldownManager"), suitePattern = SUITE },
+        { role = "hud.layoutSignature", name = "EllesmereUIQuestTracker", order = 50,
+            detect = Present("EllesmereUIQuestTracker"), suitePattern = SUITE },
+        { role = "hud.layoutSignature", name = "EllesmereUIUnitFrames", order = 60,
+            detect = Present("EllesmereUIUnitFrames"), suitePattern = SUITE },
+        { role = "hud.layoutSignature", name = "EllesmereUIRaidFrames", order = 70,
+            detect = Present("EllesmereUIRaidFrames"), suitePattern = SUITE },
+        { role = "report.actionBars", name = "EllesmereUIActionBars", order = 30, detect = Present("EllesmereUIActionBars") },
+        { role = "report.chat", name = "EllesmereUIChat", order = 20, detect = { loaded = "EllesmereUIChat" } },
+        { role = "report.minimap", name = "EllesmereUIMinimap", order = 10, detect = { loaded = "EllesmereUIMinimap" } },
+        { role = "report.unitFrames", name = "EllesmereUIUnitFrames", order = 20, detect = { loaded = "EllesmereUIUnitFrames" } },
+        { role = "hud.bags", name = "EllesmereUIBags", order = 10, detect = Present("EllesmereUIBags"),
+            yieldsToNativeGamepad = true },
+        { role = "report.bags", name = "EllesmereUIBags", order = 10, detect = { loaded = "EllesmereUIBags" },
+            yieldsToNativeGamepad = true },
+    },
+    guidance = {
+        { id = "ellesmere", order = 90, addon = "EllesmereUI",
+            when = { unitFrames = "EllesmereUIUnitFrames", actionBars = "EllesmereUIActionBars", chat = "EllesmereUIChat" },
+            key = "COMPAT_GUIDE_ELLESMERE",
+            fallback = "EllesmereUI controls its enabled HUD modules. Position them in EllesmereUI's own unlock/layout settings instead of Blizzard Edit Mode." },
+    },
+    diagnostics = {
+        { slot = "chat", order = 10, label = "EllesmereUIChat", present = "EllesmereUIChat" },
+        { slot = "minimap", order = 20, label = "EllesmereCore", present = "EllesmereUI" },
+        { slot = "minimap", order = 30, label = "EllesmereMinimap", present = "EllesmereUIMinimap" },
+        { slot = "minimap", order = 40, label = "EllesmereOptions", present = "EllesmereUIOptions" },
+        { slot = "minimap", order = 50, label = "EllesmereMover", value = MinimapMover },
+        { slot = "minimap", order = 60, label = "EllesmereProfileEnabled", value = MinimapProfileEnabled },
+    },
+    frameRules = {
+        externalHUD = { "EllesmereUIPlayerAuraBars_Buffs", "EllesmereUIPlayerAuraBars_Debuffs" },
+        selfManagedBag = { "EUI_MainBagFrame", "EUI_ReagentBagFrame", "EUI_BagsWindowFrame" },
+        workspaceChrome = { "EUI_MainBagFrame" },
+        bagRestorable = { "EUI_MainBagFrame" },
+        customBagRoot = { "EUI_MainBagFrame" },
+    },
+    catalogs = {
+        EllesmereUIBags = {
+            backpack = {position = "adapter", close = "bag-adapter", restoreOpen = "adapter"},
+        },
+        EllesmereUI = {
+            suitePrefix = "ellesmereui",
+            hud = {position = "addon", close = "native"},
+        },
+    },
+})

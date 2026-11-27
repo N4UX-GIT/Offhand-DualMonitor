@@ -20,8 +20,8 @@ e.C_Timer={After=function(_,fn) timers[#timers+1]=fn end}
 e.CanManagePanelsFromAddon=function() return true end
 e.IsPersistentPanelLoadCandidate=function(name) return registry.IsBasePersistentCandidate(name) end
 e.IsContextBoundPanel=registry.IsContextBoundPanel
-e.ShouldYieldFrameToClassicUIForever=function() return false end
-e.ShouldYieldWorldMapToMoveAny=function() return false end
+e.ShouldYieldFrameToExternalOwner=function() return false end
+e.ShouldYieldWorldMap=function() return false end
 e.IsForeverEditModeFrame=function() return false end
 e.IsForeverProfessionsPanel=function() return false end
 e.IsPersistentForeverProfessionsPanelName=function() return false end

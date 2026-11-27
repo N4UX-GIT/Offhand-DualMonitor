@@ -14,18 +14,22 @@ local function Workspace()
     if metrics and metrics.isSpanned then return metrics end
 end
 
+-- Blizzard's map, or an external owner whose provider handles the expanded
+-- map (HandlesExpandedMap) and recovers its compact window (CanRecover,
+-- Recover, ReportRecoveryFailure).
 local function SupportedOwner()
     local compat = Offhand.CanvasCompatibility
     local owner = compat.GetWorldMapExternalOwner()
     if not owner then return "Blizzard" end
-    if owner == "OpenMap" and Offhand.isForever and compat.GetOpenMapWorldMapModule() then return owner end
+    if Offhand.Bridges and Offhand.Bridges:CallMap(owner, "HandlesExpandedMap") == true then return owner end
 end
 
 local function PlaceCompact(map, owner, metrics)
-    if owner == "OpenMap" then
-        if not Offhand.CanvasCompatibility.GetOpenMapWindowModule() then return end
+    if owner ~= "Blizzard" then
+        local bridges = Offhand.Bridges
+        if bridges:CallMap(owner, "CanRecover") ~= true then return end
         if Offhand.Canvas.IsFrameOnWorkspace(map) then return true end
-        local moved, reason = Offhand.OpenMapRecovery:Run(true)
+        local moved, reason = bridges:CallMap(owner, "Recover", true)
         if moved then return true end
         if reason == "workspace-fit" then
             local target = Offhand.WorkspaceRegions:ForRegion(metrics)
@@ -34,12 +38,12 @@ local function PlaceCompact(map, owner, metrics)
             if state.available and width and width > 0 and height > 0 then
                 local fit = state.value * math.min((target.workspaceWidth - 24) / width, (target.workspaceHeight - 24) / height)
                 if fit >= state.min and fit < state.value and Offhand.MapScale:Set(fit) then
-                    if Offhand.OpenMapRecovery:Run(true) then return true end
+                    if bridges:CallMap(owner, "Recover", true) then return true end
                     Offhand.MapScale:Set(state.value)
                 end
             end
         end
-        Offhand:Print(Offhand.L[reason == "workspace-fit" and "OPENMAP_WORKSPACE_FIT" or "OPENMAP_RECOVERY_UNAVAILABLE"])
+        bridges:CallMap(owner, "ReportRecoveryFailure", reason)
         return false
     end
     local db = Offhand.db

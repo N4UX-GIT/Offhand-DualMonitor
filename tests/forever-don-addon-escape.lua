@@ -41,6 +41,7 @@ local album = Root('QuestdonAlbumView', 'Interface/AddOns/Questdon/QuestBook.lua
 local spoof = Window('QuestdonQuestBook2')
 assert(loadfile('Core/AddonWindowCatalog.lua'))('Offhand', addon)
 assert(loadfile('Core/CanvasAddonEscape.lua'))('Offhand', addon)
+dofile('tests/support/core-bridges.lua').Load(addon, {'Bridges/DonCore/Bridge.lua'})
 local adapter = addon.CanvasAddonEscape
 adapter:Refresh()
 

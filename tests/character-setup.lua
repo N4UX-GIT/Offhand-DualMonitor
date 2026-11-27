@@ -266,10 +266,13 @@ assert(popupCount == beforePopups and not OffhandCharDB.characterSetup,
 OffhandDB.onboarding.setupComplete = true
 OffhandCharDB.hudSetupReminder = nil
 OffhandCharDB.mainhandLayoutDeferred = nil
-addon.EllesmereLayout = {IsAvailable = function() return true end, ShowPreview = function() end}
+local transferText = {}
+dofile("tests/support/core-bridges.lua").Load(transferText, { "Bridges/EllesmereUI/Bridge.lua" })
+addon.HUDTransfer = {IsAvailable = function() return true end, ShowPreview = function() end,
+    text = transferText.API.GetBridgeNamespace("EllesmereUI").transferText}
 local getSetupLayoutStatus = addon.Mainhand.GetCharacterSetupLayoutStatus
 addon.Mainhand.GetCharacterSetupLayoutStatus = function()
-    return {available = true, ellesmereReview = true}
+    return {available = true, transferReview = true}
 end
 local reviewRequested
 addon.Wizard.OpenHUDSetup = function(_, review) reviewRequested = review end

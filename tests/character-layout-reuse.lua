@@ -25,6 +25,7 @@ OffhandDB = {sharedMainhandLayouts = {Offhand = {
 }}}
 OffhandCharDB = {}
 assert(loadfile("Core/MainhandEditMode.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua" })
 local status = addon.Mainhand:GetCharacterSetupLayoutStatus()
 assert(status.available and not status.ready and saves == 0 and selections == 0)
 assert(addon.Mainhand:UseExistingEditModeLayout())

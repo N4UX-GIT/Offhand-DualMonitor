@@ -23,6 +23,7 @@ MinimapCluster = {IsForbidden = function() return forbidden end,
 Minimap = MinimapCluster
 UISpecialFrames = {secret, "MinimapCluster"}
 assert(loadfile("Core/HUDRecovery.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/EllesmereUI/Bridge.lua", "Bridges/SexyMap/Bridge.lua" })
 local function snapshot() return table.concat(addon.HUDRecovery.GetMinimapVisibilityDiagnostics(), "\n") end
 local report = snapshot()
 assert(report:find("SexyMap:yes", 1, true))

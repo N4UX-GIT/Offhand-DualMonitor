@@ -106,6 +106,9 @@ TooltipComparisonManager = {
 }
 
 assert(loadfile("Core/PopupBounds.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/TinyTooltip/Bridge.lua", "Bridges/TinyTooltipReforged/Bridge.lua", "Bridges/TipTac/Bridge.lua",
+    "Bridges/EllesmereUI/Windows.lua" })
+local ellesmereWindows = assert(addon.API.GetBridgeNamespace("EllesmereUI").Windows)
 addon.PopupBounds:Initialize()
 
 -- SetOwner occurs before Retail shows and sizes an item tooltip. Direction
@@ -352,10 +355,10 @@ EUIConfirmPopup = ellesmereWindow(1650, 2350, 1690, 1490)
 EUIInfoPopup = ellesmereWindow(1650, 2350, 1690, 1490)
 EUIInfoPopup.protected = true
 InCombatLockdown = function() return true end
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(EllesmereUIFrame.points[1][1] == "CENTER", "Ellesmere windows must defer during combat")
 InCombatLockdown = function() return false end
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 local settingsPoint = EllesmereUIFrame.points[1]
 local fittedScale = EllesmereUIFrame:GetScale()
 assert(settingsPoint[1] == "TOPLEFT" and settingsPoint[2] == UIParent
@@ -367,22 +370,22 @@ assert(EUIFirstInstallPopup.points[1][1] == "CENTER" and EUIInfoPopup.points[1][
     "visible workspace and protected popup anchors must be preserved")
 assert(EUIConfirmPopup.points[1][1] == "TOPLEFT" and EUIConfirmPopup:GetScale() == 1,
     "modal in the physical void must be recovered without shrinking it")
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(EllesmereUIFrame.points[1] == settingsPoint, "refresh must not repeat an active placement")
 
 EllesmereUIFrame:ClearAllPoints()
 EllesmereUIFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", 1600, 1200)
 EUIConfirmPopup.shown = false
 span.isSpanned = false
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(EllesmereUIFrame.points[1][4] == 1600, "Offhand must yield to a later Ellesmere placement")
 assert(EUIConfirmPopup.points[1][1] == "CENTER", "hidden modal must recover its original anchor")
 
 EllesmereUIFrame = ellesmereWindow(830, 3170, 2130, 430)
 span.isSpanned = true
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 span.isSpanned = false
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(EllesmereUIFrame.points[1][1] == "CENTER" and EllesmereUIFrame:GetScale() == 1,
     "span restore must release an unchanged settings anchor and temporary scale")
 
@@ -412,26 +415,26 @@ function toolbar:GetBottom() return self:GetTop() - self:GetHeight() end
 toolbar:ClearAllPoints()
 toolbar:SetPoint("TOP", UIParent, "TOP", 0, 20)
 span.isSpanned = true
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(toolbar.points[1][5] == 20, "Unlock Mode's native entrance animation must settle first")
 toolbar:ClearAllPoints()
 toolbar:SetPoint("TOP", UIParent, "TOP", 0, 0)
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(toolbar.points[1][4] == -1280 and toolbar.points[1][5] == 0 and toolbar:GetScale() == 1,
     "the toolbar must fit the portrait display while preserving the physical hover edge")
 UIParent.GetWidth = function() return 4040 end
 span.workspaceRight, span.gameLeft, span.gameRight = 700, 700, 4040
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(toolbar:GetLeft() * toolbar:GetScale() >= 0
     and toolbar:GetRight() * toolbar:GetScale() <= 700,
     "an owned toolbar must refit when span geometry settles or resizes")
 local settledPoint, settledScale = toolbar.points[1], toolbar:GetScale()
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(toolbar.points[1] == settledPoint and toolbar:GetScale() == settledScale,
     "stable toolbar geometry must not rewrite anchors or accumulate scale")
 EllesmereUnlockMode.visible = false
 toolbar.shown = false
-addon.PopupBounds:RefreshEllesmereWindows()
+ellesmereWindows:Refresh()
 assert(toolbar.points[1][4] == 0 and toolbar:GetScale() == 1,
     "the Unlock Mode anchor and original scale must return to EllesmereUI on close")
 print("PASS: Forever Ellesmere windows and Unlock Mode toolbar fit physical display bounds")

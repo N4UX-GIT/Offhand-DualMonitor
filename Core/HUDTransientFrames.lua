@@ -792,11 +792,17 @@ function Transient.Install(HUD, services)
     end
 
     local protectedMenuPoints = setmetatable({}, {__mode = "k"})
-    local oneForAllMenu
+    local moverMenu
+    local function IsExternallyMovable(frame)
+        return Offhand.Bridges ~= nil and Offhand.Bridges.HasExternalMoverMark(frame)
+    end
+    local function IsExternallyMoving(frame)
+        return Offhand.Bridges ~= nil and Offhand.Bridges.IsExternallyMoving(frame)
+    end
 
     -- Forever initially anchors the Escape menu to the full spanned UIParent, whose
     -- center can be the upper-left corner of Mainhand in a mixed-height topology.
-    -- ConsolePort can make the stock menu protected through its secure ring.
+    -- An external controller addon can make the stock menu protected.
     -- Only repair the native center in that case, using the existing secure writer.
     local function PositionForeverGameMenu()
         if not UsesForeverEditMode() or InCombatLockdown()
@@ -806,8 +812,8 @@ function Transient.Install(HUD, services)
             and Offhand.Viewport:GetMetrics() or nil
         if not frame or not m or not frame.ClearAllPoints
             or not frame.SetPoint or (frame.IsForbidden and frame:IsForbidden()) then return false end
-        if not m.isSpanned and not frame.ofaMovable and not protectedMenuPoints[frame] then return false end
-        if frame.ofaMoving then return false end
+        if not m.isSpanned and not IsExternallyMovable(frame) and not protectedMenuPoints[frame] then return false end
+        if IsExternallyMoving(frame) then return false end
 
         local relativeTo, x, y = "CENTER", 0, 0
         if m.isSpanned then
@@ -816,14 +822,15 @@ function Transient.Install(HUD, services)
             x = (m.gameLeft + m.gameRight) * factor / 2
             y = (m.gameBottom + m.gameTop) * factor / 2
         end
-        -- OneForAll restores its TOPLEFT anchor on show, again next frame,
-        -- and after panel layout. Finish that specific write before rendering.
-        if frame.ofaMovable and frame ~= oneForAllMenu and hooksecurefunc
+        -- An external window mover can restore its TOPLEFT anchor on show,
+        -- again next frame, and after panel layout. Finish that specific
+        -- write before rendering.
+        if IsExternallyMovable(frame) and frame ~= moverMenu and hooksecurefunc
             and frame.IsProtected and not frame:IsProtected() then
-            oneForAllMenu = frame
+            moverMenu = frame
             hooksecurefunc(frame, "SetPoint", function(self, point, relative, relativePoint)
                 if point == "TOPLEFT" and relative == UIParent and relativePoint == "BOTTOMLEFT"
-                    and self:IsShown() and not self.ofaMoving and not InCombatLockdown() then
+                    and self:IsShown() and not IsExternallyMoving(self) and not InCombatLockdown() then
                     PositionForeverGameMenu()
                 end
             end)
@@ -840,7 +847,8 @@ function Transient.Install(HUD, services)
             if not ok then return false end
             if protected then
                 local native, eligible = pcall(function()
-                    if not _G.ConsolePort or frame:GetParent() ~= UIParent
+                    if not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+                        or frame:GetParent() ~= UIParent
                         or (frame.IsUserPlaced and frame:IsUserPlaced())
                         or frame:GetNumPoints() ~= 1 then return false end
                     local current = { frame:GetPoint(1) }
@@ -1440,7 +1448,9 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:PositionMainhandTransientFrames(m)
-        if Offhand.ForeverPlusWarnings then Offhand.ForeverPlusWarnings:ApplyLayout(m) end
+        if Offhand.Bridges and Offhand.Bridges.RefreshTransientFrames then
+            Offhand.Bridges:RefreshTransientFrames("position")
+        end
         self:PositionRetailOverrideBar(m)
         self:PositionPremadeGroupDialogs(m)
         self:PositionRetailNotifications(m)
@@ -1498,7 +1508,9 @@ function Transient.Install(HUD, services)
     end
 
     function HUD:HookMainhandTransientFrames()
-        if Offhand.ForeverPlusWarnings then Offhand.ForeverPlusWarnings:Hook() end
+        if Offhand.Bridges and Offhand.Bridges.RefreshTransientFrames then
+            Offhand.Bridges:RefreshTransientFrames("hook")
+        end
         HookPremadeGroupPlacement()
         self:HookRetailNotifications()
         PreloadGroupLootForSecurePositioning()

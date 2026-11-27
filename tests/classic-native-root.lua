@@ -26,6 +26,7 @@ MainActionBar.SetPoint=function() error('must not move protected child') end
 local addon={db={enabled=true},HasCustomActionBarAddon=function() return customOwner end,
     HasBlizzardEditMode=function() return true end}
 assert(loadfile('Core/MainhandCompatibility.lua'))('Offhand',addon)
+dofile('tests/support/core-bridges.lua').Load(addon,{'Bridges/ConsolePort/Bridge.lua'})
 local update=addon.MainhandCompatibility.UpdateClassicNativeBar
 local m={isSpanned=true,gameLeft=1097,gameRight=3047,gameBottom=5,gameTop=1102}
 local function original() assert(point[1]=='BOTTOM' and point[2]==UIParent and point[3]=='BOTTOM' and point[4]==0 and point[5]==0) end

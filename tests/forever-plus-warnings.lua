@@ -1,9 +1,10 @@
 local addon = {isForever = true, db = {enabled = true, seamRedirect = true}}
 local combat, hookCount, gamepad = false, 0, true
 InCombatLockdown = function() return combat end
+GetBuildInfo = function() return "1.60.1", "70000", "Nov 1 2026", 16001 end
 addon.Mainhand = {IsNativeGamepadInterface = function() return gamepad end}
 UIParent = {GetEffectiveScale = function() return 0.7 end,
-    GetHeight = function() return 2560 end}
+    GetHeight = function() return 2560 end, GetWidth = function() return 5440 end}
 local metrics = {isSpanned = true, gameLeft = 1440, gameRight = 4000,
     gameBottom = 6, gameTop = 1446}
 addon.Viewport = {GetMetrics = function() return metrics end}
@@ -36,10 +37,22 @@ local function frame()
     function f:Hide() error("vendor visibility remains untouched") end
     return f
 end
-assert(loadfile("Core/ForeverPlusWarnings.lua"))("Offhand", addon)
+local function ReadSource(path)
+    local handle = assert(io.open(path, "rb"), "missing " .. path)
+    local text = handle:read("*a")
+    handle:close()
+    return text
+end
+assert(loadfile("Core/MainhandGeometry.lua"))("Offhand", addon)
+assert(loadfile("Core/Bridges.lua"))("Offhand", addon)
 assert(loadfile("Core/HUDCompatibility.lua"))("Offhand", addon)
-local adapter = addon.ForeverPlusWarnings
-adapter:Hook()
+assert(loadfile("Bridges/Shared/DefaultAnchors.lua"))("Offhand", addon)
+assert(loadfile("Bridges/ForeverPlus/Bridge.lua"))("Offhand", addon)
+local ns = addon.API.GetBridgeNamespace("ForeverPlus")
+local ids = addon.Bridges:List()
+assert(#ids == 1 and ids[1] == "ForeverPlus" and addon.Bridges:Get("ForeverPlus") ~= nil,
+    "the bridge must register as ForeverPlus on the Forever client")
+ns.Hook()
 assert(hookCount == 0, "late vendor loading remains supported")
 ForeverPlus = {TimerRoom = function() return 18 end,
 PlaceAsBar = function(self, target, id, bar, store)
@@ -57,7 +70,7 @@ PlaceAsBar = function(self, target, id, bar, store)
     end
     return "native-result"
 end}
-adapter:Hook(); adapter:Hook()
+ns.Hook(); ns.Hook()
 assert(hookCount == 1)
 local warning, bar = frame(), {}
 assert(ForeverPlus:PlaceAsBar(warning, "general", bar) == "native-result")
@@ -69,7 +82,7 @@ assert(next(bar) == nil, "the vendor profile must not receive translated points"
 assert(addon.HUDCompatibility.IsExternallyOwnedHUDFrame(warning),
     "generic rescue and panel movement must yield observed vendor bars")
 local writes = warning.writes
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(warning.writes == writes, "stable geometry must not write again")
 ForeverPlus:PlaceAsBar(warning, "general", bar)
 assert(warning.points[1][4] == 2720, "each native redraw must settle before rendering")
@@ -77,26 +90,31 @@ assert(warning.points[1][4] == 2720, "each native redraw must settle before rend
 bar.positioned = true
 ForeverPlus:PlaceAsBar(warning, "general", bar)
 assert(warning.points[1][1] == "TOPLEFT" and warning.points[1][4] == 40)
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(warning.points[1][4] == 40, "explicit vendor positions win")
 bar.positioned = nil
 ForeverPlus.movingBars = true
 local preview = frame()
 ForeverPlus:PlaceAsBar(preview, "general", bar)
-assert(not adapter:IsOwnedFrame(preview) and preview.points[1][3] == "CENTER",
+assert(not ns.IsOwnedFrame(preview) and preview.points[1][3] == "CENTER",
     "interactive mover previews must remain entirely vendor-owned")
 ForeverPlus.movingBars = false
 
 ForeverPlus:PlaceAsBar(warning, "general", bar)
 addon.db.seamRedirect = false
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(warning.points[1][3] == "CENTER" and warning.points[1][5] == 2560 * 0.22,
     "feature-off restores still-owned native anchors")
 addon.db.seamRedirect = true
-adapter:ApplyLayout()
+addon.Bridges:RefreshTransientFrames("hook")
+assert(warning.points[1][3] == "CENTER" and hookCount == 1,
+    "the transient hook phase must not move a tracked bar")
+addon.Bridges:RefreshTransientFrames("position")
+assert(warning.points[1][3] == "BOTTOMLEFT" and warning.points[1][4] == 2720,
+    "the transient position phase must re-apply the layout")
 warning:ClearAllPoints(); warning:SetPoint("LEFT", UIParent, "LEFT", 90, 30)
 addon.db.enabled = false
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(warning.points[1][1] == "LEFT" and warning.points[1][4] == 90,
     "disable must preserve an intervening external anchor")
 addon.db.enabled = true
@@ -104,14 +122,14 @@ addon.db.enabled = true
 combat = true
 ForeverPlus:PlaceAsBar(warning, "general", bar)
 writes = warning.writes
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(warning.writes == writes and warning.points[1][3] == "CENTER",
     "the addon performs no combat anchor writes")
 combat = false
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(warning.points[1][4] == 2720)
 metrics.isSpanned = false
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(warning.points[1][3] == "CENTER", "window Restore releases native placement")
 metrics.isSpanned = true
 
@@ -125,7 +143,7 @@ for _, kind in ipairs({"protected", "forbidden", "mouse", "userPlaced"}) do
     assert(excluded.points[1][3] == "CENTER", kind .. " frame must not be changed")
 end
 local unrelated = frame()
-assert(not adapter:IsOwnedFrame(unrelated), "anonymous unrelated roots cannot be inferred as vendor bars")
+assert(not ns.IsOwnedFrame(unrelated), "anonymous unrelated roots cannot be inferred as vendor bars")
 
 -- Vendor 1.0.6 keeps fixed icon/countdown clearance between these defaults.
 -- Scaling the whole native offset collapses that clearance on a shorter game.
@@ -137,7 +155,7 @@ ForeverPlus:PlaceAsBar(consumables, "consumables", store.list.consumables, store
 assert(consumables.points[1][5] - general.points[1][5] >= 154 - 0.001,
     "Mainhand translation must preserve fixed native icon, timer and row clearance")
 local savedY = consumables.points[1][5]
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(consumables.points[1][5] == savedY, "stack clearance must remain stable between redraws")
 store.list.general.size, store.list.consumables.size = 64, 96
 ForeverPlus:PlaceAsBar(general, "general", store.list.general, store)
@@ -145,9 +163,34 @@ ForeverPlus:PlaceAsBar(consumables, "consumables", store.list.consumables, store
 assert(consumables.points[1][5] - general.points[1][5] >= 106 - 0.001,
     "vendor redraw must use the current independent icon sizes")
 addon.db.seamRedirect = false
-adapter:ApplyLayout()
+ns.ApplyLayout()
 assert(consumables.points[1][3] == "CENTER" and consumables.points[1][5] == 768,
     "Restore must retain the actual original native default offset")
 assert(store.list.general.positioned == nil and store.list.consumables.positioned == nil,
     "clearance correction must not store vendor positions")
-print("PASS: ForeverPlus defaults follow Mainhand without profile, mover, combat or input ownership changes")
+
+-- The transient hook phase also picks up a vendor table that appears later.
+ForeverPlus = {PlaceAsBar = function() end}
+addon.Bridges:RefreshTransientFrames("hook")
+assert(hookCount == 2, "the transient hook phase must hook a late vendor")
+assert(addon.Bridges.errors.ForeverPlus == nil, "the bridge must not raise through dispatch")
+
+-- Inert on a non-Forever client.
+GetBuildInfo = function() return "12.0.1", "70000", "Nov 1 2026", 120107 end
+local retail = {db = {enabled = true, seamRedirect = true}}
+assert(loadfile("Core/Bridges.lua"))("Offhand", retail)
+assert(loadfile("Bridges/Shared/DefaultAnchors.lua"))("Offhand", retail)
+assert(loadfile("Bridges/ForeverPlus/Bridge.lua"))("Offhand", retail)
+assert(#retail.Bridges:List() == 0 and retail.API.GetBridgeNamespace("ForeverPlus").Hook == nil
+    and hookCount == 2, "the bridge must stay inert outside the Forever client")
+
+-- Source purity: the bridge talks to Offhand through its API only, and the
+-- transient/ownership core modules no longer name the vendor.
+local source = ReadSource("Bridges/ForeverPlus/Bridge.lua")
+for _, needle in ipairs({"Offhand.db", "Offhand.Viewport", "Offhand.Canvas", "Offhand.isForever"}) do
+    assert(not source:find(needle, 1, true), "the bridge must not reference " .. needle)
+end
+for _, file in ipairs({"Core/HUDCompatibility.lua", "Core/HUDTransientFrames.lua"}) do
+    assert(not ReadSource(file):find("ForeverPlus", 1, true), file .. " must not name ForeverPlus")
+end
+print("PASS: ForeverPlus defaults follow Mainhand without profile, mover, combat or input ownership changes through the bridge contract")

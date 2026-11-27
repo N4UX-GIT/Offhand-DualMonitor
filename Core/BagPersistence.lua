@@ -35,59 +35,140 @@ local function InputReserved()
         and Offhand:IsBlizzardInputReserved() or false
 end
 
-local function IsBaganatorRootName(name)
-    return type(name) == "string"
-        and (name:match("^Baganator_SingleViewBackpackViewFrame")
-            or name:match("^Baganator_CategoryViewBackpackViewFrame"))
+-- Bag providers (bridge.bagProvider, docs/BRIDGES.md) own the persistent
+-- backpack roots this engine tracks. They are asked in provider order, each
+-- call one pcall through Bridges:CallBagProvider.
+local NO_PROVIDERS = {}
+
+local function Providers()
+    local bridges = Offhand.Bridges
+    return bridges and bridges.GetBagProviders and bridges:GetBagProviders() or NO_PROVIDERS
 end
 
-local function IsForeverEllesmereBag(name)
-    return Offhand.isForever and name == "EUI_MainBagFrame"
+local function CallProvider(entry, method, ...)
+    return Offhand.Bridges:CallBagProvider(entry, method, ...)
 end
 
-local function IsAddOnLoadedCompat(name)
-    local checker = C_AddOns and C_AddOns.IsAddOnLoaded or IsAddOnLoaded
-    if not checker then return _G[name] ~= nil end
-    local ok, loaded = pcall(checker, name)
-    return ok and loaded == true
-end
-
-local function HasConflictingEllesmereBagToggle()
-    return Offhand.isForever and _G.EUI_MainBagFrame and IsAddOnLoadedCompat("Baganator")
-end
-
-local function GetBagnonInventoryRoot()
-    if not IsAddOnLoadedCompat("Bagnon") then return nil end
-    local manager = Bagnon and Bagnon.Frames
-    if not manager or type(manager.Get) ~= "function" then return nil end
-    local ok, frame = pcall(manager.Get, manager, "inventory")
-    if not ok or type(frame) ~= "table" or not frame.GetName then return nil end
-    return frame
-end
-
-local function IsBagnonInventoryRoot(name, frame)
-    if not frame or not frame.GetParent
-        or frame:GetParent() ~= UIParent or frame.id ~= "inventory" then
-        return false
+-- The first provider, in provider order, whose method(...) returns a true value.
+local function FirstProvider(method, ...)
+    for _, entry in ipairs(Providers()) do
+        local ok, result = CallProvider(entry, method, ...)
+        if ok and result then return entry end
     end
-    return GetBagnonInventoryRoot() == frame
+    return nil
 end
 
-local function IsDirectEscapeRoot(name, frame)
-    return IsBaganatorRootName(name) or IsBagnonInventoryRoot(name, frame)
+-- The provider that restores this root itself through its own show and
+-- Escape paths (its GetManagedRoot() names the root).
+local function ManagedEntry(name)
+    if name == nil then return nil end
+    for _, entry in ipairs(Providers()) do
+        local ok, root = CallProvider(entry, "GetManagedRoot")
+        if ok and root ~= nil and root == name then return entry end
+    end
+    return nil
 end
 
-function Bags.IsBaganatorBackpackRoot(frame, name)
-    -- Baganator derives the names of every child region from the backpack
-    -- root. A prefix-only match therefore also catches title text, textures,
-    -- and buttons. Its actual backpack roots are direct UIParent children.
-    return IsBaganatorRootName(name) and frame and frame.GetParent
-        and frame:GetParent() == UIParent
+-- The saved root's provider records a deliberate close by the player.
+local function ExplicitlyClosed(name)
+    return FirstProvider("ExplicitlyClosed", name) ~= nil
 end
 
-local function IsSupportedRoot(name, frame)
-    return name == "EUI_MainBagFrame" or IsBagnonInventoryRoot(name, frame)
-        or Bags.IsBaganatorBackpackRoot(frame, name)
+-- The provider whose root family this name belongs to, judged by name alone
+-- (IsRootName; child regions named after a root match as well).
+local function NameOwner(name)
+    return FirstProvider("IsRootName", name)
+end
+
+-- Two providers replaced the shared bag toggle global (ClaimsSharedToggle),
+-- so its current target cannot be inferred. Claims are asked in provider
+-- order and the test stops as soon as its answer is known.
+local function HasSharedToggleConflict()
+    local providers = Providers()
+    local remaining = 0
+    for _, entry in ipairs(providers) do
+        if type(entry.provider.ClaimsSharedToggle) == "function" then remaining = remaining + 1 end
+    end
+    local claims = 0
+    for _, entry in ipairs(providers) do
+        if type(entry.provider.ClaimsSharedToggle) == "function" then
+            if claims + remaining < 2 then return false end
+            remaining = remaining - 1
+            local ok, claimed = CallProvider(entry, "ClaimsSharedToggle")
+            if ok and claimed then
+                claims = claims + 1
+                if claims >= 2 then return true end
+            end
+        end
+    end
+    return false
+end
+
+-- The providers whose roots keep their own native Escape registration, so
+-- Escape can hide them directly (IsDirectEscapeRoot), in their escapeOrder.
+-- Rebuilt only when the provider list changes.
+local escapeEntries, escapeSource, escapeCount = {}, nil, -1
+
+local function EscapeEntries()
+    local providers = Providers()
+    if providers == escapeSource and #providers == escapeCount then return escapeEntries end
+    local ranked = {}
+    for index, entry in ipairs(providers) do
+        local provider = entry.provider
+        if type(provider.IsDirectEscapeRoot) == "function" then
+            ranked[#ranked + 1] = { entry = entry, index = index,
+                order = type(provider.escapeOrder) == "number" and provider.escapeOrder or math.huge }
+        end
+    end
+    table.sort(ranked, function(a, b)
+        if a.order ~= b.order then return a.order < b.order end
+        return a.index < b.index
+    end)
+    escapeEntries, escapeSource, escapeCount = {}, providers, #providers
+    for index, item in ipairs(ranked) do escapeEntries[index] = item.entry end
+    return escapeEntries
+end
+
+-- The first provider, in escape order, whose IsDirectEscapeRoot(name, frame) holds.
+local function DirectEscapeOwner(name, frame)
+    for _, entry in ipairs(EscapeEntries()) do
+        local ok, result = CallProvider(entry, "IsDirectEscapeRoot", name, frame)
+        if ok and result then return entry end
+    end
+    return nil
+end
+
+-- The provider owning a persistent root: the first whose IsRoot(name, frame)
+-- holds.
+local function RootOwner(name, frame)
+    return FirstProvider("IsRoot", name, frame)
+end
+
+-- A persistent root that keeps its own native anchor and Escape registration
+-- (its provider sets selfAnchored), so workspace restoration and popup
+-- ownership leave both to the vendor.
+function Bags.IsSelfAnchoredRoot(frame, name)
+    for _, entry in ipairs(Providers()) do
+        if entry.provider.selfAnchored == true then
+            local ok, root = CallProvider(entry, "IsRoot", name, frame)
+            if ok and root then return true end
+        end
+    end
+    return false
+end
+
+-- The first provider, in provider order, that sets flag and whose root
+-- family (IsRootName) this name belongs to. flag "rebuildsAnchors": its addon
+-- can briefly clear a root's anchors during a bag rebuild; "reportsRootHide":
+-- on Forever its addon reports its root's actual hide.
+local function FlaggedNameOwner(flag, name)
+    for _, entry in ipairs(Providers()) do
+        if entry.provider[flag] == true then
+            local ok, owned = CallProvider(entry, "IsRootName", name)
+            if ok and owned then return entry end
+        end
+    end
+    return nil
 end
 
 local function IsSpanned()
@@ -97,37 +178,40 @@ local function IsSpanned()
     return metrics and metrics.isSpanned == true
 end
 
-local function EllesmereExplicitlyClosed(name)
-    return name == "EUI_MainBagFrame"
-        and type(EllesmereUIDB) == "table"
-        and EllesmereUIDB.bagsVisible == false
+-- The custom bag workspace record: the open position of the replacement bag
+-- root on the workspace, stored under the key a bag bridge declares for the
+-- setting customBagWorkspacePanels. Without that bridge there is no record.
+local function RecordKey()
+    local bridges = Offhand.Bridges
+    return bridges and bridges:GetSettingKey("customBagWorkspacePanels") or nil
 end
 
-local function CanShowEllesmereBag(frame)
-    return frame and not (frame.IsForbidden and frame:IsForbidden())
-        and not (frame.IsProtected and frame:IsProtected())
-        and not frame:IsShown()
-        and not (UIParent.IsVisible and not UIParent:IsVisible())
+local function GetRecord(db)
+    local key = RecordKey()
+    return key and db[key] or nil
 end
 
-local function ShowEllesmereBag(frame)
-    if not CanShowEllesmereBag(frame) or type(frame.RefreshInventory) ~= "function" then return end
-    frame:Show()
-    if frame:IsVisible() then frame:RefreshInventory() end
+local function SetRecord(db, value)
+    local key = RecordKey()
+    if key then db[key] = value end
 end
 
 function Bags:ForgetOpenSnapshot(name)
     if not Offhand.db then return end
-    local saved = Offhand.db.baganatorWorkspacePanels
+    local saved = GetRecord(Offhand.db)
     if type(saved) ~= "table" then return end
     if name then saved[name] = nil else wipe(saved) end
 end
 
 function Bags:GetSavedPosition()
-    local saved = Offhand.db and Offhand.db.baganatorWorkspacePanels or {}
-    local ellesmere = Offhand.isForever and saved.EUI_MainBagFrame
-    if type(ellesmere) == "table" and ellesmere.x and ellesmere.y then
-        return "EUI_MainBagFrame", ellesmere
+    local saved = Offhand.db and GetRecord(Offhand.db) or {}
+    -- A root its provider restores itself wins over any other saved root.
+    for _, entry in ipairs(Providers()) do
+        local ok, managed = CallProvider(entry, "GetManagedRoot")
+        local position = ok and managed ~= nil and saved[managed]
+        if type(position) == "table" and position.x and position.y then
+            return managed, position
+        end
     end
     for name, position in pairs(saved) do
         if type(position) == "table" and position.x and position.y then
@@ -146,25 +230,32 @@ function Bags:GetVisibleFrame(name)
     end
 end
 
-function Bags:GetVisibleBaganatorBackpack()
-    for name, frame in pairs(self.frames) do
-        if _G[name] == frame and not (frame.IsForbidden and frame:IsForbidden())
-            and self.IsBaganatorBackpackRoot(frame, name) and frame:IsVisible() then return frame end
+-- The provider whose RoutesInventoryBindings() holds, the first in provider
+-- order: its addon routes the stock inventory bindings (the backpack, all
+-- bags and the numbered bag keys) through its own root. Called directly: the
+-- workspace toggle keys poll it inside their own pcall.
+local function BindingProvider()
+    for _, entry in ipairs(Providers()) do
+        local routes = entry.provider.RoutesInventoryBindings
+        if type(routes) == "function" and routes() then return entry end
     end
+    return nil
 end
 
-function Bags:GetBaganatorDiagnostics()
-    if not IsAddOnLoadedCompat("Baganator") or InCombatLockdown() then return end
-    local frame = self:GetVisibleBaganatorBackpack()
-    local name = frame and frame:GetName()
-    local db = Offhand.db or {}
-    local action = GetBindingAction or function() end
-    local snapshot = self:GetSavedPosition()
-    return string.format("backpack=%s | workspace=%s | escapeExcluded=%s | savedOpen=%s | keepBagKey=%s | B=%s/%s | Escape=%s",
-        name or "hidden", tostring(frame and Offhand.Canvas.IsFrameOnWorkspace(frame) == true or false),
-        tostring(frame ~= nil and self.escapeRegistrations[frame] ~= nil), snapshot or "none",
-        tostring(db.keepBagToggleOpen == true), action("B") or "none", action("B", true) or "none",
-        action("ESCAPE", true) or "none")
+-- The same question outside that pcall (each provider asked in its own).
+function Bags:RoutesInventoryBindings()
+    return FirstProvider("RoutesInventoryBindings") ~= nil
+end
+
+-- That provider's visible root (IsRoot), or nil.
+function Bags:GetVisibleBindingRoot()
+    local entry = BindingProvider()
+    local isRoot = entry and entry.provider.IsRoot
+    if type(isRoot) ~= "function" then return nil end
+    for name, frame in pairs(self.frames) do
+        if _G[name] == frame and not (frame.IsForbidden and frame:IsForbidden())
+            and isRoot(name, frame) and frame:IsVisible() then return frame end
+    end
 end
 
 local function CopyPosition(position)
@@ -201,8 +292,9 @@ local function UpdateBagEscapeRegistration(frame, name, supported, parent, proxy
         and not (frame.IsProtected and frame:IsProtected())
     local exclude = false
     if canPreserve and frame:IsVisible() and canvas and canvas.IsFrameOnWorkspace then
-        if state and state.removed and IsBaganatorRootName(name)
-            and (not frame:GetLeft() or (frame.GetBottom and not frame:GetBottom())) then
+        if state and state.removed
+            and (not frame:GetLeft() or (frame.GetBottom and not frame:GetBottom()))
+            and FlaggedNameOwner("rebuildsAnchors", name) then
             -- The vendor can briefly clear its anchors during a bag rebuild.
             -- That intermediate rectangle does not move the bag to Mainhand.
             exclude = true
@@ -248,84 +340,6 @@ local function CloseParkedNativeBags(parkingParent, frameCount, lastBagID)
     end
 end
 
-local function RefreshArkInventoryEscape()
-    local ark = _G.ArkInventory
-    local frame = _G.ARKINV_Frame1
-    if not (ark and frame and IsAddOnLoadedCompat("ArkInventory")) then return end
-    local location = ark.Const and ark.Const.Location
-    local owned = location and frame.ARK_Data and frame.ARK_Data.loc_id == location.Bag
-    UpdateBagEscapeRegistration(frame, "ARKINV_Frame1", owned)
-end
-
-local function RefreshBagnarosEscape()
-    local frame = _G.BagnarosInventoryFrame
-    if not frame or not IsAddOnLoadedCompat("Bagnaros") then return end
-    local controller = frame.controller
-    -- Bagnaros registers its main inventory in UISpecialFrames and rebuilds
-    -- it from the open native bags. A native close can hide and immediately
-    -- reopen it during an expanded Spellbook or Game Menu transition.
-    UpdateBagEscapeRegistration(frame, "BagnarosInventoryFrame", controller
-        and controller.kind == "inventory" and controller.main == frame)
-end
-
-local function RefreshBetterBagsEscape()
-    if InCombatLockdown() then return end
-    local vendor = Bags.betterBags
-    if not vendor and IsAddOnLoadedCompat("BetterBags") and LibStub and hooksecurefunc and ToggleGameMenu then
-        local ace = LibStub("AceAddon-3.0", true)
-        vendor = ace and ace:GetAddon("BetterBags", true)
-        if not vendor or type(vendor.CloseSpecialWindows) ~= "function"
-            or type(vendor.backpackShouldClose) ~= "boolean" then return end
-        Bags.betterBags = vendor
-        hooksecurefunc(vendor, "CloseSpecialWindows", function(_, interactingFrame)
-            local backpack = vendor.Bags and vendor.Bags.Backpack
-            local frame = backpack and backpack.frame
-            if interactingFrame or not frame or not Bags.escapeRegistrations[frame]
-                or not frame:IsVisible() or vendor.backpackShouldClose ~= true
-                or (backpack.IsClosing and backpack:IsClosing()) then return end
-            -- BetterBags queues its close for the next frame. Opening or
-            -- expanding PlayerSpells also runs CloseSpecialWindows while
-            -- Blizzard is assigning the center panel.
-            local stack = debugstack and debugstack(2, 24, 0) or ""
-            local request = { frame = frame, fromPanelShow =
-                stack:find("Blizzard_UIParentPanelManager/Shared/UIParentPanelManager.lua", 1, true)
-                and stack:find("in function 'ShowUIPanel'", 1, true) }
-            Bags.betterBagsEscapeRequest = request
-            C_Timer.After(0, function()
-                if Bags.betterBagsEscapeRequest == request then Bags.betterBagsEscapeRequest = nil end
-            end)
-        end)
-    end
-    if not vendor then return end
-    local backpack = vendor.Bags and vendor.Bags.Backpack
-    local frame = backpack and backpack.frame
-    local name = frame and frame:GetName()
-    if name ~= "BetterBagsNextBackpack" and name ~= "BetterBagsBagBackpack" then frame = nil end
-
-    local previous = Bags.betterBagsEscapeFrame
-    if previous and previous ~= frame then
-        UpdateBagEscapeRegistration(previous, previous:GetName(), false)
-    end
-    Bags.betterBagsEscapeFrame = frame
-    if frame and UpdateBagEscapeRegistration(frame, name, true) then
-        CloseParkedNativeBags(_G.BetterBagsSneakyFrame, NUM_CONTAINER_FRAMES or 13,
-            NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4)
-    end
-end
-
-local function PreserveBetterBagsBackpack()
-    local request = Bags.betterBagsEscapeRequest
-    Bags.betterBagsEscapeRequest = nil
-    if not request or Bags.paused or InCombatLockdown() or InputReserved() or not TrackEnabled()
-        or not CanOpenBagsFromAddon() or not IsSpanned() then return end
-    local vendor = Bags.betterBags
-    local backpack = vendor.Bags and vendor.Bags.Backpack
-    if backpack and backpack.frame == request.frame and request.frame:IsVisible()
-        and Offhand.Canvas.IsFrameOnWorkspace(request.frame) then
-        vendor.backpackShouldClose = false
-    end
-end
-
 local function IsGameMenuBagClose(stack)
     return type(stack) == "string"
         and stack:find("Blizzard_GameMenuEsc/Blizzard_GameMenuEsc.lua", 1, true)
@@ -357,7 +371,20 @@ local function CanSuppressVendorBagClose(frame, proxy)
         and CanOpenBagsFromAddon() and frame:IsVisible() and Offhand.Canvas.IsFrameOnWorkspace(frame)
 end
 
--- Bag Escape helpers handed to bridge modules and addons (docs/BRIDGES.md).
+local function IsPreservingPanel(frame)
+    local canvas = Offhand.Canvas
+    return canvas and canvas.IsForeverBagPreservingPanel
+        and canvas:IsForeverBagPreservingPanel(frame) or false
+end
+
+local function IsPreservingPanelShown()
+    local canvas = Offhand.Canvas
+    return canvas and canvas.IsForeverBagPreservingPanelShown
+        and canvas:IsForeverBagPreservingPanelShown() or false
+end
+
+-- Bag Escape and persistent-root helpers handed to bag providers, bridge
+-- modules and addons (docs/BRIDGES.md).
 local bridgeBagServices = {
     UpdateEscapeRegistration = function(frame, name, supported, parent, proxy)
         return UpdateBagEscapeRegistration(frame, name, supported, parent, proxy)
@@ -374,151 +401,65 @@ local bridgeBagServices = {
     IsSettingsBagClose = function(stack)
         return IsSettingsBagClose(stack) and true or false
     end,
+    IsPaused = function() return Bags.paused end,
+    TrackEnabled = function() return TrackEnabled() end,
+    DiscoverEnabled = function() return DiscoverEnabled() end,
+    IsSpanned = function() return IsSpanned() end,
+    InputReserved = function() return InputReserved() end,
+    CanOpenBagsFromAddon = function() return CanOpenBagsFromAddon() end,
+    IsFrameOnWorkspace = function(frame)
+        local canvas = Offhand.Canvas
+        return canvas and canvas.IsFrameOnWorkspace(frame)
+    end,
+    CloseParkedNativeBags = function(parkingParent, frameCount, lastBagID)
+        return CloseParkedNativeBags(parkingParent, frameCount, lastBagID)
+    end,
+    KeepsIndependentPanels = function()
+        return Offhand.db and Offhand.db.independentWorkspacePanels ~= false
+    end,
+    KeepsBagToggleOpen = function()
+        return Offhand.db and Offhand.db.keepBagToggleOpen == true or false
+    end,
+    IsPreservingPanelShown = function() return IsPreservingPanelShown() end,
+    HasSharedToggleConflict = function() return HasSharedToggleConflict() and true or false end,
+    OpenSavedRoot = function(name) return Bags:OpenSavedRoot(name) end,
+    RegisterRoot = function(name, frame) return Bags:RegisterRoot(name, frame) end,
+    Discover = function(deep) return Bags:Discover(deep) end,
+    -- The tracked roots by name. Read only.
+    GetRoots = function() return Bags.frames end,
+    -- The saved open root and its position (Bags:GetSavedPosition()).
+    GetSavedPosition = function() return Bags:GetSavedPosition() end,
+    -- The saved workspace positions and the custom bag workspace record.
+    GetSavedRecords = function()
+        return Offhand.db and { Offhand.db.savedWorkspacePositions, GetRecord(Offhand.db) } or {}
+    end,
 }
 
-local function RefreshBagSmithEscape()
-    local frame = _G.BagSmithFrame
-    if not frame or InCombatLockdown() or not IsAddOnLoadedCompat("BagSmith")
-        or type(debugstack) ~= "function" then return end
-    local view = frame.view
-    if not view or view.frame ~= frame or view.isMain ~= true or type(view.Hide) ~= "function" then return end
-    if Bags.bagSmithEscapeView ~= view then
-        Bags.bagSmithEscapeView = view
-        local vendorHide = view.Hide
-        -- BagSmith closes synchronously from its native bag post-hook. Scope
-        -- the exception to that hook's Escape path on the vendor's view.
-        view.Hide = function(self, ...)
-            if self == view and CanSuppressVendorBagClose(frame) then
-                local stack = debugstack(2, 20, 0)
-                if stack:find("BagSmith/Core/Hooks.lua", 1, true)
-                    and IsGameMenuBagClose(stack) then return end
-            end
-            return vendorHide(self, ...)
-        end
-    end
-    local compatibility = Offhand.HUDCompatibility
-    if UpdateBagEscapeRegistration(frame, "BagSmithFrame", true)
-        and compatibility and compatibility.GetBagSmithParkingParent then
-        CloseParkedNativeBags(compatibility.GetBagSmithParkingParent(), NUM_CONTAINER_FRAMES or 13,
-            NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4)
-    end
-end
-
-local function IsOpenElvUIDisabledContainer(frame)
-    -- ElvUI's disabled containers retain their native open flag. Offhand can
-    -- attach an OnShow observer, so check the anchors and OnHide script.
-    return frame and not (frame.IsForbidden and frame:IsForbidden()) and frame:IsShown()
-        and frame:GetNumPoints() == 0 and not frame:GetScript("OnHide")
-end
-
-local function ClearElvUINativeBags(frame)
-    local combined = _G.ContainerFrameCombinedBags
-    if CloseBackpack and IsOpenElvUIDisabledContainer(combined) then
-        CloseBackpack()
-        if frame:IsShown() and not combined:IsShown() then Bags.elvUIBackpackCleared = true end
-    end
-    if not CloseBag then return end
-    local lastBagID = NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4
-    for index = 1, NUM_CONTAINER_FRAMES or 13 do
-        local container = _G["ContainerFrame" .. index]
-        if IsOpenElvUIDisabledContainer(container) and container.GetBagID then
-            local id = container:GetBagID()
-            if type(id) == "number" and id >= 0 and id <= lastBagID then
-                CloseBag(id)
-                if id == 0 and frame:IsShown() and not container:IsShown() then Bags.elvUIBackpackCleared = true end
-            end
-        end
-    end
-end
-
-local function RefreshElvUIEscape()
-    local frame = _G.ElvUI_ContainerFrame
-    if not frame or InCombatLockdown() or not IsAddOnLoadedCompat("ElvUI")
-        or type(debugstack) ~= "function" or not hooksecurefunc then return end
-    local engine = _G.ElvUI and _G.ElvUI[1]
-    local parent = engine and engine.UIParent
-    if not parent or _G.ElvUIParent ~= parent or frame:GetParent() ~= parent then return end
-    local vendor = Bags.elvUIBags
-    if not vendor then
-        vendor = engine.GetModule and engine:GetModule("Bags", true)
-        if not vendor or vendor.BagFrame ~= frame or type(vendor.CloseAllBags) ~= "function"
-            or type(vendor.ToggleAllBags) ~= "function" then return end
-        Bags.elvUIBags = vendor
-        local vendorClose = vendor.CloseAllBags
-        vendor.CloseAllBags = function(self, ...)
-            if self == vendor and CanSuppressVendorBagClose(frame) then
-                local stack = debugstack(2, 24, 0)
-                if IsGameMenuBagClose(stack) or IsSettingsBagClose(stack) then return end
-            end
-            Bags.elvUIBackpackCleared = nil
-            return vendorClose(self, ...)
-        end
-        hooksecurefunc(vendor, "ToggleAllBags", function(self)
-            -- ElvUI's toggle uses Blizzard's backpack bit. If clearing it
-            -- made this press look like an open, honor the existing window.
-            if self == vendor and Bags.elvUIBackpackCleared and frame:IsShown() and not InCombatLockdown() then
-                vendor:CloseAllBags()
-            end
-        end)
-    end
-    if not frame:IsShown() then Bags.elvUIBackpackCleared = nil end
-    if UpdateBagEscapeRegistration(frame, "ElvUI_ContainerFrame", vendor.BagFrame == frame, parent) then
-        ClearElvUINativeBags(frame)
-    end
-end
-
-local function RefreshEllesmereBagEscape()
-    if InCombatLockdown() then return end
-    local vendor = IsAddOnLoadedCompat("EllesmereUIBags") and _G.EllesmereUI
-    local namespace = vendor and vendor._ModuleNS and vendor._ModuleNS.EllesmereUIBags
-    if not namespace or not namespace.BlizzardBagsParked or not vendor.RegisterEscapeClose
-        or not vendor._ForgetEscapeClose or not _G.EllesmereUI_EscapeProxy then return end
-    local frame = _G.EUI_MainBagFrame
-    if not frame or frame ~= _G.EUI_Bags or not frame.RefreshInventory then return end
-    Bags.ellesmereEscapeFrames = Bags.ellesmereEscapeFrames or {}
-    local preserved = false
-    for _, root in ipairs({frame, _G.EUI_ReagentBagFrame}) do
-        local exclude = not Bags.paused and TrackEnabled() and IsSpanned() and not InputReserved()
-            and CanOpenBagsFromAddon() and root:GetParent() == UIParent
-            and (root:IsVisible() or (Bags.ellesmereEscapeFrames[root] and not root:IsShown()))
-            and not (root.IsForbidden and root:IsForbidden())
-            and not (root.IsProtected and root:IsProtected())
-            and Offhand.Canvas and Offhand.Canvas.IsFrameOnWorkspace(root)
-        if exclude and not Bags.ellesmereEscapeFrames[root] then
-            -- The vendor proxy is shared with other windows. Remove only the
-            -- default registration for this backpack while Offhand owns it.
-            Bags.ellesmereEscapeFrames[root] = true
-            vendor._ForgetEscapeClose(root)
-        elseif not exclude and Bags.ellesmereEscapeFrames[root] then
-            Bags.ellesmereEscapeFrames[root] = nil
-            vendor.RegisterEscapeClose(root)
-            if root:IsShown() then _G.EllesmereUI_EscapeProxy:Show() end
-        end
-        if exclude then preserved = true end
-    end
-    if preserved then
-        local combined = _G.ContainerFrameCombinedBags
-        if combined then
-            CloseParkedNativeBags(combined:GetParent(), NUM_CONTAINER_FRAMES or 13,
-                NUM_TOTAL_EQUIPPED_BAG_SLOTS or NUM_BAG_SLOTS or 4)
-        end
-    end
+-- A provider's hookScripts: absent or true hooks the root's scripts, false
+-- never does, and a function decides per root (a literal true hooks).
+local function HooksScripts(owner, name, frame)
+    local hook = owner.provider.hookScripts
+    if hook == nil or hook == true then return true end
+    if type(hook) ~= "function" then return false end
+    local ok, allowed = CallProvider(owner, "hookScripts", name, frame)
+    return ok and allowed == true
 end
 
 function Bags:RegisterRoot(name, frame)
-    if not IsSupportedRoot(name, frame) or type(frame) ~= "table"
-        or not frame.GetName or self.frames[name] then
+    local owner = RootOwner(name, frame)
+    if not owner or type(frame) ~= "table" or not frame.GetName or self.frames[name] then
         return false
     end
     self.frames[name] = frame
     if Offhand.WorkspaceChrome and Offhand.WorkspaceChrome.RegisterDynamicFrame then
         Offhand.WorkspaceChrome:RegisterDynamicFrame(name)
     end
-    -- Bagnon's root participates in Forever's UISpecialFrames and Gamepad
-    -- focus lifecycle. Installing scripts on that root can place Offhand in the
-    -- execution ancestry of protected FrameControlsManager work. Observe it
-    -- only from our own ticker and the secure global Escape transaction hooks.
-    if IsBagnonInventoryRoot(name, frame) or IsForeverEllesmereBag(name) then return true end
+    -- A provider's root can participate in Forever's UISpecialFrames and
+    -- Gamepad focus lifecycle. Installing scripts on such a root can place
+    -- Offhand in the execution ancestry of protected FrameControlsManager work.
+    -- Its provider declares hookScripts, and such a root is observed only from
+    -- our own ticker and the secure global Escape transaction hooks.
+    if not HooksScripts(owner, name, frame) then return true end
     if not frame.HookScript then return true end
 
     local function CaptureAfterLayout()
@@ -530,7 +471,7 @@ function Bags:RegisterRoot(name, frame)
         -- A locally hidden, excluded backpack has no such native close route.
         -- Mark that close for the current turn and defer any SavedVariables
         -- change so the logout event can still preserve the last open state.
-        if IsDirectEscapeRoot(name, frame) and not Bags.paused
+        if DirectEscapeOwner(name, frame) and not Bags.paused
             and not Bags.restoring and TrackEnabled() and IsSpanned()
             and not InCombatLockdown() then
             local savedName, position = Bags:GetSavedPosition()
@@ -552,16 +493,16 @@ function Bags:RegisterRoot(name, frame)
         end
         C_Timer.After(0, CaptureAfterLayout)
     end
-    -- Baganator shows its root before laying out its contents. Sample after
-    -- that callback returns so the pre-layout size cannot revoke placement.
+    -- A bag addon can show its root before laying out its contents. Sample
+    -- after that callback returns so the pre-layout size cannot revoke placement.
     frame:HookScript("OnShow", function()
-        UpdateBagEscapeRegistration(frame, name, IsBaganatorRootName(name))
+        UpdateBagEscapeRegistration(frame, name, DirectEscapeOwner(name, frame) ~= nil)
         C_Timer.After(0, CaptureAfterLayout)
     end)
     frame:HookScript("OnHide", Changed)
-    if Offhand.isForever and Bags.IsBaganatorBackpackRoot(frame, name) then
+    if Offhand.isForever and owner.provider.dragStopCapture == true then
         frame:HookScript("OnDragStop", function()
-            -- Baganator has already saved its new anchor. Reconcile ownership
+            -- The bag addon has already saved its new anchor. Reconcile ownership
             -- before an Escape that arrives ahead of the capture ticker.
             if not InCombatLockdown() and not InputReserved() then
                 CaptureAfterLayout()
@@ -571,117 +512,51 @@ function Bags:RegisterRoot(name, frame)
     return true
 end
 
-function Bags:Discover(scanBaganatorGlobals)
+local function RegisterDiscoveredRoot(name, frame)
+    return Bags:RegisterRoot(name, frame)
+end
+
+-- deep: the lifecycle pass in which a provider may walk the global table
+-- once (after its own addon load and after login); every other pass, the
+-- ticker's included, uses constant-time lookups only.
+function Bags:Discover(deep)
     if not DiscoverEnabled() then return false end
     local discovered = false
-
-    -- EllesmereUI exposes a stable root name, so discovery never needs a
-    -- global-table walk.
-    if _G.EUI_MainBagFrame then
-        discovered = self:RegisterRoot("EUI_MainBagFrame", _G.EUI_MainBagFrame) or discovered
-    end
-
-    -- Bagnon's inventory root is lazy, but its public manager provides a
-    -- constant-time identity lookup after construction. Never scan its child
-    -- regions or depend on skin-generated global names.
-    local bagnonRoot = GetBagnonInventoryRoot()
-    if bagnonRoot then
-        discovered = self:RegisterRoot(bagnonRoot:GetName(), bagnonRoot) or discovered
-    end
-
-    -- Persisted Baganator root names can also be resolved directly. This is
-    -- enough for reload restoration even before Baganator announces a frame
-    -- replacement through its callback registry.
-    local records = Offhand.db and {
-        Offhand.db.savedWorkspacePositions,
-        Offhand.db.baganatorWorkspacePanels,
-    } or {}
-    for _, record in ipairs(records) do
-        if type(record) == "table" then
-            for name in pairs(record) do
-                if IsBaganatorRootName(name) and _G[name] then
-                    discovered = self:RegisterRoot(name, _G[name]) or discovered
-                end
-            end
-        end
-    end
-    if not scanBaganatorGlobals or not IsAddOnLoadedCompat("Baganator") then
-        return discovered
-    end
-
-    -- Baganator derives root names from its active skin/frame group. A single
-    -- lifecycle scan finds roots that predate Offhand's callback subscription;
-    -- ongoing changes arrive through BackpackFrameChanged below.
-    for name, frame in pairs(_G) do
-        if type(name) == "string" and IsBaganatorRootName(name) then
-            discovered = self:RegisterRoot(name, frame) or discovered
-        end
+    -- Each bag provider finds its own roots, in provider order.
+    for _, entry in ipairs(Providers()) do
+        local ok, found = CallProvider(entry, "Discover", RegisterDiscoveredRoot,
+            deep and true or false, bridgeBagServices)
+        discovered = (ok and found == true) or discovered
     end
     return discovered
 end
 
-function Bags:InstallBagnonCallbacks()
-    -- Deliberately no Bagnon callbacks. Its root and manager can participate in
-    -- Forever's Gamepad focus path. Constant-time polling of Frames:Get from
-    -- the addon-owned observer discovers the lazy inventory root without
-    -- inserting Offhand code into Bagnon's call chain.
-    self.bagnonCallbacksInstalled = IsAddOnLoadedCompat("Bagnon") or nil
+-- A provider's InstallCallbacks(services) result is kept per bridge id in
+-- callbacksInstalled (true while its vendor callbacks or observer are on).
+Bags.callbacksInstalled = {}
+
+local function InstallProviderCallbacks(entry)
+    local ok, installed = CallProvider(entry, "InstallCallbacks", bridgeBagServices)
+    if ok then Bags.callbacksInstalled[entry.id] = installed end
 end
 
 function Bags:OpenSavedRoot(savedName)
     local frame = savedName and self.frames[savedName]
-    if frame and IsBagnonInventoryRoot(savedName, frame) then
-        local manager = Bagnon and Bagnon.Frames
-        if manager and type(manager.Show) == "function" then
-            local ok = pcall(manager.Show, manager, "inventory")
-            if ok then
-                self:Discover(false)
-                return true
-            end
-        end
+    -- A provider opens the saved root itself (Show returns whether it did),
+    -- or returns nil to leave it to the shared bag toggle below.
+    for _, entry in ipairs(Providers()) do
+        local ok, opened = CallProvider(entry, "Show", savedName, frame, bridgeBagServices)
+        if ok and opened ~= nil then return opened end
     end
-    if IsForeverEllesmereBag(savedName) and HasConflictingEllesmereBagToggle() then
-        -- EllesmereUI 9.7.8 exposes its scale setup in the module namespace.
-        -- Use that capability for an already-initialized bag and let its own
-        -- show and refresh handlers rebuild it. Neither shared toggle is safe
-        -- to call when both providers registered one.
-        local eui = _G.EllesmereUI
-        local module = eui and eui._ModuleNS and eui._ModuleNS.EllesmereUIBags
-        local internals = module and module._bagsInternals
-        local applyScale = type(internals) == "table" and rawget(internals, "ApplyBagScale")
-        local bagsDB = eui and eui._bagsDB
-        local profile = bagsDB and bagsDB.profile
-        if profile and type(applyScale) == "function"
-            and CanShowEllesmereBag(frame) and pcall(applyScale) then
-            ShowEllesmereBag(frame)
-            if frame:IsVisible() and profile.detachReagentBag then
-                ShowEllesmereBag(_G.EUI_ReagentBagFrame)
-            end
-            return frame:IsVisible()
-        end
-        return false
-    end
-    -- Both addons replace this global. Its current target cannot be inferred
+    -- Two providers replaced this global. Its current target cannot be inferred
     -- from the presence or visibility of either backpack root.
-    if HasConflictingEllesmereBagToggle() then return false end
+    if HasSharedToggleConflict() then return false end
     if ToggleAllBags then
         pcall(ToggleAllBags)
         self:Discover(false)
         return true
     end
     return false
-end
-
-local function IsPreservingPanel(frame)
-    local canvas = Offhand.Canvas
-    return canvas and canvas.IsForeverBagPreservingPanel
-        and canvas:IsForeverBagPreservingPanel(frame) or false
-end
-
-local function IsPreservingPanelShown()
-    local canvas = Offhand.Canvas
-    return canvas and canvas.IsForeverBagPreservingPanelShown
-        and canvas:IsForeverBagPreservingPanelShown() or false
 end
 
 local function PanelDefersBagRestore(frame)
@@ -691,9 +566,24 @@ local function PanelDefersBagRestore(frame)
         or name == "VideoOptionsFrame" or name == "AudioOptionsFrame"
 end
 
+-- The saved root's provider preserves it through this panel transition:
+-- panelTransitions "all" for every preserving panel, "options" for Options
+-- only, tried in provider order.
+local function PreservedThroughPanel(savedName, frame, options)
+    for _, entry in ipairs(Providers()) do
+        local through = entry.provider.panelTransitions
+        if through == "all" or (through == "options" and options) then
+            local ok, root = CallProvider(entry, "IsRoot", savedName, frame)
+            if ok and root then return true end
+        end
+    end
+    return false
+end
+
 -- Blizzard closes replacement bags while opening or closing certain UIPanels.
--- Preserve tracked replacement bags through Options, and Bagnon through other
--- supported panels. Native Gamepad mode owns these windows' visibility.
+-- Preserve tracked replacement bags through Options, and some through other
+-- supported panels (their provider's panelTransitions). Native Gamepad mode
+-- owns these windows' visibility.
 function Bags:BeginPanelTransition(panel)
     if self.paused or not IsPreservingPanel(panel) or not TrackEnabled() or not IsSpanned()
         or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
@@ -702,8 +592,7 @@ function Bags:BeginPanelTransition(panel)
     local savedName, position = self:GetSavedPosition()
     local frame = savedName and self.frames[savedName]
     local options = PanelDefersBagRestore(panel)
-    if not position or not frame or not (IsBagnonInventoryRoot(savedName, frame)
-        or (options and Bags.IsBaganatorBackpackRoot(frame, savedName))) then return false end
+    if not position or not frame or not PreservedThroughPanel(savedName, frame, options) then return false end
 
     if options and panel:IsShown() then
         if not frame:IsVisible() then
@@ -736,7 +625,7 @@ function Bags:BeginPanelTransition(panel)
             position = Bags:NormalizePosition(position, root)
             Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
             Offhand.db.savedWorkspacePositions[savedName] = position
-            Offhand.db.baganatorWorkspacePanels = { [savedName] = position }
+            SetRecord(Offhand.db, { [savedName] = position })
             Offhand.Canvas:RestoreWorkspacePosition(root)
             if options then
                 Bags.panelTransition = nil
@@ -757,55 +646,27 @@ function Bags:BeginPanelTransition(panel)
     return true
 end
 
-function Bags:InstallBaganatorCallbacks()
-    if self.baganatorCallbacksInstalled or not IsAddOnLoadedCompat("Baganator") then return end
-    local registry = Baganator and Baganator.CallbackRegistry
-    if not registry or not registry.RegisterCallback then return end
-    self.baganatorCallbacksInstalled = true
-    registry:RegisterCallback("BackpackFrameChanged", function(_, frame)
-        if not DiscoverEnabled() or not frame or not frame.GetName then return end
-        Bags:RegisterRoot(frame:GetName(), frame)
-    end)
-    registry:RegisterCallback("BagShow", function()
-        if not DiscoverEnabled() then return end
-        for name in pairs(Bags.frames) do
-            if IsBaganatorRootName(name) then return end
-        end
-        -- Fallback for load orders where Baganator creates its first frame
-        -- after Offhand's PLAYER_LOGIN handler. This runs at most until the
-        -- first root is found, never on a timer.
-        C_Timer.After(0, function() Bags:Discover(true) end)
-    end)
-end
+-- The direct-Escape providers whose root left its native Escape registration
+-- in this capture pass.
+local parkedOwners = {}
 
 function Bags:Capture()
-    local closeBaganatorParkedBags, closeBagnonParkedBags
+    for entry in pairs(parkedOwners) do parkedOwners[entry] = nil end
+    -- The registration only changes on Forever, so only Forever asks which
+    -- provider's root keeps its own Escape registration.
     for name, frame in pairs(self.frames) do
-        local baganator = IsBaganatorRootName(name)
-        local bagnon = Offhand.isForever and not baganator and IsBagnonInventoryRoot(name, frame)
-        if UpdateBagEscapeRegistration(frame, name, baganator or bagnon) then
-            if baganator then closeBaganatorParkedBags = true end
-            if bagnon then closeBagnonParkedBags = true end
+        local owner = Offhand.isForever and DirectEscapeOwner(name, frame) or nil
+        if UpdateBagEscapeRegistration(frame, name, owner ~= nil) and owner then
+            parkedOwners[owner] = true
         end
     end
-    if closeBaganatorParkedBags and IsAddOnLoadedCompat("Baganator") then
-        local combined = _G.ContainerFrameCombinedBags
-        if combined and not (combined.IsForbidden and combined:IsForbidden()) then
-            CloseParkedNativeBags(combined:GetParent(), 6)
-        end
+    -- Each such provider closes the native bags it parks, in escape order.
+    for _, entry in ipairs(EscapeEntries()) do
+        if parkedOwners[entry] then CallProvider(entry, "CloseParkedBags", bridgeBagServices) end
     end
-    if closeBagnonParkedBags and Bagnon.Overrides and type(Bagnon.NumBags) == "number" then
-        CloseParkedNativeBags(Bagnon.Overrides.Disabled, NUM_CONTAINER_FRAMES or 13, Bagnon.NumBags)
-    end
-    if Offhand.isForever then
-        RefreshArkInventoryEscape()
-        RefreshBagnarosEscape()
-        RefreshBetterBagsEscape()
-        RefreshBagSmithEscape()
-        RefreshElvUIEscape()
-        if Offhand.Bridges then Offhand.Bridges:RefreshBags(bridgeBagServices) end
-        RefreshEllesmereBagEscape()
-    end
+    -- The bag providers' Escape adapters, then the bridges' own (one fixed
+    -- sequence, so UISpecialFrames registrations keep their order).
+    if Offhand.isForever and Offhand.Bridges then Offhand.Bridges:RefreshBags(bridgeBagServices) end
     if self.paused or self.restoring or self.escapePending or not Offhand.db
         or not CanOpenBagsFromAddon() then return end
     if self.optionsPanel then
@@ -833,10 +694,10 @@ function Bags:Capture()
                     and Offhand.CanvasPersistence.PreservedFitFallback(frame,currentMetrics,previous)
                 if fitFallback then
                     snapshot=snapshot or {};snapshot[name]=fitFallback
-                elseif IsBaganatorRootName(name) and (not x or not y) then
+                elseif (not x or not y) and NameOwner(name) then
                     -- A visible backpack can still lack an actual rectangle
                     -- while its vendor-owned anchor is being rebuilt.
-                    local saved = Offhand.db.baganatorWorkspacePanels
+                    local saved = GetRecord(Offhand.db)
                     if type(saved) == "table" and saved[name] then
                         snapshot = snapshot or {}
                         snapshot[name] = saved[name]
@@ -859,20 +720,20 @@ function Bags:Capture()
                         end
                         snapshot = snapshot or {}
                         snapshot[name] = position
-                        if IsForeverEllesmereBag(name) then
-                            local reagent = _G.EUI_ReagentBagFrame
-                            position.reagentOpen = reagent and not (reagent.IsForbidden and reagent:IsForbidden())
-                                and reagent:IsVisible()
-                                and Offhand.Canvas.IsFrameOnWorkspace(reagent) or nil
+                        -- A root its provider restores itself keeps only this
+                        -- open snapshot, with what the provider adds to it.
+                        local managed = ManagedEntry(name)
+                        if managed then
+                            CallProvider(managed, "CapturePosition", position, frame, bridgeBagServices)
                         else
                             Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
                             Offhand.db.savedWorkspacePositions[name] = position
                         end
                     end
                 else
-                    -- EllesmereUI and Baganator can move their root without
-                    -- firing Offhand's drag-stop callback. Retire the stale
-                    -- workspace record immediately when their visible root is
+                    -- A bag provider can move its root without firing
+                    -- Offhand's drag-stop callback. Retire the stale
+                    -- workspace record immediately when its visible root is
                     -- now on Mainhand, or the next map repair pass moves it back.
                     if Offhand.db.savedWorkspacePositions then
                         Offhand.db.savedWorkspacePositions[name] = nil
@@ -888,12 +749,12 @@ function Bags:Capture()
         end
     end
     if snapshot then
-        Offhand.db.baganatorWorkspacePanels = snapshot
-    elseif type(Offhand.db.baganatorWorkspacePanels) ~= "table"
-        or next(Offhand.db.baganatorWorkspacePanels) then
+        SetRecord(Offhand.db, snapshot)
+    elseif type(GetRecord(Offhand.db)) ~= "table"
+        or next(GetRecord(Offhand.db)) then
         -- Five polls per second should not allocate a new empty saved-state
         -- table while no replacement bag is open. Clear old intent once.
-        Offhand.db.baganatorWorkspacePanels = {}
+        SetRecord(Offhand.db, {})
     end
 end
 
@@ -927,16 +788,16 @@ function Bags:RestoreAfterEscape(pending)
     end
 
     local savedName, position = self:GetSavedPosition()
-    if not position or IsForeverEllesmereBag(savedName)
-        or (IsBaganatorRootName(savedName) and HasConflictingEllesmereBagToggle()) then return false end
-    if EllesmereExplicitlyClosed(savedName) then
+    if not position or ManagedEntry(savedName)
+        or (NameOwner(savedName) and HasSharedToggleConflict()) then return false end
+    if ExplicitlyClosed(savedName) then
         self:ForgetOpenSnapshot(savedName)
         return false
     end
     if not CanRestoreBagThroughEscape(savedName) then return false end
     self.restoring = true
     self:Discover()
-    local exact = HasConflictingEllesmereBagToggle() and savedName or nil
+    local exact = HasSharedToggleConflict() and savedName or nil
     local visible = self:GetVisibleFrame(exact)
     if not visible then
         self:OpenSavedRoot(savedName)
@@ -948,7 +809,7 @@ function Bags:RestoreAfterEscape(pending)
         position = self:NormalizePosition(position, visible)
         Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
         Offhand.db.savedWorkspacePositions[name] = position
-        Offhand.db.baganatorWorkspacePanels = { [name] = position }
+        SetRecord(Offhand.db, { [name] = position })
         Offhand.Canvas:RestoreWorkspacePosition(visible)
         RestoreGameMenuAfterEscape(pending.menuWasShown)
     end
@@ -958,78 +819,75 @@ function Bags:RestoreAfterEscape(pending)
     return visible ~= nil
 end
 
-local function CanRestoreEllesmereWorkspaceBag(frame)
-    local canvas = Offhand.Canvas
-    return frame == _G.EUI_MainBagFrame and CanShowEllesmereBag(frame)
-        and type(EllesmereUIDB) == "table" and EllesmereUIDB.bagsVisible == true
-        and canvas and canvas.IsFrameOnWorkspace(frame)
-        and not IsPreservingPanelShown()
+-- A root its provider restores itself (ManagedEntry) is reopened after a
+-- native transition hid it through the provider's CanRestore(frame, services)
+-- and Restore(frame, position, services). pending is { entry, name, frame,
+-- position, menuWasShown }, position a copy of the saved open snapshot.
+local function CanRestoreManagedRoot(entry, frame)
+    if not entry then return false end
+    local ok, allowed = CallProvider(entry, "CanRestore", frame, bridgeBagServices)
+    return ok and allowed and true or false
 end
 
-local function RestoreEllesmereWorkspaceBag(pending, throughEscape)
+local function RestoreManagedRoot(pending, throughEscape)
     local frame = pending.frame
     if Bags.paused or Bags.restoring or not TrackEnabled() or not IsSpanned()
         or InputReserved() or InCombatLockdown() or not CanOpenBagsFromAddon()
-        or not CanRestoreEllesmereWorkspaceBag(frame) then return false end
-    if throughEscape and not CanRestoreBagThroughEscape("EUI_MainBagFrame") then return false end
-    -- Restore only the initialized root that was open before the panel transition.
-    ShowEllesmereBag(frame)
-    if not frame:IsVisible() then return false end
-    local reagent = _G.EUI_ReagentBagFrame
-    if pending.reagentOpen and CanShowEllesmereBag(reagent)
-        and Offhand.Canvas.IsFrameOnWorkspace(reagent) then
-        ShowEllesmereBag(reagent)
-    end
-    return true
+        or not CanRestoreManagedRoot(pending.entry, frame) then return false end
+    if throughEscape and not CanRestoreBagThroughEscape(pending.name) then return false end
+    local ok, restored = CallProvider(pending.entry, "Restore", frame, pending.position, bridgeBagServices)
+    return ok and restored == true
 end
 
-function Bags:RestoreEllesmereAfterEscape(pending)
-    if not RestoreEllesmereWorkspaceBag(pending, true) then return end
-    -- Forever counts hiding EllesmereUI's Escape proxy as a handled press.
+function Bags:RestoreManagedAfterEscape(pending)
+    if not RestoreManagedRoot(pending, true) then return end
+    -- Forever counts hiding a provider's own Escape proxy as a handled press.
     -- Reopening the bag alone would let that proxy claim every subsequent press.
     RestoreGameMenuAfterEscape(pending.menuWasShown)
     self:Capture()
 end
 
-local function InstallEllesmereTalentsObserver()
-    if not Offhand.isForever or Bags.ellesmereTalentsObserved or not EventRegistry
+local function InstallTalentsObserver()
+    if not Offhand.isForever or Bags.talentsObserved or not EventRegistry
         or not EventRegistry.RegisterCallback or not C_Timer or not C_Timer.After then return end
-    Bags.ellesmereTalentsObserved = true
+    Bags.talentsObserved = true
     EventRegistry:RegisterCallback("PlayerSpellsFrame.OpenFrame", function()
         if Bags.paused or Bags.restoring or not TrackEnabled() or not IsSpanned() then return end
         local name, position = Bags:GetSavedPosition()
-        local frame = name == "EUI_MainBagFrame" and Bags.frames[name]
+        local entry = ManagedEntry(name)
+        local frame = entry and Bags.frames[name]
         local panel = _G.PlayerSpellsFrame
         if not position or not frame or not panel or not panel.talentTabID or not panel.GetTab then return end
         local generation = Bags.generation
-        local pending = {frame = frame, reagentOpen = position.reagentOpen}
+        local pending = {entry = entry, name = name, frame = frame, position = CopyPosition(position)}
         -- Let the native panel transaction settle before reading the selected
-        -- tab or restoring EllesmereUI's own bag roots.
+        -- tab or restoring the provider's own bag roots.
         C_Timer.After(0, function()
             if generation ~= Bags.generation or panel ~= _G.PlayerSpellsFrame
                 or not panel:IsShown() or panel:GetTab() ~= panel.talentTabID then return end
-            if RestoreEllesmereWorkspaceBag(pending) then Bags:Capture() end
+            if RestoreManagedRoot(pending) then Bags:Capture() end
         end)
     end, Bags)
 end
 
 function Bags:InstallEscapeHooks()
     if not hooksecurefunc then return end
-    if Offhand.isForever and CloseSpecialWindows and not self.ellesmereEscapeHooked then
-        self.ellesmereEscapeHooked = true
+    if Offhand.isForever and CloseSpecialWindows and not self.managedEscapeHooked then
+        self.managedEscapeHooked = true
         hooksecurefunc("CloseSpecialWindows", function()
             if Bags.paused or Bags.restoring or not CanOpenBagsFromAddon()
                 or not TrackEnabled() or not IsSpanned() or InputReserved() or InCombatLockdown() then return end
             local name, position = Bags:GetSavedPosition()
-            local frame = IsForeverEllesmereBag(name) and Bags.frames[name]
-            if not position or not CanRestoreEllesmereWorkspaceBag(frame) then return end
+            local entry = ManagedEntry(name)
+            local frame = entry and Bags.frames[name]
+            if not position or not CanRestoreManagedRoot(entry, frame) then return end
             local pending = {
-                frame = frame, reagentOpen = position.reagentOpen,
+                entry = entry, name = name, frame = frame, position = CopyPosition(position),
                 menuWasShown = GameMenuFrame and GameMenuFrame.IsShown and GameMenuFrame:IsShown(),
             }
-            Bags.ellesmereEscapePending = pending
+            Bags.managedEscapePending = pending
             C_Timer.After(0, function()
-                if Bags.ellesmereEscapePending == pending then Bags.ellesmereEscapePending = nil end
+                if Bags.managedEscapePending == pending then Bags.managedEscapePending = nil end
             end)
         end)
     end
@@ -1041,15 +899,15 @@ function Bags:InstallEscapeHooks()
             if Bags.escapePending and Bags.escapePending.explicit then return end
             local savedName, position = Bags:GetSavedPosition()
             if not position then return end
-            -- Forever Baganator reports its root's actual hide. A native
-            -- CloseAllBags by itself may only be closing parked containers or
-            -- ending a bank/merchant interaction.
-            if IsForeverEllesmereBag(savedName)
-                or (Offhand.isForever and IsBaganatorRootName(savedName)) then return end
-            -- EllesmereUI distinguishes a user-requested bag close from its
+            -- A provider can report its root's actual hide on Forever. A
+            -- native CloseAllBags by itself may only be closing parked
+            -- containers or ending a bank/merchant interaction.
+            if ManagedEntry(savedName)
+                or (Offhand.isForever and FlaggedNameOwner("reportsRootHide", savedName)) then return end
+            -- A provider can distinguish a user-requested bag close from its
             -- Escape proxy hiding the frame. Respect the former even if an
             -- older Offhand open-state sample has not yet been retired.
-            if EllesmereExplicitlyClosed(savedName) then
+            if ExplicitlyClosed(savedName) then
                 Bags:ForgetOpenSnapshot(savedName)
                 return
             end
@@ -1076,16 +934,18 @@ function Bags:InstallEscapeHooks()
                 -- Settings returns to the Game Menu through this same function.
                 -- The Options transition owns the reopen even with a target selected.
                 Bags.escapePending = nil
-                Bags.betterBagsEscapeRequest = nil
+                if Offhand.Bridges then Offhand.Bridges:NotifyBagProviders("CancelEscape") end
                 return
             end
-            PreserveBetterBagsBackpack()
-            local ellesmere = Bags.ellesmereEscapePending
-            Bags.ellesmereEscapePending = nil
-            if ellesmere then
+            -- A bag provider whose vendor queued its own Escape close keeps
+            -- its workspace backpack open now.
+            if Offhand.Bridges then Offhand.Bridges:NotifyBagProviders("PreserveThroughEscape", bridgeBagServices) end
+            local managed = Bags.managedEscapePending
+            Bags.managedEscapePending = nil
+            if managed then
                 local generation = Bags.generation
                 C_Timer.After(0, function()
-                    if generation == Bags.generation then Bags:RestoreEllesmereAfterEscape(ellesmere) end
+                    if generation == Bags.generation then Bags:RestoreManagedAfterEscape(managed) end
                 end)
             end
             if InputReserved() then
@@ -1098,15 +958,15 @@ function Bags:InstallEscapeHooks()
                 local savedName, position = Bags:GetSavedPosition()
                 local frame = savedName and Bags.frames[savedName]
                 local visible = frame and frame.IsVisible and frame:IsVisible() or false
-                if position and frame and IsDirectEscapeRoot(savedName, frame) and not visible
-                    and not (Offhand.isForever and IsBaganatorRootName(savedName))
-                    and not HasConflictingEllesmereBagToggle() then
+                local owner = position and frame and DirectEscapeOwner(savedName, frame)
+                if owner and not visible
+                    and not (Offhand.isForever and FlaggedNameOwner("reportsRootHide", savedName))
+                    and not HasSharedToggleConflict() then
                     local menuIsShown = GameMenuFrame and GameMenuFrame.IsShown
                         and GameMenuFrame:IsShown() or false
                     pending = {
                         menuWasShown = not menuIsShown,
-                        source = IsBagnonInventoryRoot(savedName, frame)
-                            and "bagnon_toggle_observer" or "baganator_toggle_observer",
+                        source = owner.provider.escapeSource,
                     }
                     Bags.escapePending = pending
                 end
@@ -1118,10 +978,9 @@ function Bags:InstallEscapeHooks()
     if ShowUIPanel and not self.showUIPanelHooked then
         self.showUIPanelHooked = true
         hooksecurefunc("ShowUIPanel", function(panel)
-            local request = Bags.betterBagsEscapeRequest
-            if request and request.fromPanelShow and Offhand.db and Offhand.db.independentWorkspacePanels ~= false
-                and panel and panel == _G.PlayerSpellsFrame and panel:IsShown() then
-                PreserveBetterBagsBackpack()
+            -- A center panel shown inside a bag provider's queued Escape close.
+            if Offhand.Bridges then
+                Offhand.Bridges:NotifyBagProviders("PreserveThroughPanelShow", panel, bridgeBagServices)
             end
             if IsPreservingPanel(panel) then Bags:BeginPanelTransition(panel) end
         end)
@@ -1134,18 +993,20 @@ function Bags:InstallEscapeHooks()
     end
 end
 
-function Bags:PruneInvalidBaganatorRecords()
+-- Removes records under a name of a provider's root family (by name alone)
+-- whose frame is not one of its roots, such as a child region's.
+function Bags:PruneInvalidRootRecords()
     if not Offhand.db then return end
     local records = {
         Offhand.db.savedWorkspacePositions,
         Offhand.db.openWorkspacePanels,
-        Offhand.db.baganatorWorkspacePanels,
+        GetRecord(Offhand.db),
     }
     for _, record in ipairs(records) do
         if type(record) == "table" then
             for name in pairs(record) do
-                if IsBaganatorRootName(name) and _G[name] ~= nil
-                    and not IsSupportedRoot(name, _G[name]) then
+                if NameOwner(name) and _G[name] ~= nil
+                    and not RootOwner(name, _G[name]) then
                     record[name] = nil
                 end
             end
@@ -1161,13 +1022,30 @@ function Bags:GetDiagnostics()
         if frame.IsVisible and frame:IsVisible() then visible = visible + 1 end
     end
     local savedName = self:GetSavedPosition()
-    local euiIntent = type(EllesmereUIDB) == "table"
-        and tostring(EllesmereUIDB.bagsVisible) or "unavailable"
-    return string.format("Roots=%d | Visible=%d | Saved=%s | EscapeHook=%s/%s | Pending=%s | EUIOpen=%s",
+    local text = string.format("Roots=%d | Visible=%d | Saved=%s | EscapeHook=%s/%s | Pending=%s",
         roots, visible, tostring(savedName or "none"),
         self.closeAllBagsHooked and "yes" or "no",
         self.toggleGameMenuHooked and "yes" or "no",
-        self.escapePending and "yes" or "no", euiIntent)
+        self.escapePending and "yes" or "no")
+    -- Each provider's own segment, in provider order.
+    for _, entry in ipairs(Providers()) do
+        local ok, segment = CallProvider(entry, "GetRootDiagnostics")
+        if ok and type(segment) == "string" and segment ~= "" then text = text .. " | " .. segment end
+    end
+    return text
+end
+
+-- Each provider's own report for the panels diagnostics (GetPanelDiagnostics),
+-- in provider order, as { label = bridge id, text }.
+function Bags:GetPanelDiagnostics()
+    local reports = {}
+    for _, entry in ipairs(Providers()) do
+        local ok, text = CallProvider(entry, "GetPanelDiagnostics", bridgeBagServices)
+        if ok and type(text) == "string" and text ~= "" then
+            reports[#reports + 1] = { label = entry.id, text = text }
+        end
+    end
+    return reports
 end
 
 function Bags:Resume()
@@ -1193,7 +1071,7 @@ function Bags:Resume()
             return
         end
         Bags:Discover(false)
-        Bags:PruneInvalidBaganatorRecords()
+        Bags:PruneInvalidRootRecords()
         if InputReserved() then
             Bags.waitingForInput = true
             return
@@ -1201,7 +1079,7 @@ function Bags:Resume()
         Bags.waitingForInput = false
         local savedName, position = Bags:GetSavedPosition()
         if position and type(position) == "table" and position.x and position.y then
-            if EllesmereExplicitlyClosed(savedName) then
+            if ExplicitlyClosed(savedName) then
                 Bags:ForgetOpenSnapshot(savedName)
                 Bags.paused = false
                 Bags:Capture()
@@ -1213,24 +1091,21 @@ function Bags:Resume()
                 Bags.waitingForWorkspace = true
                 return
             end
-            if IsForeverEllesmereBag(savedName) then
-                local frame = Bags.frames[savedName]
-                -- The frame exists before EllesmereUI installs its bag
-                -- opener and loads the native position on its startup timer.
-                if IsPreservingPanelShown() or not (frame and frame.GetNumPoints and frame:GetNumPoints() > 0) then
+            local managed = ManagedEntry(savedName)
+            if managed then
+                -- The provider reopens its own root; "wait" retries while
+                -- the root is not ready for that yet.
+                local ok, state = CallProvider(managed, "Resume", savedName, Bags.frames[savedName],
+                    bridgeBagServices)
+                if ok and state == "wait" then
                     attempts = attempts + 1
                     if attempts < 20 then C_Timer.After(0.25, Restore); return end
-                elseif IsSpanned() and not frame:IsShown()
-                    and EllesmereUIDB and EllesmereUIDB.bagsVisible == true then
-                    local bagsDB = _G.EllesmereUI and _G.EllesmereUI._bagsDB
-                    local profile = bagsDB and bagsDB.profile
-                    if profile and profile.enhancedBags ~= false then Bags:OpenSavedRoot(savedName) end
                 end
                 Bags.paused = false
                 Bags:Capture()
                 return
             end
-            local exact = HasConflictingEllesmereBagToggle() and savedName or nil
+            local exact = HasSharedToggleConflict() and savedName or nil
             local visible = Bags:GetVisibleFrame(exact)
             if not visible and not CanOpenBagsFromAddon() then
                 -- Keep the reload-open snapshot. A later player-driven open
@@ -1246,7 +1121,7 @@ function Bags:Resume()
             if visible then
                 position = Bags:NormalizePosition(position, visible)
                 Offhand.db.savedWorkspacePositions = Offhand.db.savedWorkspacePositions or {}
-                Offhand.db.baganatorWorkspacePanels = { [visible:GetName()] = position }
+                SetRecord(Offhand.db, { [visible:GetName()] = position })
                 Offhand.db.savedWorkspacePositions[visible:GetName()] = position
                 Offhand.Canvas:RestoreWorkspacePosition(visible)
             else
@@ -1273,8 +1148,8 @@ events:SetScript("OnEvent", function(_, event, addonName)
         Bags.paused = true
         Bags.generation = Bags.generation + 1
         Bags.escapePending = nil
-        Bags.ellesmereEscapePending = nil
-        Bags.betterBagsEscapeRequest = nil
+        Bags.managedEscapePending = nil
+        if Offhand.Bridges then Offhand.Bridges:NotifyBagProviders("CancelEscape") end
         Bags.optionsPanel = nil
         Bags.waitingForWorkspace = nil
     elseif event == "PLAYER_ENTERING_WORLD"
@@ -1283,26 +1158,28 @@ events:SetScript("OnEvent", function(_, event, addonName)
         or (event == "CINEMATIC_STOP" and Bags.waitingForInput) then
         Bags:Resume()
     elseif event == "ADDON_LOADED" then
-        -- Constant-time EllesmereUI lookup is safe for every addon load. Only
-        -- Baganator's own lifecycle is allowed to perform the one global scan.
+        -- Constant-time provider lookups are safe for every addon load. Only
+        -- a provider's own addon load may run its one deep discovery: that
+        -- provider installs its callbacks, then one discovery pass follows
+        -- (deep only if the provider declares deepDiscovery).
         Bags:Discover(false)
-        if addonName == "Baganator" then
-            Bags:InstallBaganatorCallbacks()
-            C_Timer.After(0, function() Bags:Discover(true) end)
-        elseif addonName == "Bagnon" then
-            Bags:InstallBagnonCallbacks()
-            C_Timer.After(0, function() Bags:Discover(false) end)
+        for _, entry in ipairs(Providers()) do
+            if entry.provider.loadAddon ~= nil and entry.provider.loadAddon == addonName then
+                InstallProviderCallbacks(entry)
+                local deep = entry.provider.deepDiscovery == true
+                C_Timer.After(0, function() Bags:Discover(deep) end)
+                break
+            end
         end
     elseif event == "PLAYER_LOGIN" then
-        Bags:InstallBaganatorCallbacks()
-        Bags:InstallBagnonCallbacks()
+        for _, entry in ipairs(Providers()) do InstallProviderCallbacks(entry) end
         Bags:Discover(false)
-        -- Run after every PLAYER_LOGIN handler so Baganator's initial frame
+        -- Run after every PLAYER_LOGIN handler so a provider's initial frame
         -- group exists regardless of addon load order.
         C_Timer.After(0, function() Bags:Discover(true) end)
-        Bags:PruneInvalidBaganatorRecords()
+        Bags:PruneInvalidRootRecords()
         Bags:InstallEscapeHooks()
-        InstallEllesmereTalentsObserver()
+        InstallTalentsObserver()
         if not Bags.ticker then
             Bags.ticker = C_Timer.NewTicker(0.2, function()
                 if not Bags.paused then

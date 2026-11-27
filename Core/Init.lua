@@ -676,7 +676,8 @@ function Offhand:ShowPopup(popupKey, textArg1, textArg2, data)
         or popupKey == "OFFHAND_MAINHAND_LAYOUT_SELECT"
         or popupKey == "OFFHAND_HUD_SETUP_REMINDER"
         or popupKey == "OFFHAND_CHARACTER_SETUP"
-        or popupKey == "OFFHAND_ELLESMERE_HUD_RELOAD" or readyPopup
+        or (popupKey ~= nil and Offhand.HUDTransfer and Offhand.HUDTransfer.reloadPopup == popupKey)
+        or readyPopup
         or (definition and definition.offhandAltBeforeHide)
     if not self:IsGamepadUIEnabled() and not setupPopup and not recoveryPopup and not helpPopup then
         if StaticPopup_Show then return StaticPopup_Show(popupKey, textArg1, textArg2, data) end
@@ -1550,7 +1551,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
         if event == "PLAYER_LOGOUT" then BeginLogout() end
         if Offhand._openPanelsCapturedForTransition then return end
         Offhand._openPanelsCapturedForTransition = true
-        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:PauseForTransition() end
+        if Offhand.Bridges then Offhand.Bridges:PrepareTransition() end
         local transitionMetrics = Offhand.Viewport and Offhand.Viewport.GetMetrics and Offhand.Viewport:GetMetrics()
         local preserveWorkspaceSnapshot = Offhand.Viewport and Offhand.Viewport.IsSingleScreenRecovery
             and Offhand.Viewport:IsSingleScreenRecovery(transitionMetrics)
@@ -1597,7 +1598,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 if type(key) == "string" and type(val) == "table" and type(rawget(val, 0)) == "userdata" and val.IsShown then
                     local okShow, isShown = pcall(function() return val:IsShown() end)
                     if okShow and isShown then
-                        if key:match("^Baganator") or key:match("^Baginator") or key:match("^Bagnon") or key:match("^AdiBags") or key:match("^BetterBags") or key:match("^ArkInventory") or key:match("^ElvUI_ContainerFrame") then
+                        if Offhand.Bridges and Offhand.Bridges:MatchName("bagNamespace.logoutScan", key) then
                             -- Replacement bag addons commonly derive every child
                             -- widget name from the root. Persist only top-level
                             -- windows; saving title text/buttons makes a new
@@ -1636,7 +1637,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
             Offhand.Canvas:ResetForeverMapZone(true)
         end
         Offhand._openPanelsCapturedForTransition = false
-        if Offhand.CanvasKerzoQuestLog then Offhand.CanvasKerzoQuestLog:BeginSession() end
+        if Offhand.Bridges then Offhand.Bridges:BeginSession() end
         local shouldEvaluateNotices = not Offhand._hasEnteredWorld
         -- Both a fresh login and a UI reload start a workspace session. The
         -- first usable span consumes the request, even if it arrives later.
@@ -1803,8 +1804,8 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1, ...)
                 if (not displayMetrics or displayMetrics.isSpanned) and Offhand.Canvas and Offhand.Canvas.RestorePersistentFrames then
                     Offhand.Canvas:RestorePersistentFrames()
                 end
-                if Offhand.Canvas and Offhand.Canvas.RefreshLeatrixMapCoordinateFonts then
-                    Offhand.Canvas:RefreshLeatrixMapCoordinateFonts()
+                if Offhand.Canvas and Offhand.Canvas.RefreshExternalMapCoordinateFonts then
+                    Offhand.Canvas:RefreshExternalMapCoordinateFonts()
                 end
                 if generation == Offhand._displayGeometryGeneration then
                     Offhand._displayGeometryTransitionActive = false
@@ -1851,7 +1852,7 @@ function Offhand:ApplyFullLayout(preserveGlobalScale)
         if preserveGlobalScale ~= true and Offhand.Viewport and Offhand.Viewport.ApplyGlobalScale then
             Offhand.Viewport:ApplyGlobalScale()
         end
-        if Offhand.EllesmereScaleCompatibility then Offhand.EllesmereScaleCompatibility:Refresh() end
+        if Offhand.Bridges then Offhand.Bridges:RefreshScale() end
         if Offhand.WorkspaceToggleKeys then Offhand.WorkspaceToggleKeys:Refresh() end
         if Offhand.UpdateViewport then
             Offhand:UpdateViewport()
@@ -1929,10 +1930,10 @@ SlashCmdList["OFFHAND"] = function(msg)
 
     if cmd == "window" and Offhand.LearnedAddonWindows then
         Offhand.LearnedAddonWindows:Run(input:match("^%S+%s*(.*)$"))
-    elseif cmd == "recovermap" and Offhand.OpenMapRecovery then
-        Offhand.OpenMapRecovery:RunAndReport(strtrim(arg or "") == "offhand")
-    elseif cmd == "ellesmere" and Offhand.EllesmereLayout then
-        Offhand.EllesmereLayout:Run(strtrim(arg or ""))
+    elseif cmd == "scan" and Offhand.SeamScan then
+        Offhand.SeamScan:Run(input:match("^%S+%s*(.*)$"))
+    elseif Offhand.Bridges and Offhand.Bridges:RunSlashCommand(cmd, arg) then
+        -- A built-in bridge's own command (Bridges:RunSlashCommand ran it).
     elseif cmd == "centerline" or cmd == "centre" or cmd == "center" then
         if Offhand.CenterGuide and not Offhand.CenterGuide:Toggle() then
             Offhand:Print(L["MSG_CENTER_GUIDE_REQUIRES_SPAN"])
@@ -2102,11 +2103,6 @@ SlashCmdList["OFFHAND"] = function(msg)
                 type(characterSetup) == "table" and characterSetup.complete == true and "saved" or "pending")
         end
         if debugDiagnostics then
-            if Offhand.CanvasCompatibility and Offhand.CanvasCompatibility.GetGuideAddonDiagnostics then
-                for _, report in ipairs(Offhand.CanvasCompatibility.GetGuideAddonDiagnostics() or {}) do
-                    Offhand:Print("Guide frame diagnostics: %s.", report)
-                end
-            end
             if Offhand.HUD and Offhand.HUD.GetNotificationCaptureReports then
                 for _, report in ipairs(Offhand.HUD:GetNotificationCaptureReports() or {}) do
                     Offhand:Print("Notification capture: %s.", report)
@@ -2215,6 +2211,9 @@ SlashCmdList["OFFHAND"] = function(msg)
                 Offhand:Print("Compatibility diagnostics: %s.", compatibility)
             end
         end
+        if Offhand.isForever and Offhand.SeamScan then
+            Offhand:Print("Seam scan diagnostics: %s.", Offhand.SeamScan:GetDiagnostics())
+        end
         if fullDiagnostics and Offhand.CanvasCompatibility then
             Offhand:Print("Map integrations: %s.", Offhand.CanvasCompatibility.GetMapIntegrationDiagnostics())
         end
@@ -2231,13 +2230,15 @@ SlashCmdList["OFFHAND"] = function(msg)
             local bags = Offhand.Canvas:GetForeverNativeBagDiagnostics()
             if bags then Offhand:Print("Native bag diagnostics: %s.", bags) end
         end
-        if panelDiagnostics and Offhand.isForever and Offhand.BagPersistence and Offhand.BagPersistence.GetBaganatorDiagnostics then
-            local bags = Offhand.BagPersistence:GetBaganatorDiagnostics()
-            if bags then Offhand:Print("Baganator diagnostics: %s.", bags) end
+        if panelDiagnostics and Offhand.isForever and Offhand.BagPersistence and Offhand.BagPersistence.GetPanelDiagnostics then
+            for _, report in ipairs(Offhand.BagPersistence:GetPanelDiagnostics()) do
+                Offhand:Print("%s diagnostics: %s.", report.label, report.text)
+            end
         end
-        if debugDiagnostics and Offhand.DialogueUICompat and Offhand.DialogueUICompat.GetDiagnostics then
-            Offhand:Print("Dialogue UI diagnostics: %s.",
-                Offhand.DialogueUICompat:GetDiagnostics())
+        if debugDiagnostics and Offhand.Bridges and Offhand.Bridges.GetDebugDiagnostics then
+            for _, report in ipairs(Offhand.Bridges:GetDebugDiagnostics()) do
+                Offhand:Print("%s diagnostics: %s.", report.label, report.text)
+            end
         end
         if Offhand.UserMedia and Offhand.UserMedia.GetDiagnostics then
             local media = Offhand.UserMedia:GetDiagnostics()

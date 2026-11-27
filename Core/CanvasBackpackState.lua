@@ -225,19 +225,13 @@ function BackpackState.IsRoot(name)
     return name == "ContainerFrame1" or name == "ContainerFrameCombinedBags"
 end
 
+-- The native roots, the replacement bag roots bridges name (rule
+-- bagRestorable) and the generic custom restorer.
 function BackpackState.IsRestorableRootName(name)
     if type(name) ~= "string" then return false end
     return name:match("^ContainerFrame%d+$") ~= nil
         or name == "ContainerFrameCombinedBags"
-        or name == "EUI_MainBagFrame"
-        or name:match("^Baganator_SingleViewBackpackViewFrame") ~= nil
-        or name:match("^Baganator_CategoryViewBackpackViewFrame") ~= nil
-        or name:match("^Baginator") ~= nil
-        or name:match("^BGR") ~= nil
-        or name:match("^Bagnon") ~= nil
-        or name:match("^AdiBags") ~= nil
-        or name:match("^BetterBags") ~= nil
-        or name:match("^ArkInventory") ~= nil
+        or (Offhand.Bridges ~= nil and Offhand.Bridges:MatchName("bagRestorable", name))
         or name == "CustomBagRestorer"
 end
 

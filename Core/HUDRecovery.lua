@@ -44,20 +44,29 @@ function Recovery.GetMinimapVisibilityDiagnostics()
         end)
         return ok and Value(value) or "unknown"
     end
-    local eui = _G.EllesmereUI
-    local ok, enabled = pcall(function()
-        local get = eui and eui.Lite and eui.Lite.GetAddon
-        local module = type(get) == "function" and get("EllesmereUIMinimap", true)
-        return module and module.db and module.db.profile and module.db.profile.minimap
-            and module.db.profile.minimap.enabled
-    end)
-    local registered = eui and eui._unlockRegisteredElements and eui._unlockRegisteredElements.EBS_Minimap
-    local reports = { string.format(
-        "MinimapOwner=SexyMap:%s,EllesmereCore:%s,EllesmereMinimap:%s,EllesmereOptions:%s,EllesmereMover:%s,EllesmereProfileEnabled:%s",
-        Loaded("SexyMap"), Loaded("EllesmereUI"), Loaded("EllesmereUIMinimap"), Loaded("EllesmereUIOptions"),
-        registered and "registered" or "missing", ok and Value(enabled) or "unknown") }
-    for _, name in ipairs({ "MinimapCluster", "Minimap", "LibDBIcon10_ForeverDungeonJournal",
-        "LFGMinimapFrame", "QueueStatusButton" }) do
+    -- Minimap owners name their segments: label:yes/no for an addon folder
+    -- (present), or label:<value> read by the segment's own function.
+    local owners = {}
+    for _, segment in ipairs(Offhand.Bridges and Offhand.Bridges:GetDiagnosticSegments("minimap") or {}) do
+        local text
+        if type(segment.present) == "string" then
+            text = Loaded(segment.present)
+        else
+            local ok, value = pcall(segment.value)
+            text = ok and Value(value) or "unknown"
+        end
+        owners[#owners + 1] = segment.label .. ":" .. text
+    end
+    local reports = { "MinimapOwner=" .. table.concat(owners, ",") }
+    -- Addon minimap buttons (rule minimapDiagnosticFrame) report between the
+    -- minimap and the queue buttons, present or not.
+    local names = { "MinimapCluster", "Minimap" }
+    for _, name in ipairs(Offhand.Bridges and Offhand.Bridges:GetRuleNames("minimapDiagnosticFrame") or {}) do
+        names[#names + 1] = name
+    end
+    names[#names + 1] = "LFGMinimapFrame"
+    names[#names + 1] = "QueueStatusButton"
+    for _, name in ipairs(names) do
         local frame = _G[name]
         if not frame then
             reports[#reports + 1] = name .. ".state=absent"
@@ -85,7 +94,7 @@ end
 
 function Recovery.Install(HUD)
     local Compatibility = assert(Offhand.HUDCompatibility, "Offhand HUD compatibility must load before recovery")
-    local HasEllesmerePartyFrames = Compatibility.HasEllesmerePartyFrames
+    local HasCustomPartyFrames = Compatibility.HasCustomPartyFrames
     local HasBlizzardEditMode = Compatibility.HasBlizzardEditMode
     local UsesControllerInterface = Compatibility.UsesControllerInterface
     local UsesNativeGamepadInterface = Compatibility.UsesNativeGamepadInterface
@@ -1202,7 +1211,7 @@ function Recovery.Install(HUD)
             -- systems, then remember that observed candidate until Edit Mode closes.
             for _, name in ipairs(foreverProtectedHUDRecoveryNames) do
                 local frame = _G[name]
-                local customPartyFrames = foreverPartyRaidRecoveryNames[name] and HasEllesmerePartyFrames()
+                local customPartyFrames = foreverPartyRaidRecoveryNames[name] and HasCustomPartyFrames()
                 local groupPresentationFits = foreverPartyRaidRecoveryNames[name]
                     and RetailGroupPresentationFits(metrics)
                 local protectedPresentationFits = ProtectedHUDPresentationFits(name, frame, metrics)

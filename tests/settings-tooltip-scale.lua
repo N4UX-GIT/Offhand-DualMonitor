@@ -4,6 +4,7 @@ InCombatLockdown=function()return combat end
 UIParent={GetEffectiveScale=function()return 0.394 end}
 addon.Viewport={GetMetrics=function()return {isSpanned=spanned}end}
 assert(loadfile('Core/PopupBounds.lua'))('Offhand',addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/TinyTooltip/Bridge.lua", "Bridges/TinyTooltipReforged/Bridge.lua", "Bridges/TipTac/Bridge.lua" })
 local p=addon.PopupBounds
 local frame={scale=1,writes=0}
 function frame:GetScale()return self.scale end

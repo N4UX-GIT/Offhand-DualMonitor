@@ -1,6 +1,6 @@
 -- The bag-provider decision must remain local through native close post-scan.
 local addon = {db={enabled=true,persistentWorkspacePanels=true},isRetail=true,
-    CanvasCompatibility={ShouldYieldFrameToClassicUIForever=function() return false end},
+    CanvasCompatibility={ShouldYieldFrameToExternalOwner=function() return false end},
     CanvasBackpackState={IsForeverContainerName=function() return false end}}
 local reads=0
 addon.HasCustomBagAddon=function() reads=reads+1; return true end

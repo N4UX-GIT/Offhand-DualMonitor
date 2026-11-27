@@ -22,7 +22,8 @@ local function ValidName(name)
 end
 
 local function CanInspect()
-    return Offhand.isForever and not ConsolePort and not Offhand._displayGeometryTransitionActive
+    return Offhand.isForever and not (Offhand.Bridges and Offhand.Bridges:HasRole("hud.controller"))
+        and not Offhand._displayGeometryTransitionActive
         and not (InCombatLockdown and InCombatLockdown())
         and not (Offhand.IsGamepadUIEnabled and Offhand:IsGamepadUIEnabled())
         and not (EditModeManagerFrame and EditModeManagerFrame:IsShown())
@@ -123,7 +124,17 @@ local function Rect(frame)
     end
 end
 
+-- "MAINHAND" is the game rectangle. An older Offhand reads a "MAINHAND"
+-- record as a missing workspace region and simply does not place the frame.
 local function Destination(metrics, id)
+    if id == "MAINHAND" then
+        local left, bottom = metrics.gameLeft, metrics.gameBottom
+        local right, top = metrics.gameRight, metrics.gameTop
+        if Finite(left) and Finite(bottom) and Finite(right) and Finite(top) and right > left and top > bottom then
+            return left, bottom, right - left, top - bottom, "MAINHAND"
+        end
+        return
+    end
     if id and not regions:Get(metrics, id) then return end
     local bounds = regions:ForRegion(metrics, id)
     local left, bottom, width, height = bounds.workspaceLeft, bounds.workspaceBottom,
@@ -283,7 +294,9 @@ function Windows:FindSelections(saved)
     return results
 end
 
-local function Remember(selection)
+-- target "MAINHAND" keeps the frame on the game rectangle, moved only as far
+-- as it takes to lie wholly inside; without a target it goes to a workspace.
+local function Remember(selection, target)
     if not CanInspect() or selection.db ~= Offhand.db then return false end
     local metrics = Metrics()
     if not metrics or not selection.frame:IsVisible() then return false end
@@ -301,13 +314,21 @@ local function Remember(selection)
 
     local x, y, width, height = Rect(frame)
     if not x then return false end
-    local destination = regions:Destination(metrics, x, y, width, height)
-    local left, bottom, availableWidth, availableHeight, id =
-        Destination(metrics, destination ~= "MAINHAND" and destination or nil)
-    if not left then return false end
-    if x < left or x + width > left + availableWidth
-        or y - height < bottom or y > bottom + availableHeight then
-        x, y = left + (availableWidth - width) / 2, bottom + (availableHeight + height) / 2
+    local left, bottom, availableWidth, availableHeight, id
+    if target == "MAINHAND" then
+        left, bottom, availableWidth, availableHeight, id = Destination(metrics, "MAINHAND")
+        if not left then return false end
+        x = math.max(left, math.min(x, left + availableWidth - width))
+        y = math.max(bottom + height, math.min(y, bottom + availableHeight))
+    else
+        local destination = regions:Destination(metrics, x, y, width, height)
+        left, bottom, availableWidth, availableHeight, id =
+            Destination(metrics, destination ~= "MAINHAND" and destination or nil)
+        if not left then return false end
+        if x < left or x + width > left + availableWidth
+            or y - height < bottom or y > bottom + availableHeight then
+            x, y = left + (availableWidth - width) / 2, bottom + (availableHeight + height) / 2
+        end
     end
     local record = {owner = owner, file = file, region = id,
         x = (x - left) / availableWidth, y = (y - bottom) / availableHeight}
@@ -326,6 +347,21 @@ end
 function Windows:RememberSelection(selection)
     local ok, saved = pcall(Remember, selection)
     return ok and saved
+end
+
+function Windows:RememberOnMainhand(frame)
+    local selection = self:DescribeSelection(frame)
+    if not selection then return false end
+    local ok, saved = pcall(Remember, selection, "MAINHAND")
+    return ok and saved == true
+end
+
+-- The region of name's valid record ("WORKSPACE" for one without a region),
+-- or nil without a valid record.
+function Windows:GetRecordRegion(name)
+    local records = Offhand.db and Offhand.db.learnedAddonWindows
+    if not ValidName(name) or type(records) ~= "table" or not ValidRecord(records[name]) then return nil end
+    return records[name].region or "WORKSPACE"
 end
 
 function Windows:ListNames()

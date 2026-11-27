@@ -46,7 +46,7 @@ placement.RefreshNativeMainhandOrigin({isSpanned=false}, true)
 assert(offsets.LEFT_OFFSET == 16 and offsets.TOP_OFFSET == -116 and offsets.RIGHT_OFFSET_BUFFER == 80)
 
 addon.CanvasFrameState = {IsDragging=function() return false end}
-addon.CanvasCompatibility = {HasMoveAny=function() return false end, HasClassicUIForever=function() return false end}
+addon.CanvasCompatibility = {HasPanelSlotRepairOwner=function() return false end, HasPanelManagementOwner=function() return false end}
 addon.CanvasPanelRegistry = {
     GetPositionRoot=function(frame) return frame end,
     IsContextBoundPanel=function(name) return name == "MerchantFrame" end,

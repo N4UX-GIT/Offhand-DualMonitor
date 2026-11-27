@@ -7,6 +7,7 @@ local metrics = {isSpanned=true,gameLeft=1000,gameRight=2000,gameBottom=0,gameTo
     workspaceLeft=0,workspaceRight=1000,workspaceBottom=0,workspaceTop=1200}
 addon.Viewport = {GetMetrics=function() return metrics end}
 assert(loadfile('Core/HUDCompatibility.lua'))('Offhand',addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/RestedXP/Bridge.lua" })
 assert(loadfile('Core/Recovery.lua'))('Offhand',addon)
 assert(loadfile('Core/CanvasPanelRegistry.lua'))('Offhand',addon)
 local function frame(name,x,y,w,h,shown)
@@ -38,7 +39,7 @@ local function no() return false end
 local nativeGamepad, externalMap = false, false
 canvas.CanManagePanelsFromAddon = function() return not nativeGamepad end
 addon.CanvasPanelPlacement.InstallMainhand(canvas,{
-    ShouldYieldFrameToClassicUIForever=no,ShouldYieldWorldMapToMoveAny=function(name) return externalMap and name=='WorldMapFrame' end,
+    ShouldYieldFrameToExternalOwner=no,ShouldYieldWorldMap=function(name) return externalMap and name=='WorldMapFrame' end,
     IsForeverProfessionsPanel=no,IsForeverEditModeFrame=function(f) return f.hud end,
     IsWorldMapMaximized=function(f) return f==WorldMapFrame and f.maximized end,WithWorkspace=function(m) return m end,
     IsForeverSocialPositionRoot=no,IsUnsafeForPanelMutation=function(f) return f.protected end,RegisterSpecialFrame=function() end,
@@ -123,7 +124,7 @@ UIParent.GetChildren=nil
 assert(loadfile('Core/CanvasForeverMap.lua'))('Offhand',addon)
 assert(loadfile('Core/CanvasFrameState.lua'))('Offhand',addon)
 addon.isForever=true
-addon.CanvasCompatibility={IsForeverEllesmereBag=no}
+addon.CanvasCompatibility={IsForeverSelfManagedBag=no}
 local map=frame('WorldMapFrame',1150,200,600,900)
 WorldMapFrame=map
 UIPanelWindows.WorldMapFrame={}

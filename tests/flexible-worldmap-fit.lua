@@ -13,7 +13,9 @@ local function boot(ratio,area,inherited,owner)
   workspaceRegions={{id='workspace-a',x=area[1]*ratio,y=area[2]*ratio,width=area[3]*ratio,height=area[4]*ratio}},primaryWorkspaceRegion='workspace-a'}
  a.Viewport={GetMetrics=function()return m end}
  local function load(path)local f=assert(loadfile(path));setfenv(f,env);f('Offhand',a)end
- load('Core/WorkspaceRegions.lua');load('Core/CanvasCompatibility.lua');load('Core/CanvasPanelRegistry.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua')
+ load('Core/WorkspaceRegions.lua');load('Core/CanvasCompatibility.lua');load('Core/Bridges.lua')
+ for _,path in ipairs({'Bridges/ClassicUIForever/Bridge.lua','Bridges/Leatrix/Maps.lua','Bridges/MoveAny/Bridge.lua','Bridges/OpenMap/Data.lua'})do load(path)end
+ load('Core/CanvasPanelRegistry.lua');load('Core/CanvasPersistence.lua');load('Core/CanvasPanelPlacement.lua')
  a.CanvasFrameState={IsEvicting=function()return false end}
  load('Core/CanvasMapPresentation.lua')
  local f={scale=.8,x=200,y=1100,w=1000,h=650,writes=0,scaleWrites={}}
@@ -32,8 +34,8 @@ local function boot(ratio,area,inherited,owner)
  env.WorldMapFrame=f
  local services=setmetatable({WithWorkspace=function(metrics)return metrics end,
   IsWorldMapMaximized=function()return env.maximized end,
-  ShouldYieldWorldMapToMoveAny=a.CanvasCompatibility.ShouldYieldWorldMap,
-  ShouldYieldFrameToClassicUIForever=a.CanvasCompatibility.ShouldYieldFrameToClassicUIForever,
+  ShouldYieldWorldMap=a.CanvasCompatibility.ShouldYieldWorldMap,
+  ShouldYieldFrameToExternalOwner=a.CanvasCompatibility.ShouldYieldFrameToExternalOwner,
   IsFrameOnWorkspace=function(frame)return a.WorkspaceRegions:ContainsFrame(m,frame,false)end,
   RestoreWorkspacePosition=function(frame)return a.Canvas:RestoreWorkspacePosition(frame)end},
   {__index=function()return function()return false end end})

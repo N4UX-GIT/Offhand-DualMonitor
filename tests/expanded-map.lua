@@ -5,13 +5,14 @@ local addon = {
     isForever=true, db={enabled=true}, Canvas={IsFrameOnWorkspace=function() return workspace end},
     Viewport={GetMetrics=function() return metrics end},
     CanvasMapPresentation={IsNativeGamepadOwned=function() return false end},
-    CanvasCompatibility={
-        GetWorldMapExternalOwner=function() return owner end,
-        GetOpenMapWorldMapModule=function() return true end,
-        GetOpenMapWindowModule=function() return true end,
-    },
-    OpenMapRecovery={Run=function(_, target) workspace=target; return true end},
+    CanvasCompatibility={GetWorldMapExternalOwner=function() return owner end},
 }
+-- The map owner's provider: it handles the expanded map and its recovery.
+dofile("tests/support/core-bridges.lua").Load(addon)
+addon.Bridges:Register("ExpandedOwner", {contract=1, mapProvider={owner="OpenMap",
+    HandlesExpandedMap=function() return true end,
+    CanRecover=function() return true end,
+    Recover=function(_, target) workspace=target; return true end}})
 WorldMapFrame = {
     IsShown=function(self) return self.shown end,
     IsMaximized=function(self) return self.max end,

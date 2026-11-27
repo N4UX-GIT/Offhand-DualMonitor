@@ -8,6 +8,7 @@ local function scenario(height, external)
   Viewport={GetWorldTextScaleControl=function() return "WorldTextScale_v2" end,
    GetMetrics=function() return {isSpanned=false} end}}
  assert(loadfile("Core/ChatBubbles.lua"))("Offhand",addon)
+ dofile("tests/support/core-bridges.lua").Load(addon,{"Bridges/EllesmereUI/Windows.lua"})
  local bubbles=addon.modules.ChatBubbles
  return font,bubbles
 end

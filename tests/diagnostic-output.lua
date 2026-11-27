@@ -107,7 +107,8 @@ addon.Mainhand = { GetEditModeDiagnostics = function(_, compact)
     return compact and "Active=7 | Geometry=current" or "Active=7 | GamepadPanels=details"
 end }
 addon.ManualCanvas = { GetDiagnostics = probe("manual", {}) }
-addon.CanvasCompatibility.GetGuideAddonDiagnostics = probe("guides", {"Zygor probes: fixture"})
+-- The guide frame probe is a bridge's debug report (Bridges/Zygor).
+local guidesProbe = probe("guides", {"Zygor probes: fixture"})
 addon.modules.ChatBubbles = { GetDiagnostics = probe("bubbles", {}) }
 addon.Canvas = {
     -- The old caller discarded reports without the substring 'loaded'.
@@ -116,7 +117,18 @@ addon.Canvas = {
     GetPanelPlacementDiagnostics = probe("placement", {"CharacterFrame | parent=UIParent | rectUI=10/20/30/40"}),
     GetForeverNativeBagDiagnostics = probe("bags", "roots=ContainerFrameCombinedBags=shown"),
 }
-addon.DialogueUICompat = { GetDiagnostics = probe("dialogue", "animation") }
+-- Long per-bridge reports reach the debug mode through the bridge registry.
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/BlizzMove/Bridge.lua", "Bridges/ClassicUIForever/Bridge.lua",
+    "Bridges/Leatrix/Maps.lua", "Bridges/MapUtils/Bridge.lua", "Bridges/MapWise/Data.lua", "Bridges/MoveAny/Bridge.lua",
+    "Bridges/OpenMap/Data.lua", "Bridges/OpenMap/Contract.lua", "Bridges/OpenMap/Recovery.lua", "Bridges/OpenMap/Map.lua",
+    "Bridges/OpenMap/Init.lua" })
+local dialogueProbe = probe("dialogue", "animation")
+addon.Bridges.GetDebugDiagnostics = function()
+    local reports = {}
+    for _, line in ipairs(guidesProbe()) do reports[#reports + 1] = { label = "Guide frame", text = line } end
+    reports[#reports + 1] = { label = "Dialogue UI", text = dialogueProbe() }
+    return reports
+end
 local media = { status = "MISSING", installed = false, reason = "NOT_INSTALLED" }
 addon.UserMedia = { GetDiagnostics = function() return media end }
 local function run(command)

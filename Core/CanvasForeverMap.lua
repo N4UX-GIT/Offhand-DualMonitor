@@ -4,116 +4,42 @@ local Adapter = {}
 Offhand.CanvasForeverMap = Adapter
 
 local fadeChecked, releaseFade, loggingOut
-local restoreOpenMapRefresh
+local releasedFadeRefresh
 
-local function Finite(value)
-    return not (issecretvalue and issecretvalue(value)) and type(value) == "number"
-        and value > -math.huge and value < math.huge
-end
-
-local function ParseMajorVersion(value)
-    if type(issecretvalue) == "function" then
-        local ok, secret = pcall(issecretvalue, value)
-        if not ok or secret then return nil end
-    end
-    if type(value) == "number" and value == value and value >= 0 and value < math.huge then
-        return math.floor(value)
-    end
-    if type(value) ~= "string" then return nil end
-    return tonumber(value:match("^v?(%d+)%."))
-end
-
-function Adapter.SupportsOpenMapFollow()
-    local api = _G.OpenMapAPI
-    return type(api) == "table" and api.major == 1
-        and type(api.GetView) == "function" and type(api.WorldFromMap) == "function"
-        and type(api.ShowWorld) == "function" and type(api.IsStitched) == "function"
-end
-
--- OpenMap's camera glides for 0.4 seconds. A centered camera follows the
--- player; browsing away pauses follow until the player centers it again.
-function Adapter.UpdateOpenMapFollow(map, state)
-    local api = _G.OpenMapAPI
-    if not Offhand.db or Offhand.db.followPlayerWithOpenMap ~= true
-        or not Adapter.SupportsOpenMapFollow() or not api.IsStitched()
-        or Offhand.CanvasCompatibility.GetWorldMapExternalOwner() ~= "OpenMap"
-        or InCombatLockdown() or IsInInstance()
-        or not Offhand.Viewport:GetMetrics().isSpanned or not Offhand.Canvas.IsFrameOnWorkspace(map) then
-        state.u = nil
-        return
-    end
-    local id = C_Map.GetBestMapForUnit("player")
-    if not Finite(id) then state.u = nil; return end
-    local position = C_Map.GetPlayerMapPosition(id, "player")
-    if (issecretvalue and issecretvalue(position)) or not position then state.u = nil; return end
-    local x, y = position:GetXY()
-    if not Finite(x) or not Finite(y) then state.u = nil; return end
-    local u, v = api.WorldFromMap(id, x, y)
-    local cu, cv, zoom = api.GetView()
-    if not Finite(u) or not Finite(v) or not Finite(cu) or not Finite(cv)
-        or not Finite(zoom) or zoom <= 0 then state.u = nil; return end
-    if map:IsMouseOver() and IsMouseButtonDown("LeftButton") then state.u = nil; return end
-    local offset = math.max(math.abs(cu-u), math.abs(cv-v)) * zoom
-    if state.u and math.abs(state.zoom-zoom) > 0.00001 then
-        state.u, state.v, state.zoom = cu, cv, zoom
-        return
-    end
-    if state.u and math.max(math.abs(cu-state.u), math.abs(cv-state.v)) * zoom > 0.015 then
-        state.u = nil
-    end
-    if not state.u and offset > 0.015 then return end
-    if offset > 0.0005 then
-        if not api.ShowWorld(u, v) then state.u = nil; return end
-        cu, cv = u, v
-    end
-    state.u, state.v, state.zoom = cu, cv, zoom
-end
-
-local function ReadOpenMapFade()
-    if not Offhand.CanvasCompatibility.IsAddonLoaded("OpenMap") then return end
-    local module, db = Offhand.CanvasCompatibility.GetOpenMapWorldMapModule()
-    if module and module.enabled and type(module.RefreshExtras) == "function"
-        and type(db.moveFade) == "number" and db.moveFade >= 0 and db.moveFade <= 0.9 then
-        return db, module
-    end
-end
-
-local function ReadMapUtilsFade()
-    local getMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
-    local db = _G.MAUTTAB
-    local compatibility = Offhand.CanvasCompatibility
-    if type(db) ~= "table" or not getMetadata
-        or not compatibility.IsAddonLoaded("MapUtils") then return end
-    local version = getMetadata("MapUtils", "Version")
-    if ParseMajorVersion(version) == 1
-        and (db.WORLDMAPFADE == nil or type(db.WORLDMAPFADE) == "boolean") then return db end
-end
-
-local function ReadMapWise(map)
-    local api = _G.MapWiseAPI
-    if type(api) ~= "table" or ParseMajorVersion(api.version) ~= 2
-        or not Offhand.CanvasCompatibility.IsAddonLoaded("MapWise") then return end
-    local db, integration = api.db, api.Integration
-    if type(db) == "table" and db == _G.MapWiseAtlasDB
-        and type(integration) == "table" and integration.native == map then return db, api.MapWiseUI end
-end
-
-local function ReadMapWiseFade(map)
-    local db = ReadMapWise(map)
-    if db and type(db.fadeMapWhileMoving) == "boolean" then return db end
+-- A camera-driving map owner's provider keeps a centered camera following the
+-- player (UpdateFollow). state.u is the follow anchor; nil pauses follow, and
+-- any other owner pauses it.
+function Adapter.UpdateExternalMapFollow(map, state)
+    local bridges = Offhand.Bridges
+    local owner = Offhand.CanvasCompatibility.GetWorldMapExternalOwner()
+    if not (bridges and bridges:CallMap(owner, "UpdateFollow", map, state)) then state.u = nil end
 end
 
 -- These reviewed implementations read their own fade preference at runtime.
--- Let their existing update paths apply the change to the map.
-local addonFades = {
-    {name = "OpenMap", read = ReadOpenMapFade, key = "moveFade", opaque = 0},
-    {name = "MapUtils", read = ReadMapUtilsFade, key = "WORLDMAPFADE", opaque = false},
-    {name = "MapWise", read = ReadMapWiseFade, key = "fadeMapWhileMoving", opaque = false},
-}
+-- Let their existing update paths apply the change to the map: the bridges'
+-- map.fade entries with a read function, in role order. read(map) returns
+-- the addon's settings table and, while the addon holds mapFade itself, a
+-- holder; key is the preference and opaque its no-fade value; refresh(holder)
+-- re-enables the addon's fader after a release.
+local addonFades, fadeSource
+
+-- Built once per registry: the core keeps each fade's override state here.
+local function AddonFades()
+    local bridges = Offhand.Bridges
+    if addonFades and fadeSource == bridges then return addonFades end
+    addonFades, fadeSource = {}, bridges
+    for _, entry in ipairs(bridges and bridges:GetRoleEntries("map.fade") or {}) do
+        if type(entry.read) == "function" then
+            addonFades[#addonFades + 1] = {name = entry.name, read = entry.read, key = entry.key,
+                opaque = entry.opaque, refresh = entry.refresh}
+        end
+    end
+    return addonFades
+end
 
 function Adapter.SupportsAddonMovementFade(name, map)
     if not map then return false end
-    for _, fade in ipairs(addonFades) do
+    for _, fade in ipairs(AddonFades()) do
         if fade.name == name then
             local ok, db = pcall(fade.read, map)
             return ok and db ~= nil
@@ -130,31 +56,34 @@ local function RestoreAddonFade(fade)
 end
 
 local function UpdateAddonFades(map)
-    local openMapActive
-    for _, fade in ipairs(addonFades) do
-        local ok, db, module = pcall(fade.read, map)
+    local holdsNativeFade
+    for _, fade in ipairs(AddonFades()) do
+        local ok, db, holder = pcall(fade.read, map)
         if not ok then db = nil end
         if fade.db ~= db then RestoreAddonFade(fade) end
         if db and db[fade.key] ~= fade.opaque then
             fade.db, fade.previous = db, db[fade.key]
             db[fade.key] = fade.opaque
-            if module then restoreOpenMapRefresh = module end
+            if holder then releasedFadeRefresh = {fade = fade, holder = holder} end
         end
-        if module then openMapActive = true end
+        if holder then holdsNativeFade = true end
     end
-    return openMapActive
+    return holdsNativeFade
 end
 
-local function RefreshReleasedOpenMapFade(map)
-    local module = restoreOpenMapRefresh
-    if not module then return end
-    if not map then restoreOpenMapRefresh = nil; return end
+local function RefreshReleasedFade(map)
+    local pending = releasedFadeRefresh
+    if not pending then return end
+    if not map then releasedFadeRefresh = nil; return end
     if InCombatLockdown and InCombatLockdown() then return end
-    restoreOpenMapRefresh = nil
-    local ok, db, activeModule = pcall(ReadOpenMapFade)
+    releasedFadeRefresh = nil
+    local fade = pending.fade
+    local ok, db, activeHolder = pcall(fade.read)
     -- Its own refresh may have hidden the fader while the override was active.
     -- Re-enable it through the vendor for a map that is still open.
-    if ok and db and db.moveFade ~= 0 and activeModule == module then pcall(module.RefreshExtras) end
+    if ok and db and db[fade.key] ~= fade.opaque and activeHolder == pending.holder then
+        pcall(fade.refresh, pending.holder)
+    end
 end
 
 local function ReadMapFade()
@@ -172,8 +101,8 @@ end
 function Adapter.ReleaseMovementFade(leaving, map)
     if leaving then loggingOut = true end
     ReleaseNativeFade()
-    for _, fade in ipairs(addonFades) do RestoreAddonFade(fade) end
-    RefreshReleasedOpenMapFade(not leaving and map)
+    for _, fade in ipairs(AddonFades()) do RestoreAddonFade(fade) end
+    RefreshReleasedFade(not leaving and map)
 end
 
 function Adapter.UpdateMovementFade(map, spanned)
@@ -190,7 +119,7 @@ function Adapter.UpdateMovementFade(map, spanned)
         Adapter.ReleaseMovementFade(false, map)
         return
     end
-    -- OpenMap holds mapFade itself while its world map is active.
+    -- An addon can hold mapFade itself while its world map is active.
     if UpdateAddonFades(map) then
         ReleaseNativeFade()
         return
@@ -384,7 +313,7 @@ function Adapter.Install(Canvas, services)
     local Compatibility = Offhand.CanvasCompatibility
     local FrameState = Offhand.CanvasFrameState
     local SupportsExternalWorldMapEscapeProtection = Compatibility.SupportsExternalWorldMapEscapeProtection
-    local ShouldYieldWorldMapToMoveAny = Compatibility.ShouldYieldWorldMap
+    local ShouldYieldWorldMap = Compatibility.ShouldYieldWorldMap
     local IsForeverWorldMap = FrameState.IsForeverWorldMap
     local GetForeverWorldMapState = FrameState.GetForeverWorldMapState
     local SetPanelDragging = FrameState.SetDragging
@@ -413,99 +342,37 @@ function Adapter.Install(Canvas, services)
         return inPanelSlot, false
     end
 
-    local function InstallMapWisePositionGuard(map, state)
-        local db, vendor = ReadMapWise(map)
-        if not db or type(vendor) ~= "table" or type(vendor.ApplyWindowPosition) ~= "function" then return end
-
-        local applyWindowPosition = vendor.ApplyWindowPosition
-        vendor.ApplyWindowPosition = function(self, ...)
+    -- A layout-guarding map addon (role map.layoutGuard) replays its own
+    -- compact anchor after its layout passes. Its provider guards that replay
+    -- (InstallPositionGuard) and fits the map on this observer instead
+    -- (UpdateLayout), sharing these map state fields with core: layoutGuard
+    -- (set once installed), layoutOpened, layoutPending (a fit waiting for the
+    -- next observer pass) and layoutPlacement.
+    local layoutServices = {
+        NativeGamepadOwnsMap = NativeGamepadOwnsMap,
+        ShouldYieldWorldMap = ShouldYieldWorldMap,
+        IsDragging = function(map) return FrameState.IsDragging(map) end,
+        GetWorkspaceMetrics = function() return Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics()) end,
+        GetSavedMapPositions = function()
             local profile = Offhand.db
-            if not profile or not profile.enabled or not map:IsShown() or (map.IsMaximized and map:IsMaximized())
-                or NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
-                or FrameState.IsDragging(map) or self.dragging or self.positioning or self.resizeDrag
-                or (map.IsForbidden and map:IsForbidden()) then return applyWindowPosition(self, ...) end
-
-            local metrics = Offhand.Viewport and WithWorkspace(Offhand.Viewport:GetMetrics())
-            if not metrics or not metrics.isSpanned then return applyWindowPosition(self, ...) end
-
-            local persistence = Offhand.CanvasPersistence
-            local workspace = profile.savedWorkspacePositions and profile.savedWorkspacePositions.WorldMapFrame
-            local mainhand = profile.savedMainPositions and profile.savedMainPositions.WorldMapFrame
-            if type(workspace) == "table" and workspace.autoRoute and not metrics.workspaceRegions then workspace = nil end
-            if type(mainhand) == "table" and mainhand.autoRoute and not metrics.workspaceRegions then mainhand = nil end
-            local onWorkspace = persistence.IsPosition(workspace)
-            local position = onWorkspace and workspace or mainhand
-            local firstLayout = not state.mapWiseOpened
-            state.mapWiseOpened = true
-            if not persistence.IsPosition(position) then
-                local previous = state.mapWisePlacement
-                if firstLayout or not previous or previous.vendorPosition ~= db.compactPosition then
-                    return applyWindowPosition(self, ...)
-                end
-                onWorkspace, position = previous.onWorkspace, previous
-            end
-
-            -- MapWise invokes this method after its compact layout, including
-            -- tabs with identical dimensions. Skip only its passive anchor
-            -- replay. Fit on the independent observer, outside the click or
-            -- native map stack. The vendor's move/resize/reset paths are separate.
-            state.mapWiseLayout = { position = position, onWorkspace = onWorkspace,
-                vendorPosition = db.compactPosition }
-            if self.UpdateWindowResetIcon then self:UpdateWindowResetIcon() end
-        end
-        state.mapWisePositionGuard = vendor
-    end
-
-    local function UpdateMapWiseLayout(map, state, shown, maximized)
-        local vendor = state.mapWisePositionGuard
-        if not vendor then return end
-        local db = ReadMapWise(map)
-        if not db then return end
-
-        if not shown or maximized or NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map)
-            or FrameState.IsDragging(map) or vendor.dragging or vendor.resizeDrag then
-            state.mapWiseLayout, state.mapWisePlacement = nil, nil
-            if not shown then state.mapWiseOpened = nil end
-            return
-        end
-        if InCombatLockdown() then return end
-        local placement = GetPanelPhysicalPlacement(map)
-        local layout = state.mapWiseLayout
-        state.mapWiseLayout = nil
-        if placement and layout and layout.vendorPosition == db.compactPosition then
-            local metrics = WithWorkspace(Offhand.Viewport:GetMetrics())
-            if layout.onWorkspace and Offhand.WorkspaceRegions then
-                metrics = Offhand.WorkspaceRegions:ForFrame(metrics, map, layout.position)
-            end
-            if metrics and metrics.isSpanned then
-                Offhand.CanvasMapPresentation.FitWindow(map, metrics, layout.onWorkspace)
-                placement = GetPanelPhysicalPlacement(map)
-                if placement then
-                    local x, y
-                    local persistence = Offhand.CanvasPersistence
-                    if layout.onWorkspace then
-                        x, y = persistence.ResolveWorkspacePosition(
-                            metrics, layout.position, placement.width, placement.height, false)
-                    else
-                        x, y = persistence.ClampWorkspacePoint({
-                            workspaceLeft = metrics.gameLeft, workspaceRight = metrics.gameRight,
-                            workspaceBottom = metrics.gameBottom, workspaceTop = metrics.gameTop,
-                        }, layout.position.x, layout.position.y, placement.width, placement.height)
-                    end
-                    if x and (math.abs(placement.x - x) > 0.01 or math.abs(placement.y - y) > 0.01) then
-                        map:ClearAllPoints()
-                        map:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / placement.factor, y / placement.factor)
-                        placement = GetPanelPhysicalPlacement(map)
-                    end
-                end
-            end
-        end
-        if placement and (placement.onWorkspace or placement.onMainhand) then
-            placement.vendorPosition = db.compactPosition
-            state.mapWisePlacement = placement
-        else
-            state.mapWisePlacement = nil
-        end
+            return profile.savedWorkspacePositions and profile.savedWorkspacePositions.WorldMapFrame,
+                profile.savedMainPositions and profile.savedMainPositions.WorldMapFrame
+        end,
+        IsPosition = function(position) return Offhand.CanvasPersistence.IsPosition(position) end,
+        ForFrame = function(metrics, map, position)
+            if Offhand.WorkspaceRegions then return Offhand.WorkspaceRegions:ForFrame(metrics, map, position) end
+            return metrics
+        end,
+        FitWindow = function(map, metrics, onWorkspace)
+            return Offhand.CanvasMapPresentation.FitWindow(map, metrics, onWorkspace)
+        end,
+        GetPanelPhysicalPlacement = GetPanelPhysicalPlacement,
+        ResolveWorkspacePosition = function(...) return Offhand.CanvasPersistence.ResolveWorkspacePosition(...) end,
+        ClampWorkspacePoint = function(...) return Offhand.CanvasPersistence.ClampWorkspacePoint(...) end,
+    }
+    local function LayoutGuard()
+        local bridges = Offhand.Bridges
+        return bridges and bridges:FirstRoleOwner("map.layoutGuard") or nil
     end
 
     -- Forever's map-pin sharing path is protected. A drag handler parented to the
@@ -581,7 +448,7 @@ function Adapter.Install(Canvas, services)
         local function Settle()
             if generation ~= state.settlementGeneration
                 or NativeGamepadOwnsMap()
-                or ShouldYieldWorldMapToMoveAny(map)
+                or ShouldYieldWorldMap(map)
                 or not Offhand.db or not Offhand.db.enabled
                 or not map.IsShown or not map:IsShown()
                 or (map.IsMaximized and map:IsMaximized()) then return end
@@ -721,10 +588,10 @@ function Adapter.Install(Canvas, services)
 
     local function AttachForeverWorldMapDragHandle(map)
         if not IsForeverWorldMap(map) or not CreateFrame or not UIParent then return false end
-        if ShouldYieldWorldMapToMoveAny(map) and not SupportsExternalWorldMapEscapeProtection(map) then return false end
+        if ShouldYieldWorldMap(map) and not SupportsExternalWorldMapEscapeProtection(map) then return false end
         local state = GetForeverWorldMapState(map)
-        if Offhand.OpenMapRecovery and Compatibility.GetWorldMapExternalOwner() == "OpenMap" then
-            Offhand.OpenMapRecovery:ObserveUserDrag(map)
+        if Offhand.Bridges then
+            Offhand.Bridges:CallMap(Compatibility.GetWorldMapExternalOwner(), "ObserveUserDrag", map)
         end
         if state.handle then return true end
 
@@ -829,21 +696,22 @@ function Adapter.Install(Canvas, services)
             local mapShown = Offhand.db and Offhand.db.enabled
                 and map.IsShown and map:IsShown()
             local maximized = mapShown and map.IsMaximized and map:IsMaximized()
-            if mapShown and not maximized and Offhand.db.followPlayerWithOpenMap == true then
+            if mapShown and not maximized and Offhand.Bridges and Offhand.Bridges:HasRole("map.cameraOwner") then
                 followElapsed = followElapsed + elapsed
                 if followElapsed >= 0.5 then
                     followElapsed = 0
                     if NativeGamepadOwnsMap() or map:IsForbidden() or not map:IsVisible() then
                         follow.u = nil
                     else
-                        Adapter.UpdateOpenMapFollow(map, follow)
+                        Adapter.UpdateExternalMapFollow(map, follow)
                     end
                 end
             else
                 follow.u, followElapsed = nil, 0
             end
-            if _G.MapWiseAPI and not state.mapWisePositionGuard then InstallMapWisePositionGuard(map, state) end
-            if not mapShown then state.mapWiseOpened, state.mapWiseLayout, state.mapWisePlacement = nil, nil, nil end
+            local layoutGuard = not state.layoutGuard and LayoutGuard()
+            if layoutGuard then Offhand.Bridges:CallMap(layoutGuard, "InstallPositionGuard", map, state, layoutServices) end
+            if not mapShown then state.layoutOpened, state.layoutPending, state.layoutPlacement = nil, nil, nil end
             QueueForeverWorldMapSettlement(map, state, mapShown and true or false)
             elapsedSinceUpdate = elapsedSinceUpdate + (tonumber(elapsed) or 0)
             if pendingWorkspaceDrop then
@@ -852,7 +720,7 @@ function Adapter.Install(Canvas, services)
                 local positions = mapShown and Offhand.db.savedWorkspacePositions
                 if not positions or positions.WorldMapFrame ~= pendingWorkspaceDrop or maximized
                     or NativeGamepadOwnsMap() or Compatibility.GetWorldMapExternalOwner()
-                    or state.mapWisePositionGuard then
+                    or state.layoutGuard then
                     pendingWorkspaceDrop = nil
                 elseif not InCombatLockdown() then
                     local placement = GetPanelPhysicalPlacement(map)
@@ -880,9 +748,12 @@ function Adapter.Install(Canvas, services)
                 combatPlacementRemaining = nil
             end
             state.observedCombatCompact = combatCompact
-            if elapsedSinceUpdate < 0.10 and not state.mapWiseLayout then return end
+            if elapsedSinceUpdate < 0.10 and not state.layoutPending then return end
             elapsedSinceUpdate = 0
-            UpdateMapWiseLayout(map, state, mapShown, maximized)
+            layoutGuard = state.layoutGuard and LayoutGuard()
+            if layoutGuard then
+                Offhand.Bridges:CallMap(layoutGuard, "UpdateLayout", map, state, mapShown, maximized, layoutServices)
+            end
             local gamepadOwned = NativeGamepadOwnsMap()
             if (_G.SpokenPlacesPanel or map.QuestLog) and not InCombatLockdown() then
                 local metrics
@@ -906,7 +777,7 @@ function Adapter.Install(Canvas, services)
                 SetReturnVisible(false)
                 return
             end
-            if ShouldYieldWorldMapToMoveAny(map) then
+            if ShouldYieldWorldMap(map) then
                 SetPanelDragging(map, false)
                 if SupportsExternalWorldMapEscapeProtection(map) then
                     -- Keep the noninteractive observer active to detect later
@@ -921,7 +792,7 @@ function Adapter.Install(Canvas, services)
                         if ok then
                             local inPanelSlot, specialFrame
                             if workspace and persistent then inPanelSlot, specialFrame = ReadNativeClosePaths(map) end
-                            -- OpenMap can retain the same geometry while Blizzard
+                            -- An external owner can retain the same geometry while Blizzard
                             -- puts the map back into a native close path.
                             if state.externalWorkspace ~= workspace or state.externalPersistence ~= persistent
                                 or (inPanelSlot and not state.externalPanelSlot)
@@ -979,10 +850,10 @@ function Adapter.Install(Canvas, services)
             handle:SetScript("OnUpdate", UpdateHandle)
             handle:SetScript("OnDragStart", function()
                 pendingWorkspaceDrop = nil
-                if NativeGamepadOwnsMap() or ShouldYieldWorldMapToMoveAny(map) or InCombatLockdown()
+                if NativeGamepadOwnsMap() or ShouldYieldWorldMap(map) or InCombatLockdown()
                     or (map.IsMaximized and map:IsMaximized())
                     or not Offhand.db or not Offhand.db.enabled then return end
-                state.mapWiseLayout, state.mapWisePlacement = nil, nil
+                state.layoutPending, state.layoutPlacement = nil, nil
                 local started = pcall(function()
                     map:SetMovable(true)
                     map:SetClampedToScreen(false)

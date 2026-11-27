@@ -55,8 +55,8 @@ assert(not shown,'baseline: native Escape closes the vendor-registered root')
 KerzosQuestLog:Show()
 local vendorRoot=KerzosQuestLog
 KerzosQuestLog=nil
-assert(loadfile('Core/CanvasKerzoQuestLog.lua'))('Offhand',addon)
-local adapter=addon.CanvasKerzoQuestLog
+local Bridges=dofile('tests/support/core-bridges.lua').Load(addon,{'Bridges/KerzoQuestLog/Bridge.lua'})
+local adapter=addon.API.GetBridgeNamespace('KerzoQuestLog')
 assert(not adapter:Refresh() and hooks==0,'late vendor load must not require a root at initialization')
 KerzosQuestLog=vendorRoot
 local originalRegistry=table.concat(UISpecialFrames,',')
@@ -125,4 +125,34 @@ combat=false; adapter:Refresh()
 assert(not Has('KerzosQuestLog'))
 KerzosQuestLog=nil
 assert(not adapter:Refresh(),'missing/late vendor must be harmless')
-print('PASS: Kerzo workspace Escape, modal priority, explicit close, placement, release, combat and hook ownership')
+
+-- The bridge contract: registered before Kerzo exists, run by the persistence
+-- pass and the Forever ticker (not during a geometry transition), and its data.
+KerzosQuestLog=vendorRoot
+local ids=Bridges:List()
+assert(#ids==1 and ids[1]=='KerzoQuestLog','the bridge must register as KerzoQuestLog before Kerzo exists')
+workspace=false; adapter:Refresh()
+assert(Has('KerzosQuestLog'))
+workspace=true
+Bridges:Refresh('layout'); Bridges:Refresh('map')
+assert(Has('KerzosQuestLog'),'only the persistence pass and the ticker may reach the adapter')
+Bridges:Refresh('persistence')
+assert(not Has('KerzosQuestLog'),'the persistence pass must run the adapter')
+workspace=false
+addon._displayGeometryTransitionActive=true; Bridges:Refresh('tick')
+assert(not Has('KerzosQuestLog'),'the ticker must skip the adapter during a geometry transition')
+addon._displayGeometryTransitionActive=false; Bridges:Refresh('tick')
+assert(Has('KerzosQuestLog'),'the ticker must run the adapter')
+assert(Bridges:MatchName('workspaceChrome','KerzosQuestLog')
+    and table.concat(Bridges:GetRuleNames('workspaceChrome'),',')=='KerzosQuestLog',
+    'the quest log must be named for the workspace close buttons')
+local resetKeys=Bridges:GetCharacterResetKeys()
+assert(#resetKeys==1 and resetKeys[1]=='kerzoQuestLogOpen','the open intent must clear on a character change')
+assert(Bridges.errors.KerzoQuestLog==nil,'the bridge must not raise through dispatch')
+local cataloged={AddonWindowCatalog={}}
+dofile('tests/support/core-bridges.lua').Load(cataloged,{'Bridges/KerzoQuestLog/Bridge.lua'})
+local entry=cataloged.AddonWindowCatalog['Kerzo Classic Quest Log']
+assert(entry and entry.questLog.position=='addon' and entry.questLog.close=='quest-log-adapter'
+    and entry.questLog.restoreOpen=='adapter','the Kerzo catalog entry must keep its roles')
+KerzosQuestLog=nil
+print('PASS: Kerzo workspace Escape, modal priority, explicit close, placement, release, combat and hook ownership through the bridge contract')

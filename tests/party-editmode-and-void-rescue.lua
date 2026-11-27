@@ -457,6 +457,7 @@ assert(loadfile("Core/CanvasPanelPlacement.lua"))("Offhand", addon)
 local canvasChunk = loadfile("Core/Canvas.lua")
 assert(canvasChunk, "Core/Canvas.lua must compile cleanly")
 canvasChunk("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/Baganator/Data.lua", "Bridges/BetterBags/Data.lua", "Bridges/ConsolePort/Bridge.lua", "Bridges/DaylightUI/Init.lua", "Bridges/Details/Bridge.lua", "Bridges/DonCore/Bridge.lua", "Bridges/EllesmereUI/Bridge.lua", "Bridges/ForeverXPBar/Bridge.lua", "Bridges/OneForAll/Data.lua", "Bridges/ProcDoc/Data.lua", "Bridges/Questie/Rules.lua", "Bridges/RestedXP/Bridge.lua", "Bridges/Titan/Bridge.lua" })
 
 addon.HUD:HookFrames()
 
@@ -1045,7 +1046,7 @@ print("PASS: PartyMemberFrame1 dragged back to Game View updates savedMainPositi
 -- ============================================================================
 addon.isForever = true
 C_AddOns = { IsAddOnLoaded = function(name) return name == "EllesmereUIRaidFrames" end }
-assert(addon.HasEllesmerePartyFrames and addon.HasEllesmerePartyFrames(),
+assert(addon.HasCustomPartyFrames and addon.HasCustomPartyFrames(),
     "Offhand must detect EllesmereUI's loaded Party/Raid Frames module")
 C_AddOns = nil
 MainActionBar = makeMockFrame("MainActionBar", 500, 45)
@@ -2228,7 +2229,8 @@ do
     local points = #map.points
     addon.Bridges = {ShouldPreserveSingleScreenPosition=function(_,frame,metrics)
         return frame == map and not metrics.isSpanned
-    end}
+    end, HasRole=function() return false end, MatchFrame=function() return false end,
+        MatchName=function() return false end, FirstRoleOwner=function() return nil end}
     assert(not addon.Canvas:PlaceForSingleScreenRecovery(map,
         {topologyStatus="MISMATCH",isSpanned=false}) and #map.points == points,
         "single-screen recovery must not replace a bridged addon's restored anchor")
@@ -4286,6 +4288,30 @@ flushTimers()
 print("PASS: Bad self intrinsic widgets in UIParent:GetChildren() safely handled without error")
 
 -- ============================================================================
+-- TEST 10b: UIParent:GetChildren() failing outright (too many direct children)
+-- ============================================================================
+do
+    local nativeGetChildren = UIParent.GetChildren
+    local nativePosition = addon.HUD.PositionMainhandTransientFrames
+    local asked, positioned = 0, 0
+    UIParent.GetChildren = function()
+        asked = asked + 1
+        error("stack overflow")
+    end
+    addon.HUD.PositionMainhandTransientFrames = function(...)
+        positioned = positioned + 1
+        return nativePosition(...)
+    end
+    local okTick, tickError = pcall(addon.HUD.popupTicker.callback)
+    UIParent.GetChildren = nativeGetChildren
+    addon.HUD.PositionMainhandTransientFrames = nativePosition
+    assert(asked == 1, "the popup rescue pass must have reached the UIParent child scan")
+    assert(okTick, "a failing UIParent:GetChildren() must not abort the maintenance ticker: " .. tostring(tickError))
+    assert(positioned == 1, "transient placement must still run after a failed child scan")
+end
+print("PASS: A failing UIParent:GetChildren() skips the child scan without aborting later passes")
+
+-- ============================================================================
 -- TEST 11: Retail Edit Mode and Action Bar Isolation
 -- ============================================================================
 addon.isRetail = true
@@ -4714,7 +4740,7 @@ print('PASS: modern party-invite popup roots bypass legacy script hooks')
             assert(addon.db.savedMainPositions[name] == saved)
         end
         frame.parent = UIParent
-        assert(not addon.IsDaylightParkedPanel(frame))
+        assert(not addon.IsBridgeParkedPanel(frame))
         assert(addon.Canvas:PlacePanelOnMainhand(frame, metrics, saved))
         assert(frame:GetLeft() == saved.x and frame:GetTop() == saved.y,
             name .. " did not resume saved placement after handback")

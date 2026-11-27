@@ -26,7 +26,13 @@ local guide = Frame("ZygorGuideDiagnosticFixture", 0.5)
 local other = Frame("OtherAddon", 1)
 UIParent = {GetChildren = function() return other, guide end}
 WorldFrame = {GetChildren = function() return guide end}
-assert(loadfile("Core/CanvasCompatibility.lua"))("Offhand", addon)
+-- The probe is the Zygor bridge's debug report; read its report lines.
+local Bridges = dofile("tests/support/core-bridges.lua").Load(addon, {"Bridges/Zygor/Bridge.lua"})
+addon.CanvasCompatibility = {GetGuideAddonDiagnostics = function()
+    local label, lines = Bridges:Get("Zygor"):GetDebugDiagnostics()
+    assert(label == nil or label == "Guide frame", "guide reports must keep their Guide frame label")
+    return lines
+end}
 local reports = addon.CanvasCompatibility.GetGuideAddonDiagnostics()
 assert(#reports == 2 and reports[1]:find("namedRoots=1", 1, true)
         and reports[2]:find("shown=1 visible=0 alpha=0.50 effectiveAlpha=0.00", 1, true)

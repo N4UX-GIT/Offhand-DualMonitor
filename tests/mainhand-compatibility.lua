@@ -1,6 +1,7 @@
 local addon = {}
 
 assert(loadfile("Core/MainhandCompatibility.lua"))("Offhand", addon)
+dofile("tests/support/core-bridges.lua").Load(addon, { "Bridges/ConsolePort/Bridge.lua" })
 local compatibility = assert(addon.MainhandCompatibility)
 
 Enum = nil
