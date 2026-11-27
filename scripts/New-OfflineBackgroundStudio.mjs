@@ -11,12 +11,14 @@ export function offlineBackgroundStudio() {
         .replace(/^import \{[\s\S]*?\} from "\.\/background-studio-core\.mjs[^"\n]*";\s*/, '');
     if (/^\s*(import|export)\s/m.test(core+'\n'+studio)) throw new Error('Unbundled module dependency.');
     // HTML normalizes CRLF and CR to LF before the browser checks the CSP hash.
-    const script=('\n"use strict";\n(()=>{\n'+core+'\n'+studio+'\n})();\n').replace(/\r\n?/g,'\n');
+    const menu=readFileSync(join(root,'Website/site-menu.js'),'utf8');
+    const script=('\n"use strict";\n(()=>{\n'+menu+'\n'+core+'\n'+studio+'\n})();\n').replace(/\r\n?/g,'\n');
     if (/<\/script/i.test(script)) throw new Error('Unsafe inline script delimiter.');
     const digest=createHash('sha256').update(script).digest('base64');
     const css=['style.css','background-studio.css'].map(name=>readFileSync(join(root,'Website',name),'utf8')
         .replace(/^@import[^;]+;\s*/gm,'')).join('\n');
     let html=readFileSync(join(root,'Website/background-studio.html'),'utf8');
+    html=html.replace('<script src="site-menu.js" defer></script>','');
     html=html.replace(/<meta http-equiv="Content-Security-Policy"[^>]+>/,
         `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; worker-src 'none'; media-src 'none'; script-src 'sha256-${digest}'; style-src 'unsafe-inline'; img-src data: blob:">`);
     html=html.replace(/\s*<link rel="stylesheet"[^>]+>/g,'').replace('</head>',`<style>\n${css}\n</style>\n</head>`);

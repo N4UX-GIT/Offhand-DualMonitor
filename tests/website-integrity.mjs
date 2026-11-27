@@ -16,6 +16,18 @@ for (const page of pages) {
     assert.equal((html.match(/<h1\b/gi) || []).length, 1, `${page}: expected one H1`);
 }
 let checked = 0;
+const home = readFileSync(resolve(root, 'index.html'), 'utf8');
+const metadata = [...home.matchAll(/<meta\b([^>]+)>/gi)].map(match => attributes(match[1]));
+const previews = {
+    'og:title': 'Offhand – Dual-Monitor Addon for World of Warcraft',
+    'og:description': 'Dual-wield your monitors in World of Warcraft. Keep your game centered on your main screen while moving your map, bags, and UI panels to a second monitor.',
+    'og:image': 'https://www.offhandwow.com/assets/offhand-banner.png',
+    'og:url': 'https://www.offhandwow.com/',
+};
+for (const [property, expected] of Object.entries(previews)) {
+    assert.deepEqual(metadata.filter(tag => tag.property === property).map(tag => tag.content),
+        [expected], 'Homepage social preview: ' + property);
+}
 for (const page of pages) {
     const html = readFileSync(resolve(root, page), 'utf8');
     for (const match of html.matchAll(/<(a|img|script|link|source|video)\b([^>]*)>/gi)) {
