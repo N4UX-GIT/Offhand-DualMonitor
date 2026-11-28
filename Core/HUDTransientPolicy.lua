@@ -90,6 +90,21 @@ function Policy.GetRetailSpecialPopupNames()
         "RolePollPopup", "LFGDungeonReadyPopup", "GuildInviteFrame" }
 end
 
+-- Forever members of the same native shared stack. The names after the first
+-- six come from a scan of the Forever interface source for
+-- StaticPopupSpecial_Show callers and have not been observed in a client. A
+-- missing global is skipped.
+function Policy.GetForeverSpecialPopupNames()
+    return { "StaticPopup1", "StaticPopup2", "StaticPopup3", "StaticPopup4",
+        "GuildInviteFrame", "ChatConfigFrame",
+        "LFGInvitePopup", "QuickJoinRoleSelectionFrame", "PVPRoleCheckPopup", "PVPReadyDialog",
+        "PVPReadyPopup", "PVPFramePopup", "PlunderstormFramePopup",
+        "AddFriendFrame", "BattleNetInviteFrame", "FriendsFriendsFrame", "ReportCheatingDialog",
+        "BankCleanUpConfirmationPopup", "CreateBattleTagFrame",
+        "ClassTalentLoadoutCreateDialog", "ClassTalentLoadoutEditDialog", "ClassTalentLoadoutImportDialog",
+        "WardrobeCustomSetEditFrame", "RecruitAFriendRecruitmentFrame", "PetBattleQueueReadyFrame" }
+end
+
 function Policy.IsNativeDialogRoot(frame)
     if not frame then return false end
     if Offhand.isForever and frame == _G.TradeFrame then return true end

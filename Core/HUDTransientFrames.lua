@@ -55,8 +55,7 @@ function Transient.Install(HUD, services)
     local specialPopupHooks = {}
     local specialPopupNames = Policy.GetRetailSpecialPopupNames()
     if Offhand.isForever then
-        specialPopupNames = { "StaticPopup1", "StaticPopup2", "StaticPopup3",
-            "StaticPopup4", "GuildInviteFrame", "ChatConfigFrame" }
+        specialPopupNames = Policy.GetForeverSpecialPopupNames()
     end
 
     local function SamePopupPoint(a, b)
