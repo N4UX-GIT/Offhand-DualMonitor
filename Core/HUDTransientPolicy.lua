@@ -153,3 +153,16 @@ function Policy.NormalizeScale(frame)
     return true
 end
 
+-- Forever windows that Blizzard anchors to the horizontal centre of UIParent
+-- with their own fixed point. Found by a scan of the Forever interface source,
+-- not observed in a client. Placement is anchor translation only, with no
+-- scripts or hooks on the native frames; a missing global is skipped.
+function Policy.GetForeverCenteredRootNames()
+    return { "ReportFrame", "QuickKeybindFrame", "CommunitiesSettingsDialog",
+        "CommunitiesAvatarPickerDialog", "CommunitiesTicketManagerDialog",
+        "TutorialMainFrame_Frame", "TutorialSingleKey_Frame", "TutorialDoubleKey_Frame",
+        "TutorialWalk_Frame", "TutorialKeyboardMouseFrame_Frame", "TutorialFrame",
+        "ObjectiveTrackerTopBannerFrame", "PvPObjectiveBannerFrame", "HonorLevelUpBanner",
+        "PrestigeLevelUpBanner", "UIWidgetCenterDisplayFrame", "BasicMessageDialog" }
+end
+

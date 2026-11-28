@@ -58,4 +58,17 @@ scaled.IsIgnoringParentScale = function() error("restricted") end
 assert(not policy.NormalizeScale(scaled),
     "restricted scale inspection must fail closed")
 
+local centeredNames = policy.GetForeverCenteredRootNames()
+local centeredSeen = {}
+for _, name in ipairs(centeredNames) do
+    assert(not centeredSeen[name], "duplicate Forever centred root " .. name)
+    centeredSeen[name] = true
+    assert(byName[name] == nil, "Forever centred root must not also be a transient spec: " .. name)
+end
+assert(centeredSeen.ReportFrame and centeredSeen.TutorialMainFrame_Frame,
+    "Forever centred roots must include the report and tutorial windows")
+for _, name in ipairs(policy.GetRetailSpecialPopupNames()) do
+    assert(not centeredSeen[name], "Forever centred root must not belong to the popup stack: " .. name)
+end
+
 print("PASS: transient HUD registry, resolution, protection and scale policy")
