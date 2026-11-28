@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- On Forever, more Blizzard popups that open at the top of the screen now appear on the game display instead of across the seam: group invites that ask for a role, battleground prompts, Add Friend, Report Cheating and similar dialogs. This list comes from a scan of the Forever interface code and has not been tested in game.
+
 ## [2.1.5-beta.44-r2] - 2026-11-27
 
 - Restored a single `Offhand` addon folder. If you installed the original Beta 44 manually, remove the old `Offhand_Placement` folder while WoW is closed.

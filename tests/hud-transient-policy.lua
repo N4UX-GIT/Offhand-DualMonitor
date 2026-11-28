@@ -8,6 +8,21 @@ local byName = {}
 for _, spec in ipairs(specs) do byName[spec.name] = spec end
 assert(byName.LFGListApplicationDialog.specialPopup and byName.LFGListInviteDialog.specialPopup,
     "premade-group dialogs must use the external native-stack placement policy")
+local foreverPopups = policy.GetForeverSpecialPopupNames()
+for index, name in ipairs({ "StaticPopup1", "StaticPopup2", "StaticPopup3", "StaticPopup4",
+    "GuildInviteFrame", "ChatConfigFrame" }) do
+    assert(foreverPopups[index] == name, "the Forever popup stack must keep its original members first")
+end
+local foreverPopupSet = {}
+for _, name in ipairs(foreverPopups) do
+    assert(not foreverPopupSet[name], "the Forever popup stack must not repeat " .. name)
+    foreverPopupSet[name] = true
+end
+assert(foreverPopupSet.LFGInvitePopup and foreverPopupSet.AddFriendFrame,
+    "the Forever popup stack must include its scanned special popups")
+assert(not foreverPopupSet.LFDRoleCheckPopup and not foreverPopupSet.LFGDungeonReadyPopup
+        and not foreverPopupSet.RolePollPopup,
+    "the Forever popup stack must omit absent frames and RolePollPopup")
 assert(byName.GroupLootContainer and byName.GroupLootContainer.secure
         and byName.GroupLootContainer.groupLootRows
         and byName.PetBattleFrame and byName.PetBattleFrame.petBattleBounds,
