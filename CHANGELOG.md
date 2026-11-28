@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- On Forever, several Blizzard windows that open at the centre of the whole spanned screen now appear on the game display: Report Player, quick keybind mode, community settings dialogs, tutorial prompts and quest or PvP banners. This list comes from a scan of the Forever interface code and has not been tested in game.
+
 ## [2.1.5-beta.44-r2] - 2026-11-27
 
 - Restored a single `Offhand` addon folder. If you installed the original Beta 44 manually, remove the old `Offhand_Placement` folder while WoW is closed.

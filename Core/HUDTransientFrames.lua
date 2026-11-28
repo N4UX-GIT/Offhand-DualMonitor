@@ -183,6 +183,64 @@ function Transient.Install(HUD, services)
         end
     end
 
+    -- A few Forever windows outside the popup stack own a fixed point at the
+    -- horizontal centre of UIParent. Translate only that single anchor onto
+    -- the game display; never script, hook or show the native frames.
+    local centeredRootNames = Policy.GetForeverCenteredRootNames()
+    local centeredRootPoints = setmetatable({}, { __mode = "k" })
+    local function WriteCenteredRootPoint(frame, p)
+        frame:ClearAllPoints()
+        frame:SetPoint(p[1], p[2], p[3], p[4], p[5])
+    end
+
+    function HUD:PositionForeverCenteredRoots(m)
+        if Offhand._loggingOut or not Offhand.isForever or InCombatLockdown() then return end
+        m = m or (Offhand.Viewport and Offhand.Viewport:GetMetrics())
+        local active = Offhand.db and Offhand.db.enabled and Offhand.db.seamRedirect
+            and m and m.isSpanned
+        for _, name in ipairs(centeredRootNames) do
+            local frame = _G[name]
+            if CanPositionMainhandTransient(frame) and frame.GetNumPoints and frame.GetPoint
+                and frame.GetEffectiveScale then
+                pcall(function()
+                    local state = centeredRootPoints[frame]
+                    local current = ReadPopupPoint(frame)
+                    local userPlaced = frame.IsUserPlaced and frame:IsUserPlaced()
+                    local owned = state and not userPlaced and SamePopupPoint(current, state.applied)
+                    if not active then
+                        if owned then WriteCenteredRootPoint(frame, state.original) end
+                        centeredRootPoints[frame] = nil
+                        return
+                    end
+                    if owned then return end
+                    centeredRootPoints[frame] = nil
+                    if not current or userPlaced or (current[2] ~= UIParent and current[2] ~= nil)
+                        or current[1] ~= current[3] or current[4] ~= 0
+                        or (current[1] ~= "TOP" and current[1] ~= "BOTTOM" and current[1] ~= "CENTER") then
+                        return
+                    end
+                    local scale, parentScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+                    if not OrdinaryNumber(scale) or not OrdinaryNumber(parentScale)
+                        or scale <= 0 or parentScale <= 0 then return end
+                    local left, right, bottom, top = m.gameLeft, m.gameRight, m.gameBottom, m.gameTop
+                    if not OrdinaryNumber(left) or not OrdinaryNumber(right)
+                        or not OrdinaryNumber(bottom) or not OrdinaryNumber(top) then return end
+                    local factor = parentScale / scale
+                    local edge = (current[1] == "TOP" and top) or (current[1] == "BOTTOM" and bottom)
+                        or (bottom + top) / 2
+                    local desired = { current[1], UIParent, "BOTTOMLEFT",
+                        (left + right) / 2 * factor, edge * factor + current[5] }
+                    WriteCenteredRootPoint(frame, desired)
+                    if SamePopupPoint(ReadPopupPoint(frame), desired) then
+                        centeredRootPoints[frame] = { original = current, applied = desired }
+                    else
+                        WriteCenteredRootPoint(frame, current)
+                    end
+                end)
+            end
+        end
+    end
+
     local foreverDialogPlacementPending, foreverDialogCombatPending
     local foreverPopupPending, foreverTradePending
     local function SettleForeverDialogs()
@@ -1443,6 +1501,7 @@ function Transient.Install(HUD, services)
         if Offhand.ForeverPlusWarnings then Offhand.ForeverPlusWarnings:ApplyLayout(m) end
         self:PositionRetailOverrideBar(m)
         self:PositionPremadeGroupDialogs(m)
+        self:PositionForeverCenteredRoots(m)
         self:PositionRetailNotifications(m)
         if InCombatLockdown() then
             if not self.mainhandTransientCombatPending and Offhand.RunOrQueueCombat then
